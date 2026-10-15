@@ -2,7 +2,7 @@
 
 ## Estado del documento
 
-Este documento combina la arquitectura objetivo de la v1.0 con el estado real del repositorio. El frontend de demostración ya usa React y Vite; no hay backend ni persistencia. Las secciones sobre API, dominio, almacenamiento y proveedores de IA describen objetivos futuros, no servicios implementados.
+Este documento combina la arquitectura objetivo de la v1.0 con el estado real del repositorio. El frontend usa React, Vite y TypeScript; existe una API Express MVC en TypeScript con almacenamiento temporal en memoria. No hay base de datos, autenticación, autorización ni almacenamiento binario de evidencias. La interfaz aún no consume la API.
 
 ## Objetivos
 
@@ -12,7 +12,15 @@ Este documento combina la arquitectura objetivo de la v1.0 con el estado real de
 - Ofrecer asistencia de IA útil sin convertirla en autoridad ni requisito para usar el producto.
 - Proteger los datos del proyecto y hacer explícito cuándo información sale a un proveedor de IA.
 
-## Límites y decisiones para v1.0
+## Límites y decisiones actuales
+
+- Workspace pnpm con frontend en la raíz y API en `backend/`.
+- La API Express organiza endpoints en rutas, controladores y modelos.
+- El almacén temporal de la API vive en memoria y se reinicia con el proceso.
+- Los endpoints iniciales listan y crean bugs, casos de prueba, ejecuciones y metadatos de evidencias.
+- No se sube el contenido binario de evidencias; solo se registra metadata.
+
+## Objetivos futuros para v1.0
 
 - Producto web con API de servidor y persistencia duradera.
 - Una organización contiene proyectos; cada proyecto contiene sus bugs, casos, ejecuciones y evidencias.
@@ -28,20 +36,17 @@ Este documento combina la arquitectura objetivo de la v1.0 con el estado real de
 Navegador
    |
    v
-Interfaz web
+Interfaz React/Vite (TypeScript, raíz)
    |
    v
-API / capa de aplicación ------ Servicio de IA ------ Adaptador de proveedor externo (opcional)
-   |                                  |
-   +---- Servicio de evidencias      +---- Redacción y sugerencias; sin escritura directa
+API Express (backend/, TypeScript)
    |
-   +---- Servicio de auditoría
+   +-- Rutas -> Controladores -> Modelos -> Almacén en memoria (actual)
    |
-   +---- Repositorios de dominio
-             |                 |
-             v                 v
-       Base de datos      Almacén de objetos
+   +-- Persistencia / servicio de IA (futuro)
 ```
+
+La interfaz todavía no consume la API; ambas capas se ejecutan independientemente. `GET /api/health` permite verificar disponibilidad. Los recursos exponen `GET` y `POST` en `/api/bugs`, `/api/test-cases`, `/api/test-runs` y `/api/evidence`.
 
 ### Interfaz web
 
@@ -57,11 +62,11 @@ La lógica de estados y relaciones vive en servicios de dominio o de aplicación
 
 ### Persistencia
 
-Una base de datos relacional es adecuada para las relaciones y consultas de trazabilidad. El esquema concreto queda pendiente de la selección tecnológica. Las escrituras que afectan varios registros relacionados deben ser transaccionales cuando el motor lo permita.
+Actualmente, los modelos usan `backend/src/models/in-memory-store.ts`, sin persistencia duradera. Los datos se reinician al detener el backend. Una base de datos relacional es adecuada para las relaciones y consultas de trazabilidad; el esquema y las migraciones quedan pendientes.
 
 ### Evidencias
 
-El servicio de evidencias gestiona carga, consulta y eliminación autorizadas. Guarda metadatos en la base de datos y archivos en un almacenamiento privado, con límites de tamaño y tipos permitidos definidos por configuración. Usa URLs temporales o un proxy autenticado para servir archivos; no expone contenedores públicos.
+Actualmente, el endpoint de evidencias solo registra/lista metadatos; no recibe ni sirve archivos. En una implementación futura, un servicio dedicado deberá gestionar la carga, consulta y eliminación autorizadas, guardar archivos de forma privada y validar tamaños y tipos.
 
 ### Servicio de IA
 

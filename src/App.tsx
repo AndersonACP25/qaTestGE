@@ -1,7 +1,17 @@
 import React, { useMemo, useState } from "react";
-import { filterBugs, filterCases, filterEvidence, filterRuns } from "./utils/filterItems.js";
+import type { FormEvent, SVGProps } from "react";
+import { filterBugs, filterCases, filterEvidence, filterRuns } from "./utils/filterItems";
+import type {
+  Bug,
+  Evidence,
+  IconName,
+  NavigationPage,
+  PriorityLevel,
+  TestCase,
+  TestRun,
+} from "./types";
 
-const initialBugs = [
+const initialBugs: Bug[] = [
   { id: "BUG-248", title: "El checkout falla al aplicar un cupón expirado", project: "Web Store", priority: "Crítica", status: "En progreso", assignee: "LM", color: "violet", updated: "hace 12 min" },
   { id: "BUG-247", title: "El menú lateral se superpone en tablet", project: "Web Store", priority: "Alta", status: "Abierto", assignee: "CR", color: "blue", updated: "hace 48 min" },
   { id: "BUG-246", title: "La fecha aparece en formato incorrecto", project: "Mobile App", priority: "Media", status: "En revisión", assignee: "AM", color: "amber", updated: "hace 2 h" },
@@ -9,7 +19,7 @@ const initialBugs = [
   { id: "BUG-244", title: "Error de validación en el formulario de registro", project: "Mobile App", priority: "Baja", status: "Resuelto", assignee: "DS", color: "pink", updated: "ayer" },
 ];
 
-const initialCases = [
+const initialCases: TestCase[] = [
   { id: "TC-089", title: "Compra con tarjeta de crédito válida", suite: "Checkout", status: "Aprobado", updated: "hace 20 min" },
   { id: "TC-088", title: "Aplicar código de descuento activo", suite: "Checkout", status: "Fallido", updated: "hace 35 min" },
   { id: "TC-087", title: "Validar campos obligatorios de registro", suite: "Autenticación", status: "Aprobado", updated: "hace 1 h" },
@@ -17,19 +27,22 @@ const initialCases = [
   { id: "TC-085", title: "Filtrar productos por categoría", suite: "Catálogo", status: "Aprobado", updated: "ayer" },
 ];
 
-const initialRuns = [
+const initialRuns: TestRun[] = [
   { id: "RUN-042", title: "Regresión — Sprint 18", cases: "24 casos", progress: 83, status: "En curso", owner: "Laura M." },
   { id: "RUN-041", title: "Smoke test — Web Store", cases: "12 casos", progress: 100, status: "Completado", owner: "Carlos R." },
   { id: "RUN-040", title: "Validación de release 2.4", cases: "36 casos", progress: 100, status: "Completado", owner: "Ana M." },
 ];
 
-const initialEvidence = [
+const initialEvidence: Evidence[] = [
   { name: "checkout-error.png", type: "Imagen", related: "BUG-248", size: "1.8 MB", date: "Hoy, 10:42" },
   { name: "regresion-sprint18.mp4", type: "Video", related: "RUN-042", size: "12.4 MB", date: "Hoy, 09:18" },
   { name: "captura-mobile.png", type: "Imagen", related: "TC-086", size: "926 KB", date: "Ayer, 16:30" },
 ];
 
-const navigation = [
+const navigation: {
+  section: string;
+  items: { id: NavigationPage; label: string; icon: IconName; count?: string }[];
+}[] = [
   { section: "WORKSPACE", items: [
     { id: "overview", label: "Resumen", icon: "grid" },
     { id: "bugs", label: "Bugs", icon: "bug", count: "12" },
@@ -43,8 +56,8 @@ const navigation = [
   ] },
 ];
 
-function Icon({ name, size = 18, ...props }) {
-  const common = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round", ...props };
+function Icon({ name, size = 18, ...props }: { name: IconName; size?: number } & SVGProps<SVGSVGElement>) {
+  const common: SVGProps<SVGSVGElement> = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round", ...props };
   const shapes = {
     grid: <><rect x="3.5" y="3.5" width="7" height="7" rx="1.5" /><rect x="13.5" y="3.5" width="7" height="7" rx="1.5" /><rect x="3.5" y="13.5" width="7" height="7" rx="1.5" /><rect x="13.5" y="13.5" width="7" height="7" rx="1.5" /></>,
     bug: <><path d="M8 9h8v7a4 4 0 0 1-8 0V9Z" /><path d="M10 6a2 2 0 0 1 4 0M12 13v3M5 12h3m8 0h3M6 6l2 2m10-2-2 2M6 18l2-2m10 2-2-2" /></>,
@@ -70,25 +83,25 @@ function Icon({ name, size = 18, ...props }) {
   return <svg {...common} aria-hidden="true">{shapes[name] || shapes.file}</svg>;
 }
 
-function Avatar({ initials, color = "blue", small = false }) {
+function Avatar({ initials, color = "blue", small = false }: { initials: string; color?: Bug["color"]; small?: boolean }) {
   return <span className={`avatar avatar-${color}${small ? " avatar-small" : ""}`}>{initials}</span>;
 }
 
-function StatusBadge({ status }) {
+function StatusBadge({ status }: { status: string }) {
   const key = status.toLowerCase().replaceAll(" ", "-");
   return <span className={`status status-${key}`}><i />{status}</span>;
 }
 
-function Priority({ level }) {
+function Priority({ level }: { level: PriorityLevel }) {
   return <span className={`priority priority-${level.toLowerCase()}`}><span />{level}</span>;
 }
 
 function App() {
-  const [activePage, setActivePage] = useState("overview");
+  const [activePage, setActivePage] = useState<NavigationPage>("overview");
   const [bugs, setBugs] = useState(initialBugs);
   const [runs, setRuns] = useState(initialRuns);
   const [cases] = useState(initialCases);
-  const [evidence, setEvidence] = useState(initialEvidence);
+  const [evidence, setEvidence] = useState<Evidence[]>(initialEvidence);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("Todos");
   const [modal, setModal] = useState("");
@@ -96,7 +109,7 @@ function App() {
   const [project, setProject] = useState("Web Store");
   const [mobileNav, setMobileNav] = useState(false);
 
-  const notify = (message) => {
+  const notify = (message: string) => {
     setToast(message);
     window.setTimeout(() => setToast(""), 3000);
   };
@@ -118,12 +131,12 @@ function App() {
     [evidence, search],
   );
 
-  const pageTitle = {
+  const pageTitle: string = ({
     overview: "Resumen", bugs: "Bugs", cases: "Casos de prueba", runs: "Test runs",
     evidence: "Evidencias", team: "Equipo", settings: "Configuración",
-  }[activePage];
+  })[activePage];
 
-  function handleCreateBug(event) {
+  function handleCreateBug(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const title = String(form.get("title")).trim();
@@ -132,7 +145,7 @@ function App() {
       id: `BUG-${248 + items.length - initialBugs.length + 1}`,
       title,
       project,
-      priority: String(form.get("priority")),
+      priority: String(form.get("priority")) as PriorityLevel,
       status: "Abierto",
       assignee: "TU",
       color: "blue",
@@ -156,7 +169,7 @@ function App() {
     notify("Test run creado en esta sesión.");
   }
 
-  function handleFile(event) {
+  function handleFile(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
     setEvidence((items) => [{
@@ -171,7 +184,7 @@ function App() {
     event.target.value = "";
   }
 
-  function navigate(page) {
+  function navigate(page: NavigationPage) {
     setActivePage(page);
     setSearch("");
     setStatusFilter("Todos");
@@ -285,7 +298,7 @@ function App() {
         <form className="modal-card" onSubmit={handleCreateBug}>
           <div className="modal-heading"><div><div className="modal-icon"><Icon name="bug" size={20} /></div><h2>Crear un bug</h2><p>Registra una incidencia para que el equipo pueda darle seguimiento.</p></div><button type="button" className="icon-button" onClick={() => setModal("")} aria-label="Cerrar"><Icon name="close" /></button></div>
           <label className="form-label">Título <span>*</span><input name="title" required autoFocus placeholder="Describe brevemente el problema" /></label>
-          <label className="form-label">Descripción<textarea name="description" rows="3" placeholder="Pasos para reproducir, resultado esperado y actual..." /></label>
+          <label className="form-label">Descripción<textarea name="description" rows={3} placeholder="Pasos para reproducir, resultado esperado y actual..." /></label>
           <div className="form-row"><label className="form-label">Prioridad<select name="priority"><option>Media</option><option>Crítica</option><option>Alta</option><option>Baja</option></select></label><label className="form-label">Proyecto<input value={project} readOnly /></label></div>
           <div className="local-warning"><Icon name="file" size={16} /> Se agregará solo a esta sesión. No hay backend conectado.</div>
           <div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setModal("")}>Cancelar</button><button type="submit" className="button button-primary">Crear bug</button></div>
@@ -296,8 +309,9 @@ function App() {
   );
 }
 
-function pageDescription(page) {
+function pageDescription(page: NavigationPage): string {
   return ({
+    overview: "Aquí tienes el estado de calidad de tus proyectos.",
     bugs: "Registra, prioriza y da seguimiento a las incidencias de tus proyectos.",
     cases: "Organiza los escenarios que mantienen tu producto bajo control.",
     runs: "Ejecuta suites de prueba y consulta sus resultados.",
@@ -307,7 +321,17 @@ function pageDescription(page) {
   })[page];
 }
 
-function Overview({ bugs, runs, setActivePage, project, setProject, onNewRun, onCreateBug }) {
+interface OverviewProps {
+  bugs: Bug[];
+  runs: TestRun[];
+  setActivePage: (page: NavigationPage) => void;
+  project: string;
+  setProject: (project: string) => void;
+  onNewRun: () => void;
+  onCreateBug: () => void;
+}
+
+function Overview({ bugs, runs, setActivePage, project, setProject, onNewRun, onCreateBug }: OverviewProps) {
   return <>
     <div className="project-toolbar">
       <div className="project-switch"><span className="project-dot" /><span>Proyecto:</span><select value={project} onChange={(event) => setProject(event.target.value)}><option>Web Store</option><option>Mobile App</option><option>Dashboard</option><option>Todos los proyectos</option></select><Icon name="chevron" size={14} /></div>
@@ -354,29 +378,43 @@ function Overview({ bugs, runs, setActivePage, project, setProject, onNewRun, on
   </>;
 }
 
-function MetricCard({ label, value, change, icon, tone, trend }) {
+function MetricCard({ label, value, change, icon, tone, trend }: {
+  label: string;
+  value: string;
+  change: string;
+  icon: IconName;
+  tone: "purple" | "blue" | "green" | "orange";
+  trend: "up" | "neutral";
+}) {
   return <div className="metric-card"><div className="metric-top"><span>{label}</span><span className={`metric-icon metric-${tone}`}><Icon name={icon} size={17} /></span></div><div className="metric-value">{value}</div><div className="metric-change"><span className={`trend trend-${trend}`}>{trend === "up" ? "↗" : "•"}</span>{change}</div><div className={`metric-decoration metric-decoration-${tone}`} /></div>;
 }
 
-function BugTable({ bugs, onSelect, compact = false }) {
+function BugTable({ bugs, onSelect, compact = false }: {
+  bugs: Bug[];
+  onSelect: (bug: Bug) => void;
+  compact?: boolean;
+}) {
   return <div className={`table-scroll${compact ? " table-compact" : ""}`}><table><thead><tr><th>BUG ID</th><th>TÍTULO</th><th>PRIORIDAD</th><th>ESTADO</th><th>ASIGNADO</th><th>ACTUALIZADO</th><th /></tr></thead><tbody>
     {bugs.map((bug) => <tr key={bug.id} onClick={() => onSelect(bug)}><td><span className="id-text">{bug.id}</span></td><td><span className="bug-title">{bug.title}</span><span className="table-project">{bug.project}</span></td><td><Priority level={bug.priority} /></td><td><StatusBadge status={bug.status} /></td><td><span className="assignee"><Avatar initials={bug.assignee} color={bug.color} small /><span>{bug.assignee}</span></span></td><td className="muted-cell">{bug.updated}</td><td><button className="row-more" aria-label={`Más opciones para ${bug.id}`} onClick={(event) => { event.stopPropagation(); onSelect(bug); }}><Icon name="dots" size={18} /></button></td></tr>)}
   </tbody></table></div>;
 }
 
-function CaseTable({ items, onSelect }) {
+function CaseTable({ items, onSelect }: { items: TestCase[]; onSelect: (item: TestCase) => void }) {
   return <div className="table-scroll"><table><thead><tr><th>CASO ID</th><th>NOMBRE DEL CASO</th><th>SUITE</th><th>ESTADO</th><th>ACTUALIZADO</th><th /></tr></thead><tbody>{items.map((item) => <tr key={item.id} onClick={() => onSelect(item)}><td><span className="id-text">{item.id}</span></td><td><span className="bug-title">{item.title}</span></td><td><span className="suite-badge">{item.suite}</span></td><td><StatusBadge status={item.status} /></td><td className="muted-cell">{item.updated}</td><td><button className="row-more" aria-label={`Más opciones para ${item.id}`}><Icon name="dots" size={18} /></button></td></tr>)}</tbody></table></div>;
 }
 
-function RunTable({ items, onSelect }) {
+function RunTable({ items, onSelect }: { items: TestRun[]; onSelect: (item: TestRun) => void }) {
   return <div className="table-scroll"><table><thead><tr><th>RUN ID</th><th>NOMBRE DE EJECUCIÓN</th><th>CASOS</th><th>PROGRESO</th><th>ESTADO</th><th>RESPONSABLE</th><th /></tr></thead><tbody>{items.map((item) => <tr key={item.id} onClick={() => onSelect(item)}><td><span className="id-text">{item.id}</span></td><td><span className="bug-title">{item.title}</span></td><td className="muted-cell">{item.cases}</td><td><div className="table-progress"><span><i style={{ width: `${item.progress}%` }} /></span>{item.progress}%</div></td><td><StatusBadge status={item.status} /></td><td className="muted-cell">{item.owner}</td><td><button className="row-more" aria-label={`Más opciones para ${item.id}`}><Icon name="dots" size={18} /></button></td></tr>)}</tbody></table></div>;
 }
 
-function EvidenceTable({ items, onSelect }) {
+function EvidenceTable({ items, onSelect }: { items: Evidence[]; onSelect: (item: Evidence) => void }) {
   return <div className="table-scroll"><table><thead><tr><th>NOMBRE</th><th>TIPO</th><th>VINCULADO A</th><th>TAMAÑO</th><th>FECHA</th><th /></tr></thead><tbody>{items.map((item) => <tr key={`${item.name}-${item.date}`} onClick={() => onSelect(item)}><td><span className="evidence-name"><span className="evidence-file"><Icon name="file" size={17} /></span><span className="bug-title">{item.name}</span></span></td><td><span className="suite-badge">{item.type}</span></td><td><span className="id-text">{item.related}</span></td><td className="muted-cell">{item.size}</td><td className="muted-cell">{item.date}</td><td><button className="row-more" aria-label={`Más opciones para ${item.name}`}><Icon name="dots" size={18} /></button></td></tr>)}</tbody></table></div>;
 }
 
-function PlaceholderPage({ page, onNavigate }) {
+function PlaceholderPage({ page, onNavigate }: {
+  page: NavigationPage;
+  onNavigate: (page: NavigationPage) => void;
+}) {
   const team = page === "team";
   return <section className="placeholder-card"><div className={`placeholder-icon${team ? " placeholder-team" : ""}`}><Icon name={team ? "users" : "settings"} size={24} /></div><div className="eyebrow">QA WORKSPACE</div><h2>{team ? "Tu equipo, en un solo lugar" : "Personaliza tu espacio"}</h2><p>{team ? "La gestión de miembros estará disponible cuando se conecte el backend." : "La configuración se habilitará en una próxima etapa del proyecto."}</p><span className="coming-soon">Disponible próximamente</span><button className="text-link" onClick={() => onNavigate("overview")}>Volver al resumen <Icon name="arrow" size={15} /></button></section>;
 }

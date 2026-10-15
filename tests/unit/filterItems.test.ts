@@ -4,7 +4,7 @@ import {
   filterCases,
   filterEvidence,
   filterRuns,
-} from "../../src/utils/filterItems.js";
+} from "../../src/utils/filterItems";
 
 describe("filterBugs", () => {
   const bugs = [

@@ -16,7 +16,8 @@
 
 ## Validación
 
-- [ ] `npm run build`
+- [ ] `pnpm build`
+- [ ] `pnpm test`
 - [ ] Probé manualmente los flujos afectados
 - [ ] Revisé el comportamiento en móvil y escritorio cuando corresponde
 - [ ] No añadí secretos, credenciales ni datos reales

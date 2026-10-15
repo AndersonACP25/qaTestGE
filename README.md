@@ -3,7 +3,7 @@
 **Plataforma de gestión de bugs, casos de prueba, ejecuciones y evidencias.**
 
 > **Versión objetivo:** 1.0  
-> **Estado actual:** definición inicial; la aplicación todavía no está implementada.
+> **Estado actual:** frontend de demostración y API MVC inicial; aún sin base de datos.
 
 ## Propósito
 
@@ -42,7 +42,7 @@ La disponibilidad de cada proveedor, sus condiciones de privacidad, ubicación d
 
 ## Estado del repositorio
 
-El repositorio contiene una interfaz frontend de demostración construida con React y Vite. Incluye navegación, resumen, listados con búsqueda y filtros, y formularios locales para probar interacciones. Los datos son de ejemplo y los cambios viven solo en memoria durante la sesión: no hay API, base de datos, autenticación ni almacenamiento de evidencias. La IA se muestra como no conectada. Las capacidades del alcance de producto no deben considerarse disponibles hasta implementar y conectar esos servicios.
+El frontend usa React, Vite y TypeScript. La interfaz todavía muestra datos de demostración en el navegador y no consume la API. El backend usa Express y TypeScript, organizado en rutas, controladores y modelos, con endpoints iniciales para bugs, casos de prueba, test runs y metadatos de evidencias. La API guarda datos únicamente en memoria y los pierde al reiniciar; no hay base de datos, autenticación ni almacenamiento del contenido binario de evidencias. La IA sigue sin estar conectada.
 
 ## Documentación
 
@@ -52,6 +52,8 @@ El repositorio contiene una interfaz frontend de demostración construida con Re
 - [`.opencode/`](./.opencode/): memoria y comandos de proyecto para OpenCode.
 - [`.opencode/skills/`](./.opencode/skills/): skills base para diseño de funciones de IA, prompts y validación de salidas.
 - [`tests/`](./tests/): pruebas unitarias del frontend.
+- [`backend/`](./backend/): API Express MVC con modelos en memoria y pruebas de endpoints.
+- [`.github/CODEOWNERS`](./.github/CODEOWNERS): propietarios sugeridos para revisión en GitHub.
 
 ## Contribuir mediante GitHub
 
@@ -73,25 +75,40 @@ La versión se considerará lista cuando:
 
 ## Desarrollo
 
-Requiere Node.js y npm:
+Requiere Node.js y pnpm:
 
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 
-Para ejecutar las pruebas unitarias o validarlas en modo interactivo:
+En otra terminal, inicia la API:
 
 ```bash
-npm test
-npm run test:watch
+pnpm dev:api
 ```
 
-Para validar el frontend o generar los archivos estáticos:
+La API escucha por defecto en `http://localhost:3000`. El frontend corre en `http://localhost:5173`.
+
+### Endpoints disponibles
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| `GET` | `/api/health` | Estado de la API |
+| `GET`, `POST` | `/api/bugs` | Listar y crear bugs |
+| `GET`, `POST` | `/api/test-cases` | Listar y crear casos de prueba |
+| `GET`, `POST` | `/api/test-runs` | Listar y crear ejecuciones |
+| `GET`, `POST` | `/api/evidence` | Listar y registrar metadatos de evidencia |
+
+Las escrituras de evidencia registran metadatos únicamente, no cargan el archivo. Todos los recursos se almacenan en memoria temporal.
+
+### Validación
 
 ```bash
-npm run build
-npm run preview
+pnpm test
+pnpm test:watch
+pnpm typecheck
+pnpm build
 ```
 
-La implementación actual es solo frontend. No configures datos reales ni secretos en el cliente; al añadir servicios, intégralos desde una API segura y actualiza esta guía.
+`pnpm build` verifica tipos y genera la compilación del frontend y backend. La API puede configurarse con `PORT` y `FRONTEND_ORIGIN`. No configures secretos en el cliente. Antes de usar datos reales, implementa una base de datos, autenticación, autorización y almacenamiento seguro para evidencias.

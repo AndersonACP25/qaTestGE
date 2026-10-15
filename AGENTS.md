@@ -11,12 +11,16 @@ qaTestGE es una plataforma para gestionar bugs, casos de prueba, ejecuciones y e
 - La IA propone contenido; una persona debe revisar y confirmar cualquier cambio en datos del proyecto. No envíes evidencias, credenciales ni datos sensibles a un proveedor sin una decisión explícita del usuario y controles de privacidad.
 - No presentes funciones documentadas como disponibles si todavía no están implementadas. Actualiza README y arquitectura cuando cambien el alcance o las decisiones técnicas.
 - Antes de introducir dependencias, servicios o formatos de datos, revisa el código y reutiliza las convenciones existentes. Evita añadir complejidad que no sea necesaria para la v1.0.
-- Valida los cambios con las herramientas disponibles y comunica claramente las limitaciones cuando el repositorio no incluya todavía un build o pruebas.
+- Valida cambios TypeScript con `pnpm typecheck`, frontend con `pnpm build` y pruebas con `pnpm test`.
 - Escribe siempre los mensajes de commit en formato Conventional Commits: `<tipo>(ámbito opcional): descripción`. Usa tipos claros como `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `build` o `chore`. No crees commits salvo que se solicite.
 - Para el frontend, nombra clases CSS nuevas y modificadas siguiendo BEM: `bloque__elemento--modificador`. Mantén los estilos encapsulados en el bloque del componente y evita selectores globales para detalles internos.
 - Añade pruebas unitarias en `tests/unit/` con Vitest. Las pruebas deben ser deterministas y no depender de un backend, red ni servicios externos.
 - Las skills reutilizables de OpenCode viven en `.opencode/skills/<nombre>/SKILL.md`; respeta el frontmatter requerido por OpenCode y las reglas de IA de `architecture.md`.
 
-## Estado conocido
+## Estructura y estado conocido
 
-El frontend actual usa React y Vite. Presenta datos de demostración en memoria y no tiene backend, persistencia, autenticación ni integración real con IA. No describas estas funciones como conectadas o persistentes.
+- `src/` contiene el frontend React/Vite en TypeScript.
+- `backend/src/` contiene la API Express en TypeScript organizada por modelos, controladores y rutas.
+- `backend/src/models/in-memory-store.ts` es temporal: no hay base de datos y los datos se pierden al reiniciar el proceso.
+- `tests/` contiene pruebas unitarias y `backend/tests/` pruebas de endpoints.
+- No describas autenticación, persistencia, carga de archivos ni integración real con IA como disponibles.

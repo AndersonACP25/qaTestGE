@@ -6,6 +6,10 @@ Todos los cambios importantes de qaTestGE se documentan aquí. El formato sigue 
 
 ### Added
 
+- Archivo `.github/CODEOWNERS` para revisión del propietario del repositorio.
+- Workspace pnpm y una API Express MVC inicial en TypeScript.
+- Endpoints de salud y operaciones de listado/creación para bugs, casos de prueba, ejecuciones y metadatos de evidencias.
+- Pruebas de integración de API y configuración TypeScript estricta para frontend y backend.
 - Comandos de proyecto para OpenCode: `/plan`, `/implement`, `/review` y `/test`.
 - Memoria de proyecto para OpenCode en `.opencode/memory.md`.
 - Skills base de OpenCode para diseño de funciones de IA, diseño de prompts y validación de salidas.
@@ -13,6 +17,8 @@ Todos los cambios importantes de qaTestGE se documentan aquí. El formato sigue 
 
 ### Changed
 
+- Migración de la aplicación, configuración Vite, utilidades y pruebas de JavaScript a TypeScript.
+- Documentación actualizada para reflejar el backend en memoria y la ausencia de base de datos.
 - Se establecieron Conventional Commits como formato obligatorio para los mensajes de commit.
 - Se estableció BEM (`bloque__elemento--modificador`) para las clases CSS del frontend.
 - La lógica de filtrado de bugs, casos, ejecuciones y evidencias se extrajo a funciones puras para probarla de forma aislada.
