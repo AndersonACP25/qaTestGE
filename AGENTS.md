@@ -12,6 +12,8 @@ qaTestGE es una plataforma para gestionar bugs, casos de prueba, ejecuciones y e
 - No presentes funciones documentadas como disponibles si todavía no están implementadas. Actualiza README y arquitectura cuando cambien el alcance o las decisiones técnicas.
 - Antes de introducir dependencias, servicios o formatos de datos, revisa el código y reutiliza las convenciones existentes. Evita añadir complejidad que no sea necesaria para la v1.0.
 - Valida los cambios con las herramientas disponibles y comunica claramente las limitaciones cuando el repositorio no incluya todavía un build o pruebas.
+- Escribe siempre los mensajes de commit en formato Conventional Commits: `<tipo>(ámbito opcional): descripción`. Usa tipos claros como `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `build` o `chore`. No crees commits salvo que se solicite.
+- Para el frontend, nombra clases CSS nuevas y modificadas siguiendo BEM: `bloque__elemento--modificador`. Mantén los estilos encapsulados en el bloque del componente y evita selectores globales para detalles internos.
 
 ## Estado conocido
 

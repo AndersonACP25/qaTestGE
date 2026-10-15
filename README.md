@@ -48,6 +48,8 @@ El repositorio contiene una interfaz frontend de demostración construida con Re
 
 - [AGENTS.md](./AGENTS.md): instrucciones y límites para agentes que trabajen en el proyecto.
 - [architecture.md](./architecture.md): componentes, dominio, flujos, privacidad y decisiones pendientes.
+- [CHANGELOG.md](./CHANGELOG.md): historial de cambios por versión.
+- [`.opencode/`](./.opencode/): memoria y comandos de proyecto para OpenCode.
 
 ## Contribuir mediante GitHub
 
