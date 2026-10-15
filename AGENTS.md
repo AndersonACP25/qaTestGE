@@ -2,7 +2,7 @@
 
 ## Contexto del proyecto
 
-bgTestForge es una plataforma para gestionar bugs, casos de prueba, ejecuciones y evidencias. La visión y los límites del producto están en [README.md](./README.md); las responsabilidades y los flujos técnicos están en [architecture.md](./architecture.md).
+qaTestGE es una plataforma para gestionar bugs, casos de prueba, ejecuciones y evidencias. La visión y los límites del producto están en [README.md](./README.md); las responsabilidades y los flujos técnicos están en [architecture.md](./architecture.md).
 
 ## Reglas de trabajo
 
@@ -15,4 +15,4 @@ bgTestForge es una plataforma para gestionar bugs, casos de prueba, ejecuciones 
 
 ## Estado conocido
 
-El repositorio actual contiene un `index.html` de plantilla y estos documentos de definición. No se debe asumir que ya existe una aplicación funcional, backend, almacenamiento, autenticación o integración con IA.
+El frontend actual usa React y Vite. Presenta datos de demostración en memoria y no tiene backend, persistencia, autenticación ni integración real con IA. No describas estas funciones como conectadas o persistentes.

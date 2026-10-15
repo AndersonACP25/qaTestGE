@@ -1,4 +1,4 @@
-# bgTestForge
+# qaTestGE
 
 **Plataforma de gestión de bugs, casos de prueba, ejecuciones y evidencias.**
 
@@ -7,7 +7,7 @@
 
 ## Propósito
 
-bgTestForge busca centralizar el trabajo de QA y desarrollo: registrar y dar seguimiento a bugs, documentar casos de prueba, ejecutar pruebas manualmente y mantener evidencia vinculada con cada resultado. La meta es que un equipo pueda entender qué se probó, qué falló y con qué evidencia, sin perder el contexto entre herramientas.
+qaTestGE busca centralizar el trabajo de QA y desarrollo: registrar y dar seguimiento a bugs, documentar casos de prueba, ejecutar pruebas manualmente y mantener evidencia vinculada con cada resultado. La meta es que un equipo pueda entender qué se probó, qué falló y con qué evidencia, sin perder el contexto entre herramientas.
 
 La v1.0 incorpora asistencia opcional de IA para acelerar la redacción y el análisis. La IA propone; las personas revisan y deciden.
 
@@ -42,7 +42,7 @@ La disponibilidad de cada proveedor, sus condiciones de privacidad, ubicación d
 
 ## Estado del repositorio
 
-El repositorio contiene un `index.html` de plantilla y documentos de definición del producto. No hay todavía interfaz funcional, API, base de datos, autenticación, almacenamiento de evidencias, pruebas automatizadas ni conexión a IA. Las capacidades anteriores son alcance objetivo, no funciones ya disponibles.
+El repositorio contiene una interfaz frontend de demostración construida con React y Vite. Incluye navegación, resumen, listados con búsqueda y filtros, y formularios locales para probar interacciones. Los datos son de ejemplo y los cambios viven solo en memoria durante la sesión: no hay API, base de datos, autenticación ni almacenamiento de evidencias. La IA se muestra como no conectada. Las capacidades del alcance de producto no deben considerarse disponibles hasta implementar y conectar esos servicios.
 
 ## Documentación
 
@@ -63,4 +63,18 @@ La versión se considerará lista cuando:
 
 ## Desarrollo
 
-El proyecto aún no define stack ni scripts de desarrollo. Los comandos de instalación, ejecución y pruebas se añadirán cuando se seleccione e implemente la tecnología; por ahora, `index.html` es solo una plantilla estática.
+Requiere Node.js y npm:
+
+```bash
+npm install
+npm run dev
+```
+
+Para validar el frontend o generar los archivos estáticos:
+
+```bash
+npm run build
+npm run preview
+```
+
+La implementación actual es solo frontend. No configures datos reales ni secretos en el cliente; al añadir servicios, intégralos desde una API segura y actualiza esta guía.

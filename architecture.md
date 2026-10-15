@@ -1,8 +1,8 @@
-# Arquitectura — bgTestForge v1.0
+# Arquitectura — qaTestGE v1.0
 
 ## Estado del documento
 
-Este documento define una arquitectura objetivo y neutral respecto a frameworks y proveedores para la v1.0. No describe componentes ya construidos: el repositorio actual solo contiene un `index.html` de plantilla y documentación. Las decisiones concretas de tecnología deberán tomarse antes de implementar la aplicación.
+Este documento combina la arquitectura objetivo de la v1.0 con el estado real del repositorio. El frontend de demostración ya usa React y Vite; no hay backend ni persistencia. Las secciones sobre API, dominio, almacenamiento y proveedores de IA describen objetivos futuros, no servicios implementados.
 
 ## Objetivos
 
