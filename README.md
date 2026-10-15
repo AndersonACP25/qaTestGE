@@ -49,6 +49,12 @@ El repositorio contiene una interfaz frontend de demostración construida con Re
 - [AGENTS.md](./AGENTS.md): instrucciones y límites para agentes que trabajen en el proyecto.
 - [architecture.md](./architecture.md): componentes, dominio, flujos, privacidad y decisiones pendientes.
 
+## Contribuir mediante GitHub
+
+- Usa **Reportar un bug** o **Solicitar una mejora** al abrir una issue para proporcionar el contexto necesario.
+- Al abrir un pull request, completa la plantilla con el resumen, el tipo de cambio y las validaciones realizadas.
+- Mantén fuera del repositorio dependencias instaladas, builds, cachés, archivos locales y secretos; las reglas están en [`.gitignore`](./.gitignore).
+
 ## Criterios de salida para v1.0
 
 La versión se considerará lista cuando:

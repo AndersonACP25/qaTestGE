@@ -1,0 +1,42 @@
+name: Solicitar una mejora
+description: Propón una capacidad o mejora para qaTestGE.
+title: "[Mejora]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problema o necesidad
+      description: ¿Qué problema resolvería esta mejora?
+      placeholder: Describe el contexto y a quién afecta.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Solución propuesta
+      description: Describe cómo te gustaría que funcionara.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternativas consideradas
+      description: ¿Qué otras opciones contemplaste?
+    validations:
+      required: false
+  - type: dropdown
+    id: area
+    attributes:
+      label: Área del producto
+      options:
+        - Bugs
+        - Casos de prueba
+        - Test runs
+        - Evidencias
+        - Asistencia de IA
+        - Interfaz y accesibilidad
+        - Otra
+    validations:
+      required: true

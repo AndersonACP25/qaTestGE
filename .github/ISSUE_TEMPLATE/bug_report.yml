@@ -1,0 +1,58 @@
+name: Reportar un bug
+description: Informa un comportamiento inesperado en qaTestGE.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Antes de enviar el reporte, busca si ya existe una incidencia similar.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Descripción
+      description: ¿Qué ocurrió?
+      placeholder: Describe el problema de forma clara.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Pasos para reproducir
+      description: Incluye los pasos necesarios para observar el problema.
+      placeholder: |
+        1. Ir a ...
+        2. Seleccionar ...
+        3. Observar ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Resultado esperado
+      description: ¿Qué debería ocurrir?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Resultado actual
+      description: ¿Qué ocurrió en su lugar?
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Entorno
+      description: Navegador, sistema operativo y versión de qaTestGE.
+      placeholder: "Chrome 130, Windows 11"
+    validations:
+      required: false
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidencia adicional
+      description: Agrega capturas o detalles útiles. No incluyas credenciales ni datos sensibles.
+    validations:
+      required: false
