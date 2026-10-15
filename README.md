@@ -50,6 +50,8 @@ El repositorio contiene una interfaz frontend de demostración construida con Re
 - [architecture.md](./architecture.md): componentes, dominio, flujos, privacidad y decisiones pendientes.
 - [CHANGELOG.md](./CHANGELOG.md): historial de cambios por versión.
 - [`.opencode/`](./.opencode/): memoria y comandos de proyecto para OpenCode.
+- [`.opencode/skills/`](./.opencode/skills/): skills base para diseño de funciones de IA, prompts y validación de salidas.
+- [`tests/`](./tests/): pruebas unitarias del frontend.
 
 ## Contribuir mediante GitHub
 
@@ -76,6 +78,13 @@ Requiere Node.js y npm:
 ```bash
 npm install
 npm run dev
+```
+
+Para ejecutar las pruebas unitarias o validarlas en modo interactivo:
+
+```bash
+npm test
+npm run test:watch
 ```
 
 Para validar el frontend o generar los archivos estáticos:

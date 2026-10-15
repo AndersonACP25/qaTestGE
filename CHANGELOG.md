@@ -8,11 +8,14 @@ Todos los cambios importantes de qaTestGE se documentan aquí. El formato sigue 
 
 - Comandos de proyecto para OpenCode: `/plan`, `/implement`, `/review` y `/test`.
 - Memoria de proyecto para OpenCode en `.opencode/memory.md`.
+- Skills base de OpenCode para diseño de funciones de IA, diseño de prompts y validación de salidas.
+- Vitest y una primera suite de pruebas unitarias en `tests/unit/`.
 
 ### Changed
 
 - Se establecieron Conventional Commits como formato obligatorio para los mensajes de commit.
 - Se estableció BEM (`bloque__elemento--modificador`) para las clases CSS del frontend.
+- La lógica de filtrado de bugs, casos, ejecuciones y evidencias se extrajo a funciones puras para probarla de forma aislada.
 
 ## [1.0.0] - 2026-10-14
 

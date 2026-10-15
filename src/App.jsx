@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { filterBugs, filterCases, filterEvidence, filterRuns } from "./utils/filterItems.js";
 
 const initialBugs = [
   { id: "BUG-248", title: "El checkout falla al aplicar un cupón expirado", project: "Web Store", priority: "Crítica", status: "En progreso", assignee: "LM", color: "violet", updated: "hace 12 min" },
@@ -100,22 +101,22 @@ function App() {
     window.setTimeout(() => setToast(""), 3000);
   };
 
-  const visibleBugs = useMemo(() => bugs.filter((bug) =>
-    `${bug.id} ${bug.title} ${bug.project} ${bug.status} ${bug.priority}`.toLowerCase().includes(search.toLowerCase())
-    && (statusFilter === "Todos" || bug.status === statusFilter)
-    && (project === "Todos los proyectos" || bug.project === project),
-  ), [bugs, search, statusFilter, project]);
-  const visibleCases = useMemo(() => cases.filter((item) =>
-    `${item.id} ${item.title} ${item.suite} ${item.status}`.toLowerCase().includes(search.toLowerCase())
-    && (statusFilter === "Todos" || item.status === statusFilter),
-  ), [cases, search, statusFilter]);
-  const visibleRuns = useMemo(() => runs.filter((item) =>
-    `${item.id} ${item.title} ${item.status} ${item.owner}`.toLowerCase().includes(search.toLowerCase())
-    && (statusFilter === "Todos" || item.status === statusFilter),
-  ), [runs, search, statusFilter]);
-  const visibleEvidence = useMemo(() => evidence.filter((item) =>
-    `${item.name} ${item.type} ${item.related}`.toLowerCase().includes(search.toLowerCase()),
-  ), [evidence, search]);
+  const visibleBugs = useMemo(
+    () => filterBugs(bugs, { search, statusFilter, project }),
+    [bugs, search, statusFilter, project],
+  );
+  const visibleCases = useMemo(
+    () => filterCases(cases, { search, statusFilter }),
+    [cases, search, statusFilter],
+  );
+  const visibleRuns = useMemo(
+    () => filterRuns(runs, { search, statusFilter }),
+    [runs, search, statusFilter],
+  );
+  const visibleEvidence = useMemo(
+    () => filterEvidence(evidence, { search }),
+    [evidence, search],
+  );
 
   const pageTitle = {
     overview: "Resumen", bugs: "Bugs", cases: "Casos de prueba", runs: "Test runs",

@@ -9,7 +9,7 @@
 ## Estado técnico actual
 
 - Frontend React 18 + Vite 6, JavaScript y CSS.
-- Scripts: `npm run dev`, `npm run build` y `npm run preview`.
+- Scripts: `npm run dev`, `npm run build`, `npm run preview`, `npm test` y `npm run test:watch`.
 - La UI es una demostración con datos de ejemplo en memoria.
 - No hay backend, persistencia, autenticación, conexión real a IA ni carga de archivos a servidor.
 - No presentes funcionalidades objetivo como implementadas.
@@ -22,6 +22,8 @@
 - Conserva la interfaz en español y mantén el diseño responsive.
 - No agregues secretos, datos sensibles ni configuración privada al cliente.
 - Valida cambios del frontend con `npm run build`.
+- Las pruebas unitarias viven en `tests/unit/` y usan Vitest; ejecútalas con `npm test`.
+- Las skills de OpenCode se definen en `.opencode/skills/<nombre>/SKILL.md`. Las skills base de IA cubren diseño de funciones, diseño de prompts y validación de salidas.
 
 ## Cambios recientes relevantes
 
