@@ -4,7 +4,7 @@ import { evidenceTypes } from "./models/evidence.model.js";
 const text = (maxLength: number) => ({ type: "string", minLength: 1, maxLength, pattern: "\\S" });
 const ref = (name: string) => ({ $ref: `#/components/schemas/${name}` });
 const json = (schema: object) => ({ "application/json": { schema } });
-const object = (properties: object, required: string[]) => ({ type: "object", properties, required });
+const object = <T extends object>(properties: T, required: string[]) => ({ type: "object", properties, required });
 const inputs = {
   BugInput: object({ title: text(200), project: text(100), priority: { type: "string", enum: bugPriorities }, description: { type: "string", maxLength: 5000 }, assignee: { type: "string", nullable: true, maxLength: 100 } }, ["title", "project", "priority"]),
   TestCaseInput: object({ title: text(200), suite: text(100) }, ["title", "suite"]),

@@ -4,7 +4,7 @@
 
 - Plataforma de QA para bugs, casos de prueba, test runs y evidencias.
 - El nombre del producto se escribe `qaTestGE`.
-- El alcance objetivo de producto está descrito en [README.md](../README.md) y [architecture.md](../architecture.md).
+- El alcance objetivo de producto está descrito en [README.md](../README.md) y [architecture.md](../docs/architecture.md).
 
 ## Estado técnico actual
 

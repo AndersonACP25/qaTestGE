@@ -19,4 +19,4 @@ No existe aún un canal privado de seguridad dedicado ni un plazo de respuesta c
 
 ## Pendiente antes de producción
 
-Autenticación y permisos de servidor, aislamiento por proyecto, validación de relaciones, almacenamiento privado, límites de archivos, gestión segura de secretos, TLS, auditoría, persistencia, respaldos y políticas de retención. Los objetivos están descritos en [architecture.md](./architecture.md); no son capacidades disponibles.
+Autenticación y permisos de servidor, aislamiento por proyecto, validación de relaciones, almacenamiento privado, límites de archivos, gestión segura de secretos, TLS, auditoría, persistencia, respaldos y políticas de retención. Los objetivos están descritos en [architecture.md](./docs/architecture.md); no son capacidades disponibles.

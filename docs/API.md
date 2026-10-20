@@ -99,4 +99,4 @@ curl http://localhost:3000/api/health
 
 En PowerShell también puedes usar `Invoke-RestMethod http://localhost:3000/api/health`.
 
-La implementación está en [`backend/src/controllers/`](./backend/src/controllers/) y las pruebas en [`backend/tests/api.test.ts`](./backend/tests/api.test.ts).
+La implementación está en [`backend/src/controllers/`](../backend/src/controllers/) y las pruebas en [`backend/tests/api.test.ts`](../backend/tests/api.test.ts).

@@ -10,7 +10,8 @@ Interfaz React/Vite de demostración. Incluye acceso simulado, resumen, listados
 |---|---|
 | `src/Session.tsx` | Acceso y registro simulados, cierre de sesión y preferencia de tema |
 | `src/App.tsx` | Navegación en estado React, shell, vistas y datos locales |
-| `src/CaseBuilder.tsx` | Descripción, selección de categorías y tablas fijas de ejemplo |
+| `src/CaseBuilder.tsx` | Descripción, selección de categorías, cantidades y tablas fijas de ejemplo |
+| `src/utils/caseCatalog.ts` | Catálogo de escenarios ilustrativos y validación de cantidades |
 | `src/styles.css` | Estilos actuales, variables de color y reglas responsive |
 | `src/types.ts` | Tipos de navegación y modelos de presentación |
 
@@ -28,7 +29,7 @@ La navegación actual no usa rutas URL. Recargar reinicia el acceso y los datos 
 
 El acceso admite cualquier usuario y contraseña no vacíos; el registro comprueba la confirmación sin crear cuentas. La interfaz debe identificarlo siempre como demo.
 
-El diseñador permite seleccionar Edge cases, Exploratory, Estrés y API. El botón de vista previa exige descripción no vacía y al menos una categoría. Muestra dos pasos fijos por categoría en tablas Acción / Resultado esperado. Cambiar las entradas limpia la vista previa; abandonar la vista descarta su estado. No presentar esos ejemplos como contenido generado a partir del requisito.
+El diseñador permite combinar 18 categorías, incluidas Smoke, Regresión, Funcionales, UI, UX e Integración. Cada una tiene una casilla y un contador etiquetado de 1 a 3 pruebas, habilitado al seleccionarla y con valor inicial de una. El botón de vista previa exige descripción no vacía, al menos una categoría y cantidades enteras válidas. Cada fila es una prueba fija con Acción / Resultado esperado; la cantidad determina cuántos ejemplos distintos se muestran. El total, Excel y PDF usan la misma selección. Cambiar las entradas limpia la vista previa; abandonar la vista descarta su estado. No presentar esos ejemplos como contenido generado a partir del requisito.
 
 Para la futura IA, diseñar propuestas editables y descartables con confirmación humana antes de crear casos reales. Esa edición y confirmación aún no existen.
 

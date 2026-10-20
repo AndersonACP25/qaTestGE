@@ -60,8 +60,8 @@ El frontend usa React, Vite y TypeScript. La interfaz todavía muestra datos de 
 En el menú **Diseñar test cases** puedes recorrer el flujo previsto para el futuro asistente:
 
 1. Escribir una descripción, requisito o historia de usuario, o cargar el texto de ejemplo.
-2. Marcar una o varias categorías: **Edge cases**, **Exploratory**, **Pruebas de estrés** y **API**.
-3. Pulsar **Mostrar tabla de ejemplo** para ver dos pasos por categoría, con las columnas **Acción** y **Resultado esperado**.
+2. Marcar una o varias categorías: **Smoke**, **Regresión**, **Funcionales**, **UI**, **UX**, **Integración**, **Sanity**, **E2E**, **Unitarias**, **Aceptación**, **Accesibilidad**, **Seguridad**, **Rendimiento y carga**, **Compatibilidad**, **Edge cases**, **Exploratory**, **Pruebas de estrés** y **API**.
+3. Ajustar el contador de cada categoría seleccionada entre **1 y 3 pruebas** y pulsar **Mostrar tabla de ejemplo**. Cada fila contiene una prueba distinta con **Acción** y **Resultado esperado**; el total y las exportaciones respetan las cantidades. El máximo corresponde a los tres ejemplos fijos disponibles por categoría.
 4. Pulsar **Exportar Excel** o **Exportar PDF** para descargar la vista previa con la descripción introducida, las categorías seleccionadas, los pasos y los resultados esperados.
 
 Esta es una maqueta frontend responsive compatible con los temas claro y oscuro. Los ejemplos son fijos y describen un registro de usuario hipotético: no se analiza el texto, no se llama a IA ni a la API, no se ejecutan pruebas y no se guardan casos. Cambiar el texto o las categorías limpia la vista previa; salir de la vista descarta su estado.
@@ -77,14 +77,16 @@ La generación contextual y la edición, revisión y confirmación antes de crea
 
 ## Documentación
 
-- [API.md](./API.md): endpoints, cuerpos, respuestas, validaciones y límites actuales.
-- [DESIGN.md](./DESIGN.md): interfaz, temas, accesibilidad y maquetas.
-- [RULES.md](./RULES.md): reglas de producto, código, IA y documentación.
-- [DEVELOPMENT.md](./DEVELOPMENT.md): entorno, scripts y configuración local.
+Las guías técnicas están en [`docs/`](./docs/). README, AGENTS, CONTRIBUTING, SECURITY y CHANGELOG permanecen en la raíz para facilitar su consulta y descubrimiento en GitHub.
+
+- [API.md](./docs/API.md): endpoints, cuerpos, respuestas, validaciones y límites actuales.
+- [DESIGN.md](./docs/DESIGN.md): interfaz, temas, accesibilidad y maquetas.
+- [RULES.md](./docs/RULES.md): reglas de producto, código, IA y documentación.
+- [DEVELOPMENT.md](./docs/DEVELOPMENT.md): entorno, scripts y configuración local.
 - [CONTRIBUTING.md](./CONTRIBUTING.md): flujo de contribución y validación.
 - [SECURITY.md](./SECURITY.md): estado de seguridad, privacidad y reporte de problemas.
 - [AGENTS.md](./AGENTS.md): instrucciones y límites para agentes que trabajen en el proyecto.
-- [architecture.md](./architecture.md): componentes, dominio, flujos, privacidad y decisiones pendientes.
+- [architecture.md](./docs/architecture.md): componentes, dominio, flujos, privacidad y decisiones pendientes.
 - [CHANGELOG.md](./CHANGELOG.md): historial de cambios por versión.
 - [`.opencode/`](./.opencode/): memoria y comandos de proyecto para OpenCode.
 - [`.opencode/skills/`](./.opencode/skills/): skills base para diseño de funciones de IA, prompts y validación de salidas.
@@ -122,7 +124,7 @@ pnpm dev:all
 
 La API escucha por defecto en `http://localhost:3000`. El frontend corre en `http://localhost:5173`; si el puerto está ocupado, Vite muestra otro disponible en la terminal. SwaggerUI está en `http://localhost:3000/api/docs/`.
 
-`pnpm dev:all` inicia ambos servicios en paralelo; `Ctrl+C` detiene la sesión conjunta. Para iniciarlos por separado usa `pnpm dev:frontend` y `pnpm dev:backend`. Se conservan `pnpm dev` (frontend) y `pnpm dev:api` (backend). También existen `pnpm build:frontend` y `pnpm build:backend`. Consulta [DEVELOPMENT.md](./DEVELOPMENT.md) para todos los comandos.
+`pnpm dev:all` inicia ambos servicios en paralelo; `Ctrl+C` detiene la sesión conjunta. Para iniciarlos por separado usa `pnpm dev:frontend` y `pnpm dev:backend`. Se conservan `pnpm dev` (frontend) y `pnpm dev:api` (backend). También existen `pnpm build:frontend` y `pnpm build:backend`. Consulta [DEVELOPMENT.md](./docs/DEVELOPMENT.md) para todos los comandos.
 
 ### Endpoints disponibles
 

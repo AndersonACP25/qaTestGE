@@ -1,6 +1,6 @@
 # Reglas del proyecto
 
-Esta guía resume las convenciones para personas colaboradoras. [AGENTS.md](./AGENTS.md) contiene las instrucciones de agentes y [architecture.md](./architecture.md) las decisiones de arquitectura. Mantenerlos alineados al modificar estas reglas.
+Esta guía resume las convenciones para personas colaboradoras. [AGENTS.md](../AGENTS.md) contiene las instrucciones de agentes y [architecture.md](./architecture.md) las decisiones de arquitectura. Mantenerlos alineados al modificar estas reglas.
 
 ## Producto y datos
 

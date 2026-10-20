@@ -2,7 +2,7 @@
 
 ## Contexto del proyecto
 
-qaTestGE es una plataforma para gestionar bugs, casos de prueba, ejecuciones y evidencias. La visión y los límites del producto están en [README.md](./README.md); las responsabilidades y los flujos técnicos están en [architecture.md](./architecture.md).
+qaTestGE es una plataforma para gestionar bugs, casos de prueba, ejecuciones y evidencias. La visión y los límites del producto están en [README.md](./README.md); las responsabilidades y los flujos técnicos están en [architecture.md](./docs/architecture.md).
 
 ## Reglas de trabajo
 
@@ -15,7 +15,7 @@ qaTestGE es una plataforma para gestionar bugs, casos de prueba, ejecuciones y e
 - Escribe siempre los mensajes de commit en formato Conventional Commits: `<tipo>(ámbito opcional): descripción`. Usa tipos claros como `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `build` o `chore`. No crees commits salvo que se solicite.
 - Para el frontend, nombra clases CSS nuevas y modificadas siguiendo BEM: `bloque__elemento--modificador`. Mantén los estilos encapsulados en el bloque del componente y evita selectores globales para detalles internos.
 - Añade pruebas unitarias en `tests/unit/` con Vitest. Las pruebas deben ser deterministas y no depender de un backend, red ni servicios externos.
-- Las skills reutilizables de OpenCode viven en `.opencode/skills/<nombre>/SKILL.md`; respeta el frontmatter requerido por OpenCode y las reglas de IA de `architecture.md`.
+- Las skills reutilizables de OpenCode viven en `.opencode/skills/<nombre>/SKILL.md`; respeta el frontmatter requerido por OpenCode y las reglas de IA de `docs/architecture.md`.
 
 ## Estructura y estado conocido
 

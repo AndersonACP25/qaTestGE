@@ -6,6 +6,9 @@ Todos los cambios importantes de qaTestGE se documentan aquí. El formato sigue 
 
 ### Added
 
+- Catálogo del diseñador ampliado a 18 categorías, con contador independiente de 1 a 3 pruebas ilustrativas y cantidades compartidas entre la vista previa y las exportaciones.
+- Directorio `docs/` para las guías de API, diseño, desarrollo, reglas y arquitectura; enlaces actualizados en documentación e instrucciones de agentes.
+
 - Guías API.md, DESIGN.md, RULES.md, DEVELOPMENT.md, CONTRIBUTING.md y SECURITY.md basadas en la implementación actual.
 - Scripts dev:all para levantar frontend y backend en paralelo, alias dev:frontend/dev:backend y builds separados.
 - Maqueta de diseño de test cases con descripción, selección múltiple de categorías y tablas de ejemplo Acción / Resultado esperado, sin generación real ni guardado.

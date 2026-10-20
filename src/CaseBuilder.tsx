@@ -1,32 +1,18 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 
-export const categories = [
-  { id: "edge", label: "Edge cases", description: "Límites, entradas vacías y situaciones inesperadas.", steps: [
-    { action: "Enviar el formulario de registro con los campos obligatorios vacíos.", expected: "Se indican los campos requeridos y no se crea la cuenta." },
-    { action: "Ingresar un nombre que exceda la longitud máxima permitida.", expected: "Se muestra una validación clara y se conserva el resto de los datos." },
-  ] },
-  { id: "exploratory", label: "Exploratory", description: "Recorridos libres para descubrir comportamientos.", steps: [
-    { action: "Explorar el registro alternando entre teclado, ratón y navegación hacia atrás.", expected: "El flujo mantiene un orden de foco coherente y permite corregir los datos." },
-    { action: "Cambiar el tamaño de la pantalla mientras se completa el registro.", expected: "Los campos y mensajes permanecen visibles y utilizables." },
-  ] },
-  { id: "stress", label: "Pruebas de estrés", description: "Carga elevada, capacidad y recuperación.", steps: [
-    { action: "En un entorno de pruebas autorizado, aumentar progresivamente las solicitudes de registro concurrentes.", expected: "Se miden errores y latencia frente a los umbrales acordados para el entorno." },
-    { action: "Reducir la carga después de alcanzar el límite definido para la prueba.", expected: "El servicio recupera su nivel esperado y mantiene la integridad de los datos." },
-  ] },
-  { id: "api", label: "API", description: "Contratos, respuestas y validaciones del servicio.", steps: [
-    { action: "Enviar una solicitud de registro válida al endpoint definido en el contrato de la API.", expected: "La respuesta cumple el código y esquema acordados sin exponer la contraseña." },
-    { action: "Enviar una solicitud de registro omitiendo un atributo obligatorio.", expected: "La API devuelve un error de validación según el contrato y no crea el recurso." },
-  ] },
-] as const;
+import { categories, maxCaseCount, selectCaseExamples, validCaseCount } from "./utils/caseCatalog";
 
 export default function CaseBuilder() {
   const [text, setText] = useState("");
   const [selected, setSelected] = useState<string[]>(["edge"]);
+  const [counts, setCounts] = useState<Record<string, number>>({});
   const [preview, setPreview] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState("");
-  const selectedCategories = categories.filter((category) => selected.includes(category.id));
+  const selectedCategories = selectCaseExamples(selected, counts);
+  const countsValid = selected.every((id) => validCaseCount(counts[id] ?? 1));
+  const total = selectedCategories.reduce((sum, category) => sum + category.steps.length, 0);
 
   async function exportPreview(format: "xlsx" | "pdf") {
     setExporting(true);
@@ -41,7 +27,7 @@ export default function CaseBuilder() {
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (text.trim() && selected.length) setPreview(true);
+    if (text.trim() && selected.length && countsValid) setPreview(true);
   }
 
   return <section className="case-builder" aria-label="Maqueta de diseño de casos de prueba">
@@ -54,18 +40,25 @@ export default function CaseBuilder() {
         <div className="case-builder__input-footer"><small id="case-builder-help">Usa información ficticia, sin datos sensibles.</small><span>{text.length} caracteres</span></div>
         <button className="case-builder__example" type="button" onClick={() => { setText("Una persona puede registrarse con su nombre, correo y contraseña. Los campos son obligatorios y el correo debe ser único."); setPreview(false); }}>Usar descripción de ejemplo ↗</button>
         <fieldset className="case-builder__fieldset"><legend>02 · Selecciona los tipos de prueba</legend><p className="case-builder__hint">Puedes combinar varias categorías.</p>
-          <div className="case-builder__options">{categories.map((category) => <label key={category.id} className={`case-builder__option${selected.includes(category.id) ? " case-builder__option--selected" : ""}`}>
-            <input type="checkbox" checked={selected.includes(category.id)} onChange={(event) => { setSelected((items) => event.target.checked ? [...items, category.id] : items.filter((id) => id !== category.id)); setPreview(false); }} />
-            <span><strong>{category.label}</strong><small>{category.description}</small></span>
-          </label>)}</div>
+          <div className="case-builder__options">{categories.map((category) => <div key={category.id} className={`case-builder__option${selected.includes(category.id) ? " case-builder__option--selected" : ""}`}>
+            <label className="case-builder__choice">
+              <input className="case-builder__checkbox" type="checkbox" checked={selected.includes(category.id)} onChange={(event) => { setSelected((items) => event.target.checked ? [...items, category.id] : items.filter((id) => id !== category.id)); setPreview(false); setExportError(""); }} />
+              <span><strong>{category.label}</strong><small>{category.description}</small></span>
+            </label>
+            <label className="case-builder__quantity" htmlFor={`case-count-${category.id}`}>Cantidad
+              <input id={`case-count-${category.id}`} className="case-builder__count" type="number" min={1} max={maxCaseCount} step={1} required disabled={!selected.includes(category.id)} value={Number.isNaN(counts[category.id]) ? "" : counts[category.id] ?? 1} aria-label={`Cantidad de pruebas: ${category.label}`} aria-describedby="case-count-help" onChange={(event) => { const value = event.target.valueAsNumber; setCounts((items) => ({ ...items, [category.id]: value })); setPreview(false); setExportError(""); }} />
+            </label>
+          </div>)}</div>
+          <p id="case-count-help" className="case-builder__hint">De 1 a {maxCaseCount} pruebas distintas por categoría: son los ejemplos disponibles, sin generación con IA.</p>
+          {!countsValid && <p role="alert">Introduce una cantidad entera entre 1 y {maxCaseCount} para cada categoría seleccionada.</p>}
         </fieldset>
-        <button className="case-builder__submit" type="submit" disabled={!text.trim() || !selected.length}>Mostrar tabla de ejemplo →</button>
+        <button className="case-builder__submit" type="submit" disabled={!text.trim() || !selected.length || !countsValid}>Mostrar tabla de ejemplo →</button>
         <p className="case-builder__hint">En el futuro, aquí podrás solicitar propuestas de IA y revisarlas antes de guardarlas.</p>
       </form>
       <section className="case-builder__results" aria-labelledby="case-builder-results">
-        <div className="case-builder__heading"><span className="case-builder__step">03</span><div><h2 id="case-builder-results">Acción y resultado esperado</h2><p>{preview ? `${selectedCategories.length * 2} pasos de ejemplo · sin guardar` : "Tu vista previa aparecerá aquí."}</p></div></div>
+        <div className="case-builder__heading"><span className="case-builder__step">03</span><div><h2 id="case-builder-results">Acción y resultado esperado</h2><p>{preview ? `${total} pruebas de ejemplo · sin guardar` : "Tu vista previa aparecerá aquí."}</p></div></div>
         <div aria-live="polite">{preview ? <>
-          <p className="case-builder__preview-note">Contenido fijo ilustrativo. Las pruebas de API y estrés describen un sistema hipotético; no se ejecuta ninguna prueba.</p>
+          <p className="case-builder__preview-note">Contenido fijo ilustrativo sobre un sistema hipotético. Cada fila representa una prueba de ejemplo; no se ejecuta ninguna prueba.</p>
           <div className="case-builder__exports">
             <button type="button" className="case-builder__export" disabled={exporting} onClick={() => void exportPreview("xlsx")}>Exportar Excel</button>
             <button type="button" className="case-builder__export" disabled={exporting} onClick={() => void exportPreview("pdf")}>Exportar PDF</button>

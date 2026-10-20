@@ -149,9 +149,9 @@ La raíz Session muestra los formularios de inicio de sesión y registro antes d
 
 ### Maqueta del diseñador de test cases
 
-La navegación `case-builder` monta el componente `CaseBuilder`. El texto, la selección múltiple y la visibilidad de la tabla viven únicamente en estado React. Cada categoría tiene dos pasos ilustrativos fijos con acción y resultado esperado; el texto introducido no se procesa. La vista previa se limpia cuando cambian las entradas y el estado se descarta al desmontar la vista. No hay solicitudes de red, ejecución de pruebas, proveedor de IA ni creación de entidades de dominio.
+La navegación `case-builder` monta el componente `CaseBuilder`. El texto, la selección múltiple, las cantidades y la visibilidad de la tabla viven únicamente en estado React. `src/utils/caseCatalog.ts` define 18 categorías con tres pruebas ilustrativas distintas cada una. Cada categoría seleccionada tiene una cantidad entera entre 1 y 3 (una por defecto), conservada al desmarcarla durante la vista. Los valores inválidos impiden mostrar la tabla. La vista previa y las exportaciones comparten la selección y las cantidades; el texto introducido no se procesa. La vista previa se limpia cuando cambian las entradas y el estado se descarta al desmontar la vista. No hay solicitudes de red, ejecución de pruebas, proveedor de IA ni creación de entidades de dominio.
 
-El flujo futuro partirá de una descripción y categorías (edge cases, exploratory, estrés y API), solicitará propuestas mediante la interfaz opcional de proveedor en el servidor y permitirá revisarlas y confirmarlas antes de crear casos con identificadores y referencias de proyecto explícitos. Esa integración, su contrato y la persistencia aún no están implementados.
+El flujo futuro partirá de una descripción, categorías y cantidades, solicitará propuestas mediante la interfaz opcional de proveedor en el servidor y permitirá revisarlas y confirmarlas antes de crear casos con identificadores y referencias de proyecto explícitos. Esa integración, su contrato y la persistencia aún no están implementados.
 
 ## Documentación complementaria
 
@@ -163,4 +163,4 @@ El portal enlaza `/api/docs/`. En un despliegue separado se requiere reenviar `/
 
 `src/utils/exportCases.ts` genera Excel `.xlsx` con ExcelJS y PDF con jsPDF y AutoTable, mediante importaciones dinámicas al exportar. El diseñador exporta la vista previa seleccionada y su descripción, con aviso de contenido ilustrativo. No envía información fuera del navegador ni crea entidades del dominio. El PDF ajusta texto y repite encabezados al paginar; Excel conserva las entradas como texto, sin convertirlas en fórmulas. No hay cambios de persistencia ni integración de IA.
 
-Consultar [API.md](./API.md) para el contrato implementado, [DESIGN.md](./DESIGN.md) para la interfaz, [RULES.md](./RULES.md) para convenciones y [DEVELOPMENT.md](./DEVELOPMENT.md) para comandos y entorno. [CONTRIBUTING.md](./CONTRIBUTING.md) describe el flujo de contribución y [SECURITY.md](./SECURITY.md) los límites de seguridad actuales.
+Consultar [API.md](./API.md) para el contrato implementado, [DESIGN.md](./DESIGN.md) para la interfaz, [RULES.md](./RULES.md) para convenciones y [DEVELOPMENT.md](./DEVELOPMENT.md) para comandos y entorno. [CONTRIBUTING.md](../CONTRIBUTING.md) describe el flujo de contribución y [SECURITY.md](../SECURITY.md) los límites de seguridad actuales.

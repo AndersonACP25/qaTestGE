@@ -12,7 +12,7 @@ Usa esta skill al definir una función de IA nueva o cambiar el alcance de una e
 ## Flujo
 
 1. Aclara quién usa la función, qué tarea concreta quiere resolver y cuál es el flujo manual equivalente.
-2. Revisa el estado implementado del repositorio y `architecture.md`; separa lo actual de lo planeado.
+2. Revisa el estado implementado del repositorio y `docs/architecture.md`; separa lo actual de lo planeado.
 3. Define entradas, salida estructurada esperada, límites, errores visibles, costo/latencia y criterios medibles de aceptación.
 4. Aplica minimización de datos: identifica los datos necesarios, los datos excluidos y qué se comunicará antes de enviar contexto a un proveedor.
 5. Mantén IA opcional y con proveedor intercambiable. Nunca expongas credenciales del proveedor en el frontend.
