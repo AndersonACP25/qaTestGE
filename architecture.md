@@ -14,7 +14,7 @@ Este documento combina la arquitectura objetivo de la v1.0 con el estado real de
 
 ## Límites y decisiones actuales
 
-- Workspace pnpm con frontend en la raíz y API en `backend/`.
+- Workspace pnpm con frontend en la raíz y API en `backend/`. `pnpm dev:all` ejecuta ambos scripts de desarrollo en paralelo mediante filtros del workspace; no añade una dependencia ni conecta automáticamente el frontend con la API.
 - La API Express organiza endpoints en rutas, controladores y modelos.
 - El almacén temporal de la API vive en memoria y se reinicia con el proceso.
 - Los endpoints iniciales listan y crean bugs, casos de prueba, ejecuciones y metadatos de evidencias.
@@ -142,3 +142,25 @@ Correlacionar solicitudes y errores con identificadores de operación. Medir lat
 - Proveedores de IA permitidos, ubicación de procesamiento, consentimiento, costos y cuotas.
 - Necesidades de importación/exportación y migración de datos.
 - Objetivos de disponibilidad, respaldo y recuperación.
+
+### Acceso simulado y tema del frontend
+
+La raíz Session muestra los formularios de inicio de sesión y registro antes de montar App. Acepta cualquier usuario y contraseña no vacíos; el registro comprueba la confirmación y no crea una cuenta. Solo el nombre se mantiene en estado React; no se almacenan ni envían credenciales. Salir desmonta el panel y descarta sus datos locales. La recarga vuelve al acceso. No constituye autenticación ni protege endpoints. El tema usa variables CSS compartidas, preferencia inicial del sistema y localStorage opcional para recordar la apariencia. No se añadieron servicios ni dependencias.
+
+### Maqueta del diseñador de test cases
+
+La navegación `case-builder` monta el componente `CaseBuilder`. El texto, la selección múltiple y la visibilidad de la tabla viven únicamente en estado React. Cada categoría tiene dos pasos ilustrativos fijos con acción y resultado esperado; el texto introducido no se procesa. La vista previa se limpia cuando cambian las entradas y el estado se descarta al desmontar la vista. No hay solicitudes de red, ejecución de pruebas, proveedor de IA ni creación de entidades de dominio.
+
+El flujo futuro partirá de una descripción y categorías (edge cases, exploratory, estrés y API), solicitará propuestas mediante la interfaz opcional de proveedor en el servidor y permitirá revisarlas y confirmarlas antes de crear casos con identificadores y referencias de proyecto explícitos. Esa integración, su contrato y la persistencia aún no están implementados.
+
+## Documentación complementaria
+
+### Documentación interactiva y exportaciones locales
+
+`backend/src/openapi.ts` define OpenAPI 3.0.3 para las nueve operaciones existentes, con esquemas de entrada, respuestas y errores. Express lo expone en `/api/openapi.json` y sirve SwaggerUI con `swagger-ui-express` en `/api/docs/`. Los servidores relativos permiten probar la API desde su origen directo o el proxy `/api` de Vite. No hay autenticación; las pruebas POST modifican el almacén temporal. Los cambios de endpoints deben actualizar este contrato y `API.md`. SwaggerUI sirve sus recursos localmente y desactiva el validador externo.
+
+El portal enlaza `/api/docs/`. En un despliegue separado se requiere reenviar `/api` al backend.
+
+`src/utils/exportCases.ts` genera Excel `.xlsx` con ExcelJS y PDF con jsPDF y AutoTable, mediante importaciones dinámicas al exportar. El diseñador exporta la vista previa seleccionada y su descripción, con aviso de contenido ilustrativo. No envía información fuera del navegador ni crea entidades del dominio. El PDF ajusta texto y repite encabezados al paginar; Excel conserva las entradas como texto, sin convertirlas en fórmulas. No hay cambios de persistencia ni integración de IA.
+
+Consultar [API.md](./API.md) para el contrato implementado, [DESIGN.md](./DESIGN.md) para la interfaz, [RULES.md](./RULES.md) para convenciones y [DEVELOPMENT.md](./DEVELOPMENT.md) para comandos y entorno. [CONTRIBUTING.md](./CONTRIBUTING.md) describe el flujo de contribución y [SECURITY.md](./SECURITY.md) los límites de seguridad actuales.

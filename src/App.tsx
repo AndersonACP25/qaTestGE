@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import type { FormEvent, SVGProps } from "react";
 import { filterBugs, filterCases, filterEvidence, filterRuns } from "./utils/filterItems";
+import CaseBuilder from "./CaseBuilder";
 import type {
   Bug,
   Evidence,
@@ -47,6 +48,7 @@ const navigation: {
     { id: "overview", label: "Resumen", icon: "grid" },
     { id: "bugs", label: "Bugs", icon: "bug", count: "12" },
     { id: "cases", label: "Casos de prueba", icon: "check-square" },
+    { id: "case-builder", label: "Diseñar test cases", icon: "sparkle" },
     { id: "runs", label: "Test runs", icon: "play" },
     { id: "evidence", label: "Evidencias", icon: "image" },
   ] },
@@ -96,7 +98,7 @@ function Priority({ level }: { level: PriorityLevel }) {
   return <span className={`priority priority-${level.toLowerCase()}`}><span />{level}</span>;
 }
 
-function App() {
+function App({ user, onLogout, themeControl }: { user: string; onLogout: () => void; themeControl: React.ReactNode }) {
   const [activePage, setActivePage] = useState<NavigationPage>("overview");
   const [bugs, setBugs] = useState(initialBugs);
   const [runs, setRuns] = useState(initialRuns);
@@ -133,7 +135,7 @@ function App() {
 
   const pageTitle: string = ({
     overview: "Resumen", bugs: "Bugs", cases: "Casos de prueba", runs: "Test runs",
-    evidence: "Evidencias", team: "Equipo", settings: "Configuración",
+    evidence: "Evidencias", team: "Equipo", settings: "Configuración", "case-builder": "Diseñar test cases",
   })[activePage];
 
   function handleCreateBug(event: FormEvent<HTMLFormElement>) {
@@ -222,15 +224,16 @@ function App() {
             </button>)}
           </div>)}
         </div>
+        <a className="portal-docs__link" href="/api/docs/" target="_blank" rel="noreferrer"><Icon name="file" />SwaggerUI · API ↗</a>
         <div className="sidebar-bottom">
           <div className="storage-card">
             <div className="storage-top"><span>Almacenamiento</span><span>68%</span></div>
             <div className="storage-track"><span /></div>
             <small>6.8 GB de 10 GB usados</small>
           </div>
-          <button className="profile-button" onClick={() => notify("Perfil de usuario — demo local")}>
-            <Avatar initials="AM" color="orange" />
-            <span className="profile-copy"><strong>Anderson M.</strong><small>Administrador</small></span>
+          <button className="profile-button" onClick={() => notify(`Sesión de demostración: ${user}`)}>
+            <Avatar initials={user.slice(0, 2).toUpperCase()} color="orange" />
+            <span className="profile-copy"><strong>{user}</strong><small>Usuario de demostración</small></span>
             <Icon name="dots" size={19} />
           </button>
         </div>
@@ -241,11 +244,11 @@ function App() {
       <main className="main-area">
         <header className="topbar">
           <div className="breadcrumb"><button className="mobile-menu icon-button" onClick={() => setMobileNav(true)} aria-label="Abrir menú"><span className="hamburger" /></button><span>QA Workspace</span><span className="crumb-slash">/</span><strong>{pageTitle}</strong></div>
-          <div className="topbar-actions">
+          <div className="topbar-actions">{themeControl}<button className="session__logout" onClick={onLogout}>Salir</button>
             <div className="demo-pill"><span />Demo local</div>
             <span className="ai-pill"><Icon name="sparkle" size={15} /> IA no conectada</span>
             <button className="icon-button notification-button" onClick={() => notify("No tienes notificaciones nuevas.")} aria-label="Notificaciones"><Icon name="bell" /><i /></button>
-            <Avatar initials="AM" color="orange" small />
+            <Avatar initials={user.slice(0, 2).toUpperCase()} color="orange" small />
           </div>
         </header>
 
@@ -253,15 +256,15 @@ function App() {
           <div className="welcome-row">
             <div>
               <div className="eyebrow"><span className="live-dot" /> MIÉRCOLES, 14 DE OCTUBRE, 2026</div>
-              <h1>{activePage === "overview" ? <>Buenos días, Anderson <span className="wave">✦</span></> : pageTitle}</h1>
+              <h1>{activePage === "overview" ? <>Hola, {user} <span className="wave">✦</span></> : pageTitle}</h1>
               <p className="page-subtitle">{activePage === "overview" ? "Aquí tienes el estado de calidad de tus proyectos." : pageDescription(activePage)}</p>
             </div>
-            <div className="header-buttons">
+            {activePage !== "case-builder" && <div className="header-buttons">
               {activePage === "overview" && <button className="button button-secondary" onClick={() => notify("Reporte de calidad preparado en la demo local.")}><Icon name="download" size={16} /> Exportar reporte</button>}
               {activePage === "runs" ? <button className="button button-primary" onClick={handleNewRun}><Icon name="plus" size={17} /> Nueva ejecución</button>
                 : activePage === "evidence" ? <label className="button button-primary"><Icon name="plus" size={17} /> Agregar evidencia<input type="file" hidden onChange={handleFile} /></label>
                   : <button className="button button-primary" onClick={() => setModal("bug")}><Icon name="plus" size={17} /> Nuevo bug</button>}
-            </div>
+            </div>}
           </div>
 
           {activePage === "overview" ? <Overview
@@ -272,7 +275,7 @@ function App() {
             setProject={setProject}
             onNewRun={handleNewRun}
             onCreateBug={() => setModal("bug")}
-          /> : isListing ? <section className="listing-card">
+          /> : activePage === "case-builder" ? <CaseBuilder /> : isListing ? <section className="listing-card">
             <div className="listing-toolbar">
               <div className="listing-tabs">
                 {filters.map((filter) => <button key={filter} className={`filter-tab${statusFilter === filter ? " filter-tab-active" : ""}`} onClick={() => setStatusFilter(filter)}>{filter}{filter === "Todos" && <span>{activePage === "bugs" ? bugs.length : activePage === "cases" ? cases.length : activePage === "runs" ? runs.length : evidence.length}</span>}</button>)}
@@ -318,6 +321,7 @@ function pageDescription(page: NavigationPage): string {
     evidence: "Capturas, videos y archivos vinculados a tu actividad de QA.",
     team: "Personas y roles del espacio de trabajo.",
     settings: "Preferencias del workspace y de tu perfil.",
+    "case-builder": "De una idea a un plan de pruebas: explora la maqueta del futuro asistente.",
   })[page];
 }
 

@@ -8,6 +8,19 @@ afterEach(() => {
 });
 
 describe("qaTestGE API", () => {
+  it("serves SwaggerUI, local assets and the OpenAPI contract", async () => {
+    const spec = await request(app).get("/api/openapi.json");
+    expect(spec.status).toBe(200);
+    expect(spec.body.openapi).toBe("3.0.3");
+    expect(spec.body.paths["/api/bugs"].post).toBeDefined();
+    const ui = await request(app).get("/api/docs/");
+    expect(ui.status).toBe(200);
+    expect(ui.text).toContain("swagger-ui");
+    expect((await request(app).get("/api/docs/swagger-ui.css")).status).toBe(200);
+    const init = await request(app).get("/api/docs/swagger-ui-init.js");
+    expect(init.status).toBe(200);
+    expect(init.text).toContain("qaTestGE API");
+  });
   it("reports its health", async () => {
     const response = await request(app).get("/api/health");
 

@@ -1,5 +1,7 @@
 import cors from "cors";
 import express, { type ErrorRequestHandler } from "express";
+import swaggerUi from "swagger-ui-express";
+import { openApiDocument } from "./openapi.js";
 import bugsRouter from "./routes/bugs.routes.js";
 import evidenceRouter from "./routes/evidence.routes.js";
 import testCasesRouter from "./routes/test-cases.routes.js";
@@ -10,6 +12,11 @@ const app = express();
 app.disable("x-powered-by");
 app.use(cors({ origin: process.env.FRONTEND_ORIGIN ?? "http://localhost:5173" }));
 app.use(express.json({ limit: "1mb" }));
+app.get("/api/openapi.json", (_request, response) => { response.json(openApiDocument); });
+app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(openApiDocument, {
+  customSiteTitle: "qaTestGE · SwaggerUI",
+  swaggerOptions: { validatorUrl: null },
+}));
 
 app.get("/api/health", (_request, response) => {
   response.json({ data: { status: "ok" } });

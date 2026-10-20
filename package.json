@@ -6,7 +6,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:all": "pnpm --parallel --stream --filter qatestge --filter @qatestge/api run dev",
+    "dev:frontend": "vite",
+    "dev:backend": "pnpm --dir backend dev",
     "dev:api": "pnpm --dir backend dev",
+    "build:frontend": "tsc --noEmit && vite build",
+    "build:backend": "pnpm --dir backend build",
     "build": "tsc --noEmit && vite build && tsc -p backend/tsconfig.json",
     "preview": "vite preview",
     "test": "vitest run",
@@ -15,6 +20,9 @@
   },
   "dependencies": {
     "@vitejs/plugin-react": "^4.3.4",
+    "exceljs": "^4.4.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.9",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "vite": "^6.0.7"

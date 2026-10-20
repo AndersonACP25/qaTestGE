@@ -6,6 +6,11 @@ Todos los cambios importantes de qaTestGE se documentan aquí. El formato sigue 
 
 ### Added
 
+- Guías API.md, DESIGN.md, RULES.md, DEVELOPMENT.md, CONTRIBUTING.md y SECURITY.md basadas en la implementación actual.
+- Scripts dev:all para levantar frontend y backend en paralelo, alias dev:frontend/dev:backend y builds separados.
+- Maqueta de diseño de test cases con descripción, selección múltiple de categorías y tablas de ejemplo Acción / Resultado esperado, sin generación real ni guardado.
+- Inicio de sesión y registro simulados, perfil local y cierre de sesión.
+- Temas claro y oscuro con preferencia del sistema y selección recordada en el navegador.
 - Archivo `.github/CODEOWNERS` para revisión del propietario del repositorio.
 - Workspace pnpm y una API Express MVC inicial en TypeScript.
 - Endpoints de salud y operaciones de listado/creación para bugs, casos de prueba, ejecuciones y metadatos de evidencias.
@@ -26,6 +31,7 @@ Todos los cambios importantes de qaTestGE se documentan aquí. El formato sigue 
 ## [1.0.0] - 2026-10-14
 
 ### Added
+
 
 - Interfaz frontend de demostración en React y Vite para el workspace de qaTestGE.
 - Vistas de resumen, bugs, casos de prueba, test runs y evidencias con datos de ejemplo.

@@ -2,6 +2,7 @@ export type NavigationPage =
   | "overview"
   | "bugs"
   | "cases"
+  | "case-builder"
   | "runs"
   | "evidence"
   | "team"
