@@ -13,6 +13,8 @@ describe("account settings view", () => {
         onAccountDeleted: () => {},
         caseCountDefaults: defaultCaseCountDefaults,
         onCaseCountDefaultsChanged: () => {},
+        selectedCategories: ["edge"],
+        onSelectedCategoriesChanged: () => {},
       }),
     );
     expect(html).toContain("Información de la cuenta");
@@ -23,6 +25,7 @@ describe("account settings view", () => {
     expect(html).toContain("Conexión con IA");
     expect(html).toContain("Desactivar y anonimizar cuenta");
     expect(html).toContain("Diseño de test cases");
+    expect(html).toContain("Tipos seleccionados inicialmente");
     expect(html).toContain("Valor inicial para API");
     expect(html.match(/Valor inicial para /g)).toHaveLength(18);
   });

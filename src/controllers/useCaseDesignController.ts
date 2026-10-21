@@ -16,9 +16,10 @@ export interface CaseDesignPreviewCase {
 export function useCaseDesignController(
   defaultCounts: CaseCountDefaults = defaultCaseCountDefaults,
   projectId = "",
+  defaultSelected: string[] = ["edge"],
 ) {
   const [text, setText] = useState("");
-  const [selected, setSelected] = useState<string[]>(["edge"]);
+  const [selected, setSelected] = useState<string[]>(defaultSelected);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [preview, setPreview] = useState(false);
   const [exampleSteps, setExampleSteps] = useState<

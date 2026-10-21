@@ -42,7 +42,9 @@ import type {
 import { bugStatuses, caseStatuses } from "./types";
 import {
   loadCaseCountDefaults,
+  loadSelectedCategories,
   saveCaseCountDefaults,
+  saveSelectedCategories,
   type CaseCountDefaults,
 } from "./models/caseCountDefaults";
 
@@ -353,6 +355,9 @@ function App({
   const [updatingStatus, setUpdatingStatus] = useState("");
   const [caseCountDefaults, setCaseCountDefaults] = useState<CaseCountDefaults>(() =>
     loadCaseCountDefaults(user.id),
+  );
+  const [caseDesignCategories, setCaseDesignCategories] = useState<string[]>(() =>
+    loadSelectedCategories(user.id),
   );
   const [modal, setModal] = useState("");
   const [bugTemplates, setBugTemplates] = useState<BugTemplate[]>([]);
@@ -828,6 +833,10 @@ function App({
     saveCaseCountDefaults(user.id, defaults);
     setCaseCountDefaults(defaults);
   }
+  function saveDefaultCategories(selected: string[]) {
+    saveSelectedCategories(user.id, selected);
+    setCaseDesignCategories(selected);
+  }
   async function changeBugStatus(bug: Bug, status: BugStatus) {
     if (!bug.projectId || updatingStatus) return;
     setUpdatingStatus(bug.id);
@@ -1077,9 +1086,15 @@ function App({
               onAccountDeleted={onAccountDeleted}
               caseCountDefaults={caseCountDefaults}
               onCaseCountDefaultsChanged={saveDefaultCounts}
+              selectedCategories={caseDesignCategories}
+              onSelectedCategoriesChanged={saveDefaultCategories}
             />
           ) : activePage === "case-builder" ? (
-            <CaseBuilder defaultCounts={caseCountDefaults} projectId={projectId} />
+            <CaseBuilder
+              defaultCounts={caseCountDefaults}
+              defaultSelectedCategories={caseDesignCategories}
+              projectId={projectId}
+            />
           ) : (
             !loading &&
             !error &&

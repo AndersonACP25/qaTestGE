@@ -3240,6 +3240,15 @@ tbody td {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.account-settings__count-item label {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+.account-settings__count-item input[type="checkbox"] {
+  accent-color: var(--purple);
+}
 .account-settings__count-item select {
   width: 58px;
   flex: 0 0 auto;

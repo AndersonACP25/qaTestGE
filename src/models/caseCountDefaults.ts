@@ -5,9 +5,13 @@ export type CaseCountDefaults = Record<string, number>;
 export const defaultCaseCountDefaults: CaseCountDefaults = Object.fromEntries(
   categories.map(({ id }) => [id, 1]),
 );
+export const defaultSelectedCategories = ["edge"];
 
 function preferenceKey(userId: string) {
   return `qatestge-case-count-defaults-v1:${userId}`;
+}
+function selectedPreferenceKey(userId: string) {
+  return `qatestge-case-design-categories-v1:${userId}`;
 }
 
 export function loadCaseCountDefaults(
@@ -65,4 +69,46 @@ export function saveCaseCountDefaults(
   const target = storage ?? (typeof window === "undefined" ? undefined : window.localStorage);
   if (!target) throw new Error("El almacenamiento local no está disponible en este entorno.");
   target.setItem(preferenceKey(userId), JSON.stringify(normalized));
+}
+
+export function loadSelectedCategories(
+  userId: string,
+  storage?: Pick<Storage, "getItem">,
+): string[] {
+  let target = storage;
+  if (!target && typeof window !== "undefined") {
+    try {
+      target = window.localStorage;
+    } catch {
+      return [...defaultSelectedCategories];
+    }
+  }
+  if (!target) return [...defaultSelectedCategories];
+  try {
+    const stored: unknown = JSON.parse(target.getItem(selectedPreferenceKey(userId)) ?? "null");
+    if (!Array.isArray(stored)) return [...defaultSelectedCategories];
+    const valid = stored.filter(
+      (id): id is string =>
+        typeof id === "string" && categories.some((category) => category.id === id),
+    );
+    const unique = [...new Set(valid)];
+    return unique.length ? unique : [...defaultSelectedCategories];
+  } catch {
+    return [...defaultSelectedCategories];
+  }
+}
+
+export function saveSelectedCategories(
+  userId: string,
+  selected: string[],
+  storage?: Pick<Storage, "setItem">,
+) {
+  const knownIds = new Set(categories.map(({ id }) => id));
+  const normalized = [...new Set(selected)];
+  if (!normalized.length || normalized.some((id) => !knownIds.has(id))) {
+    throw new RangeError("Selecciona al menos un tipo de prueba válido.");
+  }
+  const target = storage ?? (typeof window === "undefined" ? undefined : window.localStorage);
+  if (!target) throw new Error("El almacenamiento local no está disponible en este entorno.");
+  target.setItem(selectedPreferenceKey(userId), JSON.stringify(normalized));
 }

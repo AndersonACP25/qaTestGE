@@ -14,12 +14,16 @@ export default function AccountSettingsView({
   onAccountDeleted,
   caseCountDefaults,
   onCaseCountDefaultsChanged,
+  selectedCategories,
+  onSelectedCategoriesChanged,
 }: {
   user: User;
   onUserUpdated: (user: User) => void;
   onAccountDeleted: () => void;
   caseCountDefaults: CaseCountDefaults;
   onCaseCountDefaultsChanged: (defaults: CaseCountDefaults) => void;
+  selectedCategories: string[];
+  onSelectedCategoriesChanged: (categories: string[]) => void;
 }) {
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
@@ -44,6 +48,7 @@ export default function AccountSettingsView({
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState("");
   const [countDefaults, setCountDefaults] = useState(caseCountDefaults);
+  const [selectedDefaults, setSelectedDefaults] = useState(selectedCategories);
   const [countDefaultsBusy, setCountDefaultsBusy] = useState(false);
   const [countDefaultsError, setCountDefaultsError] = useState("");
   const [countDefaultsMessage, setCountDefaultsMessage] = useState("");
@@ -214,7 +219,8 @@ export default function AccountSettingsView({
     setCountDefaultsMessage("");
     try {
       onCaseCountDefaultsChanged(countDefaults);
-      setCountDefaultsMessage("Los valores predeterminados se guardaron en este navegador.");
+      onSelectedCategoriesChanged(selectedDefaults);
+      setCountDefaultsMessage("Las preferencias de diseño se guardaron en este navegador.");
     } catch (cause) {
       setCountDefaultsError(
         cause instanceof Error
@@ -479,7 +485,7 @@ export default function AccountSettingsView({
         <div className="account-settings__heading">
           <h2>Diseño de test cases</h2>
           <p>
-            Define cuántos ejemplos se seleccionan inicialmente para cada tipo de prueba. Los
+            Define qué tipos de prueba y cuántos ejemplos aparecerán seleccionados inicialmente. Los
             valores se guardan en este navegador y puedes cambiarlos antes de mostrar la vista
             previa.
           </p>
@@ -489,10 +495,27 @@ export default function AccountSettingsView({
           onSubmit={saveCountDefaults}
           aria-busy={countDefaultsBusy}
         >
+          <h3>Tipos seleccionados inicialmente</h3>
+          <p className="workspace__notice">
+            Mantén al menos un tipo seleccionado para iniciar el diseño.
+          </p>
           <div className="account-settings__count-grid">
             {categories.map((category) => (
-              <label className="account-settings__count-item" key={category.id}>
-                <span>{category.label}</span>
+              <div className="account-settings__count-item" key={category.id}>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={selectedDefaults.includes(category.id)}
+                    onChange={(event) =>
+                      setSelectedDefaults((current) =>
+                        event.target.checked
+                          ? [...current, category.id]
+                          : current.filter((id) => id !== category.id),
+                      )
+                    }
+                  />
+                  <span>{category.label}</span>
+                </label>
                 <select
                   aria-label={`Valor inicial para ${category.label}`}
                   value={countDefaults[category.id] ?? 1}
@@ -509,7 +532,7 @@ export default function AccountSettingsView({
                     </option>
                   ))}
                 </select>
-              </label>
+              </div>
             ))}
           </div>
           {countDefaultsError && (
