@@ -21,6 +21,8 @@ qaTestGE es una plataforma para gestionar bugs, casos de prueba, ejecuciones y e
 
 - `src/` contiene el frontend React/Vite en TypeScript.
 - `backend/src/` contiene la API Express en TypeScript organizada por modelos, controladores y rutas.
-- La API usa PostgreSQL mediante pg y backend/src/repositories/postgres.repository.ts. DATABASE_URL se carga desde backend/.env; no mostrar credenciales ni usar la base local para pruebas destructivas. Los scripts de backend/sql/ se importan manualmente.
+- La API usa PostgreSQL mediante pg y backend/src/repositories/postgres.repository.ts. DATABASE_URL se carga desde backend/.env; no mostrar credenciales ni usar la base local para pruebas destructivas. El esquema inicial y el seed de backend/sql/ se importan manualmente; las migraciones versionadas se aplican con pnpm db:migrate.
 - `tests/` contiene pruebas unitarias y `backend/tests/` pruebas de endpoints.
-- Hay autenticación local con usuarios/sesiones en PostgreSQL y autorización por membresías de organización; el frontend consume la API. No describas carga binaria de archivos, IA real, recuperación de contraseña, verificación de correo, MFA o invitaciones como disponibles. La migración 004 añade usuarios sin asignarles organizaciones existentes.
+- Hay autenticación local con usuarios/sesiones en PostgreSQL y autorización por membresías de organización; el frontend consume la API. Las plantillas personales de bugs se guardan en PostgreSQL. La baja desactiva y anonimiza al usuario, revoca sesiones y conserva membresías y recursos QA.
+- GitHub Actions valida pull requests y pushes a main; los pushes a main publican artefactos compilados. No hay despliegue automático a un proveedor.
+- No describas carga binaria de archivos, IA real, recuperación de contraseña, verificación de correo, MFA o invitaciones como disponibles. La configuración de IA es solo una maqueta. La migración 004 añade usuarios sin asignarles organizaciones existentes y la 005 agrega plantillas por usuario.

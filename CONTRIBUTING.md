@@ -6,8 +6,10 @@
 4. Añadir o ajustar pruebas pertinentes. Las unitarias van en `tests/unit/`; las de endpoints en `backend/tests/`.
 5. Ejecutar `pnpm typecheck`, `pnpm build` y `pnpm test`. Para cambios de interfaz, revisar ambos temas y tamaños móvil/escritorio.
 6. Actualizar la documentación afectada y `CHANGELOG.md`. Mantener [API.md](./docs/API.md) sincronizado si cambia el contrato de servidor.
-7. Abrir un pull request con la plantilla del repositorio, explicando problema, comportamiento final y validación realizada.
+7. Abrir un pull request con la plantilla del repositorio, explicando problema, comportamiento final y validación realizada. GitHub Actions repetirá typecheck, pruebas y build; un push a `main` genera un artefacto compilado de entrega.
 
 Usar las plantillas de GitHub para reportar bugs o proponer mejoras. Incluir pasos reproducibles y datos ficticios; nunca adjuntar credenciales o evidencia sensible.
 
 Los commits siguen Conventional Commits, por ejemplo `feat(ui): añadir vista de casos` o `docs(api): documentar validaciones`. No generar commits automáticamente sin solicitud. La revisión puede apoyarse en los propietarios definidos en `.github/CODEOWNERS`.
+
+Los cambios de esquema PostgreSQL requieren una migración aditiva nueva y su actualización en `backend/sql/README.md`; no modificar migraciones ya aplicadas. Las funciones de IA deben seguir siendo opcionales y no enviar datos sensibles sin una decisión y controles explícitos.

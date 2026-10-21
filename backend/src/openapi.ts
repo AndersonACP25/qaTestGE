@@ -23,7 +23,7 @@ const unavailable = errorResponse("DATABASE_UNAVAILABLE: PostgreSQL no disponibl
 
 export const openApiDocument = {
   openapi: "3.0.3",
-  info: { title: "qaTestGE API", version: "1.0.0", description: "API con usuarios locales y sesiones HttpOnly persistidas en PostgreSQL. Los POST requieren sesión y X-CSRF-Token y modifican datos reales. Evidencias: solo metadatos. projectId obligatorio; caseIds sustituye caseCount; related en la respuesta es un array." },
+  info: { title: "qaTestGE API", version: "1.0.0", description: "API con usuarios locales y sesiones HttpOnly persistidas en PostgreSQL. Las plantillas de bugs son privadas por cuenta. Las escrituras requieren sesión y X-CSRF-Token. Evidencias: solo metadatos. projectId obligatorio; caseIds sustituye caseCount; related en la respuesta es un array." },
   servers: [{ url: "/", description: "Servidor actual (directo o proxy /api)" }],
   security: [{ sessionCookie: [] as string[] }],
   paths: {
@@ -32,6 +32,15 @@ export const openApiDocument = {
     "/api/auth/me": {
       get: { summary: "Sesión actual y token CSRF", responses: { "200": { description: "Usuario actual", content: json(envelope(ref("AuthState"))) }, "401": errorResponse("UNAUTHENTICATED") } },
       patch: { security: [{ sessionCookie: [], csrfToken: [] }], summary: "Actualizar nombre y correo de la cuenta", requestBody: { required: true, content: json(ref("ProfileInput")) }, responses: { "200": { description: "Perfil actualizado", content: json(envelope(ref("User"))) }, "400": errorResponse("INVALID_PROFILE"), "401": errorResponse("UNAUTHENTICATED"), "403": errorResponse("INVALID_CSRF"), "409": errorResponse("ACCOUNT_EXISTS") } },
+      delete: { security: [{ sessionCookie: [], csrfToken: [] }], summary: "Desactivar y anonimizar la cuenta; conserva proyectos y registros QA", requestBody: { required: true, content: json(ref("AccountDeletionInput")) }, responses: { "204": { description: "Cuenta anonimizada, sesiones revocadas y cookie borrada" }, "400": errorResponse("INVALID_ACCOUNT_DELETION"), "401": errorResponse("INVALID_PASSWORD o UNAUTHENTICATED"), "403": errorResponse("INVALID_CSRF") } },
+    },
+    "/api/auth/bug-templates": {
+      get: { summary: "Listar plantillas privadas del usuario", responses: { "200": { description: "Plantillas de la cuenta", content: json(envelope({ type: "array", items: ref("BugTemplate") })) }, "401": errorResponse("UNAUTHENTICATED") } },
+      post: { security: [{ sessionCookie: [], csrfToken: [] }], summary: "Crear plantilla personal de bug", requestBody: { required: true, content: json(ref("BugTemplateInput")) }, responses: { "201": { description: "Plantilla creada", content: json(envelope(ref("BugTemplate"))) }, "400": errorResponse("INVALID_TEMPLATE"), "401": errorResponse("UNAUTHENTICATED"), "403": errorResponse("INVALID_CSRF"), "409": errorResponse("CONFLICT: nombre duplicado en la cuenta.") } },
+    },
+    "/api/auth/bug-templates/{templateId}": {
+      patch: { security: [{ sessionCookie: [], csrfToken: [] }], summary: "Actualizar una plantilla propia", parameters: [{ in: "path", name: "templateId", required: true, schema: { type: "string", pattern: "^[1-9][0-9]{0,18}$" } }], requestBody: { required: true, content: json(ref("BugTemplateInput")) }, responses: { "200": { description: "Plantilla actualizada", content: json(envelope(ref("BugTemplate"))) }, "400": errorResponse("INVALID_TEMPLATE"), "401": errorResponse("UNAUTHENTICATED"), "403": errorResponse("INVALID_CSRF"), "404": errorResponse("TEMPLATE_NOT_FOUND"), "409": errorResponse("CONFLICT: nombre duplicado en la cuenta.") } },
+      delete: { security: [{ sessionCookie: [], csrfToken: [] }], summary: "Eliminar una plantilla propia", parameters: [{ in: "path", name: "templateId", required: true, schema: { type: "string", pattern: "^[1-9][0-9]{0,18}$" } }], responses: { "204": { description: "Plantilla eliminada" }, "400": errorResponse("INVALID_TEMPLATE"), "401": errorResponse("UNAUTHENTICATED"), "403": errorResponse("INVALID_CSRF"), "404": errorResponse("TEMPLATE_NOT_FOUND") } },
     },
     "/api/auth/password": { patch: { security: [{ sessionCookie: [], csrfToken: [] }], summary: "Cambiar contraseña y revocar las demás sesiones", requestBody: { required: true, content: json(ref("PasswordInput")) }, responses: { "204": { description: "Contraseña actualizada" }, "400": errorResponse("INVALID_PASSWORD"), "401": errorResponse("INVALID_PASSWORD o UNAUTHENTICATED"), "403": errorResponse("INVALID_CSRF") } } },
     "/api/auth/logout": { post: { security: [{ sessionCookie: [], csrfToken: [] }], summary: "Revocar sesión y eliminar cookie; enviar JSON vacío", requestBody: { required: true, content: json({ type: "object", example: {} }) }, responses: { "204": { description: "Sesión revocada" }, "401": errorResponse("UNAUTHENTICATED"), "403": errorResponse("INVALID_CSRF") } } },
@@ -55,6 +64,9 @@ export const openApiDocument = {
       AuthState: object({ user: ref("User"), csrfToken: { type: "string", minLength: 64, maxLength: 64 } }, ["user", "csrfToken"]),
       ProfileInput: object({ name: text(100), email: { type: "string", format: "email", maxLength: 254 } }, ["name", "email"]),
       PasswordInput: object({ currentPassword: { type: "string", minLength: 1, maxLength: 128, format: "password" }, newPassword: { type: "string", minLength: 12, maxLength: 128, format: "password" } }, ["currentPassword", "newPassword"]),
+      AccountDeletionInput: object({ currentPassword: { type: "string", minLength: 1, maxLength: 128, format: "password" }, confirmation: { type: "string", enum: ["ELIMINAR CUENTA"] } }, ["currentPassword", "confirmation"]),
+      BugTemplateInput: object({ name: text(100), title: { type: "string", maxLength: 200 }, description: { type: "string", maxLength: 5000 }, priority: { type: "string", enum: bugPriorities } }, ["name", "title", "description", "priority"]),
+      BugTemplate: object({ id: { type: "string", pattern: "^[1-9][0-9]{0,18}$" }, name: text(100), title: { type: "string", maxLength: 200 }, description: { type: "string", maxLength: 5000 }, priority: { type: "string", enum: bugPriorities }, createdAt: { type: "string", format: "date-time" } }, ["id", "name", "title", "description", "priority", "createdAt"]),
       ...inputs,
       Bug: object({ ...inputs.BugInput.properties, ...common, project: text(100), description: { type: "string" }, assignee: { type: "string", nullable: true }, status: { type: "string", enum: bugStatuses } }, ["id", "projectId", "title", "project", "priority", "description", "status", "assignee", "createdAt"]),
       TestCase: object({ ...inputs.TestCaseInput.properties, ...common, status: { type: "string", enum: ["Pendiente", "Aprobado", "Fallido"] } }, ["id", "projectId", "title", "suite", "preconditions", "steps", "status", "createdAt"]),

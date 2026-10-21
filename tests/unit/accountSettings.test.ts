@@ -8,10 +8,14 @@ describe("account settings view", () => {
     const html = renderToStaticMarkup(createElement(AccountSettingsView, {
       user: { id: "1", name: "QA", email: "qa@example.test" },
       onUserUpdated: () => {},
+      onAccountDeleted: () => {},
     }));
     expect(html).toContain("Información de la cuenta");
     expect(html).toContain('value="qa@example.test"');
     expect(html).toContain("Contraseña actual");
     expect(html).toContain("Confirmar nueva contraseña");
+    expect(html).toContain("Plantillas para bugs");
+    expect(html).toContain("Conexión con IA");
+    expect(html).toContain("Desactivar y anonimizar cuenta");
   });
 });

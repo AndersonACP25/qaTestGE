@@ -4,14 +4,20 @@ import { createPool } from "./database.js";
 loadEnvironment();
 const pool = createPool(databaseUrl());
 try {
-  const sql = await readFile(new URL("../sql/004_authentication.sql", import.meta.url), "utf8");
   const client = await pool.connect();
   try {
-    await client.query(sql);
-    console.info("Migración 004_authentication aplicada/verificada. Datos existentes conservados.");
-  } catch { await client.query("ROLLBACK"); throw new Error("migration failed"); }
+    for (const filename of ["004_authentication.sql", "005_bug_templates.sql"]) {
+      const sql = await readFile(new URL(`../sql/${filename}`, import.meta.url), "utf8");
+      await client.query(sql);
+      console.info(`Migración ${filename} aplicada/verificada.`);
+    }
+    console.info("Datos existentes conservados.");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  }
   finally { client.release(); }
 } catch {
-  console.error("No se pudo aplicar 004_authentication. Revisa conexión, permisos y esquema qa existente.");
+  console.error("No se pudo aplicar la migración PostgreSQL. Revisa conexión, permisos y esquema qa existente.");
   process.exitCode = 1;
 } finally { await pool.end(); }

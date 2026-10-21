@@ -2,7 +2,7 @@
 
 ## Alcance actual
 
-Interfaz React/Vite conectada a la API. Incluye autenticación, resumen y listados reales, formularios de creación y la maqueta separada del diseñador de test cases. Equipo y configuración muestran vistas pendientes. Los recursos manuales se consultan y guardan en PostgreSQL mediante la API.
+Interfaz React/Vite conectada a la API. Incluye autenticación, resumen y listados reales, formularios de creación, configuración de cuenta, plantillas personales de bugs, una zona de baja de cuenta y la maqueta separada del diseñador de test cases. Equipo sigue pendiente. Los recursos manuales se consultan y guardan en PostgreSQL mediante la API.
 
 ## Estructura
 
@@ -10,6 +10,7 @@ Interfaz React/Vite conectada a la API. Incluye autenticación, resumen y listad
 |---|---|
 | `src/Session.tsx` | Login, registro, restauración de sesión, cierre y preferencia de tema |
 | `src/App.tsx` | Navegación en estado React, shell, vistas, carga de API y formularios |
+| `src/views/AccountSettingsView.tsx` | Perfil, contraseña, CRUD de plantillas, maqueta de IA y baja de cuenta |
 | `src/CaseBuilder.tsx` | Descripción, selección de categorías, cantidades y tablas fijas de ejemplo |
 | `src/utils/caseCatalog.ts` | Catálogo de escenarios ilustrativos y validación de cantidades |
 | `src/styles.css` | Estilos actuales, variables de color y reglas responsive |
@@ -32,6 +33,8 @@ La marca de cuatro bloques violeta/naranja está en public/favicon.svg. El works
 ## Flujos y estados
 
 El acceso verifica correo y contraseña contra la API; el registro pide nombre, correo, contraseña de 12–128 caracteres y confirmación. Mostrar errores, espera y sesión expirada; nunca ofrecer acceso ficticio al fallar la API. No persistir credenciales o tokens en localStorage. Los nuevos usuarios ven su propio proyecto y los datos anteriores exigen membresía explícita.
+
+Configuración agrupa perfil, seguridad, plantillas, IA y zona de peligro. Las plantillas se guardan en la cuenta, y la opción de cargar una plantilla en «Nuevo bug» prellena los campos que la persona puede seguir editando. El contenido se muestra solo como texto plano. La maqueta de IA está deshabilitada y no almacena claves. La baja exige contraseña y frase exacta; advierte que se anonimizan los datos, revocan sesiones y borran plantillas, pero que se conservan los recursos QA relacionados.
 
 El diseñador permite combinar 18 categorías, incluidas Smoke, Regresión, Funcionales, UI, UX e Integración. Cada una tiene una casilla y un contador etiquetado de 1 a 3 pruebas, habilitado al seleccionarla y con valor inicial de una. El botón de vista previa exige descripción no vacía, al menos una categoría y cantidades enteras válidas. Cada fila es una prueba fija con Acción / Resultado esperado; la cantidad determina cuántos ejemplos distintos se muestran. El total, Excel y PDF usan la misma selección. Cambiar las entradas limpia la vista previa; abandonar la vista descarta su estado. No presentar esos ejemplos como contenido generado a partir del requisito.
 

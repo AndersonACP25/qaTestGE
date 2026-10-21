@@ -24,6 +24,9 @@ El frontend usa React, TypeScript y Vite. La API usa Node.js, Express, TypeScrip
 
 - Registro e inicio de sesión con sesiones persistidas y contraseñas protegidas con scrypt.
 - Actualización de nombre, correo y contraseña desde **Configuración**.
+- Plantillas personales de bugs guardadas en PostgreSQL, administrables en Configuración y cargables al crear una incidencia.
+- Desactivación y anonimización de cuenta con contraseña actual, revocación de sesiones y conservación de proyectos y registros QA relacionados.
+- Configuración de IA visible como maqueta no funcional: no guarda claves ni conecta proveedores.
 - Workspaces, membresías y proyectos con autorización en la API.
 - Alta y consulta de bugs y casos de prueba.
 - Creación de ejecuciones manuales vinculadas a casos.
@@ -32,6 +35,10 @@ El frontend usa React, TypeScript y Vite. La API usa Node.js, Express, TypeScrip
 - Temas claro y oscuro.
 
 La integración de IA es opcional y todavía no está implementada. No se ofrecen actualmente recuperación de contraseña, verificación de correo, MFA, invitaciones, permisos granulares ni auditoría.
+
+## CI/CD
+
+GitHub Actions valida cada pull request y cada push a `main` con Node.js 24 y pnpm 12.11.2: instalación congelada, TypeScript, pruebas y build. Los pushes a `main` publican el frontend y el backend compilados como artefacto descargable de Actions durante 14 días. No se despliega automáticamente a un servidor porque este repositorio aún no define un proveedor ni un entorno de despliegue.
 
 ## Requisitos
 
@@ -95,14 +102,14 @@ No incluyas los signos `<` y `>` al reemplazar la contraseña. Si contiene carac
 
 La API requiere la base `qa_test_ge` y el esquema `qa` inicializado antes de arrancar.
 
-### 4. Aplicar la migración de autenticación
+### 4. Aplicar las migraciones de cuenta y plantillas
 
 ```bash
 pnpm db:migrate
 pnpm db:check
 ```
 
-`db:migrate` aplica idempotentemente `004_authentication.sql` y añade usuarios, membresías y sesiones sin borrar ni asignar datos existentes. `db:check` comprueba la conexión y el esquema sin modificar datos.
+`db:migrate` aplica idempotentemente las migraciones `004_authentication.sql` (usuarios, membresías y sesiones) y `005_bug_templates.sql` (plantillas personales de bugs). No borra ni asigna datos existentes. `db:check` comprueba la conexión y el esquema sin modificar datos.
 
 Si partes de una base que ya tenía el esquema inicial, **no vuelvas a importar `001_schema.sql`**: configura la conexión y ejecuta `pnpm db:migrate` y `pnpm db:check`.
 
@@ -136,7 +143,7 @@ Al abrir la aplicación, registra una cuenta para crear un workspace y proyecto 
 | `pnpm dev` | Inicia frontend y API |
 | `pnpm dev:frontend` | Inicia solo Vite |
 | `pnpm dev:backend` | Inicia solo la API |
-| `pnpm db:migrate` | Aplica/verifica la migración aditiva de autenticación |
+| `pnpm db:migrate` | Aplica/verifica las migraciones aditivas de cuentas y plantillas |
 | `pnpm db:check` | Comprueba la base y el esquema sin escrituras |
 | `pnpm typecheck` | Comprueba tipos del frontend y pruebas incluidas |
 | `pnpm test` | Ejecuta pruebas unitarias y de API sin requerir PostgreSQL |
@@ -154,7 +161,7 @@ No uses `test:db` contra una base con datos de trabajo: requiere una base de pru
 5. Ejecuta `pnpm db:migrate` y luego `pnpm db:check`.
 6. Ejecuta `pnpm typecheck`, `pnpm test` y `pnpm build` antes de reiniciar la aplicación.
 
-La migración 004 es aditiva e idempotente. No asigna organizaciones o proyectos existentes a nuevos usuarios. No hay un mecanismo de migración automática al arrancar; futuras modificaciones de esquema deben agregarse como nuevas migraciones versionadas.
+Las migraciones 004 y 005 son aditivas e idempotentes. La 004 no asigna organizaciones o proyectos existentes a nuevos usuarios; la 005 crea la tabla de plantillas por usuario. No hay un mecanismo de migración automática al arrancar; futuras modificaciones de esquema deben agregarse como nuevas migraciones versionadas. Al desactivar una cuenta desde Configuración, el usuario se anonimiza y queda inactivo, se revocan las sesiones y se eliminan sus plantillas; las membresías, proyectos y registros QA se conservan.
 
 ## API y documentación
 
@@ -166,7 +173,10 @@ La documentación interactiva está en `/api/docs/`; el contrato OpenAPI en `/ap
 | `GET` | `/api/projects` | Proyectos autorizados |
 | `POST` | `/api/auth/register`, `/api/auth/login` | Registro e inicio de sesión |
 | `GET`, `PATCH` | `/api/auth/me` | Consultar o actualizar nombre y correo |
+| `DELETE` | `/api/auth/me` | Desactivar y anonimizar cuenta con confirmación |
 | `PATCH` | `/api/auth/password` | Cambiar contraseña |
+| `GET`, `POST` | `/api/auth/bug-templates` | Listar y crear plantillas personales de bugs |
+| `PATCH`, `DELETE` | `/api/auth/bug-templates/{templateId}` | Editar o eliminar una plantilla propia |
 | `POST` | `/api/auth/logout` | Revocar sesión |
 | `GET`, `POST` | `/api/bugs` | Listar y crear bugs |
 | `GET`, `POST` | `/api/test-cases` | Listar y crear casos de prueba |

@@ -8,6 +8,7 @@ describe("workspace branding", () => {
     const html = renderToStaticMarkup(createElement(App, {
       user: { id: "1", name: "QA", email: "qa@example.test" },
       onUserUpdated: () => {},
+      onAccountDeleted: () => {},
       onLogout: () => {},
       themeControl: null,
     }));

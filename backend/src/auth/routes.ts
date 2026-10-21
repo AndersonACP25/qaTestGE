@@ -30,6 +30,11 @@ export function authRouter(auth: AuthProvider) {
   router.get("/me", controller.me);
   router.patch("/me", controller.updateProfile);
   router.patch("/password", controller.changePassword);
+  router.get("/bug-templates", controller.listBugTemplates);
+  router.post("/bug-templates", controller.createBugTemplate);
+  router.patch("/bug-templates/:templateId", controller.updateBugTemplate);
+  router.delete("/bug-templates/:templateId", controller.deleteBugTemplate);
+  router.delete("/me", controller.deactivateAccount);
   router.post("/logout", controller.logout);
   return router;
 }

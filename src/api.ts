@@ -7,6 +7,21 @@ import type { Bug, TestCase, TestRun, Evidence } from "./types";
 export interface User { id: string; name: string; email: string }
 export interface AccountProfile { name: string; email: string }
 export interface PasswordChange { currentPassword: string; newPassword: string }
+export type BugTemplatePriority = "Crítica" | "Alta" | "Media" | "Baja";
+export interface BugTemplate {
+  id: string;
+  name: string;
+  title: string;
+  description: string;
+  priority: BugTemplatePriority;
+  createdAt: string;
+}
+export interface BugTemplateInput {
+  name: string;
+  title: string;
+  description: string;
+  priority: BugTemplatePriority;
+}
 export interface Project { id: string; organizationId: string; name: string; description: string }
 export interface SessionState { user: User; csrfToken: string }
 let csrfToken = "";

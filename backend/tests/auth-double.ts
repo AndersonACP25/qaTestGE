@@ -10,4 +10,9 @@ export const testAuth: AuthProvider = {
   projects: async () => [{ id: "1", organizationId: "1", name: "Web Store", description: "" }],
   updateProfile: async (_userId, input) => ({ ...testUser, ...input }),
   changePassword: async () => {},
+  listBugTemplates: async () => [],
+  createBugTemplate: async (_userId, input) => ({ id: "1", ...input, createdAt: "2026-01-01T00:00:00.000Z" }),
+  updateBugTemplate: async (_userId, templateId, input) => ({ id: templateId, ...input, createdAt: "2026-01-01T00:00:00.000Z" }),
+  deleteBugTemplate: async () => {},
+  deactivateAccount: async () => {},
 };

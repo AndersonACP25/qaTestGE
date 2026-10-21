@@ -19,6 +19,11 @@ function setup() {
     logout: vi.fn(),
     updateProfile: vi.fn(async (_userId, input) => ({ ...testUser, ...input })),
     changePassword: vi.fn(),
+    listBugTemplates: vi.fn().mockResolvedValue([]),
+    createBugTemplate: vi.fn(async (_userId, input) => ({ id: "7", ...input, createdAt: "2026-01-01T00:00:00.000Z" })),
+    updateBugTemplate: vi.fn(async (_userId, templateId, input) => ({ id: templateId, ...input, createdAt: "2026-01-01T00:00:00.000Z" })),
+    deleteBugTemplate: vi.fn(),
+    deactivateAccount: vi.fn(),
   };
   return { auth, app: createApp(repo, auth) };
 }
@@ -79,6 +84,37 @@ describe("authentication HTTP boundaries", () => {
     const response = await request(app).patch("/api/auth/password").set("Cookie", cookie).set("X-CSRF-Token", testCsrf).send({ currentPassword: "old", newPassword: "long new password" });
     expect(response.status).toBe(204);
     expect(auth.changePassword).toHaveBeenCalledWith(testUser.id, "old", "long new password", testToken);
+  });
+  it("manages bug templates for the authenticated account and validates input", async () => {
+    const { app, auth } = setup();
+    const cookie = `qa_session=${testToken}`;
+    const body = { name: "Bug funcional", title: "[Bug] ", description: "## Pasos\n\n## Resultado", priority: "Alta" };
+    expect((await request(app).get("/api/auth/bug-templates").set("Cookie", cookie)).status).toBe(200);
+    expect(auth.listBugTemplates).toHaveBeenCalledWith(testUser.id);
+    expect((await request(app).post("/api/auth/bug-templates").set("Cookie", cookie).send(body)).status).toBe(403);
+    expect((await request(app).post("/api/auth/bug-templates").set("Cookie", cookie).set("X-CSRF-Token", testCsrf).send({ ...body, priority: "Urgente" })).status).toBe(400);
+    const created = await request(app).post("/api/auth/bug-templates").set("Cookie", cookie).set("X-CSRF-Token", testCsrf).send(body);
+    expect(created.status).toBe(201);
+    expect(created.body.data).toMatchObject({ id: "7", name: body.name, title: "[Bug]", priority: body.priority });
+    const normalized = { ...body, title: "[Bug]" };
+    expect(auth.createBugTemplate).toHaveBeenCalledWith(testUser.id, normalized);
+    const updated = await request(app).patch("/api/auth/bug-templates/7").set("Cookie", cookie).set("X-CSRF-Token", testCsrf).send({ ...body, name: "Plantilla editada" });
+    expect(updated.status).toBe(200);
+    expect(auth.updateBugTemplate).toHaveBeenCalledWith(testUser.id, "7", { ...normalized, name: "Plantilla editada" });
+    expect((await request(app).delete("/api/auth/bug-templates/7").set("Cookie", cookie).set("X-CSRF-Token", testCsrf).send({})).status).toBe(204);
+    expect(auth.deleteBugTemplate).toHaveBeenCalledWith(testUser.id, "7");
+  });
+  it("requires CSRF, current password, and an exact confirmation to deactivate an account", async () => {
+    const { app, auth } = setup();
+    const cookie = `qa_session=${testToken}`;
+    const body = { currentPassword: "current password", confirmation: "ELIMINAR CUENTA" };
+    expect((await request(app).delete("/api/auth/me").set("Cookie", cookie).send(body)).status).toBe(403);
+    expect((await request(app).delete("/api/auth/me").set("Cookie", cookie).set("X-CSRF-Token", testCsrf).send({ ...body, confirmation: "delete account" })).status).toBe(400);
+    expect(auth.deactivateAccount).not.toHaveBeenCalled();
+    const result = await request(app).delete("/api/auth/me").set("Cookie", cookie).set("X-CSRF-Token", testCsrf).send(body);
+    expect(result.status).toBe(204);
+    expect(result.headers["set-cookie"][0]).toContain("Expires=Thu, 01 Jan 1970");
+    expect(auth.deactivateAccount).toHaveBeenCalledWith(testUser.id, body.currentPassword);
   });
   it("blocks project access across accounts before calling resource operations", async () => {
     const { app } = setup();

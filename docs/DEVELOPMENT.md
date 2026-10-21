@@ -24,7 +24,7 @@ No sobrescribir un `.env` existente. Los scripts SQL se importan manualmente una
 | `pnpm dev` / `pnpm dev:all` | Frontend y backend en paralelo |
 | `pnpm dev:frontend` | Solo Vite |
 | `pnpm dev:backend` / `pnpm dev:api` | API con tsx watch y PostgreSQL |
-| `pnpm db:migrate` | Migración aditiva de usuarios y sesiones (004), repetible |
+| `pnpm db:migrate` | Aplica/verifica las migraciones aditivas 004 (cuentas) y 005 (plantillas), repetible |
 | `pnpm db:check` | Conexión y tablas del esquema qa, solo lectura |
 | `pnpm build` | Tipos y compilación del frontend y backend |
 | `pnpm build:frontend` / `pnpm build:backend` | Compilación por separado |
@@ -61,4 +61,8 @@ pnpm test
 
 Las pruebas de endpoints usan un repositorio simulado inyectado, sin cargar `.env` ni necesitar PostgreSQL. Las de repositorio comprueban parámetros y rollback mediante dobles. [TESTING.md](./TESTING.md) explica la verificación opcional con PostgreSQL real.
 
-Los datos de la API ya no se pierden al reiniciar: viven en qa_test_ge. La aplicación no crea ni modifica el esquema al arrancar y db:migrate aplica explícitamente la migración 004, pero no hay migración automática al arrancar ni gestor de respaldos. Un puerto ocupado requiere detener su proceso o cambiar PORT; un error de conexión requiere revisar servicio, permisos, credenciales y tablas importadas. `pnpm db:check` hace esa comprobación sin escrituras.
+Los datos de la API ya no se pierden al reiniciar: viven en qa_test_ge. La aplicación no crea ni modifica el esquema al arrancar y db:migrate aplica explícitamente las migraciones 004 y 005; no hay migración automática al arrancar ni gestor de respaldos. La migración 005 agrega plantillas privadas por usuario. La baja de cuenta desde Configuración revoca sesiones, anonimiza datos de identidad y elimina plantillas, pero conserva membresías, proyectos y registros QA. Un puerto ocupado requiere detener su proceso o cambiar PORT; un error de conexión requiere revisar servicio, permisos, credenciales y tablas importadas. `pnpm db:check` hace esa comprobación sin escrituras.
+
+## CI y entrega
+
+`.github/workflows/ci.yml` ejecuta `pnpm install --frozen-lockfile`, `pnpm typecheck`, `pnpm test` y `pnpm build` en pull requests y pushes a `main`. En pushes a `main`, guarda `dist/` y `backend/dist/` como artefacto de Actions durante 14 días. No configura un despliegue a infraestructura: falta definir proveedor y destino.

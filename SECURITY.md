@@ -13,15 +13,15 @@ Las organizaciones previamente importadas no se asignan al primer usuario regist
 - Cookie qa_session: HttpOnly, SameSite=Lax, Path=/api, Secure con NODE_ENV=production y expiración absoluta de siete días. Login rota la sesión previa del navegador; logout la elimina de PostgreSQL y borra la cookie.
 - CSRF independiente obtenido en login/registro/me y obligatorio para escrituras autenticadas. Los POST usan JSON y validan Origin cuando se declara. CORS no sustituye la autenticación ni la autorización.
 - Registro/login: límite básico de 20 intentos por IP/15 minutos y dos derivaciones simultáneas por proceso. No se confían cabeceras de proxy. En un despliegue con varias instancias se necesitará un límite compartido y una política de proxy explícita.
-- La aplicación no guarda cookies de sesión, contraseñas o tokens CSRF en localStorage. El tema visual sí puede recordarse allí.
+- La aplicación no guarda cookies de sesión, contraseñas o tokens CSRF en localStorage. El tema visual sí puede recordarse allí. Las plantillas de bugs son contenido de texto privado, validado y asociado al usuario; no se interpreta como HTML.
 
 DATABASE_URL solo se carga en el servidor desde backend/.env; ese archivo está ignorado por Git. backend/.env.example usa valores ficticios. No usar prefijos VITE_ para secretos. JWT_SECRET no se utiliza: no hay JWTs. Las consultas usan parámetros; las operaciones compuestas usan transacciones y los errores no incluyen credenciales, SQL ni parámetros.
 
 ## Operación y límites
 
-Configurar HTTPS para producción y FRONTEND_ORIGIN/CORS_ORIGIN; API_ORIGIN permite indicar el origen directo del backend para SwaggerUI. No usar la configuración local como despliegue público sin revisar secretos, TLS, límites compartidos, respaldos, auditoría y retención. Las sesiones expiradas no autorizan acceso, pero su limpieza periódica aún debe programarse. No hay recuperación de contraseña, verificación de correo, MFA, administración HTTP de cuentas/membresías o gestión de archivos privados.
+Configurar HTTPS para producción y FRONTEND_ORIGIN/CORS_ORIGIN; API_ORIGIN permite indicar el origen directo del backend para SwaggerUI. No usar la configuración local como despliegue público sin revisar secretos, TLS, límites compartidos, respaldos, auditoría y retención. Las sesiones expiradas no autorizan acceso, pero su limpieza periódica aún debe programarse. La desactivación de cuenta exige contraseña y frase exacta, anonimiza nombre/correo/hash, revoca sesiones y elimina plantillas, pero conserva relaciones QA y membresías. No hay recuperación de contraseña, verificación de correo, MFA, administración HTTP de membresías o gestión de archivos privados.
 
-El diseñador sigue mostrando ejemplos fijos sin enviar texto a proveedores. Una integración futura con IA deberá mostrar qué se enviará, limitarlo al contexto autorizado y exigir revisión humana para cambiar datos. No enviar evidencias por defecto.
+El diseñador sigue mostrando ejemplos fijos sin enviar texto a proveedores. La configuración de IA en Configuración es una maqueta deshabilitada: no acepta ni guarda claves, y no conecta proveedores. Una integración futura con IA deberá mostrar qué se enviará, limitarlo al contexto autorizado y exigir revisión humana para cambiar datos. No enviar evidencias por defecto.
 
 ## Reportar un problema
 

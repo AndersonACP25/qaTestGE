@@ -2,7 +2,7 @@
 
 ## Estado del documento
 
-Este documento combina la arquitectura objetivo de la v1.0 con el estado real del repositorio. El frontend usa React, Vite y TypeScript; existe una API Express MVC en TypeScript con repositorio PostgreSQL sobre qa_test_ge. Hay usuarios locales, sesiones persistidas y autorización por membresía organizativa. La interfaz consume la API; el almacenamiento binario y la IA siguen pendientes.
+Este documento combina la arquitectura objetivo de la v1.0 con el estado real del repositorio. El frontend usa React, Vite y TypeScript; existe una API Express MVC en TypeScript con repositorio PostgreSQL sobre qa_test_ge. Hay usuarios locales, sesiones persistidas, autorización por membresía organizativa y plantillas personales de bugs. La interfaz consume la API; el almacenamiento binario y la integración con proveedores de IA siguen pendientes. GitHub Actions valida cambios y publica artefactos compilados al hacer push a main; el despliegue a un proveedor aún no está configurado.
 
 ## Objetivos
 
@@ -67,7 +67,7 @@ La API usa `PostgresRepository` mediante una interfaz inyectada en `createApp`. 
 
 PostgreSQL conserva los datos tras reiniciar. Los proyectos/organizaciones existentes se descubren en GET /api/projects; no se crean automáticamente. projectId es obligatorio en las creaciones. Los IDs bigint se mantienen como strings; los IDs públicos de recursos conservan prefijos BUG, TC, RUN, EVD y RES. La base verifica existencia y pertenencia al mismo proyecto mediante claves compuestas. Las ejecuciones reciben caseIds en vez de caseCount, conservan un snapshot de los pasos y calculan cantidad/progreso a partir de resultados. La respuesta de evidencia usa un array related para conservar todos los vínculos existentes.
 
-backend/sql/ sigue siendo la base de importación manual; este cambio no altera las tablas existentes. La migración versionada 004 agrega usuarios, membresías y sesiones sin alterar datos existentes; db:migrate la aplica de forma idempotente. Falta ampliar migraciones, permisos granulares, auditoría y respaldos. El repositorio autorizado añade control de acceso y las claves foráneas mantienen integridad. El frontend consulta estos recursos y guarda creaciones manuales.
+backend/sql/ sigue siendo la base de importación manual; las migraciones posteriores son aditivas. La 004 agrega usuarios, membresías y sesiones; la 005 crea plantillas personales en qa.bug_templates. db:migrate las aplica de forma idempotente y db:check valida las tablas requeridas sin escrituras. La baja de cuenta conserva membresías y recursos: la fila de usuario queda inactiva y anonimizada, se revocan sesiones y se eliminan las plantillas. Falta permisos granulares, auditoría y respaldos. El repositorio autorizado añade control de acceso y las claves foráneas mantienen integridad. El frontend consulta estos recursos y guarda creaciones manuales.
 
 ### Evidencias
 
@@ -150,7 +150,7 @@ Correlacionar solicitudes y errores con identificadores de operación. Medir lat
 
 ### Autenticación local y tema
 
-Session comprueba /api/auth/me al cargar, usa /register y /login y revoca la sesión en /logout. Configuración permite cambiar nombre/correo y actualizar la contraseña con verificación de la contraseña actual; cambiarla revoca las otras sesiones. No mantiene tokens de autenticación en localStorage. El tema sigue siendo una preferencia local independiente de la autenticación.
+Session comprueba /api/auth/me al cargar, usa /register y /login y revoca la sesión en /logout. Configuración permite cambiar nombre/correo, actualizar la contraseña con verificación de la contraseña actual, gestionar plantillas personales de bugs y desactivar/anonimizar la cuenta. Al desactivar, la operación verifica contraseña y confirmación, elimina plantillas, revoca sesiones y conserva recursos relacionados. Cambiar contraseña revoca las otras sesiones. La configuración de proveedor de IA es solo maqueta y no almacena claves. No mantiene tokens de autenticación en localStorage. El tema sigue siendo una preferencia local independiente de la autenticación.
 
 PostgresAuth deriva contraseñas con scrypt (N=131072, r=8, p=1) y sal aleatoria de 16 bytes; compara claves con timingSafeEqual y limita la concurrencia de derivación. Los tokens de sesión son aleatorios de 32 bytes y se almacenan como hash SHA-256; las sesiones expiran a los siete días, se rotan en login y se revocan en logout. La cookie es HttpOnly, SameSite=Lax y Secure en producción. Un token CSRF separado protege POST autenticados; las escrituras validan además Origin y Content-Type JSON. Se limita login/registro a 20 intentos por IP/15 minutos en memoria por proceso.
 

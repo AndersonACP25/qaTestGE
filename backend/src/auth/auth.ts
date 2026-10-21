@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
-import type { Pool, PoolClient } from "pg";
+import type { Pool, PoolClient, QueryResultRow } from "pg";
 import type { Project } from "../repositories/repository.js";
-import type { AuthGrant, AuthProvider, AuthState, UpdateProfileInput, User } from "../models/user.model.js";
+import type { AuthGrant, AuthProvider, AuthState, BugTemplate, BugTemplateInput, BugTemplatePriority, UpdateProfileInput, User } from "../models/user.model.js";
 import { HttpError } from "../http-error.js";
 import { hashPassword, verifyPassword } from "./passwords.js";
 
@@ -10,6 +10,16 @@ export function sessionHash(token: string): string { return createHash("sha256")
 export function newSession() {
   return { token: randomBytes(32).toString("hex"), csrfToken: randomBytes(32).toString("hex"), expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) };
 }
+
+interface BugTemplateRow extends QueryResultRow {
+  id: string;
+  name: string;
+  title: string;
+  description: string;
+  priority: BugTemplatePriority;
+  createdAt: Date;
+}
+const bugTemplate = (row: BugTemplateRow): BugTemplate => ({ ...row, createdAt: row.createdAt.toISOString() });
 
 export class PostgresAuth implements AuthProvider {
   constructor(private readonly pool: Pool) {}
@@ -97,6 +107,51 @@ export class PostgresAuth implements AuthProvider {
     } finally {
       client.release();
     }
+  }
+  async listBugTemplates(userId: string): Promise<BugTemplate[]> {
+    const { rows } = await this.pool.query<BugTemplateRow>(`SELECT id::text, name, title, description, priority,
+      created_at AS "createdAt" FROM qa.bug_templates WHERE user_id=$1 ORDER BY id`, [userId]);
+    return rows.map(bugTemplate);
+  }
+  async createBugTemplate(userId: string, input: BugTemplateInput): Promise<BugTemplate> {
+    const { rows } = await this.pool.query<BugTemplateRow>(`INSERT INTO qa.bug_templates(user_id,name,title,description,priority)
+      VALUES($1,$2,$3,$4,$5) RETURNING id::text,name,title,description,priority,created_at AS "createdAt"`,
+    [userId, input.name.trim(), input.title.trim(), input.description, input.priority]);
+    return bugTemplate(rows[0]);
+  }
+  async updateBugTemplate(userId: string, templateId: string, input: BugTemplateInput): Promise<BugTemplate> {
+    const { rows } = await this.pool.query<BugTemplateRow>(`UPDATE qa.bug_templates SET name=$3,title=$4,description=$5,priority=$6
+      WHERE user_id=$1 AND id=$2 RETURNING id::text,name,title,description,priority,created_at AS "createdAt"`,
+    [userId, templateId, input.name.trim(), input.title.trim(), input.description, input.priority]);
+    if (!rows[0]) throw new HttpError(404, "TEMPLATE_NOT_FOUND", "La plantilla no existe.");
+    return bugTemplate(rows[0]);
+  }
+  async deleteBugTemplate(userId: string, templateId: string): Promise<void> {
+    const result = await this.pool.query("DELETE FROM qa.bug_templates WHERE user_id=$1 AND id=$2", [userId, templateId]);
+    if (!result.rowCount) throw new HttpError(404, "TEMPLATE_NOT_FOUND", "La plantilla no existe.");
+  }
+  async deactivateAccount(userId: string, currentPassword: string): Promise<void> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const { rows } = await client.query<{ password_hash: string }>(
+        "SELECT password_hash FROM qa.users WHERE id=$1 AND is_active FOR UPDATE", [userId],
+      );
+      if (!await verifyPassword(currentPassword, rows[0]?.password_hash)) {
+        throw new HttpError(401, "INVALID_PASSWORD", "La contraseña actual no es correcta.");
+      }
+      const replacementHash = await hashPassword(randomBytes(32).toString("hex"));
+      const updated = await client.query(`UPDATE qa.users SET name='Cuenta eliminada',
+        email='deleted+' || id::text || '@invalid.local', password_hash=$2, is_active=false
+        WHERE id=$1 AND is_active`, [userId, replacementHash]);
+      if (!updated.rowCount) throw new HttpError(401, "UNAUTHENTICATED", "La cuenta ya no está activa.");
+      await client.query("DELETE FROM qa.auth_sessions WHERE user_id=$1", [userId]);
+      await client.query("DELETE FROM qa.bug_templates WHERE user_id=$1", [userId]);
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally { client.release(); }
   }
   private async saveSession(client: PoolClient, userId: string, grant: ReturnType<typeof newSession>, previousToken?: string) {
     if (previousToken) await client.query("DELETE FROM qa.auth_sessions WHERE token_hash=$1", [sessionHash(previousToken)]);
