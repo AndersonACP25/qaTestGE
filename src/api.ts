@@ -125,7 +125,7 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
     body = await response.json();
   } catch {
     throw new ApiError(
-      "La API devolvió una respuesta no válida.",
+      `La API devolvió una respuesta no válida (HTTP ${response.status}). Comprueba que el backend esté iniciado y PostgreSQL disponible.`,
       response.status,
       "INVALID_RESPONSE",
     );

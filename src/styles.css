@@ -2036,29 +2036,106 @@ tbody td {
   right: 25px;
   bottom: 25px;
   z-index: 20;
+  width: min(440px, calc(100vw - 32px));
+  box-shadow: 0 14px 40px rgb(16 24 40 / 18%);
+}
+
+.alert {
+  --alert-accent: #5378cf;
   display: flex;
-  align-items: center;
-  gap: 9px;
-  max-width: min(440px, calc(100vw - 32px));
-  padding: 12px 16px;
-  border: 1px solid var(--color-e7e9ef);
-  border-radius: 8px;
-  background: var(--color-fff);
-  box-shadow: 0 8px 30px #2023341c;
-  color: var(--color-55596a);
-  font-size: 10px;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 15px;
+  border: 1px solid color-mix(in srgb, var(--alert-accent) 30%, transparent);
+  border-left: 4px solid var(--alert-accent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel) 92%, var(--alert-accent));
+  color: var(--color-202334);
+  box-shadow: 0 6px 20px rgb(16 24 40 / 8%);
   animation: toast-in 0.2s ease-out;
 }
 
-.toast-check {
-  width: 18px;
-  height: 18px;
+.alert--success {
+  --alert-accent: #21845a;
+}
+
+.alert--error {
+  --alert-accent: #c2414b;
+}
+
+.alert--warning {
+  --alert-accent: #b7791f;
+}
+
+.alert--info {
+  --alert-accent: #5378cf;
+}
+
+.alert__icon {
+  width: 21px;
+  height: 21px;
+  flex: 0 0 auto;
+  margin-top: 1px;
+  fill: none;
+  stroke: var(--alert-accent);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.alert__content {
   display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.alert__title {
+  color: var(--alert-accent);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.alert__message {
+  color: var(--color-626678);
+  font-size: 12px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.alert__dismiss {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
   place-items: center;
-  border-radius: 50%;
-  background: var(--color-e6f6ee);
-  color: var(--color-4ca47a);
-  font-size: 11px;
+  margin: -4px -5px 0 auto;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-626678);
+  font-size: 21px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.alert__dismiss:hover {
+  background: color-mix(in srgb, var(--alert-accent) 12%, transparent);
+  color: var(--alert-accent);
+}
+
+.alert__dismiss:focus-visible {
+  outline: 2px solid var(--alert-accent);
+  outline-offset: 2px;
+}
+
+.session > .alert {
+  margin: 0 0 18px;
+}
+
+.session__card .alert {
+  margin: 0 0 14px;
 }
 
 @keyframes toast-in {

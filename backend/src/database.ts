@@ -1,5 +1,21 @@
 import pg from "pg";
 
+export function databaseFailureHint(error: unknown): string {
+  const code =
+    typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
+  if (["ECONNREFUSED", "ENOTFOUND", "ETIMEDOUT"].includes(code) || code.startsWith("08"))
+    return "PostgreSQL no está disponible; verifica que el servicio esté iniciado y DATABASE_URL.";
+  if (["28P01", "28000"].includes(code))
+    return "PostgreSQL rechazó la autenticación; revisa las credenciales locales de DATABASE_URL.";
+  if (code === "3F000")
+    return "No existe el esquema qa; en una base nueva, importa backend/sql/001_schema.sql una sola vez y luego ejecuta pnpm db:migrate.";
+  if (["42P01", "42703"].includes(code))
+    return "Falta una tabla o columna requerida; verifica el esquema existente y ejecuta pnpm db:migrate. No reimportes 001_schema.sql sobre una base inicializada.";
+  if (/^\w{5}$/.test(code))
+    return `Error de PostgreSQL (código ${code}); revisa la configuración local.`;
+  return "Revisa que PostgreSQL esté iniciado, DATABASE_URL sea válida y el esquema qa esté actualizado.";
+}
+
 export function createPool(connectionString: string): pg.Pool {
   const pool = new pg.Pool({
     connectionString,

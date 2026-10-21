@@ -2,9 +2,27 @@ import { describe, expect, it, vi } from "vitest";
 import type { DatabasePool as Pool } from "../../backend/src/repositories/postgres.repository";
 import { PostgresRepository } from "../../backend/src/repositories/postgres.repository";
 import { databaseUrl } from "../../backend/src/config/environment";
+import { databaseFailureHint } from "../../backend/src/database";
 import { isId, parseReference, resourceId } from "../../backend/src/validation";
 
 describe("database boundaries without network or environment files", () => {
+  it("explains common PostgreSQL startup failures without exposing connection details", () => {
+    expect(
+      databaseFailureHint(Object.assign(new Error("missing relation"), { code: "42P01" })),
+    ).toContain("pnpm db:migrate");
+    expect(
+      databaseFailureHint(Object.assign(new Error("missing schema"), { code: "3F000" })),
+    ).toContain("una sola vez");
+    expect(
+      databaseFailureHint(Object.assign(new Error("authentication failed"), { code: "28P01" })),
+    ).toContain("credenciales locales");
+    expect(
+      databaseFailureHint(
+        Object.assign(new Error("postgres://secret"), { code: "XX000", detail: "sensitive" }),
+      ),
+    ).toBe("Error de PostgreSQL (código XX000); revisa la configuración local.");
+  });
+
   it("validates bigint IDs without losing precision", () => {
     expect(isId("9223372036854775807")).toBe(true);
     expect(isId("9223372036854775808")).toBe(false);

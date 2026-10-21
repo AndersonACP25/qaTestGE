@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent, SVGProps } from "react";
+import Alert, { type AlertTone } from "./Alert";
 import { filterBugs, filterCases, filterEvidence, filterRuns } from "./utils/filterItems";
 import CaseBuilder from "./CaseBuilder";
 import Dialog from "./Dialog";
@@ -299,11 +300,7 @@ function CaseAttachmentsPanel({ testCase }: { testCase: TestCase }) {
     <section className="workspace__attachments" aria-label="Adjuntos del caso">
       <h3>Imágenes y enlaces</h3>
       {loadingAttachments && <p className="workspace__notice">Cargando adjuntos…</p>}
-      {attachmentError && (
-        <p className="workspace__error" role="alert">
-          {attachmentError}
-        </p>
-      )}
+      {attachmentError && <Alert tone="error">{attachmentError}</Alert>}
       {!loadingAttachments && !attachmentError && !attachments.length && (
         <p className="workspace__notice">
           Este caso todavía no tiene imágenes ni enlaces adjuntos.
@@ -411,6 +408,7 @@ function App({
   const [statusFilter, setStatusFilter] = useState("Todos");
   const [mobileNav, setMobileNav] = useState(false);
   const [toast, setToast] = useState("");
+  const [toastTone, setToastTone] = useState<AlertTone>("success");
   const [detail, setDetail] = useState<object | null>(null);
   const [recordDetail, setRecordDetail] = useState<RecordDetail | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>();
@@ -517,8 +515,9 @@ function App({
     settings: "Configuración",
     "case-builder": "Diseñar test cases",
   }[activePage];
-  const notify = (message: string) => {
+  const notify = (message: string, tone: AlertTone = "success") => {
     clearTimeout(toastTimer.current);
+    setToastTone(tone);
     setToast(message);
     toastTimer.current = setTimeout(() => setToast(""), 4000);
   };
@@ -602,7 +601,7 @@ function App({
       await downloadEvidenceFile(item.id, item.projectId, item.name);
       notify(`Descargando ${item.name}.`);
     } catch (cause) {
-      notify(cause instanceof Error ? cause.message : "No se pudo descargar el archivo.");
+      notify(cause instanceof Error ? cause.message : "No se pudo descargar el archivo.", "error");
     }
   }
   function editCase(testCase: TestCase) {
@@ -906,6 +905,7 @@ function App({
         cause instanceof Error
           ? `No se pudo exportar el registro: ${cause.message}`
           : "No se pudo exportar el registro.",
+        "error",
       );
     } finally {
       setExportingRecord(false);
@@ -934,6 +934,7 @@ function App({
         cause instanceof Error
           ? `No se pudo actualizar ${bug.id}: ${cause.message}`
           : `No se pudo actualizar ${bug.id}.`,
+        "error",
       );
     } finally {
       setUpdatingStatus("");
@@ -954,6 +955,7 @@ function App({
         cause instanceof Error
           ? `No se pudo actualizar ${testCase.id}: ${cause.message}`
           : `No se pudo actualizar ${testCase.id}.`,
+        "error",
       );
     } finally {
       setUpdatingStatus("");
@@ -1150,11 +1152,7 @@ function App({
               Cargando datos del proyecto…
             </p>
           )}
-          {error && (
-            <p className="workspace__error" role="alert">
-              {error}
-            </p>
-          )}
+          {error && <Alert tone="error">{error}</Alert>}
           {!loading && !error && !projectId && (
             <p className="workspace__notice">
               No tienes proyectos disponibles. El administrador debe conceder acceso a un espacio
@@ -1182,13 +1180,9 @@ function App({
             projectId && (
               <>
                 {tagError ? (
-                  <p className="workspace__error" role="alert">
-                    {tagError}
-                  </p>
+                  <Alert tone="error">{tagError}</Alert>
                 ) : error ? (
-                  <p className="workspace__error" role="alert">
-                    {error}
-                  </p>
+                  <Alert tone="error">{error}</Alert>
                 ) : (
                   <TagsView
                     projectId={projectId}
@@ -1401,9 +1395,7 @@ function App({
               {(modal === "bug" || modal === "edit-bug") && (
                 <>
                   {modal === "bug" && bugTemplatesError && (
-                    <p className="workspace__error" role="alert">
-                      {bugTemplatesError}
-                    </p>
+                    <Alert tone="error">{bugTemplatesError}</Alert>
                   )}
                   <label className="workspace__field">
                     Descripción
@@ -1760,11 +1752,7 @@ function App({
                 </>
               )}
             </fieldset>
-            {formError && (
-              <p className="workspace__error" role="alert">
-                {formError}
-              </p>
-            )}
+            {formError && <Alert tone="error">{formError}</Alert>}
             <div className="workspace__actions">
               <button
                 type="button"
@@ -1905,11 +1893,7 @@ function App({
             ¿Quieres eliminar los metadatos de <strong>{evidenceToDelete.name}</strong>? Esta acción
             no se puede deshacer.
           </p>
-          {formError && (
-            <p className="workspace__error" role="alert">
-              {formError}
-            </p>
-          )}
+          {formError && <Alert tone="error">{formError}</Alert>}
           <div className="workspace__actions">
             <button
               type="button"
@@ -2002,11 +1986,7 @@ function App({
             Esta acción elimina el caso y sus adjuntos. No se puede borrar si otras relaciones, como
             una ejecución, hacen referencia a él.
           </p>
-          {deleteCaseError && (
-            <p className="workspace__error" role="alert">
-              {deleteCaseError}
-            </p>
-          )}
+          {deleteCaseError && <Alert tone="error">{deleteCaseError}</Alert>}
           <div className="workspace__actions">
             <button
               type="button"
@@ -2031,9 +2011,16 @@ function App({
         </Dialog>
       )}
       {toast && (
-        <div className="toast" role="status">
+        <Alert
+          className="toast"
+          tone={toastTone}
+          onDismiss={() => {
+            clearTimeout(toastTimer.current);
+            setToast("");
+          }}
+        >
           {toast}
-        </div>
+        </Alert>
       )}
     </div>
   );
@@ -2069,9 +2056,7 @@ function TagPicker({
     <fieldset className="workspace__fieldset">
       <legend>Tags</legend>
       {error ? (
-        <p className="workspace__error" role="alert">
-          {error}
-        </p>
+        <Alert tone="error">{error}</Alert>
       ) : tags.length ? (
         tags.map((tag) => (
           <label className="workspace__check" key={tag.id}>

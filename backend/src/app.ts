@@ -70,6 +70,16 @@ export function createApp(repository: Repository, auth: AuthProvider) {
     }
     const code =
       typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
+    if (["3F000", "42P01", "42703"].includes(code)) {
+      response.status(503).json({
+        error: {
+          code: "DATABASE_SCHEMA_UNAVAILABLE",
+          message:
+            "Falta una tabla o columna requerida en PostgreSQL. Verifica el esquema existente y ejecuta pnpm db:migrate; no reimportes 001_schema.sql sobre una base inicializada.",
+        },
+      });
+      return;
+    }
     if (code === "23503") {
       response.status(400).json({
         error: {
@@ -126,7 +136,8 @@ export function createApp(repository: Repository, auth: AuthProvider) {
       return;
     }
 
-    console.error("Error interno en la API.");
+    if (/^\w{5}$/.test(code)) console.error(`Error interno en la API (PostgreSQL ${code}).`);
+    else console.error("Error interno en la API.");
     response.status(500).json({
       error: { code: "INTERNAL_ERROR", message: "Ocurrió un error interno." },
     });

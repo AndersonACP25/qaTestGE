@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
+import Alert from "./Alert";
 import App from "./App";
 import { api, ApiError, setCsrfToken } from "./api";
 import type { User, SessionState } from "./api";
@@ -142,9 +143,9 @@ export default function Session() {
     return (
       <>
         {error && (
-          <div className="session__error-banner" role="alert">
+          <Alert tone="error" className="session__error-banner" onDismiss={() => setError("")}>
             {error}
-          </div>
+          </Alert>
         )}
         <App
           key={user.id}
@@ -175,10 +176,10 @@ export default function Session() {
         <h1 id="session-title">{register ? "Crea tu cuenta" : "Inicia sesión"}</h1>
         <p className="session__intro">Organiza tus bugs, pruebas y evidencias en un solo lugar.</p>
         {accountDeleted && (
-          <p className="session__notice" role="status">
+          <Alert tone="success">
             Tu cuenta se desactivó y anonimizó correctamente. Los recursos QA relacionados se
             conservaron.
-          </p>
+          </Alert>
         )}
         <div className="session__tabs" role="group" aria-label="Modo de acceso">
           <button
@@ -254,11 +255,7 @@ export default function Session() {
               />
             </label>
           )}
-          {error && (
-            <p className="session__error" role="alert">
-              {error}
-            </p>
-          )}
+          {error && <Alert tone="error">{error}</Alert>}
           <button disabled={busy} className="session__submit" type="submit">
             {busy ? "Conectando…" : register ? "Crear cuenta y entrar →" : "Entrar al workspace →"}
           </button>

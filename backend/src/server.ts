@@ -1,5 +1,5 @@
 ﻿import { loadEnvironment, databaseUrl } from "./config/environment.js";
-import { createPool, checkDatabase } from "./database.js";
+import { createPool, checkDatabase, databaseFailureHint } from "./database.js";
 import { PostgresRepository } from "./repositories/postgres.repository.js";
 import { createApp } from "./app.js";
 import { PostgresAuth } from "./auth/auth.js";
@@ -37,10 +37,8 @@ try {
   };
   process.on("SIGINT", stop);
   process.on("SIGTERM", stop);
-} catch {
-  console.error(
-    "No se pudo conectar a qa_test_ge. Revisa DATABASE_URL, PostgreSQL y el esquema qa. No se usará almacenamiento en memoria.",
-  );
+} catch (error) {
+  console.error(`No se pudo iniciar la API: ${databaseFailureHint(error)}`);
   await pool.end();
   process.exitCode = 1;
 }

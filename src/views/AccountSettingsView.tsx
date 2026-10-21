@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
+import Alert from "../Alert";
 import { api } from "../api";
 import type { BugTemplate, BugTemplateInput, BugTemplatePriority, User } from "../api";
 import { categories, maxCaseCount } from "../models/caseDesign.model";
@@ -265,16 +266,8 @@ export default function AccountSettingsView({
               required
             />
           </label>
-          {profileError && (
-            <p className="workspace__error" role="alert">
-              {profileError}
-            </p>
-          )}
-          {profileMessage && (
-            <p className="account-settings__success" role="status">
-              {profileMessage}
-            </p>
-          )}
+          {profileError && <Alert tone="error">{profileError}</Alert>}
+          {profileMessage && <Alert tone="success">{profileMessage}</Alert>}
           <div className="workspace__actions">
             <button className="button button-primary" type="submit" disabled={profileBusy}>
               {profileBusy ? "Guardando…" : "Guardar cambios"}
@@ -328,16 +321,8 @@ export default function AccountSettingsView({
               required
             />
           </label>
-          {passwordError && (
-            <p className="workspace__error" role="alert">
-              {passwordError}
-            </p>
-          )}
-          {passwordMessage && (
-            <p className="account-settings__success" role="status">
-              {passwordMessage}
-            </p>
-          )}
+          {passwordError && <Alert tone="error">{passwordError}</Alert>}
+          {passwordMessage && <Alert tone="success">{passwordMessage}</Alert>}
           <div className="workspace__actions">
             <button className="button button-primary" type="submit" disabled={passwordBusy}>
               {passwordBusy ? "Actualizando…" : "Cambiar contraseña"}
@@ -407,16 +392,8 @@ export default function AccountSettingsView({
               ))}
             </select>
           </label>
-          {templateError && (
-            <p className="workspace__error" role="alert">
-              {templateError}
-            </p>
-          )}
-          {templateMessage && (
-            <p className="account-settings__success" role="status">
-              {templateMessage}
-            </p>
-          )}
+          {templateError && <Alert tone="error">{templateError}</Alert>}
+          {templateMessage && <Alert tone="success">{templateMessage}</Alert>}
           <div className="workspace__actions">
             <button
               className="button button-primary"
@@ -535,16 +512,8 @@ export default function AccountSettingsView({
               </div>
             ))}
           </div>
-          {countDefaultsError && (
-            <p className="workspace__error" role="alert">
-              {countDefaultsError}
-            </p>
-          )}
-          {countDefaultsMessage && (
-            <p className="account-settings__success" role="status">
-              {countDefaultsMessage}
-            </p>
-          )}
+          {countDefaultsError && <Alert tone="error">{countDefaultsError}</Alert>}
+          {countDefaultsMessage && <Alert tone="success">{countDefaultsMessage}</Alert>}
           <div className="workspace__actions">
             <button className="button button-primary" type="submit" disabled={countDefaultsBusy}>
               {countDefaultsBusy ? "Guardando…" : "Guardar valores predeterminados"}
@@ -616,11 +585,7 @@ export default function AccountSettingsView({
               required
             />
           </label>
-          {deleteError && (
-            <p className="workspace__error" role="alert">
-              {deleteError}
-            </p>
-          )}
+          {deleteError && <Alert tone="error">{deleteError}</Alert>}
           <div className="workspace__actions">
             <button
               className="account-settings__delete-button"

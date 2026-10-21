@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import Alert from "../Alert";
 import { createTag, deleteTag, updateTag } from "../api";
 import type { Tag } from "../types";
 
@@ -102,11 +103,7 @@ export default function TagsView({
             <code>{color}</code>
           </span>
         </label>
-        {error && (
-          <p className="workspace__error" role="alert">
-            {error}
-          </p>
-        )}
+        {error && <Alert tone="error">{error}</Alert>}
         <div className="tags-view__actions">
           <button className="button button-primary" type="submit" disabled={busy || !name.trim()}>
             {busy ? "Guardando…" : editing ? "Guardar cambios" : "Crear tag"}

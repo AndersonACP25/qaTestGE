@@ -1,5 +1,6 @@
 import { categories } from "../models/caseDesign.model";
 import type { CaseDesignController } from "../controllers/useCaseDesignController";
+import Alert from "../Alert";
 
 export default function CaseDesignView({
   text,
@@ -126,10 +127,10 @@ export default function CaseDesignView({
               sin generación con IA.
             </p>
             {!countsValid && (
-              <p role="alert">
+              <Alert tone="warning">
                 Introduce una cantidad entera entre 1 y {maxCaseCount} para cada categoría
                 seleccionada.
-              </p>
+              </Alert>
             )}
           </fieldset>
           <button
@@ -181,8 +182,8 @@ export default function CaseDesignView({
                   </button>
                 </div>
                 {exporting && <p role="status">Preparando archivo…</p>}
-                {exportError && <p role="alert">{exportError}</p>}
-                {saveCaseError && <p role="alert">{saveCaseError}</p>}
+                {exportError && <Alert tone="error">{exportError}</Alert>}
+                {saveCaseError && <Alert tone="error">{saveCaseError}</Alert>}
                 {previewCases.map((testCase) => (
                   <section
                     className="case-builder__case"
