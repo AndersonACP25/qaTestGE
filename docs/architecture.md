@@ -2,13 +2,13 @@
 
 ## Estado del documento
 
-Este documento combina la arquitectura objetivo de la v1.0 con el estado real del repositorio. El frontend usa React, Vite y TypeScript; existe una API Express MVC en TypeScript con repositorio PostgreSQL sobre qa_test_ge. Hay usuarios locales, sesiones persistidas, autorización por membresía organizativa y plantillas personales de bugs. La interfaz consume la API; el almacenamiento binario y la integración con proveedores de IA siguen pendientes. GitHub Actions valida cambios y publica artefactos compilados al hacer push a main; el despliegue a un proveedor aún no está configurado.
+Este documento combina la arquitectura objetivo de la v1.0 con el estado real del repositorio. El frontend usa React, Vite y TypeScript; existe una API Express MVC en TypeScript con repositorio PostgreSQL sobre qa_test_ge. Hay cuentas locales de una persona, sesiones persistidas, autorización de los proyectos de la cuenta, plantillas personales de bugs y CRUD de casos con adjuntos privados de imágenes/enlaces. Las imágenes de casos se guardan en PostgreSQL; la carga binaria general de evidencias y la integración con proveedores de IA siguen pendientes. GitHub Actions valida cambios y publica artefactos compilados al hacer push a main; el despliegue a un proveedor aún no está configurado.
 
 ## Objetivos
 
 - Gestionar el ciclo de vida de bugs, casos de prueba, ejecuciones y evidencias desde un mismo espacio de trabajo.
 - Mantener trazabilidad entre un bug, los casos que lo cubren, las ejecuciones y sus resultados.
-- Permitir colaboración con permisos definidos y un historial auditable.
+- Mantener los datos de cada cuenta aislados por proyecto, dejando la colaboración multiusuario para una etapa futura.
 - Ofrecer asistencia de IA útil sin convertirla en autoridad ni requisito para usar el producto.
 - Proteger los datos del proyecto y hacer explícito cuándo información sale a un proveedor de IA.
 
@@ -16,17 +16,20 @@ Este documento combina la arquitectura objetivo de la v1.0 con el estado real de
 
 - Workspace pnpm con frontend en la raíz y API en `backend/`. `pnpm dev` (alias `pnpm dev:all`) ejecuta ambos scripts de desarrollo en paralelo; `pnpm dev:frontend` inicia solo Vite.
 - El backend organiza Bugs y Test Case en rutas, controladores, modelos y repositorios. Usuarios/autenticación sigue la misma separación mediante rutas HTTP, controlador de autenticación, modelo tipado y proveedor PostgreSQL.
-- El diseñador de casos es una maqueta frontend: `src/models/caseDesign.model.ts` mantiene el catálogo/validación, un hook controlador gestiona estado y exportación, y la vista presenta el flujo. No genera casos dinámicamente ni los persiste.
+- El diseñador de casos usa ejemplos ilustrativos: `src/models/caseDesign.model.ts` mantiene el catálogo/validación, un hook controlador gestiona estado y exportación, y la vista permite guardar explícitamente cada ejemplo como caso del proyecto. No genera casos dinámicamente ni usa IA.
 - La API requiere DATABASE_URL, usa un pool pg y comprueba el esquema qa al arrancar. No existe fallback en memoria ni importación automática del SQL.
-- Los endpoints iniciales listan y crean bugs, casos de prueba, ejecuciones y metadatos de evidencias.
-- No se sube el contenido binario de evidencias; solo se registra metadata.
+- Los endpoints permiten listar y crear bugs, casos de prueba, ejecuciones y metadatos de evidencias. Los bugs y casos se pueden editar; los casos se pueden eliminar si no tienen referencias a ejecuciones, y sus imágenes/enlaces se administran por separado. Los metadatos de evidencias permiten editarse y eliminarse.
+- Bugs y casos de prueba permiten actualizar su estado mediante endpoints PATCH, con los valores validados por modelo y las restricciones existentes de PostgreSQL. No se requiere una tabla adicional de estados.
+- La interfaz es de cuenta individual: no ofrece gestión de equipo, invitaciones ni administración de membresías.
+- Configuración conserva las cantidades iniciales del diseñador por categoría en localStorage, separadas por usuario en el navegador; no se envían a la API ni a PostgreSQL.
+- Los archivos generales de evidencia se guardan como bytes privados en PostgreSQL, máximo 2 MiB, y se entregan como descarga autenticada con comprobación de proyecto.
 
 ## Objetivos futuros para v1.0
 
 - Producto web con API de servidor y persistencia duradera.
 - Una organización contiene proyectos; cada proyecto contiene sus bugs, casos, ejecuciones y evidencias.
 - La autenticación y el aislamiento por organización/proyecto se aplican en el servidor, no solo en la interfaz.
-- El almacenamiento de archivos se separa de los metadatos: la base de datos conserva referencias y atributos; el almacén de objetos conserva el contenido.
+- La carga general de evidencias acepta archivos de hasta 2 MiB. Los adjuntos de casos admiten imágenes PNG/JPEG/GIF/WebP de hasta 2 MiB y enlaces HTTP(S).
 - La IA se integra mediante un servicio de aplicación y adaptadores de proveedores intercambiables. La configuración de IA es opcional.
 - Las recomendaciones de IA requieren revisión humana antes de modificar registros.
 - La v1.0 no incluye ejecución automatizada de pruebas, agentes con capacidad de actuar sin aprobación, ni entrenamiento de modelos con datos del cliente.
@@ -47,7 +50,7 @@ API Express (backend/, TypeScript)
    +-- Modelo/Proveedor de usuarios, controlador HTTP de autenticación y permisos
 ```
 
-La interfaz consume la API mediante el proxy /api y envía la cookie de sesión y el token CSRF en escrituras. `GET /api/health` permite verificar disponibilidad. Los recursos exponen `GET` y `POST` en `/api/bugs`, `/api/test-cases`, `/api/test-runs` y `/api/evidence`.
+La interfaz consume la API mediante el proxy /api y envía la cookie de sesión y el token CSRF en escrituras. `GET /api/health` permite verificar disponibilidad. Bugs y evidencias exponen edición; evidencias también permiten eliminar metadatos. Casos y ejecuciones tienen alta y consulta. Los estados de bug se actualizan mediante `PATCH /api/bugs/{bugId}`.
 
 ### Interfaz web
 
@@ -55,7 +58,7 @@ Presenta espacios de trabajo, proyectos, listas y formularios para los cuatro re
 
 ### API y capa de aplicación
 
-Las rutas delegan en controladores HTTP. Los controladores validan entradas y coordinan modelos/proveedores y repositorios; los modelos tipados describen Bugs, Test Case y usuarios. El proveedor PostgreSQL implementa persistencia. Los middlewares autentican sesiones y el repositorio autorizado limita lectura/creación a proyectos de organizaciones con membresía vigente. Devuelve errores explícitos y no expone credenciales de almacenamiento ni secretos de proveedores a la interfaz.
+Las rutas delegan en controladores HTTP. Los controladores validan entradas y coordinan modelos/proveedores y repositorios; los modelos tipados describen Bugs, Test Case y usuarios. El proveedor PostgreSQL implementa persistencia. Los middlewares autentican sesiones y el repositorio autorizado limita operaciones a proyectos de organizaciones con membresía vigente. Devuelve errores explícitos y no expone credenciales de almacenamiento ni secretos de proveedores a la interfaz.
 
 ### Dominio
 
@@ -67,11 +70,13 @@ La API usa `PostgresRepository` mediante una interfaz inyectada en `createApp`. 
 
 PostgreSQL conserva los datos tras reiniciar. Los proyectos/organizaciones existentes se descubren en GET /api/projects; no se crean automáticamente. projectId es obligatorio en las creaciones. Los IDs bigint se mantienen como strings; los IDs públicos de recursos conservan prefijos BUG, TC, RUN, EVD y RES. La base verifica existencia y pertenencia al mismo proyecto mediante claves compuestas. Las ejecuciones reciben caseIds en vez de caseCount, conservan un snapshot de los pasos y calculan cantidad/progreso a partir de resultados. La respuesta de evidencia usa un array related para conservar todos los vínculos existentes.
 
-backend/sql/ sigue siendo la base de importación manual; las migraciones posteriores son aditivas. La 004 agrega usuarios, membresías y sesiones; la 005 crea plantillas personales en qa.bug_templates. db:migrate las aplica de forma idempotente y db:check valida las tablas requeridas sin escrituras. La baja de cuenta conserva membresías y recursos: la fila de usuario queda inactiva y anonimizada, se revocan sesiones y se eliminan las plantillas. Falta permisos granulares, auditoría y respaldos. El repositorio autorizado añade control de acceso y las claves foráneas mantienen integridad. El frontend consulta estos recursos y guarda creaciones manuales.
+backend/sql/ sigue siendo la base de importación manual; las migraciones posteriores son aditivas. La 004 agrega usuarios, membresías y sesiones; la 005 crea plantillas personales en qa.bug_templates; la 006 permite Suite opcional; la 007 agrega adjuntos privados de casos; la 008 agrega almacenamiento privado de archivos de evidencia; la 009 añade tags por proyecto y asociaciones explícitas a bugs, casos y ejecuciones. `db:migrate` las aplica de forma idempotente y `db:check` valida las tablas requeridas sin escrituras. La baja de cuenta conserva membresías y recursos: la fila de usuario queda inactiva y anonimizada, se revocan sesiones y se eliminan las plantillas. Falta permisos granulares, auditoría y respaldos. El repositorio autorizado añade control de acceso y las claves foráneas mantienen integridad. El frontend consulta estos recursos, realiza CRUD de casos y adjunta imágenes/enlaces.
+
+Los tags tienen nombre único (sin distinción de mayúsculas) y color hexadecimal dentro de cada proyecto. Los recursos exponen `tagIds`; la API valida que todas las etiquetas asignadas pertenezcan al mismo proyecto. El CRUD de tags se limita al proyecto autorizado y borrar un tag elimina sus asociaciones, no los registros QA.
 
 ### Evidencias
 
-Actualmente, el endpoint de evidencias solo registra/lista metadatos; no recibe ni sirve archivos. En una implementación futura, un servicio dedicado deberá gestionar la carga, consulta y eliminación autorizadas, guardar archivos de forma privada y validar tamaños y tipos.
+Los archivos generales de evidencias se guardan en `qa.evidence.file_bytes` con un límite de 2 MiB. La API limita la subida, valida tipo MIME, requiere sesión y proyecto, y los descarga con `Content-Disposition: attachment`, `nosniff` y política privada sin caché; los registros heredados solo con metadatos permiten adjuntar el archivo después. Los adjuntos de casos usan `qa.test_case_attachments`: guardan hasta 2 MiB por imagen en PostgreSQL. La API admite PNG/JPEG/GIF/WebP con firma comprobada, consulta autenticada y enlaces HTTP(S) sin credenciales. El selector permite arrastrar o elegir hasta cinco imágenes por operación. Se eliminan los adjuntos junto con el caso en una transacción; si el caso tiene referencias a ejecuciones, el borrado se rechaza para preservar integridad.
 
 ### Servicio de IA
 
@@ -85,17 +90,17 @@ El servicio valida la entrada y la respuesta, registra el proveedor/modelo y el 
 
 ## Modelo de dominio
 
-| Entidad | Propósito | Relaciones principales |
-|---|---|---|
-| Organización | Límite de colaboración y administración | Tiene miembros y proyectos |
-| Proyecto | Contenedor de trabajo y configuración | Pertenece a una organización |
-| Miembro / rol | Identidad y permisos dentro de un alcance | Pertenece a una organización y puede tener acceso a proyectos |
-| Bug | Incidencia con título, descripción, estado, prioridad, severidad, asignado y fechas | Puede vincularse a casos, ejecuciones y evidencias |
-| Caso de prueba | Procedimiento con precondiciones, pasos y resultado esperado | Pertenece a un proyecto y puede asociarse con bugs |
-| Ejecución (test run) | Registro de una corrida de un conjunto/version de casos | Contiene resultados individuales de casos y observaciones |
-| Resultado de caso | Estado de un caso dentro de una ejecución (`passed`, `failed`, `blocked`, `skipped`) y notas | Pertenece a una ejecución y referencia un caso |
-| Evidencia | Metadatos del archivo, autor, fecha y referencia privada al contenido | Puede asociarse a un bug, ejecución o resultado |
-| Evento de auditoría | Actor, acción, recurso, fecha y cambios pertinentes | Asociado al alcance y recurso afectados |
+| Entidad              | Propósito                                                                                    | Relaciones principales                                        |
+| -------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| Organización         | Límite de colaboración y administración                                                      | Tiene miembros y proyectos                                    |
+| Proyecto             | Contenedor de trabajo y configuración                                                        | Pertenece a una organización                                  |
+| Miembro / rol        | Identidad y permisos dentro de un alcance                                                    | Pertenece a una organización y puede tener acceso a proyectos |
+| Bug                  | Incidencia con título, descripción, estado, prioridad, severidad, asignado y fechas          | Puede vincularse a casos, ejecuciones y evidencias            |
+| Caso de prueba       | Procedimiento con precondiciones, pasos y resultado esperado                                 | Pertenece a un proyecto y puede asociarse con bugs            |
+| Ejecución (test run) | Registro de una corrida de un conjunto/version de casos                                      | Contiene resultados individuales de casos y observaciones     |
+| Resultado de caso    | Estado de un caso dentro de una ejecución (`passed`, `failed`, `blocked`, `skipped`) y notas | Pertenece a una ejecución y referencia un caso                |
+| Evidencia            | Metadatos del archivo, autor, fecha y referencia privada al contenido                        | Puede asociarse a un bug, ejecución o resultado               |
+| Evento de auditoría  | Actor, acción, recurso, fecha y cambios pertinentes                                          | Asociado al alcance y recurso afectados                       |
 
 Los estados de los bugs y los campos obligatorios deben definirse como vocabulario controlado por proyecto. Las fechas se almacenan en UTC y se presentan según la zona horaria de la persona usuaria. Toda relación entre recursos debe comprobar que ambos pertenecen al mismo proyecto, salvo excepciones explícitas del dominio.
 
@@ -143,7 +148,7 @@ Correlacionar solicitudes y errores con identificadores de operación. Medir lat
 
 - Migraciones automáticas y proveedor de almacenamiento binario; PostgreSQL, el driver pg, React/TypeScript y Express ya están implementados.
 - Invitaciones, permisos granulares de proyecto, recuperación de contraseña, verificación de correo y MFA; el acceso básico con sesiones ya está implementado.
-- Límites de archivos, tipos admitidos, retención y política de borrado.
+- - Carga binaria de evidencias, límites y retención; las imágenes adjuntas a casos tienen límite 2 MiB y se guardan en PostgreSQL.
 - Proveedores de IA permitidos, ubicación de procesamiento, consentimiento, costos y cuotas.
 - Necesidades de importación/exportación y migración de datos.
 - Objetivos de disponibilidad, respaldo y recuperación.
@@ -156,13 +161,13 @@ PostgresAuth deriva contraseñas con scrypt (N=131072, r=8, p=1) y sal aleatoria
 
 Cada registro crea usuario, organización, proyecto, membresía owner y sesión en una transacción. Nunca reclama organizaciones existentes. AuthorizedRepository consulta las membresías actuales y no lee/crea recursos de proyectos ajenos. Los roles owner/member permiten las operaciones actuales de lectura y creación; no existe administración HTTP de membresías ni roles. Las rutas de salud, contrato Swagger y autenticación son públicas; los datos del proyecto están protegidos.
 
-El frontend carga proyectos y recursos reales, muestra estados de carga/error, y permite crear bugs, casos con un paso opcional, ejecuciones con casos seleccionados y metadatos de evidencias. Los contadores del resumen se calculan de los registros del proyecto. No se muestran gráficos con cifras ficticias. El diseñador de test cases sigue siendo una maqueta separada, sin generación o guardado automático.
+El frontend carga proyectos y recursos reales, muestra estados de carga/error, y permite crear y editar bugs, casos con pasos, ejecuciones con casos seleccionados y evidencias con archivos. Bugs y casos tienen una vista modal de detalle; los casos también se pueden eliminar si ninguna ejecución los referencia, y el formulario permite adjuntar imágenes o enlaces. Los metadatos de evidencias se pueden editar y eliminar; los archivos se pueden subir, reemplazar y descargar autenticadamente. Los contadores del resumen se calculan de los registros del proyecto. No se muestran gráficos con cifras ficticias. El diseñador de test cases continúa siendo una maqueta: el usuario puede guardar cada ejemplo de forma explícita, pero no se generan casos por IA ni hay guardado automático.
 
 ### Maqueta del diseñador de test cases
 
-La navegación `case-builder` monta el componente `CaseBuilder`. El texto, la selección múltiple, las cantidades y la visibilidad de la tabla viven únicamente en estado React. `src/utils/caseCatalog.ts` define 18 categorías con tres pruebas ilustrativas distintas cada una. Cada categoría seleccionada tiene una cantidad entera entre 1 y 3 (una por defecto), conservada al desmarcarla durante la vista. Los valores inválidos impiden mostrar la tabla. La vista previa y las exportaciones comparten la selección y las cantidades; el texto introducido no se procesa. La vista previa se limpia cuando cambian las entradas y el estado se descarta al desmontar la vista. No hay solicitudes de red, ejecución de pruebas, proveedor de IA ni creación de entidades de dominio.
+La navegación `case-builder` monta el componente `CaseBuilder`. El texto, la selección múltiple, las cantidades y la visibilidad de la tabla viven en estado React. El catálogo define categorías con pruebas ilustrativas; cada categoría seleccionada tiene una cantidad permitida conservada durante la interacción. Los valores inválidos impiden mostrar la tabla. La vista previa y las exportaciones comparten la selección y las cantidades; el texto introducido no se procesa. Al usar la acción explícita de guardado, el controlador crea un caso mediante la API, asociando categoría como Suite, descripción como precondición y los pasos editados. La vista previa no se guarda automáticamente; las propuestas no son generadas por IA.
 
-El flujo futuro partirá de una descripción, categorías y cantidades, solicitará propuestas mediante la interfaz opcional de proveedor en el servidor y permitirá revisarlas y confirmarlas antes de crear casos con identificadores y referencias de proyecto explícitos. Esa integración, su contrato y la persistencia aún no están implementados.
+El flujo futuro podrá partir de una descripción, categorías y cantidades y solicitar propuestas mediante la interfaz opcional de proveedor en el servidor. Cualquier propuesta requerirá revisión y confirmación antes de crear casos con identificadores y referencias de proyecto explícitos. La integración de IA sigue sin implementarse.
 
 ## Documentación complementaria
 
@@ -175,3 +180,5 @@ El portal enlaza `/api/docs/`. En un despliegue separado se requiere reenviar `/
 `src/utils/exportCases.ts` genera Excel `.xlsx` con ExcelJS y PDF con jsPDF y AutoTable, mediante importaciones dinámicas al exportar. El diseñador exporta la vista previa seleccionada y su descripción, con aviso de contenido ilustrativo. No envía información fuera del navegador ni crea entidades del dominio. El PDF ajusta texto y repite encabezados al paginar; Excel conserva las entradas como texto, sin convertirlas en fórmulas. No hay cambios de persistencia ni integración de IA.
 
 Consultar [API.md](./API.md) para el contrato implementado, [DESIGN.md](./DESIGN.md) para la interfaz, [RULES.md](./RULES.md) para convenciones y [DEVELOPMENT.md](./DEVELOPMENT.md) para comandos y entorno. [CONTRIBUTING.md](../CONTRIBUTING.md) describe el flujo de contribución y [SECURITY.md](../SECURITY.md) los límites de seguridad actuales.
+
+El cliente API central conserva los estados HTTP y ofrece mensajes de respaldo para errores frecuentes, incluso si recibe texto o HTML. Las vistas presentan los errores con `Alert`. En desarrollo, el proxy de Vite devuelve 503 JSON si la API no responde; inicia frontend y backend con `pnpm dev`. Un 401 de `/api/auth/me` sin sesión es esperado.

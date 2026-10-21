@@ -1,28 +1,92 @@
 import type { Pool, PoolClient, QueryResultRow } from "pg";
 import type { Repository } from "./repository.js";
-import type { CreateBugInput } from "../models/bug.model.js";
-import type { CreateTestCaseInput } from "../models/test-case.model.js";
+import type { BugStatus, CreateBugInput, UpdateBugInput } from "../models/bug.model.js";
+import type {
+  TestCaseAttachment,
+  TestCaseStatus,
+  CreateTestCaseAttachmentInput,
+  CreateTestCaseInput,
+  UpdateTestCaseInput,
+} from "../models/test-case.model.js";
 import type { CreateTestRunInput } from "../models/test-run.model.js";
-import type { CreateEvidenceInput } from "../models/evidence.model.js";
+import type { CreateTagInput, Tag, UpdateTagInput } from "../models/tag.model.js";
+import type {
+  CreateEvidenceInput,
+  EvidenceFile,
+  UpdateEvidenceInput,
+} from "../models/evidence.model.js";
 import { HttpError } from "../http-error.js";
 import { parseReference, resourceId } from "../validation.js";
 export type DatabasePool = Pool;
 
 interface Row extends QueryResultRow {
-  id: string; project_id: string; created_at: Date; title: string;
+  id: string;
+  project_id: string;
+  created_at: Date;
+  title: string;
 }
 
-const common = (r: Row, prefix: string) => ({ id: resourceId(prefix, r.id), projectId: r.project_id, createdAt: r.created_at.toISOString() });
-const bug = (r: Row) => ({ ...common(r, "BUG"), title: r.title, project: r.project, description: r.description, priority: r.priority, status: r.status, assignee: r.assignee });
-const testCase = (r: Row) => ({ ...common(r, "TC"), title: r.title, suite: r.suite ?? "", status: r.status, preconditions: r.preconditions, steps: r.steps ?? [] });
-const run = (r: Row) => ({ ...common(r, "RUN"), title: r.title, owner: r.owner, status: r.status, caseIds: (r.case_ids as string[]).map((id) => resourceId("TC", id)), caseCount: r.case_ids.length, progress: r.progress });
-const evidence = (r: Row) => ({ ...common(r, "EVD"), name: r.name, type: r.type, sizeBytes: Number(r.size_bytes), related: r.related ?? [] });
+const common = (r: Row, prefix: string) => ({
+  id: resourceId(prefix, r.id),
+  projectId: r.project_id,
+  createdAt: r.created_at.toISOString(),
+});
+const bug = (r: Row) => ({
+  ...common(r, "BUG"),
+  title: r.title,
+  project: r.project,
+  description: r.description,
+  priority: r.priority,
+  status: r.status,
+  assignee: r.assignee,
+  tagIds: (r.tag_ids as string[] | undefined) ?? [],
+});
+const testCase = (r: Row) => ({
+  ...common(r, "TC"),
+  title: r.title,
+  suite: r.suite ?? "",
+  status: r.status,
+  preconditions: r.preconditions,
+  steps: r.steps ?? [],
+  tagIds: (r.tag_ids as string[] | undefined) ?? [],
+});
+const run = (r: Row) => ({
+  ...common(r, "RUN"),
+  title: r.title,
+  owner: r.owner,
+  status: r.status,
+  caseIds: (r.case_ids as string[]).map((id) => resourceId("TC", id)),
+  caseCount: r.case_ids.length,
+  progress: r.progress,
+  tagIds: (r.tag_ids as string[] | undefined) ?? [],
+});
+const evidence = (r: Row) => ({
+  ...common(r, "EVD"),
+  name: r.name,
+  type: r.type,
+  sizeBytes: Number(r.size_bytes),
+  hasFile: Boolean(r.has_file),
+  related: r.related ?? [],
+});
+const caseAttachment = (r: Row) => ({
+  id: resourceId("TCA", r.id),
+  projectId: r.project_id,
+  testCaseId: resourceId("TC", r.test_case_id),
+  kind: r.kind,
+  name: r.name,
+  url: r.external_url,
+  mediaType: r.content_type,
+  createdAt: r.created_at.toISOString(),
+});
 
 const casesSql = `SELECT c.*, COALESCE((SELECT json_agg(json_build_object('action', s.action, 'expectedResult', s.expected_result) ORDER BY s.position)
- FROM qa.test_case_steps s WHERE s.test_case_id=c.id), '[]'::json) AS steps FROM qa.test_cases c`;
+ FROM qa.test_case_steps s WHERE s.test_case_id=c.id), '[]'::json) AS steps,
+ COALESCE((SELECT array_agg(tc.tag_id::text ORDER BY tc.tag_id) FROM qa.test_case_tags tc WHERE tc.test_case_id=c.id), ARRAY[]::text[]) AS tag_ids FROM qa.test_cases c`;
 const runsSql = `SELECT r.*, COALESCE((SELECT array_agg(rr.test_case_id::text ORDER BY rr.test_case_id) FROM qa.test_run_results rr WHERE rr.test_run_id=r.id), ARRAY[]::text[]) AS case_ids,
- COALESCE((SELECT round(100.0 * count(*) FILTER (WHERE rr.status <> 'skipped') / NULLIF(count(*),0))::integer FROM qa.test_run_results rr WHERE rr.test_run_id=r.id),0) AS progress FROM qa.test_runs r`;
-const evidenceSql = `SELECT e.*, COALESCE((SELECT json_agg(
+ COALESCE((SELECT round(100.0 * count(*) FILTER (WHERE rr.status <> 'skipped') / NULLIF(count(*),0))::integer FROM qa.test_run_results rr WHERE rr.test_run_id=r.id),0) AS progress,
+ COALESCE((SELECT array_agg(rt.tag_id::text ORDER BY rt.tag_id) FROM qa.test_run_tags rt WHERE rt.test_run_id=r.id), ARRAY[]::text[]) AS tag_ids FROM qa.test_runs r`;
+const evidenceSql = `SELECT e.id, e.project_id, e.name, e.type, e.size_bytes, e.created_at,
+ e.file_bytes IS NOT NULL AS has_file, COALESCE((SELECT json_agg(
  CASE WHEN l.bug_id IS NOT NULL THEN 'BUG-' || lpad(l.bug_id::text,greatest(3,length(l.bug_id::text)),'0')
  WHEN l.test_case_id IS NOT NULL THEN 'TC-' || lpad(l.test_case_id::text,greatest(3,length(l.test_case_id::text)),'0')
  WHEN l.test_run_id IS NOT NULL THEN 'RUN-' || lpad(l.test_run_id::text,greatest(3,length(l.test_run_id::text)),'0')
@@ -31,73 +95,518 @@ const evidenceSql = `SELECT e.*, COALESCE((SELECT json_agg(
 
 export class PostgresRepository implements Repository {
   constructor(private readonly pool: Pool) {}
-  async health() { await this.pool.query("SELECT 1"); }
+  async health() {
+    await this.pool.query("SELECT 1");
+  }
   async listProjects() {
-    const { rows } = await this.pool.query('SELECT id::text, organization_id::text AS "organizationId", name, description FROM qa.projects ORDER BY id');
+    const { rows } = await this.pool.query(
+      'SELECT id::text, organization_id::text AS "organizationId", name, description FROM qa.projects ORDER BY id',
+    );
     return rows;
   }
   async listBugs(projectId?: string) {
-    const { rows } = await this.pool.query<Row>(`SELECT b.*, p.name AS project FROM qa.bugs b JOIN qa.projects p ON p.id=b.project_id ${projectId ? "WHERE b.project_id=$1" : ""} ORDER BY b.id DESC`, projectId ? [projectId] : []);
+    const { rows } = await this.pool.query<Row>(
+      `SELECT b.*, p.name AS project, COALESCE((SELECT array_agg(bt.tag_id::text ORDER BY bt.tag_id) FROM qa.bug_tags bt WHERE bt.bug_id=b.id), ARRAY[]::text[]) AS tag_ids FROM qa.bugs b JOIN qa.projects p ON p.id=b.project_id ${projectId ? "WHERE b.project_id=$1" : ""} ORDER BY b.id DESC`,
+      projectId ? [projectId] : [],
+    );
     return rows.map(bug);
   }
   async createBug(input: CreateBugInput) {
-    const { rows } = await this.pool.query<Row>(`WITH inserted AS (INSERT INTO qa.bugs(project_id,title,description,priority,assignee) VALUES($1,$2,$3,$4,$5) RETURNING *)
-      SELECT b.*, p.name AS project FROM inserted b JOIN qa.projects p ON p.id=b.project_id`, [input.projectId, input.title.trim(), input.description?.trim() ?? "", input.priority, input.assignee ?? null]);
-    return bug(rows[0]);
+    return this.transaction(async (client) => {
+      const { rows } = await client.query<Row>(
+        `WITH inserted AS (INSERT INTO qa.bugs(project_id,title,description,priority,assignee) VALUES($1,$2,$3,$4,$5) RETURNING *)
+        SELECT b.*, p.name AS project, ARRAY[]::text[] AS tag_ids FROM inserted b JOIN qa.projects p ON p.id=b.project_id`,
+        [
+          input.projectId,
+          input.title.trim(),
+          input.description?.trim() ?? "",
+          input.priority,
+          input.assignee ?? null,
+        ],
+      );
+      await this.replaceTags(
+        "qa.bug_tags",
+        "bug_id",
+        rows[0].id,
+        input.projectId,
+        input.tagIds,
+        client,
+      );
+      const result = await client.query<Row>(
+        `SELECT b.*, p.name AS project, COALESCE((SELECT array_agg(bt.tag_id::text ORDER BY bt.tag_id) FROM qa.bug_tags bt WHERE bt.bug_id=b.id), ARRAY[]::text[]) AS tag_ids FROM qa.bugs b JOIN qa.projects p ON p.id=b.project_id WHERE b.id=$1`,
+        [rows[0].id],
+      );
+      return bug(result.rows[0]);
+    });
+  }
+  async updateBugStatus(id: string, projectId: string, status: BugStatus) {
+    const { rows } = await this.pool.query<Row>(
+      `WITH updated AS (
+      UPDATE qa.bugs SET status=$3 WHERE id=$1 AND project_id=$2 RETURNING *
+    ) SELECT b.*, p.name AS project FROM updated b JOIN qa.projects p ON p.id=b.project_id`,
+      [id, projectId, status],
+    );
+    if (!rows[0]) return null;
+    const result = await this.pool.query<Row>(
+      `SELECT b.*, p.name AS project, COALESCE((SELECT array_agg(bt.tag_id::text ORDER BY bt.tag_id) FROM qa.bug_tags bt WHERE bt.bug_id=b.id), ARRAY[]::text[]) AS tag_ids FROM qa.bugs b JOIN qa.projects p ON p.id=b.project_id WHERE b.id=$1`,
+      [id],
+    );
+    return bug(result.rows[0]);
+  }
+  async updateBug(id: string, projectId: string, input: UpdateBugInput) {
+    return this.transaction(async (client) => {
+      const { rows } = await client.query<Row>(
+        `WITH updated AS (
+        UPDATE qa.bugs SET title=$3,description=COALESCE($4,description),priority=$5,
+          assignee=CASE WHEN $8 THEN $6 ELSE assignee END,status=COALESCE($7,status)
+        WHERE id=$1 AND project_id=$2 RETURNING *
+      ) SELECT b.*, p.name AS project FROM updated b JOIN qa.projects p ON p.id=b.project_id`,
+        [
+          id,
+          projectId,
+          input.title.trim(),
+          input.description?.trim() ?? null,
+          input.priority,
+          input.assignee?.trim() || null,
+          input.status ?? null,
+          input.assignee !== undefined,
+        ],
+      );
+      if (!rows[0]) return null;
+      await this.replaceTags("qa.bug_tags", "bug_id", id, projectId, input.tagIds, client);
+      const result = await client.query<Row>(
+        `SELECT b.*, p.name AS project, COALESCE((SELECT array_agg(bt.tag_id::text ORDER BY bt.tag_id) FROM qa.bug_tags bt WHERE bt.bug_id=b.id), ARRAY[]::text[]) AS tag_ids FROM qa.bugs b JOIN qa.projects p ON p.id=b.project_id WHERE b.id=$1 AND b.project_id=$2`,
+        [id, projectId],
+      );
+      return result.rows[0] ? bug(result.rows[0]) : null;
+    });
   }
   async listCases(projectId?: string) {
-    const { rows } = await this.pool.query<Row>(`${casesSql} ${projectId ? "WHERE c.project_id=$1" : ""} ORDER BY c.id DESC`, projectId ? [projectId] : []);
+    const { rows } = await this.pool.query<Row>(
+      `${casesSql} ${projectId ? "WHERE c.project_id=$1" : ""} ORDER BY c.id DESC`,
+      projectId ? [projectId] : [],
+    );
     return rows.map(testCase);
   }
   async createCase(input: CreateTestCaseInput) {
     return this.transaction(async (client) => {
-      const { rows } = await client.query<Row>("INSERT INTO qa.test_cases(project_id,title,suite,preconditions) VALUES($1,$2,$3,$4) RETURNING *", [input.projectId, input.title.trim(), input.suite?.trim() || null, input.preconditions?.trim() ?? ""]);
+      const { rows } = await client.query<Row>(
+        "INSERT INTO qa.test_cases(project_id,title,suite,preconditions) VALUES($1,$2,$3,$4) RETURNING *",
+        [
+          input.projectId,
+          input.title.trim(),
+          input.suite?.trim() || null,
+          input.preconditions?.trim() ?? "",
+        ],
+      );
       const id = rows[0].id;
+      await this.replaceTags(
+        "qa.test_case_tags",
+        "test_case_id",
+        id,
+        input.projectId,
+        input.tagIds,
+        client,
+      );
       for (const [index, step] of (input.steps ?? []).entries()) {
-        await client.query("INSERT INTO qa.test_case_steps(project_id,test_case_id,position,action,expected_result) VALUES($1,$2,$3,$4,$5)", [input.projectId, id, index + 1, step.action.trim(), step.expectedResult.trim()]);
+        await client.query(
+          "INSERT INTO qa.test_case_steps(project_id,test_case_id,position,action,expected_result) VALUES($1,$2,$3,$4,$5)",
+          [input.projectId, id, index + 1, step.action.trim(), step.expectedResult.trim()],
+        );
       }
       const result = await client.query<Row>(`${casesSql} WHERE c.id=$1`, [id]);
       return testCase(result.rows[0]);
     });
   }
+  async updateCase(id: string, projectId: string, input: UpdateTestCaseInput) {
+    return this.transaction(async (client) => {
+      const { rows } = await client.query<Row>(
+        "UPDATE qa.test_cases SET title=$3,suite=$4,preconditions=$5 WHERE id=$1 AND project_id=$2 RETURNING id",
+        [
+          id,
+          projectId,
+          input.title.trim(),
+          input.suite?.trim() || null,
+          input.preconditions?.trim() ?? "",
+        ],
+      );
+      if (!rows[0]) return null;
+      await this.replaceTags(
+        "qa.test_case_tags",
+        "test_case_id",
+        id,
+        projectId,
+        input.tagIds,
+        client,
+      );
+      await client.query("DELETE FROM qa.test_case_steps WHERE project_id=$1 AND test_case_id=$2", [
+        projectId,
+        id,
+      ]);
+      for (const [index, step] of (input.steps ?? []).entries()) {
+        await client.query(
+          "INSERT INTO qa.test_case_steps(project_id,test_case_id,position,action,expected_result) VALUES($1,$2,$3,$4,$5)",
+          [projectId, id, index + 1, step.action.trim(), step.expectedResult.trim()],
+        );
+      }
+      const result = await client.query<Row>(`${casesSql} WHERE c.id=$1 AND c.project_id=$2`, [
+        id,
+        projectId,
+      ]);
+      return testCase(result.rows[0]);
+    });
+  }
+  async deleteCase(id: string, projectId: string) {
+    try {
+      return await this.transaction(async (client) => {
+        await client.query(
+          "DELETE FROM qa.test_case_attachments WHERE test_case_id=$1 AND project_id=$2",
+          [id, projectId],
+        );
+        await client.query(
+          "DELETE FROM qa.test_case_steps WHERE test_case_id=$1 AND project_id=$2",
+          [id, projectId],
+        );
+        const { rowCount } = await client.query(
+          "DELETE FROM qa.test_cases WHERE id=$1 AND project_id=$2",
+          [id, projectId],
+        );
+        return rowCount === 1;
+      });
+    } catch (error) {
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        error.code === "23503"
+      ) {
+        throw new HttpError(
+          409,
+          "TEST_CASE_IN_USE",
+          "El caso pertenece a una ejecución o tiene relaciones; no se puede eliminar.",
+        );
+      }
+      throw error;
+    }
+  }
+  async updateCaseStatus(id: string, projectId: string, status: TestCaseStatus) {
+    const { rows } = await this.pool.query<Row>(
+      `WITH updated AS (
+      UPDATE qa.test_cases SET status=$3 WHERE id=$1 AND project_id=$2 RETURNING *
+    ) SELECT c.*, COALESCE((SELECT json_agg(json_build_object('action', s.action, 'expectedResult', s.expected_result) ORDER BY s.position)
+      FROM qa.test_case_steps s WHERE s.test_case_id=c.id), '[]'::json) AS steps,
+      COALESCE((SELECT array_agg(tc.tag_id::text ORDER BY tc.tag_id) FROM qa.test_case_tags tc WHERE tc.test_case_id=c.id), ARRAY[]::text[]) AS tag_ids FROM updated c`,
+      [id, projectId, status],
+    );
+    return rows[0] ? testCase(rows[0]) : null;
+  }
+  async listCaseAttachments(id: string, projectId: string) {
+    const { rows } = await this.pool.query<Row>(
+      "SELECT id::text, project_id, test_case_id::text, kind, name, external_url, content_type, created_at FROM qa.test_case_attachments WHERE test_case_id=$1 AND project_id=$2 ORDER BY id",
+      [id, projectId],
+    );
+    return rows.map(caseAttachment);
+  }
+  async getCaseAttachment(id: string, attachmentId: string, projectId: string) {
+    const { rows } = await this.pool.query<Row>(
+      "SELECT id::text, project_id, test_case_id::text, kind, name, external_url, content_type, image_bytes, created_at FROM qa.test_case_attachments WHERE test_case_id=$1 AND id=$2 AND project_id=$3",
+      [id, attachmentId, projectId],
+    );
+    return rows[0]
+      ? { ...caseAttachment(rows[0]), imageData: rows[0].image_bytes as Buffer | null }
+      : null;
+  }
+  async createCaseAttachment(
+    input: CreateTestCaseAttachmentInput,
+  ): Promise<TestCaseAttachment | null> {
+    const values =
+      input.kind === "image"
+        ? [
+            input.projectId,
+            input.testCaseId,
+            input.kind,
+            input.name.trim(),
+            null,
+            input.mediaType,
+            input.imageData,
+          ]
+        : [input.projectId, input.testCaseId, input.kind, input.name.trim(), input.url, null, null];
+    const { rows } = await this.pool.query<Row>(
+      `INSERT INTO qa.test_case_attachments(project_id,test_case_id,kind,name,external_url,content_type,image_bytes)
+      SELECT $1,c.id,$3,$4,$5,$6,$7 FROM qa.test_cases c WHERE c.id=$2 AND c.project_id=$1
+      RETURNING id::text, project_id, test_case_id::text, kind, name, external_url, content_type, created_at`,
+      values,
+    );
+    return rows[0] ? caseAttachment(rows[0]) : null;
+  }
+  async deleteCaseAttachment(id: string, attachmentId: string, projectId: string) {
+    const { rowCount } = await this.pool.query(
+      "DELETE FROM qa.test_case_attachments WHERE test_case_id=$1 AND id=$2 AND project_id=$3",
+      [id, attachmentId, projectId],
+    );
+    return rowCount === 1;
+  }
   async listRuns(projectId?: string) {
-    const { rows } = await this.pool.query<Row>(`${runsSql} ${projectId ? "WHERE r.project_id=$1" : ""} ORDER BY r.id DESC`, projectId ? [projectId] : []);
+    const { rows } = await this.pool.query<Row>(
+      `${runsSql} ${projectId ? "WHERE r.project_id=$1" : ""} ORDER BY r.id DESC`,
+      projectId ? [projectId] : [],
+    );
     return rows.map(run);
   }
   async createRun(input: CreateTestRunInput) {
     return this.transaction(async (client) => {
-      const { rows } = await client.query<Row>("INSERT INTO qa.test_runs(project_id,title,owner) VALUES($1,$2,$3) RETURNING *", [input.projectId, input.title.trim(), input.owner.trim()]);
+      const { rows } = await client.query<Row>(
+        "INSERT INTO qa.test_runs(project_id,title,owner) VALUES($1,$2,$3) RETURNING *",
+        [input.projectId, input.title.trim(), input.owner.trim()],
+      );
       const id = rows[0].id;
+      await this.replaceTags(
+        "qa.test_run_tags",
+        "test_run_id",
+        id,
+        input.projectId,
+        input.tagIds,
+        client,
+      );
       const caseIds = (input.caseIds ?? []).map((value) => parseReference(value, "TC")!);
-      const inserted = await client.query(`INSERT INTO qa.test_run_results(project_id,test_run_id,test_case_id,steps_snapshot)
+      const inserted = await client.query(
+        `INSERT INTO qa.test_run_results(project_id,test_run_id,test_case_id,steps_snapshot)
         SELECT $1,$2,c.id,COALESCE((SELECT jsonb_agg(jsonb_build_object('position',s.position,'action',s.action,'expected_result',s.expected_result) ORDER BY s.position)
         FROM qa.test_case_steps s WHERE s.test_case_id=c.id),'[]'::jsonb)
-        FROM qa.test_cases c WHERE c.project_id=$1 AND c.id=ANY($3::bigint[])`, [input.projectId, id, caseIds]);
-      if (inserted.rowCount !== caseIds.length) throw new HttpError(400, "INVALID_REFERENCE", "Los casos deben existir y pertenecer al proyecto de la ejecución.");
+        FROM qa.test_cases c WHERE c.project_id=$1 AND c.id=ANY($3::bigint[])`,
+        [input.projectId, id, caseIds],
+      );
+      if (inserted.rowCount !== caseIds.length)
+        throw new HttpError(
+          400,
+          "INVALID_REFERENCE",
+          "Los casos deben existir y pertenecer al proyecto de la ejecución.",
+        );
       const result = await client.query<Row>(`${runsSql} WHERE r.id=$1`, [id]);
       return run(result.rows[0]);
     });
   }
   async listEvidence(projectId?: string) {
-    const { rows } = await this.pool.query<Row>(`${evidenceSql} ${projectId ? "WHERE e.project_id=$1" : ""} ORDER BY e.id DESC`, projectId ? [projectId] : []);
+    const { rows } = await this.pool.query<Row>(
+      `${evidenceSql} ${projectId ? "WHERE e.project_id=$1" : ""} ORDER BY e.id DESC`,
+      projectId ? [projectId] : [],
+    );
     return rows.map(evidence);
   }
   async createEvidence(input: CreateEvidenceInput) {
     return this.transaction(async (client) => {
-      const { rows } = await client.query<Row>("INSERT INTO qa.evidence(project_id,name,type,size_bytes) VALUES($1,$2,$3,$4) RETURNING *", [input.projectId, input.name.trim(), input.type, input.sizeBytes]);
+      const { rows } = await client.query<Row>(
+        "INSERT INTO qa.evidence(project_id,name,type,size_bytes) VALUES($1,$2,$3,$4) RETURNING *",
+        [input.projectId, input.name.trim(), input.type, input.sizeBytes],
+      );
       const id = rows[0].id;
       if (input.related) {
         // Column names come exclusively from this allowlist, never from user input.
-        const targets = { BUG: "bug_id", TC: "test_case_id", RUN: "test_run_id", RES: "test_run_result_id" } as const;
+        const targets = {
+          BUG: "bug_id",
+          TC: "test_case_id",
+          RUN: "test_run_id",
+          RES: "test_run_result_id",
+        } as const;
         const prefix = input.related.split("-")[0] as keyof typeof targets;
         const target = targets[prefix];
         const targetId = target && parseReference(input.related, prefix);
-        if (!targetId) throw new HttpError(400, "INVALID_REFERENCE", "Referencia de evidencia inválida.");
-        await client.query(`INSERT INTO qa.evidence_links(project_id,evidence_id,${target}) VALUES($1,$2,$3)`, [input.projectId, id, targetId]);
+        if (!targetId)
+          throw new HttpError(400, "INVALID_REFERENCE", "Referencia de evidencia inválida.");
+        await client.query(
+          `INSERT INTO qa.evidence_links(project_id,evidence_id,${target}) VALUES($1,$2,$3)`,
+          [input.projectId, id, targetId],
+        );
       }
       const result = await client.query<Row>(`${evidenceSql} WHERE e.id=$1`, [id]);
       return evidence(result.rows[0]);
     });
+  }
+  async updateEvidence(id: string, projectId: string, input: UpdateEvidenceInput) {
+    return this.transaction(async (client) => {
+      const updated = await client.query(
+        "UPDATE qa.evidence SET name=$3,type=$4,size_bytes=$5 WHERE id=$1 AND project_id=$2 RETURNING id",
+        [id, projectId, input.name.trim(), input.type, input.sizeBytes],
+      );
+      if (!updated.rows[0]) return null;
+      if (input.related !== undefined) {
+        await client.query("DELETE FROM qa.evidence_links WHERE project_id=$1 AND evidence_id=$2", [
+          projectId,
+          id,
+        ]);
+        if (input.related) {
+          const targets = {
+            BUG: "bug_id",
+            TC: "test_case_id",
+            RUN: "test_run_id",
+            RES: "test_run_result_id",
+          } as const;
+          const prefix = input.related.split("-")[0] as keyof typeof targets;
+          const target = targets[prefix];
+          const targetId = target && parseReference(input.related, prefix);
+          if (!targetId)
+            throw new HttpError(400, "INVALID_REFERENCE", "Referencia de evidencia inválida.");
+          await client.query(
+            `INSERT INTO qa.evidence_links(project_id,evidence_id,${target}) VALUES($1,$2,$3)`,
+            [projectId, id, targetId],
+          );
+        }
+      }
+      const result = await client.query<Row>(`${evidenceSql} WHERE e.id=$1 AND e.project_id=$2`, [
+        id,
+        projectId,
+      ]);
+      return evidence(result.rows[0]);
+    });
+  }
+  async deleteEvidence(id: string, projectId: string) {
+    return this.transaction(async (client) => {
+      await client.query("DELETE FROM qa.evidence_links WHERE project_id=$1 AND evidence_id=$2", [
+        projectId,
+        id,
+      ]);
+      const { rowCount } = await client.query(
+        "DELETE FROM qa.evidence WHERE id=$1 AND project_id=$2",
+        [id, projectId],
+      );
+      return rowCount === 1;
+    });
+  }
+  async saveEvidenceFile(
+    id: string | null,
+    projectId: string,
+    file: EvidenceFile,
+    related?: string | null,
+  ) {
+    return this.transaction(async (client) => {
+      let evidenceId = id;
+      if (evidenceId) {
+        const { rows } = await client.query<Row>(
+          "UPDATE qa.evidence SET name=$3,type=$4,size_bytes=$5,media_type=$6,file_bytes=$7 WHERE id=$1 AND project_id=$2 RETURNING id",
+          [
+            evidenceId,
+            projectId,
+            file.name.trim(),
+            evidenceTypeFor(file.mediaType),
+            file.fileData.length,
+            file.mediaType,
+            file.fileData,
+          ],
+        );
+        if (!rows[0]) return null;
+      } else {
+        const { rows } = await client.query<Row>(
+          "INSERT INTO qa.evidence(project_id,name,type,size_bytes,media_type,file_bytes) VALUES($1,$2,$3,$4,$5,$6) RETURNING id",
+          [
+            projectId,
+            file.name.trim(),
+            evidenceTypeFor(file.mediaType),
+            file.fileData.length,
+            file.mediaType,
+            file.fileData,
+          ],
+        );
+        evidenceId = rows[0].id;
+      }
+      if (related) {
+        const targets = {
+          BUG: "bug_id",
+          TC: "test_case_id",
+          RUN: "test_run_id",
+          RES: "test_run_result_id",
+        } as const;
+        const prefix = related.split("-")[0] as keyof typeof targets;
+        const target = targets[prefix];
+        const targetId = target && parseReference(related, prefix);
+        if (!targetId)
+          throw new HttpError(400, "INVALID_REFERENCE", "Referencia de evidencia inválida.");
+        await client.query(
+          `INSERT INTO qa.evidence_links(project_id,evidence_id,${target}) VALUES($1,$2,$3)`,
+          [projectId, evidenceId, targetId],
+        );
+      }
+      const result = await client.query<Row>(`${evidenceSql} WHERE e.id=$1 AND e.project_id=$2`, [
+        evidenceId,
+        projectId,
+      ]);
+      return result.rows[0] ? evidence(result.rows[0]) : null;
+    });
+  }
+  async getEvidenceFile(id: string, projectId: string) {
+    const { rows } = await this.pool.query<Row>(
+      "SELECT name, media_type, file_bytes, size_bytes FROM qa.evidence WHERE id=$1 AND project_id=$2 AND file_bytes IS NOT NULL",
+      [id, projectId],
+    );
+    const row = rows[0];
+    if (!row) return null;
+    return {
+      name: row.name,
+      mediaType: row.media_type,
+      fileData: row.file_bytes as Buffer,
+      sizeBytes: Number(row.size_bytes),
+    };
+  }
+  async listTags(projectId: string): Promise<Tag[]> {
+    const { rows } = await this.pool.query(
+      "SELECT id::text, project_id::text, name, color, created_at FROM qa.tags WHERE project_id=$1 ORDER BY lower(name), id",
+      [projectId],
+    );
+    return rows.map(tag);
+  }
+  async createTag(input: CreateTagInput): Promise<Tag> {
+    try {
+      const { rows } = await this.pool.query(
+        "INSERT INTO qa.tags(project_id,name,color) VALUES($1,$2,$3) RETURNING id::text, project_id::text, name, color, created_at",
+        [input.projectId, input.name.trim(), input.color],
+      );
+      return tag(rows[0]);
+    } catch (error) {
+      if (isUniqueViolation(error))
+        throw new HttpError(409, "TAG_ALREADY_EXISTS", "Ya existe un tag con ese nombre.");
+      throw error;
+    }
+  }
+  async updateTag(id: string, projectId: string, input: UpdateTagInput): Promise<Tag | null> {
+    try {
+      const { rows } = await this.pool.query(
+        "UPDATE qa.tags SET name=$3,color=$4 WHERE id=$1 AND project_id=$2 RETURNING id::text, project_id::text, name, color, created_at",
+        [id, projectId, input.name.trim(), input.color],
+      );
+      return rows[0] ? tag(rows[0]) : null;
+    } catch (error) {
+      if (isUniqueViolation(error))
+        throw new HttpError(409, "TAG_ALREADY_EXISTS", "Ya existe un tag con ese nombre.");
+      throw error;
+    }
+  }
+  async deleteTag(id: string, projectId: string): Promise<boolean> {
+    const { rowCount } = await this.pool.query(
+      "DELETE FROM qa.tags WHERE id=$1 AND project_id=$2",
+      [id, projectId],
+    );
+    return rowCount === 1;
+  }
+  private async replaceTags(
+    table: "qa.bug_tags" | "qa.test_case_tags" | "qa.test_run_tags",
+    resourceColumn: "bug_id" | "test_case_id" | "test_run_id",
+    resourceId: string,
+    projectId: string,
+    tagIds: string[] | undefined,
+    client: Pool | PoolClient = this.pool,
+  ) {
+    if (tagIds === undefined) return;
+    await client.query(`DELETE FROM ${table} WHERE project_id=$1 AND ${resourceColumn}=$2`, [
+      projectId,
+      resourceId,
+    ]);
+    if (tagIds.length === 0) return;
+    const inserted = await client.query(
+      `INSERT INTO ${table}(project_id,${resourceColumn},tag_id)
+       SELECT $1,$2,t.id FROM qa.tags t WHERE t.project_id=$1 AND t.id=ANY($3::bigint[])`,
+      [projectId, resourceId, tagIds],
+    );
+    if (inserted.rowCount !== tagIds.length)
+      throw new HttpError(400, "INVALID_TAG", "Todos los tags deben pertenecer al proyecto.");
   }
   private async transaction<T>(work: (client: PoolClient) => Promise<T>): Promise<T> {
     const client = await this.pool.connect();
@@ -109,6 +618,30 @@ export class PostgresRepository implements Repository {
     } catch (error) {
       await client.query("ROLLBACK");
       throw error;
-    } finally { client.release(); }
+    } finally {
+      client.release();
+    }
   }
+}
+
+function tag(row: QueryResultRow): Tag {
+  return {
+    id: String(row.id),
+    projectId: String(row.project_id),
+    name: row.name as string,
+    color: row.color as string,
+    createdAt: (row.created_at as Date).toISOString(),
+  };
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "23505";
+}
+
+function evidenceTypeFor(mediaType: string): "Imagen" | "Video" | "Archivo" {
+  return mediaType.startsWith("image/")
+    ? "Imagen"
+    : mediaType.startsWith("video/")
+      ? "Video"
+      : "Archivo";
 }

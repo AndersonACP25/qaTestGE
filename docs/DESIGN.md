@@ -6,15 +6,15 @@ Interfaz React/Vite conectada a la API. Incluye autenticación, resumen y listad
 
 ## Estructura
 
-| Archivo | Responsabilidad |
-|---|---|
-| `src/Session.tsx` | Login, registro, restauración de sesión, cierre y preferencia de tema |
-| `src/App.tsx` | Navegación en estado React, shell, vistas, carga de API y formularios |
-| `src/views/AccountSettingsView.tsx` | Perfil, contraseña, CRUD de plantillas, maqueta de IA y baja de cuenta |
-| `src/CaseBuilder.tsx` | Descripción, selección de categorías, cantidades y tablas fijas de ejemplo |
-| `src/utils/caseCatalog.ts` | Catálogo de escenarios ilustrativos y validación de cantidades |
-| `src/styles.css` | Estilos actuales, variables de color y reglas responsive |
-| `src/types.ts` | Tipos de navegación y modelos de presentación |
+| Archivo                             | Responsabilidad                                                            |
+| ----------------------------------- | -------------------------------------------------------------------------- |
+| `src/Session.tsx`                   | Login, registro, restauración de sesión, cierre y preferencia de tema      |
+| `src/App.tsx`                       | Navegación en estado React, shell, vistas, carga de API y formularios      |
+| `src/views/AccountSettingsView.tsx` | Perfil, contraseña, CRUD de plantillas, maqueta de IA y baja de cuenta     |
+| `src/CaseBuilder.tsx`               | Descripción, selección de categorías, cantidades y tablas fijas de ejemplo |
+| `src/utils/caseCatalog.ts`          | Catálogo de escenarios ilustrativos y validación de cantidades             |
+| `src/styles.css`                    | Estilos actuales, variables de color y reglas responsive                   |
+| `src/types.ts`                      | Tipos de navegación y modelos de presentación                              |
 
 La navegación actual no usa rutas URL. Recargar restaura la sesión y vuelve a consultar los datos persistentes.
 

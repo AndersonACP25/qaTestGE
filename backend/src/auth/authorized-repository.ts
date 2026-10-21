@@ -1,28 +1,142 @@
 import type { Repository, Project } from "../repositories/repository.js";
-import type { CreateBugInput } from "../models/bug.model.js";
-import type { CreateTestCaseInput } from "../models/test-case.model.js";
+import type { BugStatus, CreateBugInput, UpdateBugInput } from "../models/bug.model.js";
+import type {
+  TestCaseStatus,
+  CreateTestCaseAttachmentInput,
+  CreateTestCaseInput,
+  UpdateTestCaseInput,
+} from "../models/test-case.model.js";
 import type { CreateTestRunInput } from "../models/test-run.model.js";
-import type { CreateEvidenceInput } from "../models/evidence.model.js";
+import type {
+  CreateEvidenceInput,
+  EvidenceFile,
+  UpdateEvidenceInput,
+} from "../models/evidence.model.js";
 import { HttpError } from "../http-error.js";
+import type { CreateTagInput, UpdateTagInput } from "../models/tag.model.js";
 
 export class AuthorizedRepository implements Repository {
-  constructor(private readonly base: Repository, private readonly projects: () => Promise<Project[]>) {}
-  health() { return this.base.health(); }
-  listProjects() { return this.projects(); }
+  constructor(
+    private readonly base: Repository,
+    private readonly projects: () => Promise<Project[]>,
+  ) {}
+  health() {
+    return this.base.health();
+  }
+  listProjects() {
+    return this.projects();
+  }
   private async projectIds(projectId?: string) {
     const ids = (await this.projects()).map((p) => p.id);
-    if (projectId && !ids.includes(projectId)) throw new HttpError(404, "PROJECT_NOT_FOUND", "Proyecto no disponible para esta cuenta.");
+    if (projectId && !ids.includes(projectId))
+      throw new HttpError(404, "PROJECT_NOT_FOUND", "Proyecto no disponible para esta cuenta.");
     return projectId ? [projectId] : ids;
   }
-  private async list<T>(projectId: string | undefined, read: (id: string) => Promise<T[]>): Promise<T[]> {
+  private async list<T>(
+    projectId: string | undefined,
+    read: (id: string) => Promise<T[]>,
+  ): Promise<T[]> {
     return (await Promise.all((await this.projectIds(projectId)).map(read))).flat();
   }
-  listBugs(id?: string) { return this.list(id, (projectId) => this.base.listBugs(projectId)); }
-  listCases(id?: string) { return this.list(id, (projectId) => this.base.listCases(projectId)); }
-  listRuns(id?: string) { return this.list(id, (projectId) => this.base.listRuns(projectId)); }
-  listEvidence(id?: string) { return this.list(id, (projectId) => this.base.listEvidence(projectId)); }
-  async createBug(input: CreateBugInput) { await this.projectIds(input.projectId); return this.base.createBug(input); }
-  async createCase(input: CreateTestCaseInput) { await this.projectIds(input.projectId); return this.base.createCase(input); }
-  async createRun(input: CreateTestRunInput) { await this.projectIds(input.projectId); return this.base.createRun(input); }
-  async createEvidence(input: CreateEvidenceInput) { await this.projectIds(input.projectId); return this.base.createEvidence(input); }
+  listBugs(id?: string) {
+    return this.list(id, (projectId) => this.base.listBugs(projectId));
+  }
+  listCases(id?: string) {
+    return this.list(id, (projectId) => this.base.listCases(projectId));
+  }
+  listRuns(id?: string) {
+    return this.list(id, (projectId) => this.base.listRuns(projectId));
+  }
+  listEvidence(id?: string) {
+    return this.list(id, (projectId) => this.base.listEvidence(projectId));
+  }
+  async createBug(input: CreateBugInput) {
+    await this.projectIds(input.projectId);
+    return this.base.createBug(input);
+  }
+  async updateBugStatus(id: string, projectId: string, status: BugStatus) {
+    await this.projectIds(projectId);
+    return this.base.updateBugStatus(id, projectId, status);
+  }
+  async updateBug(id: string, projectId: string, input: UpdateBugInput) {
+    await this.projectIds(projectId);
+    return this.base.updateBug(id, projectId, input);
+  }
+  async createCase(input: CreateTestCaseInput) {
+    await this.projectIds(input.projectId);
+    return this.base.createCase(input);
+  }
+  async updateCase(id: string, projectId: string, input: UpdateTestCaseInput) {
+    await this.projectIds(projectId);
+    return this.base.updateCase(id, projectId, input);
+  }
+  async deleteCase(id: string, projectId: string) {
+    await this.projectIds(projectId);
+    return this.base.deleteCase(id, projectId);
+  }
+  async updateCaseStatus(id: string, projectId: string, status: TestCaseStatus) {
+    await this.projectIds(projectId);
+    return this.base.updateCaseStatus(id, projectId, status);
+  }
+  async listCaseAttachments(id: string, projectId: string) {
+    await this.projectIds(projectId);
+    return this.base.listCaseAttachments(id, projectId);
+  }
+  async getCaseAttachment(id: string, attachmentId: string, projectId: string) {
+    await this.projectIds(projectId);
+    return this.base.getCaseAttachment(id, attachmentId, projectId);
+  }
+  async createCaseAttachment(input: CreateTestCaseAttachmentInput) {
+    await this.projectIds(input.projectId);
+    return this.base.createCaseAttachment(input);
+  }
+  async deleteCaseAttachment(id: string, attachmentId: string, projectId: string) {
+    await this.projectIds(projectId);
+    return this.base.deleteCaseAttachment(id, attachmentId, projectId);
+  }
+  async createRun(input: CreateTestRunInput) {
+    await this.projectIds(input.projectId);
+    return this.base.createRun(input);
+  }
+  async createEvidence(input: CreateEvidenceInput) {
+    await this.projectIds(input.projectId);
+    return this.base.createEvidence(input);
+  }
+  async updateEvidence(id: string, projectId: string, input: UpdateEvidenceInput) {
+    await this.projectIds(projectId);
+    return this.base.updateEvidence(id, projectId, input);
+  }
+  async deleteEvidence(id: string, projectId: string) {
+    await this.projectIds(projectId);
+    return this.base.deleteEvidence(id, projectId);
+  }
+  async saveEvidenceFile(
+    id: string | null,
+    projectId: string,
+    file: EvidenceFile,
+    related?: string | null,
+  ) {
+    await this.projectIds(projectId);
+    return this.base.saveEvidenceFile(id, projectId, file, related);
+  }
+  async getEvidenceFile(id: string, projectId: string) {
+    await this.projectIds(projectId);
+    return this.base.getEvidenceFile(id, projectId);
+  }
+  async listTags(projectId: string) {
+    await this.projectIds(projectId);
+    return this.base.listTags(projectId);
+  }
+  async createTag(input: CreateTagInput) {
+    await this.projectIds(input.projectId);
+    return this.base.createTag(input);
+  }
+  async updateTag(id: string, projectId: string, input: UpdateTagInput) {
+    await this.projectIds(projectId);
+    return this.base.updateTag(id, projectId, input);
+  }
+  async deleteTag(id: string, projectId: string) {
+    await this.projectIds(projectId);
+    return this.base.deleteTag(id, projectId);
+  }
 }

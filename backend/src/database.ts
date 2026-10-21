@@ -1,9 +1,33 @@
 import pg from "pg";
 
+export function databaseFailureHint(error: unknown): string {
+  const code =
+    typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
+  if (["ECONNREFUSED", "ENOTFOUND", "ETIMEDOUT"].includes(code) || code.startsWith("08"))
+    return "PostgreSQL no está disponible; verifica que el servicio esté iniciado y DATABASE_URL.";
+  if (["28P01", "28000"].includes(code))
+    return "PostgreSQL rechazó la autenticación; revisa las credenciales locales de DATABASE_URL.";
+  if (code === "3F000")
+    return "No existe el esquema qa; en una base nueva, importa backend/sql/001_schema.sql una sola vez y luego ejecuta pnpm db:migrate.";
+  if (["42P01", "42703"].includes(code))
+    return "Falta una tabla o columna requerida; verifica el esquema existente y ejecuta pnpm db:migrate. No reimportes 001_schema.sql sobre una base inicializada.";
+  if (/^\w{5}$/.test(code))
+    return `Error de PostgreSQL (código ${code}); revisa la configuración local.`;
+  return "Revisa que PostgreSQL esté iniciado, DATABASE_URL sea válida y el esquema qa esté actualizado.";
+}
+
 export function createPool(connectionString: string): pg.Pool {
-  const pool = new pg.Pool({ connectionString, max: 10, connectionTimeoutMillis: 5000, idleTimeoutMillis: 30000, statement_timeout: 10000 });
+  const pool = new pg.Pool({
+    connectionString,
+    max: 10,
+    connectionTimeoutMillis: 5000,
+    idleTimeoutMillis: 30000,
+    statement_timeout: 10000,
+  });
   // Never log a connection string, SQL parameters or raw database errors.
-  pool.on("error", () => { console.error("Se perdió una conexión PostgreSQL inactiva."); });
+  pool.on("error", () => {
+    console.error("Se perdió una conexión PostgreSQL inactiva.");
+  });
   return pool;
 }
 
@@ -19,6 +43,16 @@ export async function checkDatabase(pool: pg.Pool): Promise<void> {
     LEFT JOIN qa.evidence e ON e.project_id = p.id
     LEFT JOIN qa.evidence_links el ON el.evidence_id = e.id LIMIT 0`);
   await pool.query("SELECT 1");
-  await pool.query("SELECT u.id,s.token_hash,m.user_id FROM qa.users u LEFT JOIN qa.auth_sessions s ON s.user_id=u.id LEFT JOIN qa.organization_members m ON m.user_id=u.id LIMIT 0");
+  await pool.query(
+    "SELECT u.id,s.token_hash,m.user_id FROM qa.users u LEFT JOIN qa.auth_sessions s ON s.user_id=u.id LEFT JOIN qa.organization_members m ON m.user_id=u.id LIMIT 0",
+  );
   await pool.query("SELECT id,user_id FROM qa.bug_templates LIMIT 0");
+  await pool.query(
+    "SELECT id,project_id,test_case_id,kind,image_bytes FROM qa.test_case_attachments LIMIT 0",
+  );
+  await pool.query("SELECT id,media_type,file_bytes FROM qa.evidence LIMIT 0");
+  await pool.query("SELECT id,project_id,name,color FROM qa.tags LIMIT 0");
+  await pool.query("SELECT project_id,bug_id,tag_id FROM qa.bug_tags LIMIT 0");
+  await pool.query("SELECT project_id,test_case_id,tag_id FROM qa.test_case_tags LIMIT 0");
+  await pool.query("SELECT project_id,test_run_id,tag_id FROM qa.test_run_tags LIMIT 0");
 }

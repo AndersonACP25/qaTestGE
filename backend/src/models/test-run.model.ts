@@ -11,8 +11,10 @@ export interface TestRun {
   status: TestRunStatus;
   owner: string;
   createdAt: string;
+  tagIds: string[];
 }
 
 export type CreateTestRunInput = Pick<TestRun, "title" | "owner" | "projectId"> & {
   caseIds?: string[];
+  tagIds?: string[];
 };

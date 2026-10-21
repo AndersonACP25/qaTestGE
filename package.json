@@ -16,6 +16,9 @@
     "build:frontend": "tsc --noEmit && vite build",
     "build:backend": "pnpm --dir backend build",
     "build": "tsc --noEmit && vite build && tsc -p backend/tsconfig.json",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -31,9 +34,14 @@
     "vite": "^6.0.7"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
+    "eslint": "^10.13.0",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.10",
     "typescript": "^5.7.2",
+    "typescript-eslint": "^8.72.0",
     "vitest": "^4.1.11"
   }
 }

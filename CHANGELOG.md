@@ -6,6 +6,13 @@ Todos los cambios importantes de qaTestGE se documentan aquí. El formato sigue 
 
 ### Added
 
+- CRUD de tags por proyecto con color, asociación a bugs/casos/ejecuciones y migración versionada 009.
+- Adjuntar y descargar archivos privados de evidencias (hasta 2 MiB) con autorización por proyecto y migración 008.
+- Preferencias por usuario para seleccionar las categorías iniciales del diseñador de casos.
+- CI de validación en pushes a `qa-env`, manteniendo la publicación de artefactos limitada a `main`.
+- Edición autorizada de bugs y vista modal de detalle para bugs y casos, con pasos y resultados esperados legibles.
+- CRUD de metadatos y vínculos de evidencias, incluida la edición y eliminación con validación de proyecto.
+- Documentación del flujo de ramas `qa-env` → pull request a `main` y del formato de asunto/trailers de commits.
 - GitHub Actions CI/CD: validación de instalación, tipos, pruebas y build; artefacto frontend/backend al publicar en `main`.
 - Migración aditiva 005 para plantillas personales de bugs persistidas en PostgreSQL.
 - CRUD de plantillas por usuario en Configuración y selector que rellena título, descripción y prioridad al crear bugs.
@@ -44,6 +51,7 @@ Todos los cambios importantes de qaTestGE se documentan aquí. El formato sigue 
 
 ### Changed
 
+- Se mejoró el botón para guardar casos diseñados, con estados visuales de guardado, foco, hover y carga.
 - La API usa PostgreSQL sin fallback en memoria; requiere projectId, sustituye caseCount de entrada por caseIds y devuelve related como array en evidencias. Swagger y documentación actualizados.
 
 - Retirados el panel de almacenamiento y la etiqueta Demo local de la barra superior.
@@ -57,7 +65,6 @@ Todos los cambios importantes de qaTestGE se documentan aquí. El formato sigue 
 ## [1.0.0] - 2026-10-14
 
 ### Added
-
 
 - Interfaz frontend de demostración en React y Vite para el workspace de qaTestGE.
 - Vistas de resumen, bugs, casos de prueba, test runs y evidencias con datos de ejemplo.

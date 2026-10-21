@@ -9,12 +9,27 @@ import { authRateLimit } from "./middleware.js";
 
 export function sameOrigin(): RequestHandler {
   return (request, _response, next) => {
-    if (["GET", "HEAD", "OPTIONS"].includes(request.method)) { next(); return; }
+    if (["GET", "HEAD", "OPTIONS"].includes(request.method)) {
+      next();
+      return;
+    }
     const origin = request.get("origin");
-    const allowed = process.env.FRONTEND_ORIGIN ?? process.env.CORS_ORIGIN ?? "http://localhost:5173";
+    const allowed =
+      process.env.FRONTEND_ORIGIN ?? process.env.CORS_ORIGIN ?? "http://localhost:5173";
     const apiOrigin = process.env.API_ORIGIN ?? `http://localhost:${process.env.PORT ?? 3000}`;
-    if ((origin && origin !== allowed && origin !== apiOrigin) || !request.is("application/json")) {
-      next(new HttpError(403, "INVALID_ORIGIN", "Origen o formato de solicitud no permitido.")); return;
+    const mediaType = request.get("content-type")?.split(";")[0].trim();
+    const evidenceUpload =
+      request.method === "POST" &&
+      (request.path === "/evidence/upload" || /^\/evidence\/EVD-\d+\/file$/.test(request.path)) &&
+      typeof mediaType === "string" &&
+      /^[a-z0-9.+-]+\/[a-z0-9.+-]+$/i.test(mediaType);
+    const validContentType =
+      request.is("application/json") ||
+      ["image/png", "image/jpeg", "image/gif", "image/webp"].some((type) => request.is(type)) ||
+      evidenceUpload;
+    if ((origin && origin !== allowed && origin !== apiOrigin) || !validContentType) {
+      next(new HttpError(403, "INVALID_ORIGIN", "Origen o formato de solicitud no permitido."));
+      return;
     }
     next();
   };
@@ -23,7 +38,10 @@ export function sameOrigin(): RequestHandler {
 export function authRouter(auth: AuthProvider) {
   const router = Router();
   const controller = createAuthController(auth);
-  router.use((_request, response, next) => { response.setHeader("Cache-Control", "no-store"); next(); });
+  router.use((_request, response, next) => {
+    response.setHeader("Cache-Control", "no-store");
+    next();
+  });
   const limiter = authRateLimit();
   router.post("/register", limiter, controller.register);
   router.post("/login", limiter, controller.login);
@@ -42,11 +60,18 @@ export function authRouter(auth: AuthProvider) {
 export function requireAuth(auth: AuthProvider, base: Repository): RequestHandler {
   return async (request, response, next) => {
     const token = cookieToken(request);
-    const session = token && await auth.authenticate(token);
-    if (!session) throw new HttpError(401, "UNAUTHENTICATED", "Tu sesión expiró. Inicia sesión de nuevo.");
-    if (!["GET", "HEAD", "OPTIONS"].includes(request.method) && request.get("X-CSRF-Token") !== session.csrfToken) throw new HttpError(403, "INVALID_CSRF", "Recarga la página para renovar la sesión.");
+    const session = token && (await auth.authenticate(token));
+    if (!session)
+      throw new HttpError(401, "UNAUTHENTICATED", "Tu sesión expiró. Inicia sesión de nuevo.");
+    if (
+      !["GET", "HEAD", "OPTIONS"].includes(request.method) &&
+      request.get("X-CSRF-Token") !== session.csrfToken
+    )
+      throw new HttpError(403, "INVALID_CSRF", "Recarga la página para renovar la sesión.");
     response.setHeader("Cache-Control", "no-store");
-    response.locals.repository = new AuthorizedRepository(base, () => auth.projects(session.user.id));
+    response.locals.repository = new AuthorizedRepository(base, () =>
+      auth.projects(session.user.id),
+    );
     response.locals.user = session.user;
     next();
   };

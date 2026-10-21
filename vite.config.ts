@@ -10,7 +10,24 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     server: {
       proxy: {
-        "/api": `http://localhost:${apiPort}`,
+        "/api": {
+          target: `http://localhost:${apiPort}`,
+          configure(proxy) {
+            proxy.on("error", (_error, _request, response) => {
+              if (!("writeHead" in response) || response.headersSent) return;
+              response.writeHead(503, { "Content-Type": "application/json; charset=utf-8" });
+              response.end(
+                JSON.stringify({
+                  error: {
+                    code: "API_UNAVAILABLE",
+                    message:
+                      "No se pudo conectar con la API. Comprueba que el backend está iniciado.",
+                  },
+                }),
+              );
+            });
+          },
+        },
       },
     },
     test: {

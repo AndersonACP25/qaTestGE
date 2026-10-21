@@ -10,7 +10,13 @@ export function authRateLimit(now = () => Date.now()): RequestHandler {
     const value = attempts.get(key) ?? { count: 0, reset: time + 15 * 60 * 1000 };
     if (value.count >= 20 || (!attempts.has(key) && attempts.size >= 5000)) {
       response.setHeader("Retry-After", "900");
-      next(new HttpError(429, "TOO_MANY_ATTEMPTS", "Demasiados intentos de acceso. Intenta de nuevo más tarde."));
+      next(
+        new HttpError(
+          429,
+          "TOO_MANY_ATTEMPTS",
+          "Demasiados intentos de acceso. Intenta de nuevo más tarde.",
+        ),
+      );
       return;
     }
     value.count++;
