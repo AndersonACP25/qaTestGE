@@ -2,6 +2,8 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import CaseBuilder from "../../src/CaseBuilder";
+import CaseDesignView from "../../src/views/CaseDesignView";
+import type { CaseDesignController } from "../../src/controllers/useCaseDesignController";
 import { categories, selectCaseExamples, validCaseCount } from "../../src/models/caseDesign.model";
 import { caseExportRows } from "../../src/utils/exportCases";
 
@@ -42,5 +44,43 @@ describe("case builder mockup", () => {
     expect(new Set(categories.map((item) => item.id)).size).toBe(categories.length);
     expect(categories.every((item) => /^#[0-9a-f]{6}$/i.test(item.color))).toBe(true);
     expect(new Set(categories.map((item) => item.color)).size).toBe(categories.length);
+  });
+
+  it("renders multiple editable action/result steps for each designed test case", () => {
+    const controller: CaseDesignController = {
+      text: "Validar acceso",
+      selected: ["api"],
+      counts: { api: 1 },
+      preview: true,
+      exporting: false,
+      exportError: "",
+      selectedCategories: [],
+      previewCases: [{
+        categoryId: "api",
+        categoryLabel: "API",
+        caseNumber: 1,
+        color: "#15803d",
+        steps: [
+          { action: "Enviar solicitud", expected: "Se acepta" },
+          { action: "Consultar respuesta", expected: "Se muestran los datos" },
+        ],
+      }],
+      countsValid: true,
+      total: 1,
+      maxCaseCount: 3,
+      updateDescription: () => {},
+      toggleCategory: () => {},
+      updateCount: () => {},
+      submit: () => {},
+      updateExampleStep: () => {},
+      addExampleStep: () => {},
+      removeExampleStep: () => {},
+      exportPreview: async () => {},
+    };
+    const html = renderToStaticMarkup(createElement(CaseDesignView, controller));
+    expect(html).toContain("Enviar solicitud");
+    expect(html).toContain("Se muestran los datos");
+    expect(html).toContain("Añadir paso (2/100)");
+    expect(html.match(/Resultado esperado/g)).toHaveLength(2);
   });
 });

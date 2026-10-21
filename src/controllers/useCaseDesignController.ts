@@ -2,16 +2,33 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { maxCaseCount, selectCaseExamples, validCaseCount } from "../models/caseDesign.model";
 
+export interface CaseDesignPreviewCase {
+  categoryId: string;
+  categoryLabel: string;
+  caseNumber: number;
+  color: string;
+  steps: { action: string; expected: string }[];
+}
+
 export function useCaseDesignController() {
   const [text, setText] = useState("");
   const [selected, setSelected] = useState<string[]>(["edge"]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [preview, setPreview] = useState(false);
+  const [exampleSteps, setExampleSteps] = useState<Record<string, { action: string; expected: string }[]>>({});
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState("");
   const selectedCategories = selectCaseExamples(selected, counts);
   const countsValid = selected.every((id) => validCaseCount(counts[id] ?? 1));
   const total = selectedCategories.reduce((sum, category) => sum + category.steps.length, 0);
+  const previewCases: CaseDesignPreviewCase[] = selectedCategories.flatMap((category) =>
+    category.steps.map((sample, index) => ({
+      categoryId: category.id,
+      categoryLabel: category.label,
+      caseNumber: index + 1,
+      color: category.color,
+      steps: exampleSteps[`${category.id}:${index}`] ?? [{ action: sample.action, expected: sample.expected }],
+    })));
 
   function updateDescription(value: string) {
     setText(value);
@@ -35,12 +52,45 @@ export function useCaseDesignController() {
     if (text.trim() && selected.length && countsValid) setPreview(true);
   }
 
+  function updateExampleStep(categoryId: string, caseNumber: number, stepIndex: number, field: "action" | "expected", value: string) {
+    const key = `${categoryId}:${caseNumber - 1}`;
+    const category = selectedCategories.find((item) => item.id === categoryId);
+    const sample = category?.steps[caseNumber - 1];
+    if (!sample) return;
+    setExampleSteps((current) => {
+      const steps = current[key] ?? [{ action: sample.action, expected: sample.expected }];
+      return { ...current, [key]: steps.map((step, index) => index === stepIndex ? { ...step, [field]: value } : step) };
+    });
+  }
+
+  function addExampleStep(categoryId: string, caseNumber: number) {
+    const key = `${categoryId}:${caseNumber - 1}`;
+    const category = selectedCategories.find((item) => item.id === categoryId);
+    const sample = category?.steps[caseNumber - 1];
+    if (!sample) return;
+    setExampleSteps((current) => {
+      const steps = current[key] ?? [{ action: sample.action, expected: sample.expected }];
+      return steps.length >= 100 ? current : { ...current, [key]: [...steps, { action: "", expected: "" }] };
+    });
+  }
+
+  function removeExampleStep(categoryId: string, caseNumber: number, stepIndex: number) {
+    const key = `${categoryId}:${caseNumber - 1}`;
+    const category = selectedCategories.find((item) => item.id === categoryId);
+    const sample = category?.steps[caseNumber - 1];
+    if (!sample) return;
+    setExampleSteps((current) => {
+      const steps = current[key] ?? [{ action: sample.action, expected: sample.expected }];
+      return steps.length <= 1 ? current : { ...current, [key]: steps.filter((_step, index) => index !== stepIndex) };
+    });
+  }
+
   async function exportPreview(format: "xlsx" | "pdf") {
     setExporting(true);
     setExportError("");
     try {
-      const { downloadCaseExport } = await import("../utils/exportCases");
-      await downloadCaseExport(format, text, selectedCategories);
+      const { downloadDesignedCaseExport } = await import("../utils/exportCases");
+      await downloadDesignedCaseExport(format, text, previewCases);
     } catch {
       setExportError("No se pudo exportar el archivo. Inténtalo de nuevo.");
     } finally {
@@ -49,8 +99,9 @@ export function useCaseDesignController() {
   }
 
   return {
-    text, selected, counts, preview, exporting, exportError, selectedCategories,
-    countsValid, total, maxCaseCount, updateDescription, toggleCategory, updateCount, submit, exportPreview,
+    text, selected, counts, preview, exporting, exportError, selectedCategories, previewCases,
+    countsValid, total, maxCaseCount, updateDescription, toggleCategory, updateCount, submit,
+    updateExampleStep, addExampleStep, removeExampleStep, exportPreview,
   };
 }
 

@@ -6,7 +6,7 @@ const pool = createPool(databaseUrl());
 try {
   const client = await pool.connect();
   try {
-    for (const filename of ["004_authentication.sql", "005_bug_templates.sql"]) {
+    for (const filename of ["004_authentication.sql", "005_bug_templates.sql", "006_optional_test_suite.sql"]) {
       const sql = await readFile(new URL(`../sql/${filename}`, import.meta.url), "utf8");
       await client.query(sql);
       console.info(`Migración ${filename} aplicada/verificada.`);

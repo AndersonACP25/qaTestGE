@@ -2,7 +2,7 @@
 
 **qaTestGE es una plataforma web para organizar bugs, casos de prueba, ejecuciones y evidencias dentro de proyectos QA.** Una cuenta puede gestionar sus proyectos, registrar incidencias y casos, crear ejecuciones manuales y relacionar metadatos de evidencias. La aplicación vincula los recursos mediante identificadores y valida el acceso a los proyectos en el backend.
 
-> **Estado actual:** frontend React conectado a una API Express y PostgreSQL. El diseñador de casos es una maqueta con ejemplos fijos; no usa IA ni guarda los casos de la vista previa. Las evidencias solo guardan metadatos, no el archivo.
+> **Estado actual:** frontend React conectado a una API Express y PostgreSQL. El diseñador permite editar pasos de ejemplos ilustrativos, pero no usa IA ni guarda sus casos de vista previa. Los casos guardados admiten hasta 100 pasos con acción y resultado esperado; Suite es opcional. Las evidencias solo guardan metadatos, no el archivo.
 
 ## Stack tecnológico
 
@@ -29,6 +29,9 @@ El frontend usa React, TypeScript y Vite. La API usa Node.js, Express, TypeScrip
 - Configuración de IA visible como maqueta no funcional: no guarda claves ni conecta proveedores.
 - Workspaces, membresías y proyectos con autorización en la API.
 - Alta y consulta de bugs y casos de prueba.
+- Casos de prueba con Suite opcional y hasta 100 pasos, cada uno con acción y resultado esperado.
+- Vista previa del diseñador editable localmente, con múltiples pasos por caso y exportación actualizada a Excel/PDF.
+- Exportación de bugs y casos de prueba individuales a PDF, Excel o Markdown desde el menú de tres puntos.
 - Creación de ejecuciones manuales vinculadas a casos.
 - Registro de metadatos de evidencias y sus referencias; la carga binaria no está implementada.
 - Diseñador de casos de prueba con categorías identificadas por colores, cantidades ajustables y ejemplos exportables a Excel/PDF. Es una maqueta local: no analiza el requisito, no llama a IA y no guarda casos.
@@ -109,7 +112,7 @@ pnpm db:migrate
 pnpm db:check
 ```
 
-`db:migrate` aplica idempotentemente las migraciones `004_authentication.sql` (usuarios, membresías y sesiones) y `005_bug_templates.sql` (plantillas personales de bugs). No borra ni asigna datos existentes. `db:check` comprueba la conexión y el esquema sin modificar datos.
+`db:migrate` aplica idempotentemente las migraciones `004_authentication.sql` (usuarios, membresías y sesiones), `005_bug_templates.sql` (plantillas personales) y `006_optional_test_suite.sql` (Suite opcional). No borra ni asigna datos existentes. `db:check` comprueba la conexión y el esquema sin modificar datos.
 
 Si partes de una base que ya tenía el esquema inicial, **no vuelvas a importar `001_schema.sql`**: configura la conexión y ejecuta `pnpm db:migrate` y `pnpm db:check`.
 
@@ -143,7 +146,7 @@ Al abrir la aplicación, registra una cuenta para crear un workspace y proyecto 
 | `pnpm dev` | Inicia frontend y API |
 | `pnpm dev:frontend` | Inicia solo Vite |
 | `pnpm dev:backend` | Inicia solo la API |
-| `pnpm db:migrate` | Aplica/verifica las migraciones aditivas de cuentas y plantillas |
+| `pnpm db:migrate` | Aplica/verifica las migraciones aditivas de cuentas, plantillas y Suite opcional |
 | `pnpm db:check` | Comprueba la base y el esquema sin escrituras |
 | `pnpm typecheck` | Comprueba tipos del frontend y pruebas incluidas |
 | `pnpm test` | Ejecuta pruebas unitarias y de API sin requerir PostgreSQL |
@@ -161,7 +164,7 @@ No uses `test:db` contra una base con datos de trabajo: requiere una base de pru
 5. Ejecuta `pnpm db:migrate` y luego `pnpm db:check`.
 6. Ejecuta `pnpm typecheck`, `pnpm test` y `pnpm build` antes de reiniciar la aplicación.
 
-Las migraciones 004 y 005 son aditivas e idempotentes. La 004 no asigna organizaciones o proyectos existentes a nuevos usuarios; la 005 crea la tabla de plantillas por usuario. No hay un mecanismo de migración automática al arrancar; futuras modificaciones de esquema deben agregarse como nuevas migraciones versionadas. Al desactivar una cuenta desde Configuración, el usuario se anonimiza y queda inactivo, se revocan las sesiones y se eliminan sus plantillas; las membresías, proyectos y registros QA se conservan.
+Las migraciones 004, 005 y 006 son idempotentes. La 004 no asigna organizaciones o proyectos existentes a nuevos usuarios; la 005 crea la tabla de plantillas por usuario; la 006 permite Suite vacía/nula sin modificar los datos de los casos ya existentes. No hay migración automática al arrancar; futuras modificaciones deben agregarse como migraciones versionadas. Al desactivar una cuenta desde Configuración, el usuario se anonimiza y queda inactivo, se revocan las sesiones y se eliminan sus plantillas; las membresías, proyectos y registros QA se conservan.
 
 ## API y documentación
 

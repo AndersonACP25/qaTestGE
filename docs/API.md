@@ -69,10 +69,12 @@ Título: hasta 200 caracteres; prioridad: `Crítica`, `Alta`, `Media` o `Baja`. 
 ### Casos y pasos
 
 ```json
-{"projectId":"1","title":"Validar registro","suite":"Registro","preconditions":"Abrir el formulario","steps":[{"action":"Enviar campos vacíos","expectedResult":"Se muestran validaciones"}]}
+{"projectId":"1","title":"Validar registro","preconditions":"Abrir el formulario","steps":[{"action":"Enviar campos vacíos","expectedResult":"Se muestran validaciones"},{"action":"Completar los datos requeridos","expectedResult":"Se permite continuar"}]}
 ```
 
-Título y suite obligatorios, máximos 200 y 100. Precondiciones opcionales hasta 10000. Hasta 100 pasos opcionales, cada uno con acción y resultado no vacíos de hasta 10000 caracteres. El orden del array determina la posición. Caso y pasos se crean en una transacción. Estado inicial: `Pendiente`; los GET también pueden devolver `Aprobado` o `Fallido` según lo almacenado.
+Título obligatorio hasta 200; `suite` opcional hasta 100 (si se omite o queda vacío se guarda como nula). Precondiciones opcionales hasta 10000. Hasta 100 pasos opcionales, cada uno con acción y resultado esperado no vacíos de hasta 10000 caracteres. El orden del array determina la posición. Caso y pasos se crean en una transacción. Estado inicial: `Pendiente`; los GET también pueden devolver `Aprobado` o `Fallido` según lo almacenado.
+
+La migración `006_optional_test_suite.sql`, aplicada por `pnpm db:migrate`, ajusta el esquema existente para permitir Suite nula sin alterar casos actuales.
 
 ### Ejecuciones
 

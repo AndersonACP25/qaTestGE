@@ -60,8 +60,8 @@ describe("qaTestGE API with an injected repository (no database)", () => {
     expect((await signed().post("/api/test-runs").send({ projectId: "1", title: "Run", owner: "QA", caseIds: ["TC-001", "TC-1"] })).status).toBe(400);
   });
   it("accepts case steps, case references and evidence references", async () => {
-    const input = { projectId: "1", title: "Registro", suite: "Smoke", steps: [{ action: "Enviar", expectedResult: "Error" }] };
-    const tc = { ...input, id: "TC-001", preconditions: "", status: "Pendiente" as const, createdAt: bug.createdAt };
+    const input = { projectId: "1", title: "Registro", steps: [{ action: "Enviar", expectedResult: "Error" }, { action: "Verificar", expectedResult: "Se muestra el error" }] };
+    const tc = { ...input, suite: "", id: "TC-001", preconditions: "", status: "Pendiente" as const, createdAt: bug.createdAt };
     repo.createCase.mockResolvedValue(tc);
     expect((await signed().post("/api/test-cases").send(input)).status).toBe(201);
     expect(repo.createCase).toHaveBeenCalledWith(input);
@@ -70,6 +70,14 @@ describe("qaTestGE API with an injected repository (no database)", () => {
     repo.createEvidence.mockResolvedValue({ id: "EVD-001", projectId: "1", name: "file.png", type: "Imagen", sizeBytes: 10, related: [tc.id], createdAt: bug.createdAt });
     expect((await signed().post("/api/evidence").send({ projectId: "1", name: "file.png", type: "Imagen", sizeBytes: 10, related: tc.id })).body.data.related).toEqual([tc.id]);
     expect((await signed().post("/api/evidence").send({ projectId: "1", name: "file.png", type: "Imagen", sizeBytes: 10, related: "bogus" })).status).toBe(400);
+  });
+  it("accepts an optional suite but still rejects malformed step pairs", async () => {
+    const input = { projectId: "1", title: "Caso sin suite" };
+    repo.createCase.mockResolvedValue({ ...input, suite: "", preconditions: "", steps: [], id: "TC-002", status: "Pendiente", createdAt: bug.createdAt });
+    expect((await signed().post("/api/test-cases").send(input)).status).toBe(201);
+    expect(repo.createCase).toHaveBeenCalledWith(input);
+    expect((await signed().post("/api/test-cases").send({ ...input, steps: [{ action: "Enviar", expectedResult: "" }] })).status).toBe(400);
+    expect((await signed().post("/api/test-cases").send({ ...input, steps: Array.from({ length: 101 }, () => ({ action: "a", expectedResult: "b" })) })).status).toBe(400);
   });
   it("maps constraint failures and network outages without leaking database details", async () => {
     for (const [code, expectedStatus, expectedCode] of [["23503", 400, "INVALID_REFERENCE"], ["23505", 409, "CONFLICT"], ["ECONNREFUSED", 503, "DATABASE_UNAVAILABLE"]] as const) {
