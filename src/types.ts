@@ -13,21 +13,28 @@ export type CaseStatus = "Aprobado" | "Fallido" | "Pendiente";
 
 export interface Bug {
   id: string;
+  projectId?: string;
   title: string;
   project: string;
+  description?: string;
   priority: PriorityLevel;
   status: string;
   assignee: string;
   color: "violet" | "blue" | "amber" | "green" | "pink" | "orange";
   updated: string;
+  createdAt?: string;
 }
 
 export interface TestCase {
   id: string;
+  projectId?: string;
   title: string;
   suite: string;
   status: CaseStatus;
   updated: string;
+  preconditions?: string;
+  steps?: { action: string; expectedResult: string }[];
+  createdAt?: string;
 }
 
 export interface TestRun {

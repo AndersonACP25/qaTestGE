@@ -1,4 +1,4 @@
--- Plantillas de bugs privadas por usuario y eliminación de cuenta anonimizada.
+-- Plantillas de bugs privadas por usuario.
 BEGIN;
 SELECT pg_advisory_xact_lock(714209005);
 DO $$

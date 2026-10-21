@@ -10,7 +10,7 @@ const step = object({ action: text(10000), expectedResult: text(10000) }, ["acti
 const caseIds = { type: "array", maxItems: 1000, uniqueItems: true, items: { type: "string", pattern: "^TC-[0-9]{1,19}$" }, default: [] };
 const inputs = {
   BugInput: object({ projectId, title: text(200), priority: { type: "string", enum: bugPriorities }, description: { type: "string", maxLength: 5000 }, assignee: { type: "string", nullable: true, maxLength: 100 } }, ["projectId", "title", "priority"]),
-  TestCaseInput: object({ projectId, title: text(200), suite: text(100), preconditions: { type: "string", maxLength: 10000 }, steps: { type: "array", maxItems: 100, items: step } }, ["projectId", "title", "suite"]),
+  TestCaseInput: object({ projectId, title: text(200), suite: { type: "string", maxLength: 100 }, preconditions: { type: "string", maxLength: 10000 }, steps: { type: "array", maxItems: 100, items: step } }, ["projectId", "title"]),
   TestRunInput: object({ projectId, title: text(200), owner: text(100), caseIds }, ["projectId", "title", "owner"]),
   EvidenceInput: object({ projectId, name: text(255), type: { type: "string", enum: evidenceTypes }, sizeBytes: { type: "integer", minimum: 0, maximum: Number.MAX_SAFE_INTEGER }, related: { type: "string", nullable: true, pattern: "^(BUG|TC|RUN|RES)-[0-9]{1,19}$", description: "Referencia existente en el mismo proyecto, o null." } }, ["projectId", "name", "type", "sizeBytes"]),
 };

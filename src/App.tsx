@@ -6,6 +6,8 @@ import Dialog from "./Dialog";
 import { api, loadProject } from "./api";
 import type { BugTemplate, BugTemplatePriority, Project, User } from "./api";
 import AccountSettingsView from "./views/AccountSettingsView";
+import { exportRecord, recordExportFormats } from "./utils/exportRecord";
+import type { ExportFormat, ExportRecord } from "./utils/exportRecord";
 type WorkspaceData = Awaited<ReturnType<typeof loadProject>>;
 import type {
   Bug,
@@ -96,6 +98,9 @@ function App({ user, onUserUpdated, onAccountDeleted, onLogout, themeControl }: 
   const [bugTemplatesError, setBugTemplatesError] = useState("");
   const [selectedBugTemplateId, setSelectedBugTemplateId] = useState("");
   const [bugForm, setBugForm] = useState<{ title: string; description: string; priority: BugTemplatePriority }>({ title: "", description: "", priority: "Media" });
+  const [caseSteps, setCaseSteps] = useState([{ action: "", expectedResult: "" }]);
+  const [exportTarget, setExportTarget] = useState<ExportRecord | null>(null);
+  const [exportingRecord, setExportingRecord] = useState(false);
   const [formError, setFormError] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("Todos");
@@ -147,6 +152,7 @@ function App({ user, onUserUpdated, onAccountDeleted, onLogout, themeControl }: 
       setBugForm({ title: "", description: "", priority: "Media" });
       setSelectedBugTemplateId("");
     }
+    if (value === "case") setCaseSteps([{ action: "", expectedResult: "" }]);
     setModal(value);
   }
   function applyBugTemplate(templateId: string) {
@@ -165,10 +171,20 @@ function App({ user, onUserUpdated, onAccountDeleted, onLogout, themeControl }: 
     let body: Record<string, unknown> = { projectId, title, description: String(form.get("description") ?? ""), priority: String(form.get("priority") ?? "Media") };
     if (modal === "case") {
       path = "/test-cases";
-      const action = String(form.get("action") ?? "").trim();
-      const expectedResult = String(form.get("expectedResult") ?? "").trim();
-      if (Boolean(action) !== Boolean(expectedResult)) { setFormError("Completa la acción y el resultado esperado, o deja ambos vacíos."); return; }
-      body = { projectId, title, suite: String(form.get("suite") ?? ""), preconditions: String(form.get("preconditions") ?? ""), steps: action ? [{ action, expectedResult }] : [] };
+      const actions = form.getAll("action").map((value) => String(value).trim());
+      const expectedResults = form.getAll("expectedResult").map((value) => String(value).trim());
+      const steps = actions.map((action, index) => ({ action, expectedResult: expectedResults[index] ?? "" }));
+      if (steps.some((step) => Boolean(step.action) !== Boolean(step.expectedResult))) {
+        setFormError("Completa la acción y el resultado esperado en cada paso, o deja ambos vacíos.");
+        return;
+      }
+      body = {
+        projectId,
+        title,
+        suite: String(form.get("suite") ?? "").trim() || undefined,
+        preconditions: String(form.get("preconditions") ?? ""),
+        steps: steps.filter((step) => step.action && step.expectedResult),
+      };
     } else if (modal === "run") {
       path = "/test-runs";
       body = { projectId, title, owner: user.name, caseIds: form.getAll("caseIds") };
@@ -186,6 +202,17 @@ function App({ user, onUserUpdated, onAccountDeleted, onLogout, themeControl }: 
       notify(path === "/evidence" ? "Metadatos guardados. El archivo no se subió." : "Registro guardado en PostgreSQL.");
     } catch (cause) { setFormError(cause instanceof Error ? cause.message : "No se pudo guardar."); }
     finally { setSaving(false); }
+  }
+  async function exportSelectedRecord(format: ExportFormat) {
+    if (!exportTarget || exportingRecord) return;
+    setExportingRecord(true);
+    try {
+      await exportRecord(format, exportTarget);
+      setExportTarget(null);
+      notify(`Se exportó ${exportTarget.record.id} como ${format === "md" ? "Markdown" : format.toUpperCase()}.`);
+    } catch (cause) {
+      notify(cause instanceof Error ? `No se pudo exportar el registro: ${cause.message}` : "No se pudo exportar el registro.");
+    } finally { setExportingRecord(false); }
   }
   const filters = activePage === "bugs" ? ["Todos", "Abierto", "En progreso", "En revisión", "Resuelto"] : activePage === "cases" ? ["Todos", "Aprobado", "Fallido", "Pendiente"] : activePage === "runs" ? ["Todos", "En curso", "Completado"] : [];
   const isListing = ["bugs", "cases", "runs", "evidence"].includes(activePage);
@@ -211,12 +238,12 @@ function App({ user, onUserUpdated, onAccountDeleted, onLogout, themeControl }: 
         {!loading && !error && !projectId && <p className="workspace__notice">No tienes proyectos disponibles. El administrador debe conceder acceso a un espacio existente.</p>}
         {activePage === "settings" ? <AccountSettingsView user={user} onUserUpdated={onUserUpdated} onAccountDeleted={onAccountDeleted} /> : activePage === "case-builder" ? <CaseBuilder /> : !loading && !error && projectId && (activePage === "overview" ? <>
           <div className="workspace__metrics">{[["Bugs abiertos", bugs.filter((b) => b.status !== "Resuelto").length], ["Casos de prueba", cases.length], ["Ejecuciones activas", runs.filter((r) => r.status === "En curso").length], ["Evidencias", evidence.length]].map(([label, value]) => <div className="workspace__metric" key={label}><span>{label}</span><strong>{value}</strong><small>Proyecto actual · PostgreSQL</small></div>)}</div>
-          <section className="workspace__panel"><h2>Bugs recientes</h2><BugTable bugs={bugs.slice(0, 5)} onSelect={setDetail} />{!bugs.length && <p className="workspace__notice">Aún no hay bugs en este proyecto.</p>}</section>
+          <section className="workspace__panel"><h2>Bugs recientes</h2><BugTable bugs={bugs.slice(0, 5)} onSelect={setDetail} onExport={(bug) => setExportTarget({ kind: "bug", record: bug })} />{!bugs.length && <p className="workspace__notice">Aún no hay bugs en este proyecto.</p>}</section>
           <section className="workspace__panel"><h2>Ejecuciones recientes</h2><RunTable items={runs.slice(0, 5)} onSelect={setDetail} />{!runs.length && <p className="workspace__notice">Aún no hay ejecuciones. Crea casos y agrúpalos en una ejecución.</p>}</section>
         </> : isListing ? <section className="listing-card">
           <div className="listing-toolbar"><div className="listing-tabs">{filters.map((filter) => <button key={filter} className={`filter-tab${statusFilter === filter ? " filter-tab-active" : ""}`} onClick={() => setStatusFilter(filter)}>{filter}</button>)}</div><label className="search-field"><Icon name="search" /><input aria-label="Buscar registros" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={`Buscar ${pageTitle.toLowerCase()}…`} /></label></div>
-          {activePage === "bugs" && <BugTable bugs={visibleBugs} onSelect={setDetail} />}
-          {activePage === "cases" && <CaseTable items={visibleCases} onSelect={setDetail} />}
+          {activePage === "bugs" && <BugTable bugs={visibleBugs} onSelect={setDetail} onExport={(bug) => setExportTarget({ kind: "bug", record: bug })} />}
+          {activePage === "cases" && <CaseTable items={visibleCases} onSelect={setDetail} onExport={(item) => setExportTarget({ kind: "case", record: item })} />}
           {activePage === "runs" && <RunTable items={visibleRuns} onSelect={setDetail} />}
           {activePage === "evidence" && <EvidenceTable items={visibleEvidence} onSelect={setDetail} />}
           {!total && <p className="workspace__notice">No hay registros que coincidan con los filtros.</p>}
@@ -233,7 +260,16 @@ function App({ user, onUserUpdated, onAccountDeleted, onLogout, themeControl }: 
           ? <input name="title" value={bugForm.title} onChange={(event) => setBugForm({ ...bugForm, title: event.target.value })} maxLength={200} required />
           : <input name="title" maxLength={200} required />}</label>}
         {modal === "bug" && <>{bugTemplatesError && <p className="workspace__error" role="alert">{bugTemplatesError}</p>}<label className="workspace__field">Descripción<textarea name="description" value={bugForm.description} onChange={(event) => setBugForm({ ...bugForm, description: event.target.value })} maxLength={5000} rows={6} /></label><label className="workspace__field">Prioridad<select name="priority" value={bugForm.priority} onChange={(event) => setBugForm({ ...bugForm, priority: event.target.value as BugTemplatePriority })}><option>Crítica</option><option>Alta</option><option>Media</option><option>Baja</option></select></label></>}
-        {modal === "case" && <><label className="workspace__field">Suite<input name="suite" maxLength={100} required /></label><label className="workspace__field">Precondiciones<textarea name="preconditions" maxLength={10000} /></label><label className="workspace__field">Acción (opcional)<textarea name="action" maxLength={10000} /></label><label className="workspace__field">Resultado esperado<textarea name="expectedResult" maxLength={10000} /></label></>}
+        {modal === "case" && <><label className="workspace__field">Suite (opcional)<input name="suite" maxLength={100} /></label><label className="workspace__field">Precondiciones<textarea name="preconditions" maxLength={10000} /></label>
+          <fieldset className="workspace__step-editor"><legend>Pasos y resultados esperados · {caseSteps.length}/100</legend>
+            {caseSteps.map((_step, index) => <div className="workspace__step-card" key={index}>
+              <h3>Paso {index + 1}</h3>
+              <label className="workspace__field">Acción<textarea name="action" maxLength={10000} rows={3} /></label>
+              <label className="workspace__field">Resultado esperado<textarea name="expectedResult" maxLength={10000} rows={3} /></label>
+              <button type="button" className="workspace__secondary workspace__step-remove" disabled={caseSteps.length <= 1} onClick={() => setCaseSteps((steps) => steps.length <= 1 ? steps : steps.filter((_item, stepIndex) => stepIndex !== index))}>Eliminar paso</button>
+            </div>)}
+            <button type="button" className="workspace__secondary" disabled={caseSteps.length >= 100} onClick={() => setCaseSteps((steps) => steps.length >= 100 ? steps : [...steps, { action: "", expectedResult: "" }])}>Añadir paso</button>
+          </fieldset></>}
         {modal === "run" && <fieldset className="workspace__fieldset"><legend>Casos de este proyecto</legend>{cases.map((c) => <label className="workspace__check" key={c.id}><input type="checkbox" name="caseIds" value={c.id} />{c.id} · {c.title}</label>)}{!cases.length && <p>Crea primero tus casos de prueba o guarda una ejecución vacía.</p>}</fieldset>}
         {modal === "evidence" && <><p className="workspace__notice">Solo se guardarán nombre, tipo, tamaño y vínculo. El contenido del archivo no se sube.</p><label className="workspace__field">Archivo<input name="file" type="file" required /></label><label className="workspace__field">Vincular a<select name="related"><option value="">Sin vincular</option>{[...bugs, ...cases, ...runs].map((item) => <option key={item.id} value={item.id}>{item.id} · {item.title}</option>)}</select></label></>}
       </fieldset>
@@ -241,6 +277,14 @@ function App({ user, onUserUpdated, onAccountDeleted, onLogout, themeControl }: 
       <div className="workspace__actions"><button type="button" className="workspace__secondary" disabled={saving} onClick={() => setModal("")}>Cancelar</button><button type="submit" disabled={saving} className="button button-primary">{saving ? "Guardando…" : "Guardar"}</button></div>
     </form></Dialog>}
     {detail && <Dialog title="Detalle del registro" onClose={() => setDetail(null)}><dl className="workspace__detail">{Object.entries(detail).filter(([key]) => !["color", "updated", "date", "cases", "size"].includes(key)).map(([key, value]) => <React.Fragment key={key}><dt>{({ title: "Título", description: "Descripción", status: "Estado", project: "Proyecto", projectId: "ID de proyecto", priority: "Prioridad", assignee: "Responsable", suite: "Suite", preconditions: "Precondiciones", steps: "Pasos", owner: "Responsable", caseIds: "Casos", caseCount: "Cantidad de casos", progress: "Progreso", name: "Nombre", type: "Tipo", related: "Vinculado a", sizeBytes: "Tamaño en bytes", createdAt: "Creación" } as Record<string, string>)[key] ?? key}</dt><dd>{typeof value === "object" ? <pre>{JSON.stringify(value, null, 2)}</pre> : String(value ?? "—")}</dd></React.Fragment>)}</dl></Dialog>}
+    {exportTarget && <Dialog title={`Exportar ${exportTarget.record.id}`} onClose={() => { if (!exportingRecord) setExportTarget(null); }}>
+      <p className="workspace__notice">Elige un formato para exportar este registro y todos sus pasos/resultados.</p>
+      <div className="workspace__export-options">
+        {recordExportFormats.map((format) => <button className="workspace__export-option" type="button" key={format} disabled={exportingRecord} onClick={() => void exportSelectedRecord(format)}>
+          {exportingRecord ? "Preparando…" : format === "pdf" ? "Exportar como PDF" : format === "xlsx" ? "Exportar como Excel" : "Exportar como Markdown"}
+        </button>)}
+      </div>
+    </Dialog>}
     {toast && <div className="toast" role="status">{toast}</div>}
   </div>;
 }
@@ -258,18 +302,19 @@ function pageDescription(page: NavigationPage): string {
   })[page];
 }
 
-function BugTable({ bugs, onSelect, compact = false }: {
+function BugTable({ bugs, onSelect, onExport, compact = false }: {
   bugs: Bug[];
   onSelect: (bug: Bug) => void;
+  onExport: (bug: Bug) => void;
   compact?: boolean;
 }) {
   return <div className={`table-scroll${compact ? " table-compact" : ""}`}><table><thead><tr><th>BUG ID</th><th>TÍTULO</th><th>PRIORIDAD</th><th>ESTADO</th><th>ASIGNADO</th><th>CREADO</th><th /></tr></thead><tbody>
-    {bugs.map((bug) => <tr key={bug.id} onClick={() => onSelect(bug)}><td><span className="id-text">{bug.id}</span></td><td><span className="bug-title">{bug.title}</span><span className="table-project">{bug.project}</span></td><td><Priority level={bug.priority} /></td><td><StatusBadge status={bug.status} /></td><td><span className="assignee"><Avatar initials={bug.assignee} color={bug.color} small /><span>{bug.assignee}</span></span></td><td className="muted-cell">{bug.updated}</td><td><button className="row-more" aria-label={`Más opciones para ${bug.id}`} onClick={(event) => { event.stopPropagation(); onSelect(bug); }}><Icon name="dots" size={18} /></button></td></tr>)}
+    {bugs.map((bug) => <tr key={bug.id} onClick={() => onSelect(bug)}><td><span className="id-text">{bug.id}</span></td><td><span className="bug-title">{bug.title}</span><span className="table-project">{bug.project}</span></td><td><Priority level={bug.priority} /></td><td><StatusBadge status={bug.status} /></td><td><span className="assignee"><Avatar initials={bug.assignee} color={bug.color} small /><span>{bug.assignee}</span></span></td><td className="muted-cell">{bug.updated}</td><td><button className="row-more" aria-label={`Exportar ${bug.id}`} onClick={(event) => { event.stopPropagation(); onExport(bug); }}><Icon name="dots" size={18} /></button></td></tr>)}
   </tbody></table></div>;
 }
 
-function CaseTable({ items, onSelect }: { items: TestCase[]; onSelect: (item: TestCase) => void }) {
-  return <div className="table-scroll"><table><thead><tr><th>CASO ID</th><th>NOMBRE DEL CASO</th><th>SUITE</th><th>ESTADO</th><th>CREADO</th><th /></tr></thead><tbody>{items.map((item) => <tr key={item.id} onClick={() => onSelect(item)}><td><span className="id-text">{item.id}</span></td><td><span className="bug-title">{item.title}</span></td><td><span className="suite-badge">{item.suite}</span></td><td><StatusBadge status={item.status} /></td><td className="muted-cell">{item.updated}</td><td><button className="row-more" aria-label={`Más opciones para ${item.id}`}><Icon name="dots" size={18} /></button></td></tr>)}</tbody></table></div>;
+function CaseTable({ items, onSelect, onExport }: { items: TestCase[]; onSelect: (item: TestCase) => void; onExport: (item: TestCase) => void }) {
+  return <div className="table-scroll"><table><thead><tr><th>CASO ID</th><th>NOMBRE DEL CASO</th><th>SUITE</th><th>ESTADO</th><th>CREADO</th><th /></tr></thead><tbody>{items.map((item) => <tr key={item.id} onClick={() => onSelect(item)}><td><span className="id-text">{item.id}</span></td><td><span className="bug-title">{item.title}</span></td><td><span className="suite-badge">{item.suite || "—"}</span></td><td><StatusBadge status={item.status} /></td><td className="muted-cell">{item.updated}</td><td><button className="row-more" aria-label={`Exportar ${item.id}`} onClick={(event) => { event.stopPropagation(); onExport(item); }}><Icon name="dots" size={18} /></button></td></tr>)}</tbody></table></div>;
 }
 
 function RunTable({ items, onSelect }: { items: TestRun[]; onSelect: (item: TestRun) => void }) {

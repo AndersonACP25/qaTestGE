@@ -14,7 +14,7 @@ interface Row extends QueryResultRow {
 
 const common = (r: Row, prefix: string) => ({ id: resourceId(prefix, r.id), projectId: r.project_id, createdAt: r.created_at.toISOString() });
 const bug = (r: Row) => ({ ...common(r, "BUG"), title: r.title, project: r.project, description: r.description, priority: r.priority, status: r.status, assignee: r.assignee });
-const testCase = (r: Row) => ({ ...common(r, "TC"), title: r.title, suite: r.suite, status: r.status, preconditions: r.preconditions, steps: r.steps ?? [] });
+const testCase = (r: Row) => ({ ...common(r, "TC"), title: r.title, suite: r.suite ?? "", status: r.status, preconditions: r.preconditions, steps: r.steps ?? [] });
 const run = (r: Row) => ({ ...common(r, "RUN"), title: r.title, owner: r.owner, status: r.status, caseIds: (r.case_ids as string[]).map((id) => resourceId("TC", id)), caseCount: r.case_ids.length, progress: r.progress });
 const evidence = (r: Row) => ({ ...common(r, "EVD"), name: r.name, type: r.type, sizeBytes: Number(r.size_bytes), related: r.related ?? [] });
 
@@ -51,7 +51,7 @@ export class PostgresRepository implements Repository {
   }
   async createCase(input: CreateTestCaseInput) {
     return this.transaction(async (client) => {
-      const { rows } = await client.query<Row>("INSERT INTO qa.test_cases(project_id,title,suite,preconditions) VALUES($1,$2,$3,$4) RETURNING *", [input.projectId, input.title.trim(), input.suite.trim(), input.preconditions?.trim() ?? ""]);
+      const { rows } = await client.query<Row>("INSERT INTO qa.test_cases(project_id,title,suite,preconditions) VALUES($1,$2,$3,$4) RETURNING *", [input.projectId, input.title.trim(), input.suite?.trim() || null, input.preconditions?.trim() ?? ""]);
       const id = rows[0].id;
       for (const [index, step] of (input.steps ?? []).entries()) {
         await client.query("INSERT INTO qa.test_case_steps(project_id,test_case_id,position,action,expected_result) VALUES($1,$2,$3,$4,$5)", [input.projectId, id, index + 1, step.action.trim(), step.expectedResult.trim()]);

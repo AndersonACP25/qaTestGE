@@ -2,11 +2,12 @@ import { categories } from "../models/caseDesign.model";
 import type { CaseDesignController } from "../controllers/useCaseDesignController";
 
 export default function CaseDesignView({
-  text, selected, counts, preview, exporting, exportError, selectedCategories,
-  countsValid, total, maxCaseCount, updateDescription, toggleCategory, updateCount, submit, exportPreview,
+  text, selected, counts, preview, exporting, exportError,
+  previewCases, countsValid, total, maxCaseCount, updateDescription, toggleCategory, updateCount, submit,
+  updateExampleStep, addExampleStep, removeExampleStep, exportPreview,
 }: CaseDesignController) {
   return <section className="case-builder" aria-label="Maqueta de diseño de casos de prueba">
-    <div className="case-builder__notice"><strong>Maqueta interactiva · IA no conectada</strong><p>Prueba el flujo con texto de ejemplo. La tabla contiene ejemplos fijos sobre un registro de usuario; no se analiza tu descripción ni se crean casos en el proyecto.</p></div>
+    <div className="case-builder__notice"><strong>Maqueta interactiva · IA no conectada</strong><p>Prueba el flujo con texto de ejemplo. Los casos iniciales son ilustrativos; puedes editar y añadir pasos localmente. no se analiza tu descripción ni se crean casos en el proyecto.</p></div>
     <div className="case-builder__layout">
       <form className="case-builder__form" onSubmit={submit}>
         <div className="case-builder__heading"><span className="case-builder__step">01</span><div><h2>Describe qué quieres probar</h2><p>Una historia de usuario, un requisito o un flujo.</p></div></div>
@@ -31,17 +32,26 @@ export default function CaseDesignView({
         <p className="case-builder__hint">En el futuro, aquí podrás solicitar propuestas de IA y revisarlas antes de guardarlas.</p>
       </form>
       <section className="case-builder__results" aria-labelledby="case-builder-results">
-        <div className="case-builder__heading"><span className="case-builder__step">03</span><div><h2 id="case-builder-results">Acción y resultado esperado</h2><p>{preview ? `${total} pruebas de ejemplo · sin guardar` : "Tu vista previa aparecerá aquí."}</p></div></div>
+        <div className="case-builder__heading"><span className="case-builder__step">03</span><div><h2 id="case-builder-results">Pasos y resultados esperados</h2><p>{preview ? `${total} casos de ejemplo · sin guardar` : "Tu vista previa aparecerá aquí."}</p></div></div>
         <div aria-live="polite">{preview ? <>
-          <p className="case-builder__preview-note">Contenido fijo ilustrativo sobre un sistema hipotético. Cada fila representa una prueba de ejemplo; no se ejecuta ninguna prueba.</p>
+          <p className="case-builder__preview-note">Ejemplos ilustrativos sobre un sistema hipotético. Cada caso puede tener hasta 100 pasos con su resultado esperado; los cambios solo viven en esta vista previa.</p>
           <div className="case-builder__exports">
-            <button type="button" className="case-builder__export" disabled={exporting} onClick={() => void exportPreview("xlsx")}>Exportar Excel</button>
-            <button type="button" className="case-builder__export" disabled={exporting} onClick={() => void exportPreview("pdf")}>Exportar PDF</button>
+            <button type="button" className="case-builder__export case-builder__export--excel" disabled={exporting} onClick={() => void exportPreview("xlsx")}>Exportar Excel</button>
+            <button type="button" className="case-builder__export case-builder__export--pdf" disabled={exporting} onClick={() => void exportPreview("pdf")}>Exportar PDF</button>
           </div>
           {exporting && <p role="status">Preparando archivo…</p>}
           {exportError && <p role="alert">{exportError}</p>}
-          {selectedCategories.map((category) => <div className="case-builder__table-wrap" key={category.id}><table className="case-builder__table"><caption style={{ backgroundColor: category.color, color: "#fff" }}>{category.label} · Ejemplo de registro</caption><thead><tr><th scope="col">Acción</th><th scope="col">Resultado esperado</th></tr></thead><tbody>{category.steps.map((step) => <tr key={step.action}><td>{step.action}</td><td>{step.expected}</td></tr>)}</tbody></table></div>)}
-          <p className="case-builder__hint">La revisión, edición y creación de casos reales estarán disponibles en una etapa futura.</p>
+          {previewCases.map((testCase) => <section className="case-builder__case" key={`${testCase.categoryId}:${testCase.caseNumber}`}>
+            <h3 className="case-builder__case-title" style={{ borderInlineStartColor: testCase.color }}>{testCase.categoryLabel} · Caso de ejemplo {testCase.caseNumber}</h3>
+            <div className="case-builder__steps">{testCase.steps.map((step, index) => <fieldset className="case-builder__step-card" key={index}>
+              <legend>Paso {index + 1}</legend>
+              <label className="case-builder__label">Acción<textarea className="case-builder__input" rows={2} value={step.action} onChange={(event) => updateExampleStep(testCase.categoryId, testCase.caseNumber, index, "action", event.target.value)} /></label>
+              <label className="case-builder__label">Resultado esperado<textarea className="case-builder__input" rows={2} value={step.expected} onChange={(event) => updateExampleStep(testCase.categoryId, testCase.caseNumber, index, "expected", event.target.value)} /></label>
+              <button type="button" className="case-builder__remove-step" disabled={testCase.steps.length <= 1} onClick={() => removeExampleStep(testCase.categoryId, testCase.caseNumber, index)}>Eliminar paso</button>
+            </fieldset>)}</div>
+            <button type="button" className="case-builder__add-step" disabled={testCase.steps.length >= 100} onClick={() => addExampleStep(testCase.categoryId, testCase.caseNumber)}>Añadir paso ({testCase.steps.length}/100)</button>
+          </section>)}
+          <p className="case-builder__hint">La vista previa y las exportaciones reflejan los pasos editados; no se guardan como casos reales.</p>
         </> : <div className="case-builder__empty"><span className="case-builder__empty-icon" aria-hidden="true">▤</span><h3>Visualiza tu próximo plan de pruebas</h3><p>Escribe una descripción, marca los tipos de prueba y pulsa «Mostrar tabla de ejemplo» para recorrer la maqueta.</p><span className="case-builder__badge">Vista previa · sin generación real</span></div>}</div>
       </section>
     </div>

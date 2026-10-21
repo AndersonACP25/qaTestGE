@@ -13,4 +13,4 @@ export interface TestCase {
 }
 
 export interface TestStep { action: string; expectedResult: string }
-export type CreateTestCaseInput = Pick<TestCase, "title" | "suite" | "projectId"> & { preconditions?: string; steps?: TestStep[] };
+export type CreateTestCaseInput = Pick<TestCase, "title" | "projectId"> & { suite?: string; preconditions?: string; steps?: TestStep[] };
