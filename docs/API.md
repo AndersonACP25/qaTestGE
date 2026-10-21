@@ -47,7 +47,7 @@ Las colecciones usan `{"data":[...]}`; las creaciones `{"data":{...}}`. Las list
 
 Registro e inicio establecen qa_session: cookie HttpOnly, SameSite=Lax, Path=/api, Secure en producción y expiración absoluta de siete días. Cada cuenta crea su workspace y proyecto propios; no hay gestión de miembros o invitaciones en la interfaz. La base solo conserva el hash SHA-256 del token de sesión. La respuesta pública contiene `{"data":{"user":{"id":"1","name":"QA","email":"qa@example.test"},"csrfToken":"..."}}`; nunca contraseñas, hashes ni el token de sesión.
 
-Los recursos y proyectos requieren la cookie. Todas las escrituras protegidas (POST, PATCH y DELETE), incluido logout, exigen X-CSRF-Token obtenido de login/registro/me. Las peticiones de escritura usan JSON y se rechazan si declaran un Origin distinto de FRONTEND_ORIGIN/CORS_ORIGIN o API_ORIGIN. La autorización consulta la membresía actual; una cuenta sin acceso recibe 404 PROJECT_NOT_FOUND al seleccionar un proyecto ajeno. Los miembros tienen lectura y creación dentro de la organización; no hay administración HTTP de roles o invitaciones.
+Los recursos y proyectos requieren la cookie. Todas las escrituras protegidas (POST, PATCH y DELETE), incluido logout, exigen X-CSRF-Token obtenido de login/registro/me. Las peticiones de escritura usan JSON y se rechazan si declaran un Origin distinto de FRONTEND_ORIGIN/CORS_ORIGIN o API_ORIGIN. La autorización consulta la membresía actual; una cuenta sin acceso recibe 404 PROJECT_NOT_FOUND al seleccionar un proyecto ajeno. Los miembros autorizados pueden leer y crear recursos, editar bugs y metadatos de evidencias, y eliminar metadatos de evidencias; no hay administración HTTP de roles o invitaciones.
 
 En SwaggerUI, iniciar sesión con el endpoint login, consultar me y copiar csrfToken al campo X-CSRF-Token de **Authorize** para probar POST. La cookie se envía automáticamente desde el mismo origen. No introducir el token de sesión manualmente en JavaScript.
 
@@ -80,6 +80,8 @@ Todos los POST requieren `projectId` y validan que el proyecto exista. Los texto
 Título: hasta 200 caracteres; prioridad: `Crítica`, `Alta`, `Media` o `Baja`. Descripción opcional hasta 5000, por defecto vacía. Responsable opcional, null o texto de hasta 100. Estado inicial: `Abierto`; los estados permitidos son `Abierto`, `En progreso`, `En revisión` y `Resuelto`. La respuesta añade `project` como nombre informativo; ya no se acepta ese nombre en lugar de `projectId`.
 
 Para cambiar solo el estado se usa `PATCH /bugs/{bugId}/status` con `{"projectId":"1","status":"En progreso"}`. El identificador y proyecto se comprueban en conjunto; un proyecto no autorizado no puede modificar el registro.
+
+`PATCH /bugs/{bugId}` recibe el mismo `projectId`, título y prioridad, con descripción y responsable opcionales, y admite `status` (`Abierto`, `En progreso`, `En revisión` o `Resuelto`). Solo actualiza un bug perteneciente al proyecto autorizado indicado.
 
 ### Casos y pasos
 

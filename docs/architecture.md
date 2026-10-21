@@ -50,7 +50,7 @@ API Express (backend/, TypeScript)
    +-- Modelo/Proveedor de usuarios, controlador HTTP de autenticación y permisos
 ```
 
-La interfaz consume la API mediante el proxy /api y envía la cookie de sesión y el token CSRF en escrituras. `GET /api/health` permite verificar disponibilidad. Los recursos exponen `GET` y `POST` en `/api/bugs`, `/api/test-cases`, `/api/test-runs` y `/api/evidence`.
+La interfaz consume la API mediante el proxy /api y envía la cookie de sesión y el token CSRF en escrituras. `GET /api/health` permite verificar disponibilidad. Bugs y evidencias exponen edición; evidencias también permiten eliminar metadatos. Casos y ejecuciones tienen alta y consulta. Los estados de bug se actualizan mediante `PATCH /api/bugs/{bugId}`.
 
 ### Interfaz web
 
@@ -58,7 +58,7 @@ Presenta espacios de trabajo, proyectos, listas y formularios para los cuatro re
 
 ### API y capa de aplicación
 
-Las rutas delegan en controladores HTTP. Los controladores validan entradas y coordinan modelos/proveedores y repositorios; los modelos tipados describen Bugs, Test Case y usuarios. El proveedor PostgreSQL implementa persistencia. Los middlewares autentican sesiones y el repositorio autorizado limita lectura/creación a proyectos de organizaciones con membresía vigente. Devuelve errores explícitos y no expone credenciales de almacenamiento ni secretos de proveedores a la interfaz.
+Las rutas delegan en controladores HTTP. Los controladores validan entradas y coordinan modelos/proveedores y repositorios; los modelos tipados describen Bugs, Test Case y usuarios. El proveedor PostgreSQL implementa persistencia. Los middlewares autentican sesiones y el repositorio autorizado limita operaciones a proyectos de organizaciones con membresía vigente. Devuelve errores explícitos y no expone credenciales de almacenamiento ni secretos de proveedores a la interfaz.
 
 ### Dominio
 

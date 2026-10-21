@@ -6,6 +6,9 @@ Todos los cambios importantes de qaTestGE se documentan aquí. El formato sigue 
 
 ### Added
 
+- Edición autorizada de bugs y vista modal de detalle para bugs y casos, con pasos y resultados esperados legibles.
+- CRUD de metadatos y vínculos de evidencias, incluida la edición y eliminación con validación de proyecto.
+- Documentación del flujo de ramas `qa-env` → pull request a `main` y del formato de asunto/trailers de commits.
 - GitHub Actions CI/CD: validación de instalación, tipos, pruebas y build; artefacto frontend/backend al publicar en `main`.
 - Migración aditiva 005 para plantillas personales de bugs persistidas en PostgreSQL.
 - CRUD de plantillas por usuario en Configuración y selector que rellena título, descripción y prioridad al crear bugs.

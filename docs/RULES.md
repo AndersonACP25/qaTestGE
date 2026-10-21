@@ -31,4 +31,5 @@ Esta guía resume las convenciones para personas colaboradoras. [AGENTS.md](../A
 - Actualizar README y arquitectura si cambia el alcance o una decisión técnica; registrar cambios relevantes en CHANGELOG.
 - Mantener el contrato real de endpoints en [API.md](./API.md) y las pautas visuales en [DESIGN.md](./DESIGN.md).
 - No incluir secretos, dependencias instaladas, builds o archivos locales en commits.
-- Crear commits solo cuando se soliciten. Usar Conventional Commits: `feat: descripción`, `fix(api): descripción`, `docs: descripción`, etc.
+- Crear commits solo cuando se soliciten. Usar Conventional Commits en español: `feat: descripción`, `fix(api): descripción`, `docs: descripción`, etc. El asunto ocupa la primera línea; los trailers (por ejemplo `Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>`) van en línea aparte como texto plano.
+- Usar `qa-env` como rama del ambiente de pruebas y promover a `main` mediante pull request después de validar; no asumir despliegue automático a `qa-env`.

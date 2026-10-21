@@ -17,6 +17,12 @@ No sobrescribir un `.env` existente. Los scripts SQL se importan manualmente una
 
 `dev` levanta Vite y tsx watch en paralelo. Frontend: `http://localhost:5173`; API: `http://localhost:3000/api/health` por defecto (el puerto real se define con `PORT`). `Ctrl+C` detiene la sesión. El frontend recupera su sesión por cookie, lista los proyectos autorizados y consulta/crea recursos mediante /api. Registro crea un workspace y un proyecto propios; las membresías sobre datos anteriores se conceden explícitamente.
 
+## Ramas y commits
+
+`qa-env` es la rama destinada al ambiente de pruebas. Integra y valida ahí cada paquete; promueve los cambios a `main` mediante pull request una vez aceptados. Actions no despliega a `qa-env`: valida los cambios y solo publica artefactos compilados en pushes a `main`.
+
+Los asuntos de commit usan Conventional Commits en español (`feat: ...`, `fix(api): ...`). El asunto siempre debe ser la primera línea del mensaje; los trailers, como `Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>`, se agregan en una línea separada y como texto plano.
+
 ## Scripts
 
 | Comando                                      | Uso                                                         |

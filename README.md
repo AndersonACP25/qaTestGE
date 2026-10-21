@@ -45,6 +45,10 @@ La integración de IA es opcional y todavía no está implementada. No se ofrece
 
 GitHub Actions valida cada pull request y cada push a `main` con Node.js 24 y pnpm 12.11.2: instalación congelada, formato, lint, TypeScript, pruebas y build. Los pushes a `main` publican el frontend y el backend compilados como artefacto descargable de Actions durante 14 días. No se despliega automáticamente a un servidor porque este repositorio aún no define un proveedor ni un entorno de despliegue.
 
+### Flujo de ramas
+
+`qa-env` es la rama del ambiente de pruebas. Integra ahí los cambios para validarlos antes de promoverlos mediante un pull request a `main`. La rama no implica un despliegue automático: el flujo actual de Actions valida pull requests y publica artefactos solo al hacer push a `main`.
+
 ## Requisitos
 
 - Node.js **24.12.0** o una versión compatible con los scripts y dependencias del proyecto.
