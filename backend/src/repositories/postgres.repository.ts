@@ -9,7 +9,7 @@ import type {
   UpdateTestCaseInput,
 } from "../models/test-case.model.js";
 import type { CreateTestRunInput } from "../models/test-run.model.js";
-import type { CreateEvidenceInput } from "../models/evidence.model.js";
+import type { CreateEvidenceInput, UpdateEvidenceInput } from "../models/evidence.model.js";
 import { HttpError } from "../http-error.js";
 import { parseReference, resourceId } from "../validation.js";
 export type DatabasePool = Pool;
@@ -336,6 +336,36 @@ export class PostgresRepository implements Repository {
       }
       const result = await client.query<Row>(`${evidenceSql} WHERE e.id=$1`, [id]);
       return evidence(result.rows[0]);
+    });
+  }
+  async updateEvidence(id: string, projectId: string, input: UpdateEvidenceInput) {
+    return this.transaction(async (client) => {
+      const updated = await client.query(
+        "UPDATE qa.evidence SET name=$3,type=$4,size_bytes=$5 WHERE id=$1 AND project_id=$2 RETURNING id",
+        [id, projectId, input.name.trim(), input.type, input.sizeBytes],
+      );
+      if (!updated.rows[0]) return null;
+      await client.query("DELETE FROM qa.evidence_links WHERE project_id=$1 AND evidence_id=$2", [projectId, id]);
+      if (input.related) {
+        const targets = { BUG: "bug_id", TC: "test_case_id", RUN: "test_run_id", RES: "test_run_result_id" } as const;
+        const prefix = input.related.split("-")[0] as keyof typeof targets;
+        const target = targets[prefix];
+        const targetId = target && parseReference(input.related, prefix);
+        if (!targetId) throw new HttpError(400, "INVALID_REFERENCE", "Referencia de evidencia inválida.");
+        await client.query(
+          `INSERT INTO qa.evidence_links(project_id,evidence_id,${target}) VALUES($1,$2,$3)`,
+          [projectId, id, targetId],
+        );
+      }
+      const result = await client.query<Row>(`${evidenceSql} WHERE e.id=$1 AND e.project_id=$2`, [id, projectId]);
+      return evidence(result.rows[0]);
+    });
+  }
+  async deleteEvidence(id: string, projectId: string) {
+    return this.transaction(async (client) => {
+      await client.query("DELETE FROM qa.evidence_links WHERE project_id=$1 AND evidence_id=$2", [projectId, id]);
+      const { rowCount } = await client.query("DELETE FROM qa.evidence WHERE id=$1 AND project_id=$2", [id, projectId]);
+      return rowCount === 1;
     });
   }
   private async transaction<T>(work: (client: PoolClient) => Promise<T>): Promise<T> {

@@ -18,6 +18,7 @@ import {
 } from "./api";
 import type { BugTemplate, BugTemplatePriority, Project, User } from "./api";
 import AccountSettingsView from "./views/AccountSettingsView";
+import RecordDetailsDialog, { type RecordDetail } from "./views/RecordDetailsDialog";
 import { exportRecord, recordExportFormats } from "./utils/exportRecord";
 import type { ExportFormat, ExportRecord } from "./utils/exportRecord";
 import type { CreateTestCaseInput } from "../backend/src/models/test-case.model";
@@ -374,6 +375,7 @@ function App({
   const [mobileNav, setMobileNav] = useState(false);
   const [toast, setToast] = useState("");
   const [detail, setDetail] = useState<object | null>(null);
+  const [recordDetail, setRecordDetail] = useState<RecordDetail | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>();
   const project = projects.find((p) => p.id === projectId);
   const { bugs, cases, runs, evidence } = data;
@@ -475,10 +477,11 @@ function App({
     setCaseImageFiles([]);
     setCaseImageDragging(false);
     if (value === "bug") {
-      setBugForm({ title: "", description: "", priority: "Media" });
+      setBugForm({ title: "", description: "", priority: "Media", status: "Abierto", assignee: "" });
       setSelectedBugTemplateId("");
     }
     if (value === "case") setCaseSteps([{ action: "", expectedResult: "" }]);
+    if (value === "evidence") setEvidenceForm({ name: "", type: "Archivo", sizeBytes: 0, related: "" });
     setModal(value);
   }
   function editCase(testCase: TestCase) {

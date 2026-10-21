@@ -56,11 +56,14 @@ export interface TestRun {
 
 export interface Evidence {
   id: string;
+  projectId: string;
   name: string;
   type: "Imagen" | "Video" | "Archivo";
   related: string;
   size: string;
+  sizeBytes: number;
   date: string;
+  createdAt: string;
 }
 
 export type IconName =

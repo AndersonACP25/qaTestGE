@@ -26,5 +26,8 @@ describe("OpenAPI contract", () => {
     for (const [, name] of refs) expect(openApiDocument.components.schemas).toHaveProperty(name);
     expect(openApiDocument.servers[0].url).toBe("/");
     expect(openApiDocument.components.schemas.BugInput.properties.priority.enum).toContain("Alta");
+    expect(openApiDocument.paths["/api/bugs/{bugId}"]).toHaveProperty("patch");
+    expect(openApiDocument.paths["/api/evidence/{evidenceId}"]).toHaveProperty("patch");
+    expect(openApiDocument.paths["/api/evidence/{evidenceId}"]).toHaveProperty("delete");
   });
 });

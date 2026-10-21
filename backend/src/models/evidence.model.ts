@@ -14,3 +14,5 @@ export interface Evidence {
 export type CreateEvidenceInput = Pick<Evidence, "name" | "type" | "sizeBytes" | "projectId"> & {
   related?: string | null;
 };
+
+export type UpdateEvidenceInput = Omit<CreateEvidenceInput, "projectId">;

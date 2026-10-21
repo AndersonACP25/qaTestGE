@@ -238,6 +238,24 @@ describe("qaTestGE API with an injected repository (no database)", () => {
       ).status,
     ).toBe(400);
   });
+  it("updates and deletes evidence metadata using the project boundary", async () => {
+    const current = { id: "EVD-001", projectId: "1", name: "file.png", type: "Imagen" as const, sizeBytes: 10, related: [bug.id], createdAt: bug.createdAt };
+    const input = { projectId: "1", name: "renamed.png", type: "Imagen", sizeBytes: 20, related: bug.id };
+    repo.updateEvidence.mockResolvedValue({ ...current, ...input, related: [bug.id] });
+    const updated = await signed().patch("/api/evidence/EVD-001").send(input);
+    expect(updated.status).toBe(200);
+    expect(updated.body.data.name).toBe("renamed.png");
+    expect(repo.updateEvidence).toHaveBeenCalledWith("1", "1", { name: "renamed.png", type: "Imagen", sizeBytes: 20, related: bug.id });
+    expect((await signed().patch("/api/evidence/EVD-001").send({ ...input, related: "invalid" })).status).toBe(400);
+    expect(repo.updateEvidence).toHaveBeenCalledTimes(1);
+
+    repo.deleteEvidence.mockResolvedValue(true);
+    expect((await signed().delete("/api/evidence/EVD-001?projectId=1").send({})).status).toBe(204);
+    expect(repo.deleteEvidence).toHaveBeenCalledWith("1", "1");
+    repo.deleteEvidence.mockResolvedValueOnce(false);
+    expect((await signed().delete("/api/evidence/EVD-001?projectId=1").send({})).status).toBe(404);
+    expect((await signed().delete("/api/evidence/EVD-001").send({})).status).toBe(400);
+  });
   it("accepts an optional suite but still rejects malformed step pairs", async () => {
     const input = { projectId: "1", title: "Caso sin suite" };
     repo.createCase.mockResolvedValue({

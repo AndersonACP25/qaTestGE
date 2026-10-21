@@ -7,7 +7,7 @@ import type {
   UpdateTestCaseInput,
 } from "../models/test-case.model.js";
 import type { CreateTestRunInput } from "../models/test-run.model.js";
-import type { CreateEvidenceInput } from "../models/evidence.model.js";
+import type { CreateEvidenceInput, UpdateEvidenceInput } from "../models/evidence.model.js";
 import { HttpError } from "../http-error.js";
 
 export class AuthorizedRepository implements Repository {

@@ -20,3 +20,7 @@ export type CreateBugInput = Pick<Bug, "title" | "projectId" | "priority"> & {
   description?: string;
   assignee?: string | null;
 };
+
+export type UpdateBugInput = Omit<CreateBugInput, "projectId"> & {
+  status?: BugStatus;
+};

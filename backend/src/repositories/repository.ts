@@ -8,7 +8,7 @@ import type {
   UpdateTestCaseInput,
 } from "../models/test-case.model.js";
 import type { TestRun, CreateTestRunInput } from "../models/test-run.model.js";
-import type { Evidence, CreateEvidenceInput } from "../models/evidence.model.js";
+import type { Evidence, CreateEvidenceInput, UpdateEvidenceInput } from "../models/evidence.model.js";
 import type { Request } from "express";
 
 export interface Project {
@@ -40,6 +40,8 @@ export interface Repository {
   createRun(input: CreateTestRunInput): Promise<TestRun>;
   listEvidence(projectId?: string): Promise<Evidence[]>;
   createEvidence(input: CreateEvidenceInput): Promise<Evidence>;
+  updateEvidence(id: string, projectId: string, input: UpdateEvidenceInput): Promise<Evidence | null>;
+  deleteEvidence(id: string, projectId: string): Promise<boolean>;
 }
 export function repository(request: Request): Repository {
   return request.res!.locals.repository as Repository;

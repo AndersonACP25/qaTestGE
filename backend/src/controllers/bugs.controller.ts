@@ -67,3 +67,7 @@ function isCreateBugInput(input: unknown): input is CreateBugInput {
       (typeof input.assignee === "string" && input.assignee.length <= 100))
   );
 }
+
+function isBugStatus(value: unknown): value is BugStatus {
+  return typeof value === "string" && bugStatuses.includes(value as BugStatus);
+}
