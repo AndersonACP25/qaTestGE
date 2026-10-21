@@ -17,6 +17,7 @@ qaTestGE es una plataforma para gestionar bugs, casos de prueba, ejecuciones y e
 - Para el frontend, nombra clases CSS nuevas y modificadas siguiendo BEM: `bloque__elemento--modificador`. Mantén los estilos encapsulados en el bloque del componente y evita selectores globales para detalles internos.
 - Añade pruebas unitarias en `tests/unit/` con Vitest. Las pruebas deben ser deterministas y no depender de un backend, red ni servicios externos.
 - Las skills reutilizables de OpenCode viven en `.opencode/skills/<nombre>/SKILL.md`; respeta el frontmatter requerido por OpenCode y las reglas de IA de `docs/architecture.md`.
+- Si estoy en `main` o `qa-env` y solicito una funcionalidad, un arreglo o una refactorización, primero comprueba si hay cambios locales pendientes de subir. Si los hay, no crees una rama nueva; si el árbol está limpio, crea una rama nueva que siga el estándar del repositorio antes de implementar.
 
 ## Estructura y estado conocido
 
