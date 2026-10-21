@@ -16,7 +16,7 @@ qaTestGE es una plataforma para gestionar bugs, casos de prueba, ejecuciones y e
 - Valida cambios TypeScript con `pnpm typecheck`, frontend y backend con `pnpm build`, pruebas con `pnpm test`, lint con `pnpm lint` y formato con `pnpm format:check`.
 - Para cada paquete de cambios, inspecciona el estado de Git, crea una rama de trabajo dedicada, valida y crea un commit en español con formato Conventional Commits: `<tipo>(ámbito opcional): descripción`. No publiques la rama salvo que el usuario lo solicite.
 - Divide los cambios en commits pequeños y coherentes, uno por capacidad o área revisable; evita mezclar funcionalidades independientes.
-- Usa tipos claros en commits como `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `build` o `chore`.
+- Usa tipos claros en commits como `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `build` o `chore`. Ademas agrega mediante una lista desordenada los cambios implementados
 - Para el frontend, nombra clases CSS nuevas y modificadas siguiendo BEM: `bloque__elemento--modificador`. Mantén los estilos encapsulados en el bloque del componente y evita selectores globales para detalles internos.
 - Añade pruebas unitarias en `tests/unit/` con Vitest. Las pruebas deben ser deterministas y no depender de un backend, red ni servicios externos.
 - Las skills reutilizables de OpenCode viven en `.opencode/skills/<nombre>/SKILL.md`; respeta el frontmatter requerido por OpenCode y las reglas de IA de `docs/architecture.md`.
