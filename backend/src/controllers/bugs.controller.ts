@@ -83,7 +83,8 @@ function isCreateBugInput(input: unknown): input is CreateBugInput {
       (typeof input.description === "string" && input.description.length <= 5000)) &&
     (input.assignee === undefined ||
       input.assignee === null ||
-      (typeof input.assignee === "string" && input.assignee.length <= 100))
+      (typeof input.assignee === "string" && input.assignee.length <= 100)) &&
+    validTagIds(input.tagIds)
   );
 }
 
@@ -102,7 +103,18 @@ function isUpdateBugInput(
     (input.assignee === undefined ||
       input.assignee === null ||
       (typeof input.assignee === "string" && input.assignee.length <= 100)) &&
+    validTagIds(input.tagIds) &&
     (input.status === undefined || isBugStatus(input.status))
+  );
+}
+
+function validTagIds(value: unknown): boolean {
+  return (
+    value === undefined ||
+    (Array.isArray(value) &&
+      value.length <= 100 &&
+      value.every(isId) &&
+      new Set(value).size === value.length)
   );
 }
 

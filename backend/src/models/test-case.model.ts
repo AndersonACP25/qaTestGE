@@ -10,6 +10,7 @@ export interface TestCase {
   createdAt: string;
   preconditions: string;
   steps: TestStep[];
+  tagIds: string[];
 }
 
 export interface TestStep {
@@ -20,6 +21,7 @@ export type CreateTestCaseInput = Pick<TestCase, "title" | "projectId"> & {
   suite?: string;
   preconditions?: string;
   steps?: TestStep[];
+  tagIds?: string[];
 };
 export type UpdateTestCaseInput = Omit<CreateTestCaseInput, "projectId">;
 

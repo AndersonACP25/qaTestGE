@@ -20,6 +20,7 @@ import type {
   TestCaseAttachment,
   TestRun,
   Evidence,
+  Tag,
 } from "./types";
 
 export interface User {
@@ -55,6 +56,29 @@ export interface Project {
   organizationId: string;
   name: string;
   description: string;
+}
+export interface TagInput {
+  projectId: string;
+  name: string;
+  color: string;
+}
+export async function listTags(projectId: string) {
+  return api<Tag[]>(`/tags?projectId=${encodeURIComponent(projectId)}`);
+}
+export async function createTag(input: TagInput) {
+  return api<Tag>("/tags", { method: "POST", body: JSON.stringify(input) });
+}
+export async function updateTag(id: string, input: TagInput) {
+  return api<Tag>(`/tags/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+export async function deleteTag(id: string, projectId: string) {
+  return api<void>(`/tags/${encodeURIComponent(id)}?projectId=${encodeURIComponent(projectId)}`, {
+    method: "DELETE",
+    body: JSON.stringify({}),
+  });
 }
 export interface SessionState {
   user: User;
@@ -145,6 +169,50 @@ export async function deleteEvidence(id: string, projectId: string) {
     { method: "DELETE", body: JSON.stringify({}) },
   );
 }
+export async function uploadEvidenceFile(
+  id: string | null,
+  projectId: string,
+  file: File,
+  related?: string | null,
+) {
+  const path = id
+    ? `/evidence/${encodeURIComponent(id)}/file?projectId=${encodeURIComponent(projectId)}&name=${encodeURIComponent(file.name)}`
+    : `/evidence/upload?projectId=${encodeURIComponent(projectId)}&name=${encodeURIComponent(file.name)}${related ? `&related=${encodeURIComponent(related)}` : ""}`;
+  return toEvidence(
+    await api<ApiEvidence>(path, {
+      method: "POST",
+      headers: { "Content-Type": file.type || "application/octet-stream" },
+      body: file,
+    }),
+  );
+}
+export async function downloadEvidenceFile(id: string, projectId: string, fileName: string) {
+  let response: Response;
+  try {
+    response = await fetch(
+      `/api/evidence/${encodeURIComponent(id)}/file?projectId=${encodeURIComponent(projectId)}`,
+      { credentials: "include" },
+    );
+  } catch {
+    throw new Error("No se pudo conectar con la API para descargar el archivo.");
+  }
+  if (!response.ok) {
+    let message = "No se pudo descargar el archivo de evidencia.";
+    try {
+      const body = await response.json();
+      message = body.error?.message ?? message;
+    } catch {
+      throw new Error(message);
+    }
+    throw new Error(message);
+  }
+  const objectUrl = URL.createObjectURL(await response.blob());
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = fileName;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+}
 export async function updateTestCase(
   id: string,
   projectId: string,
@@ -209,6 +277,7 @@ export const toRun = (r: ApiRun): TestRun => ({
 });
 export const toEvidence = (e: ApiEvidence): Evidence => ({
   ...e,
+  hasFile: e.hasFile,
   related: e.related.join(", ") || "Sin vincular",
   size: `${(e.sizeBytes / 1024).toFixed(1)} KB`,
   date: date(e.createdAt),

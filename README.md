@@ -2,7 +2,7 @@
 
 **qaTestGE es una plataforma web para organizar bugs, casos de prueba, ejecuciones y evidencias dentro de proyectos QA.** Una cuenta puede gestionar sus proyectos, registrar incidencias y casos, crear ejecuciones manuales y relacionar metadatos de evidencias. La aplicación vincula los recursos mediante identificadores y valida el acceso a los proyectos en el backend.
 
-> **Estado actual:** frontend React conectado a una API Express y PostgreSQL. El diseñador permite editar pasos de ejemplos ilustrativos y ofrece una acción explícita para guardar cada caso seleccionado; no usa IA ni guarda la vista previa automáticamente. Los casos guardados admiten hasta 100 pasos con acción y resultado esperado, Suite opcional, imágenes y enlaces relacionados. Las evidencias generales solo guardan metadatos, no el archivo.
+> **Estado actual:** frontend React conectado a una API Express y PostgreSQL. El diseñador permite editar pasos de ejemplos ilustrativos y ofrece una acción explícita para guardar cada caso seleccionado; no usa IA ni guarda la vista previa automáticamente. Los casos guardados admiten hasta 100 pasos con acción y resultado esperado, Suite opcional, imágenes y enlaces relacionados. Las evidencias almacenan el archivo en PostgreSQL y permiten descargarlo de forma autenticada (máximo 2 MiB).
 
 ## Stack tecnológico
 
@@ -34,7 +34,7 @@ El frontend usa React, TypeScript y Vite. La API usa Node.js, Express, TypeScrip
 - Vista previa del diseñador editable localmente, con múltiples pasos por caso y exportación actualizada a Excel/PDF.
 - Exportación de bugs y casos de prueba individuales a PDF, Excel o Markdown desde el menú de tres puntos, incluidos los pasos del caso.
 - Creación de ejecuciones manuales vinculadas a casos.
-- Registro de metadatos de evidencias y sus referencias; la carga binaria no está implementada.
+- Evidencias con archivos privados de hasta 2 MiB, vínculo a recursos QA y descarga autenticada desde el mantenimiento.
 - Diseñador de casos de prueba con categorías identificadas por colores, cantidades ajustables, vista previa editable y ejemplos exportables a Excel/PDF. El usuario puede guardar explícitamente casos individuales en el proyecto; la descripción no se analiza y no se llama a IA. Configuración permite guardar cantidades iniciales por categoría en el navegador.
 - ESLint y Prettier para validar y mantener consistentes el estilo y formato del código.
 - Temas claro y oscuro.
@@ -43,7 +43,7 @@ La integración de IA es opcional y todavía no está implementada. No se ofrece
 
 ## CI/CD
 
-GitHub Actions valida cada pull request y cada push a `main` con Node.js 24 y pnpm 12.11.2: instalación congelada, formato, lint, TypeScript, pruebas y build. Los pushes a `main` publican el frontend y el backend compilados como artefacto descargable de Actions durante 14 días. No se despliega automáticamente a un servidor porque este repositorio aún no define un proveedor ni un entorno de despliegue.
+GitHub Actions valida cada pull request y cada push a `main` o `qa-env` con Node.js 24 y pnpm 12.11.2: instalación congelada, formato, lint, TypeScript, pruebas y build. Los pushes a `main` publican el frontend y el backend compilados como artefacto descargable de Actions durante 14 días; los pushes a `qa-env` solo ejecutan validaciones. No se despliega automáticamente a un servidor porque este repositorio aún no define un proveedor ni un entorno de despliegue.
 
 ### Flujo de ramas
 
@@ -118,7 +118,7 @@ pnpm db:migrate
 pnpm db:check
 ```
 
-`db:migrate` aplica idempotentemente las migraciones `004_authentication.sql` (usuarios, membresías y sesiones), `005_bug_templates.sql` (plantillas personales), `006_optional_test_suite.sql` (Suite opcional) y `007_test_case_attachments.sql` (imágenes y enlaces relacionados con casos). No borra ni asigna datos existentes. `db:check` comprueba la conexión y el esquema sin modificar datos.
+`db:migrate` aplica idempotentemente las migraciones `004_authentication.sql` (usuarios, membresías y sesiones), `005_bug_templates.sql` (plantillas personales), `006_optional_test_suite.sql` (Suite opcional), `007_test_case_attachments.sql` (imágenes y enlaces de casos), `008_evidence_files.sql` (archivos privados de evidencias, hasta 2 MiB) y `009_tags.sql` (tags de proyecto y asociaciones con bugs, casos y ejecuciones). No borra ni asigna datos existentes. `db:check` comprueba la conexión y el esquema sin modificar datos.
 
 Si partes de una base que ya tenía el esquema inicial, **no vuelvas a importar `001_schema.sql`**: configura la conexión y ejecuta `pnpm db:migrate` y `pnpm db:check`.
 
@@ -147,20 +147,20 @@ Al abrir la aplicación, registra una cuenta para crear un workspace y proyecto 
 
 ## Comandos útiles
 
-| Comando                      | Descripción                                                                      |
-| ---------------------------- | -------------------------------------------------------------------------------- |
-| `pnpm dev`                   | Inicia frontend y API                                                            |
-| `pnpm dev:frontend`          | Inicia solo Vite                                                                 |
-| `pnpm dev:backend`           | Inicia solo la API                                                               |
-| `pnpm db:migrate`            | Aplica/verifica las migraciones aditivas de cuentas, plantillas y Suite opcional |
-| `pnpm db:check`              | Comprueba la base y el esquema sin escrituras                                    |
-| `pnpm lint`                  | Ejecuta ESLint                                                                   |
-| `pnpm format`                | Formatea los archivos compatibles con Prettier                                   |
-| `pnpm format:check`          | Comprueba el formato sin modificar archivos                                      |
-| `pnpm typecheck`             | Comprueba tipos del frontend y pruebas incluidas                                 |
-| `pnpm test`                  | Ejecuta pruebas unitarias y de API sin requerir PostgreSQL                       |
-| `pnpm build`                 | Compila frontend y backend                                                       |
-| `pnpm --dir backend test:db` | Ejecuta pruebas opcionales con `TEST_DATABASE_URL` aislada                       |
+| Comando                      | Descripción                                                            |
+| ---------------------------- | ---------------------------------------------------------------------- |
+| `pnpm dev`                   | Inicia frontend y API                                                  |
+| `pnpm dev:frontend`          | Inicia solo Vite                                                       |
+| `pnpm dev:backend`           | Inicia solo la API                                                     |
+| `pnpm db:migrate`            | Aplica/verifica las migraciones versionadas de cuenta, recursos y tags |
+| `pnpm db:check`              | Comprueba la base y el esquema sin escrituras                          |
+| `pnpm lint`                  | Ejecuta ESLint                                                         |
+| `pnpm format`                | Formatea los archivos compatibles con Prettier                         |
+| `pnpm format:check`          | Comprueba el formato sin modificar archivos                            |
+| `pnpm typecheck`             | Comprueba tipos del frontend y pruebas incluidas                       |
+| `pnpm test`                  | Ejecuta pruebas unitarias y de API sin requerir PostgreSQL             |
+| `pnpm build`                 | Compila frontend y backend                                             |
+| `pnpm --dir backend test:db` | Ejecuta pruebas opcionales con `TEST_DATABASE_URL` aislada             |
 
 No uses `test:db` contra una base con datos de trabajo: requiere una base de pruebas descartable definida explícitamente. Consulta [docs/TESTING.md](./docs/TESTING.md).
 
@@ -173,7 +173,7 @@ No uses `test:db` contra una base con datos de trabajo: requiere una base de pru
 5. Ejecuta `pnpm db:migrate` y luego `pnpm db:check`.
 6. Ejecuta `pnpm typecheck`, `pnpm test` y `pnpm build` antes de reiniciar la aplicación.
 
-Las migraciones 004–007 son idempotentes. La 004 no asigna organizaciones o proyectos existentes a nuevos usuarios; la 005 crea la tabla de plantillas por usuario; la 006 permite Suite vacía/nula sin modificar los datos de los casos existentes; la 007 agrega almacenamiento PostgreSQL privado para imágenes y enlaces de casos de prueba. No hay migración automática al arrancar; futuras modificaciones deben agregarse como migraciones versionadas. Al desactivar una cuenta desde Configuración, el usuario se anonimiza y queda inactivo, se revocan las sesiones y se eliminan sus plantillas; las membresías, proyectos y registros QA se conservan.
+Las migraciones 004–009 son idempotentes. La 004 no asigna organizaciones o proyectos existentes a nuevos usuarios; la 005 crea la tabla de plantillas por usuario; la 006 permite Suite vacía/nula sin modificar los datos existentes; la 007 añade imágenes y enlaces de casos; la 008 añade archivos privados de evidencia; la 009 agrega tags por proyecto con asociaciones para bugs, casos y ejecuciones. No hay migración automática al arrancar; futuras modificaciones deben agregarse como migraciones versionadas. Al desactivar una cuenta desde Configuración, el usuario se anonimiza y queda inactivo, se revocan las sesiones y se eliminan sus plantillas; las membresías, proyectos y registros QA se conservan.
 
 ## API y documentación
 
@@ -201,10 +201,14 @@ La documentación interactiva está en `/api/docs/`; el contrato OpenAPI en `/ap
 | `GET`             | `/api/test-cases/{caseId}/attachments/{attachmentId}/image` | Consultar bytes de imagen autenticada                   |
 | `DELETE`          | `/api/test-cases/{caseId}/attachments/{attachmentId}`       | Eliminar un adjunto                                     |
 | `GET`, `POST`     | `/api/test-runs`                                            | Listar y crear ejecuciones                              |
-| `GET`, `POST`     | `/api/evidence`                                             | Listar y registrar metadatos de evidencias              |
+| `GET`, `POST`     | `/api/tags`                                                 | Listar y crear tags del proyecto                        |
+| `PATCH`, `DELETE` | `/api/tags/{tagId}`                                         | Editar o eliminar un tag y sus asignaciones             |
+| `GET`, `POST`     | `/api/evidence`                                             | Listar evidencias o registrar metadatos                 |
 | `PATCH`, `DELETE` | `/api/evidence/{evidenceId}`                                | Editar o eliminar metadatos y vínculos de evidencias    |
+| `POST`            | `/api/evidence/upload`                                      | Guardar archivo privado (máximo 2 MiB)                  |
+| `GET`, `POST`     | `/api/evidence/{evidenceId}/file`                           | Descargar, subir o reemplazar archivo de evidencia      |
 
-Las escrituras autenticadas requieren cookie de sesión y protección CSRF; la API valida las referencias y la pertenencia al proyecto. Consulta [docs/API.md](./docs/API.md) para los límites de imágenes y los detalles de las operaciones.
+Las escrituras autenticadas requieren cookie de sesión y protección CSRF; la API valida las referencias y la pertenencia al proyecto. Los tags se crean por proyecto, tienen nombre único y color propio y se pueden asignar a bugs, casos y ejecuciones. Consulta [docs/API.md](./docs/API.md) para los límites de imágenes y los detalles de las operaciones.
 
 ## Documentación adicional
 

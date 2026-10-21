@@ -10,10 +10,12 @@ import type {
 import type { TestRun, CreateTestRunInput } from "../models/test-run.model.js";
 import type {
   Evidence,
+  EvidenceFile,
   CreateEvidenceInput,
   UpdateEvidenceInput,
 } from "../models/evidence.model.js";
 import type { Request } from "express";
+import type { CreateTagInput, Tag, UpdateTagInput } from "../models/tag.model.js";
 
 export interface Project {
   id: string;
@@ -51,6 +53,20 @@ export interface Repository {
     input: UpdateEvidenceInput,
   ): Promise<Evidence | null>;
   deleteEvidence(id: string, projectId: string): Promise<boolean>;
+  saveEvidenceFile(
+    id: string | null,
+    projectId: string,
+    file: EvidenceFile,
+    related?: string | null,
+  ): Promise<Evidence | null>;
+  getEvidenceFile(
+    id: string,
+    projectId: string,
+  ): Promise<(EvidenceFile & { sizeBytes: number }) | null>;
+  listTags(projectId: string): Promise<Tag[]>;
+  createTag(input: CreateTagInput): Promise<Tag>;
+  updateTag(id: string, projectId: string, input: UpdateTagInput): Promise<Tag | null>;
+  deleteTag(id: string, projectId: string): Promise<boolean>;
 }
 export function repository(request: Request): Repository {
   return request.res!.locals.repository as Repository;

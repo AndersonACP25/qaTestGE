@@ -28,6 +28,13 @@ const caseIds = {
   items: { type: "string", pattern: "^TC-[0-9]{1,19}$" },
   default: [],
 };
+const tagIds = {
+  type: "array",
+  maxItems: 100,
+  uniqueItems: true,
+  items: { type: "string", pattern: "^[1-9][0-9]{0,18}$" },
+  default: [],
+};
 const inputs = {
   BugInput: object(
     {
@@ -36,6 +43,7 @@ const inputs = {
       priority: { type: "string", enum: bugPriorities },
       description: { type: "string", maxLength: 5000 },
       assignee: { type: "string", nullable: true, maxLength: 100 },
+      tagIds,
     },
     ["projectId", "title", "priority"],
   ),
@@ -46,10 +54,11 @@ const inputs = {
       suite: { type: "string", maxLength: 100 },
       preconditions: { type: "string", maxLength: 10000 },
       steps: { type: "array", maxItems: 100, items: step },
+      tagIds,
     },
     ["projectId", "title"],
   ),
-  TestRunInput: object({ projectId, title: text(200), owner: text(100), caseIds }, [
+  TestRunInput: object({ projectId, title: text(200), owner: text(100), caseIds, tagIds }, [
     "projectId",
     "title",
     "owner",
@@ -76,6 +85,7 @@ const resources = [
   ["test-cases", "TestCase", "INVALID_TEST_CASE"],
   ["test-runs", "TestRun", "INVALID_TEST_RUN"],
   ["evidence", "Evidence", "INVALID_EVIDENCE"],
+  ["tags", "Tag", "INVALID_TAG"],
 ] as const;
 const errorResponse = (description: string) => ({ description, content: json(ref("Error")) });
 const envelope = (data: object) => object({ data }, ["data"]);
@@ -91,7 +101,7 @@ export const openApiDocument = {
     title: "qaTestGE API",
     version: "1.0.0",
     description:
-      "API con usuarios locales y sesiones HttpOnly persistidas en PostgreSQL. Las plantillas de bugs son privadas por cuenta. Las escrituras requieren sesión y X-CSRF-Token. Evidencias: solo metadatos. projectId obligatorio; caseIds sustituye caseCount; related en la respuesta es un array.",
+      "API con usuarios locales y sesiones HttpOnly persistidas en PostgreSQL. Las plantillas de bugs son privadas por cuenta. Las escrituras requieren sesión y X-CSRF-Token. Los archivos de evidencia se almacenan en PostgreSQL y se descargan de forma privada. projectId obligatorio; caseIds sustituye caseCount; related en la respuesta es un array.",
   },
   servers: [{ url: "/", description: "Servidor actual (directo o proxy /api)" }],
   security: [{ sessionCookie: [] as string[] }],
@@ -308,6 +318,37 @@ export const openApiDocument = {
         },
       },
     },
+    "/api/tags/{tagId}": {
+      patch: {
+        security: [{ sessionCookie: [], csrfToken: [] }],
+        summary: "Actualizar un tag de un proyecto autorizado",
+        parameters: [{ in: "path", name: "tagId", required: true, schema: projectId }],
+        requestBody: { required: true, content: json(ref("TagUpdateInput")) },
+        responses: {
+          "200": { description: "Tag actualizado", content: json(envelope(ref("Tag"))) },
+          "400": errorResponse("INVALID_TAG"),
+          "401": errorResponse("UNAUTHENTICATED"),
+          "403": errorResponse("INVALID_CSRF o INVALID_ORIGIN"),
+          "404": errorResponse("PROJECT_NOT_FOUND o TAG_NOT_FOUND"),
+          "409": errorResponse("TAG_ALREADY_EXISTS"),
+        },
+      },
+      delete: {
+        security: [{ sessionCookie: [], csrfToken: [] }],
+        summary: "Eliminar un tag y sus asociaciones",
+        parameters: [
+          { in: "path", name: "tagId", required: true, schema: projectId },
+          { in: "query", name: "projectId", required: true, schema: projectId },
+        ],
+        responses: {
+          "204": { description: "Tag eliminado; asociaciones eliminadas en cascada" },
+          "400": errorResponse("INVALID_TAG o INVALID_PROJECT_ID"),
+          "401": errorResponse("UNAUTHENTICATED"),
+          "403": errorResponse("INVALID_CSRF"),
+          "404": errorResponse("PROJECT_NOT_FOUND o TAG_NOT_FOUND"),
+        },
+      },
+    },
     "/api/bugs/{bugId}/status": {
       patch: {
         security: [{ sessionCookie: [], csrfToken: [] }],
@@ -378,7 +419,7 @@ export const openApiDocument = {
       },
       delete: {
         security: [{ sessionCookie: [], csrfToken: [] }],
-        summary: "Eliminar metadatos y vínculos de una evidencia",
+        summary: "Eliminar metadatos, archivo y vínculos de una evidencia",
         parameters: [
           {
             in: "path",
@@ -396,6 +437,89 @@ export const openApiDocument = {
           "403": errorResponse("INVALID_CSRF o INVALID_ORIGIN"),
           "404": errorResponse("PROJECT_NOT_FOUND o EVIDENCE_NOT_FOUND"),
           "503": unavailable,
+        },
+      },
+    },
+    "/api/evidence/upload": {
+      post: {
+        security: [{ sessionCookie: [], csrfToken: [] }],
+        summary: "Guardar un archivo privado de evidencia (máximo 2 MiB)",
+        parameters: [
+          { in: "query", name: "projectId", required: true, schema: projectId },
+          { in: "query", name: "name", required: true, schema: text(255) },
+          {
+            in: "query",
+            name: "related",
+            required: false,
+            schema: { type: "string", nullable: true, pattern: "^(BUG|TC|RUN|RES)-[0-9]{1,19}$" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/octet-stream": { schema: { type: "string", format: "binary" } },
+          },
+        },
+        responses: {
+          "201": { description: "Archivo almacenado", content: json(envelope(ref("Evidence"))) },
+          "400": errorResponse("INVALID_EVIDENCE_FILE o INVALID_REFERENCE"),
+          "401": errorResponse("UNAUTHENTICATED"),
+          "403": errorResponse("INVALID_CSRF o INVALID_ORIGIN"),
+          "413": errorResponse("PAYLOAD_TOO_LARGE"),
+          "503": unavailable,
+        },
+      },
+    },
+    "/api/evidence/{evidenceId}/file": {
+      get: {
+        summary: "Descargar archivo privado de evidencia",
+        parameters: [
+          {
+            in: "path",
+            name: "evidenceId",
+            required: true,
+            schema: { type: "string", pattern: "^EVD-[0-9]{1,19}$" },
+          },
+          { in: "query", name: "projectId", required: true, schema: projectId },
+        ],
+        responses: {
+          "200": {
+            description: "Archivo entregado como descarga, sin interpretación en navegador",
+            content: {
+              "application/octet-stream": { schema: { type: "string", format: "binary" } },
+            },
+          },
+          "400": errorResponse("INVALID_EVIDENCE"),
+          "401": errorResponse("UNAUTHENTICATED"),
+          "404": errorResponse("EVIDENCE_FILE_NOT_FOUND o PROJECT_NOT_FOUND"),
+        },
+      },
+      post: {
+        security: [{ sessionCookie: [], csrfToken: [] }],
+        summary: "Subir o reemplazar archivo de una evidencia (máximo 2 MiB)",
+        parameters: [
+          {
+            in: "path",
+            name: "evidenceId",
+            required: true,
+            schema: { type: "string", pattern: "^EVD-[0-9]{1,19}$" },
+          },
+          { in: "query", name: "projectId", required: true, schema: projectId },
+          { in: "query", name: "name", required: true, schema: text(255) },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/octet-stream": { schema: { type: "string", format: "binary" } },
+          },
+        },
+        responses: {
+          "200": { description: "Archivo actualizado", content: json(envelope(ref("Evidence"))) },
+          "400": errorResponse("INVALID_EVIDENCE_FILE"),
+          "401": errorResponse("UNAUTHENTICATED"),
+          "403": errorResponse("INVALID_CSRF o INVALID_ORIGIN"),
+          "404": errorResponse("EVIDENCE_NOT_FOUND"),
+          "413": errorResponse("PAYLOAD_TOO_LARGE"),
         },
       },
     },
@@ -624,7 +748,9 @@ export const openApiDocument = {
           get: {
             summary: `Listar ${path}`,
             tags: [path],
-            parameters: [{ in: "query", name: "projectId", required: false, schema: projectId }],
+            parameters: [
+              { in: "query", name: "projectId", required: path === "tags", schema: projectId },
+            ],
             responses: {
               "200": {
                 description: "Colección persistida",
@@ -773,6 +899,7 @@ export const openApiDocument = {
           description: { type: "string" },
           assignee: { type: "string", nullable: true },
           status: { type: "string", enum: bugStatuses },
+          tagIds,
         },
         [
           "id",
@@ -784,6 +911,7 @@ export const openApiDocument = {
           "status",
           "assignee",
           "createdAt",
+          "tagIds",
         ],
       ),
       TestCase: object(
@@ -791,8 +919,19 @@ export const openApiDocument = {
           ...inputs.TestCaseInput.properties,
           ...common,
           status: { type: "string", enum: testCaseStatuses },
+          tagIds,
         },
-        ["id", "projectId", "title", "suite", "preconditions", "steps", "status", "createdAt"],
+        [
+          "id",
+          "projectId",
+          "title",
+          "suite",
+          "preconditions",
+          "steps",
+          "status",
+          "createdAt",
+          "tagIds",
+        ],
       ),
       TestRun: object(
         {
@@ -801,6 +940,7 @@ export const openApiDocument = {
           caseCount: { type: "integer", minimum: 0 },
           progress: { type: "number", minimum: 0, maximum: 100 },
           status: { type: "string", enum: ["En curso", "Completado"] },
+          tagIds,
         },
         [
           "id",
@@ -812,15 +952,39 @@ export const openApiDocument = {
           "progress",
           "status",
           "createdAt",
+          "tagIds",
         ],
+      ),
+      TagInput: object(
+        {
+          projectId,
+          name: text(50),
+          color: { type: "string", pattern: "^#[0-9A-Fa-f]{6}$" },
+        },
+        ["projectId", "name", "color"],
+      ),
+      TagUpdateInput: object(
+        { projectId, name: text(50), color: { type: "string", pattern: "^#[0-9A-Fa-f]{6}$" } },
+        ["projectId", "name", "color"],
+      ),
+      Tag: object(
+        {
+          id: projectId,
+          projectId,
+          name: text(50),
+          color: { type: "string", pattern: "^#[0-9A-Fa-f]{6}$" },
+          createdAt: { type: "string", format: "date-time" },
+        },
+        ["id", "projectId", "name", "color", "createdAt"],
       ),
       Evidence: object(
         {
           ...inputs.EvidenceInput.properties,
           ...common,
           related: { type: "array", items: { type: "string" } },
+          hasFile: { type: "boolean" },
         },
-        ["id", "projectId", "name", "type", "sizeBytes", "related", "createdAt"],
+        ["id", "projectId", "name", "type", "sizeBytes", "hasFile", "related", "createdAt"],
       ),
       Error: object(
         {

@@ -26,6 +26,12 @@ const repo = {
   createEvidence: vi.fn<Repository["createEvidence"]>(),
   updateEvidence: vi.fn<Repository["updateEvidence"]>(),
   deleteEvidence: vi.fn<Repository["deleteEvidence"]>(),
+  saveEvidenceFile: vi.fn<Repository["saveEvidenceFile"]>(),
+  getEvidenceFile: vi.fn<Repository["getEvidenceFile"]>(),
+  listTags: vi.fn<Repository["listTags"]>(),
+  createTag: vi.fn<Repository["createTag"]>(),
+  updateTag: vi.fn<Repository["updateTag"]>(),
+  deleteTag: vi.fn<Repository["deleteTag"]>(),
 };
 const app = createApp(repo, testAuth);
 const signed = () =>
@@ -40,6 +46,7 @@ const bug = {
   status: "Abierto" as const,
   assignee: null,
   createdAt: "2026-01-01T00:00:00.000Z",
+  tagIds: [],
 };
 beforeEach(() => {
   vi.resetAllMocks();
@@ -51,7 +58,46 @@ beforeEach(() => {
   repo.listCases.mockResolvedValue([]);
   repo.listRuns.mockResolvedValue([]);
   repo.listEvidence.mockResolvedValue([]);
+  repo.listTags.mockResolvedValue([]);
   repo.listCaseAttachments.mockResolvedValue([]);
+});
+it("manages project tags and validates tag inputs", async () => {
+  const tag = {
+    id: "7",
+    projectId: "1",
+    name: "Regresión",
+    color: "#7462df",
+    createdAt: bug.createdAt,
+  };
+  repo.listTags.mockResolvedValue([tag]);
+  expect((await signed().get("/api/tags?projectId=1")).body.data).toEqual([tag]);
+  expect(repo.listTags).toHaveBeenCalledWith("1");
+  repo.createTag.mockResolvedValue(tag);
+  const input = { projectId: "1", name: tag.name, color: tag.color };
+  expect((await signed().post("/api/tags").send(input)).status).toBe(201);
+  expect(repo.createTag).toHaveBeenCalledWith(input);
+  repo.updateTag.mockResolvedValue({ ...tag, name: "Crítico" });
+  expect(
+    (
+      await signed()
+        .patch("/api/tags/7")
+        .send({ ...input, name: "Crítico" })
+    ).status,
+  ).toBe(200);
+  expect(repo.updateTag).toHaveBeenCalledWith("7", "1", {
+    name: "Crítico",
+    color: tag.color,
+  });
+  repo.deleteTag.mockResolvedValue(true);
+  expect((await signed().delete("/api/tags/7?projectId=1").send({})).status).toBe(204);
+  expect(repo.deleteTag).toHaveBeenCalledWith("7", "1");
+  expect(
+    (
+      await signed()
+        .post("/api/tags")
+        .send({ ...input, color: "purple" })
+    ).status,
+  ).toBe(400);
 });
 
 describe("qaTestGE API with an injected repository (no database)", () => {
@@ -81,7 +127,7 @@ describe("qaTestGE API with an injected repository (no database)", () => {
   });
   it("creates a bug using an explicit project ID", async () => {
     repo.createBug.mockResolvedValue(bug);
-    const input = { projectId: "1", title: bug.title, priority: "Alta" };
+    const input = { projectId: "1", title: bug.title, priority: "Alta", tagIds: ["7"] };
     const created = await signed().post("/api/bugs").send(input);
     expect(created.status).toBe(201);
     expect(created.body.data).toEqual(bug);
@@ -144,6 +190,7 @@ describe("qaTestGE API with an injected repository (no database)", () => {
       suite: "",
       status: "Pendiente" as const,
       createdAt: bug.createdAt,
+      tagIds: [],
       preconditions: "",
       steps: [],
     };
@@ -204,11 +251,19 @@ describe("qaTestGE API with an injected repository (no database)", () => {
           .send({ projectId: "1", title: "Run", owner: "QA", caseIds: ["TC-001", "TC-1"] })
       ).status,
     ).toBe(400);
+    expect(
+      (
+        await signed()
+          .post("/api/bugs")
+          .send({ projectId: "1", title: "Bug", priority: "Alta", tagIds: ["1", "1"] })
+      ).status,
+    ).toBe(400);
   });
   it("accepts case steps, case references and evidence references", async () => {
     const input = {
       projectId: "1",
       title: "Registro",
+      tagIds: ["7"],
       steps: [
         { action: "Enviar", expectedResult: "Error" },
         { action: "Verificar", expectedResult: "Se muestra el error" },
@@ -221,6 +276,7 @@ describe("qaTestGE API with an injected repository (no database)", () => {
       preconditions: "",
       status: "Pendiente" as const,
       createdAt: bug.createdAt,
+      tagIds: [],
     };
     repo.createCase.mockResolvedValue(tc);
     expect((await signed().post("/api/test-cases").send(input)).status).toBe(201);
@@ -235,12 +291,13 @@ describe("qaTestGE API with an injected repository (no database)", () => {
       progress: 0,
       status: "En curso",
       createdAt: bug.createdAt,
+      tagIds: [],
     });
     expect(
       (
         await signed()
           .post("/api/test-runs")
-          .send({ projectId: "1", title: "Run", owner: "QA", caseIds: [tc.id] })
+          .send({ projectId: "1", title: "Run", owner: "QA", caseIds: [tc.id], tagIds: ["7"] })
       ).body.data.caseCount,
     ).toBe(1);
     repo.createEvidence.mockResolvedValue({
@@ -249,6 +306,7 @@ describe("qaTestGE API with an injected repository (no database)", () => {
       name: "file.png",
       type: "Imagen",
       sizeBytes: 10,
+      hasFile: false,
       related: [tc.id],
       createdAt: bug.createdAt,
     });
@@ -278,6 +336,7 @@ describe("qaTestGE API with an injected repository (no database)", () => {
       name: "file.png",
       type: "Imagen" as const,
       sizeBytes: 10,
+      hasFile: false,
       related: [bug.id],
       createdAt: bug.createdAt,
     };
@@ -314,6 +373,45 @@ describe("qaTestGE API with an injected repository (no database)", () => {
     expect((await signed().delete("/api/evidence/EVD-001?projectId=1").send({})).status).toBe(404);
     expect((await signed().delete("/api/evidence/EVD-001").send({})).status).toBe(400);
   });
+  it("uploads private evidence files and requires a stored file for download", async () => {
+    const evidence = {
+      id: "EVD-001",
+      projectId: "1",
+      name: "capture.bin",
+      type: "Archivo" as const,
+      sizeBytes: 4,
+      hasFile: true,
+      related: [],
+      createdAt: bug.createdAt,
+    };
+    const bytes = Buffer.from([0, 1, 2, 3]);
+    repo.saveEvidenceFile.mockResolvedValue(evidence);
+    const uploaded = await signed()
+      .post("/api/evidence/upload?projectId=1&name=capture.bin")
+      .set("Content-Type", "application/octet-stream")
+      .send(bytes);
+    expect(uploaded.status).toBe(201);
+    expect(uploaded.body.data.hasFile).toBe(true);
+    expect(repo.saveEvidenceFile).toHaveBeenCalledWith(
+      null,
+      "1",
+      { name: "capture.bin", mediaType: "application/octet-stream", fileData: bytes },
+      null,
+    );
+    repo.getEvidenceFile.mockResolvedValue({
+      name: evidence.name,
+      mediaType: "application/octet-stream",
+      fileData: bytes,
+      sizeBytes: bytes.length,
+    });
+    const downloaded = await signed().get("/api/evidence/EVD-001/file?projectId=1");
+    expect(downloaded.status).toBe(200);
+    expect(downloaded.headers["content-disposition"]).toContain("attachment");
+    expect(downloaded.headers["x-content-type-options"]).toBe("nosniff");
+    expect(repo.getEvidenceFile).toHaveBeenCalledWith("1", "1");
+    repo.getEvidenceFile.mockResolvedValueOnce(null);
+    expect((await signed().get("/api/evidence/EVD-002/file?projectId=1")).status).toBe(404);
+  });
   it("accepts an optional suite but still rejects malformed step pairs", async () => {
     const input = { projectId: "1", title: "Caso sin suite" };
     repo.createCase.mockResolvedValue({
@@ -321,6 +419,7 @@ describe("qaTestGE API with an injected repository (no database)", () => {
       suite: "",
       preconditions: "",
       steps: [],
+      tagIds: [],
       id: "TC-002",
       status: "Pendiente",
       createdAt: bug.createdAt,

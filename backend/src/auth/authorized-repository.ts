@@ -7,8 +7,13 @@ import type {
   UpdateTestCaseInput,
 } from "../models/test-case.model.js";
 import type { CreateTestRunInput } from "../models/test-run.model.js";
-import type { CreateEvidenceInput, UpdateEvidenceInput } from "../models/evidence.model.js";
+import type {
+  CreateEvidenceInput,
+  EvidenceFile,
+  UpdateEvidenceInput,
+} from "../models/evidence.model.js";
 import { HttpError } from "../http-error.js";
+import type { CreateTagInput, UpdateTagInput } from "../models/tag.model.js";
 
 export class AuthorizedRepository implements Repository {
   constructor(
@@ -104,5 +109,34 @@ export class AuthorizedRepository implements Repository {
   async deleteEvidence(id: string, projectId: string) {
     await this.projectIds(projectId);
     return this.base.deleteEvidence(id, projectId);
+  }
+  async saveEvidenceFile(
+    id: string | null,
+    projectId: string,
+    file: EvidenceFile,
+    related?: string | null,
+  ) {
+    await this.projectIds(projectId);
+    return this.base.saveEvidenceFile(id, projectId, file, related);
+  }
+  async getEvidenceFile(id: string, projectId: string) {
+    await this.projectIds(projectId);
+    return this.base.getEvidenceFile(id, projectId);
+  }
+  async listTags(projectId: string) {
+    await this.projectIds(projectId);
+    return this.base.listTags(projectId);
+  }
+  async createTag(input: CreateTagInput) {
+    await this.projectIds(input.projectId);
+    return this.base.createTag(input);
+  }
+  async updateTag(id: string, projectId: string, input: UpdateTagInput) {
+    await this.projectIds(projectId);
+    return this.base.updateTag(id, projectId, input);
+  }
+  async deleteTag(id: string, projectId: string) {
+    await this.projectIds(projectId);
+    return this.base.deleteTag(id, projectId);
   }
 }

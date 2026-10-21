@@ -31,7 +31,7 @@ pnpm db:migrate
 pnpm db:check
 ```
 
-El comando aplica en orden `004_authentication.sql`, `005_bug_templates.sql`, `006_optional_test_suite.sql` y `007_test_case_attachments.sql` sobre la base configurada en backend/.env. Cada migración usa una transacción, bloqueo y registro de versión; repetirlas no duplica tablas. No vuelve a importar 001/002 ni cambia sus filas. Para pgAdmin, ejecutar los archivos en orden desde Query Tool conectado a qa_test_ge.
+El comando aplica en orden `004_authentication.sql`, `005_bug_templates.sql`, `006_optional_test_suite.sql`, `007_test_case_attachments.sql`, `008_evidence_files.sql` y `009_tags.sql` sobre la base configurada en backend/.env. Cada migración usa una transacción, bloqueo y registro de versión; repetirlas no duplica tablas. No vuelve a importar 001/002 ni cambia sus filas. Para pgAdmin, ejecutar los archivos en orden desde Query Tool conectado a qa_test_ge.
 
 Tablas añadidas: qa.users (correo único normalizado y hash scrypt), qa.organization_members (usuario/organización/rol), qa.auth_sessions (hash de token, CSRF, expiración), qa.schema_migrations, qa.bug_templates (plantillas de bugs propiedad de una cuenta) y qa.test_case_attachments (adjuntos de casos). El registro crea cuenta, workspace, membresía owner y proyecto; no concede acceso a los datos previamente importados.
 
@@ -57,10 +57,13 @@ No usar este ejemplo sin confirmar los destinatarios. No existe un endpoint púb
 | `qa.test_runs`, `qa.test_run_results` | Ejecuciones, resultados por caso y snapshot de pasos                      |
 | `qa.bug_test_cases`                   | Relación explícita entre bugs y casos                                     |
 | `qa.evidence`, `qa.evidence_links`    | Metadatos y vínculos a bugs, casos, ejecuciones o resultados              |
+| `qa.tags` y `qa.*_tags`               | Tags por proyecto y sus asociaciones a bugs, casos y ejecuciones          |
 
-Los IDs son `bigint` identity. Las claves foráneas compuestas verifican que los recursos vinculados pertenecen al mismo proyecto. No hay eliminaciones en cascada: los vínculos deben resolverse explícitamente antes de eliminar recursos. La API elimina los adjuntos de un caso en la misma transacción y conserva el caso si está relacionado con ejecuciones. Una evidencia puede existir sin vínculo y tener después varios; cada vínculo tiene exactamente un destino. `storage_key` de evidencia es una referencia futura, no contenido de archivo.
+Los IDs son `bigint` identity. Las claves foráneas compuestas verifican que los recursos vinculados pertenecen al mismo proyecto. Las asociaciones de tags se eliminan en cascada al borrar un tag; otros vínculos deben resolverse explícitamente antes de eliminar recursos. La API elimina los adjuntos de un caso en la misma transacción y conserva el caso si está relacionado con ejecuciones. Una evidencia puede existir sin vínculo y tener después varios; cada vínculo tiene exactamente un destino. `storage_key` de evidencia es una referencia futura, no contenido de archivo.
 
-Las imágenes adjuntas a casos se guardan en la columna `image_bytes` de PostgreSQL, con máximo de 2 MiB y MIME permitido restringido a PNG, JPEG, GIF o WebP. Los enlaces HTTP(S) se guardan como texto y no pueden incluir credenciales en la URL. Esta función no implementa carga de archivos para el mantenimiento general de evidencias.
+Las imágenes adjuntas a casos se guardan en la columna `image_bytes` de PostgreSQL, con máximo de 2 MiB y MIME permitido restringido a PNG, JPEG, GIF o WebP. Los enlaces HTTP(S) se guardan como texto y no pueden incluir credenciales en la URL. Los archivos de evidencia general se guardan en `qa.evidence.file_bytes`, hasta 2 MiB, y se sirven como descargas privadas con autorización por proyecto.
+
+La migración 009 crea `qa.tags` y las tablas `qa.bug_tags`, `qa.test_case_tags` y `qa.test_run_tags`. Cada asociación verifica por claves foráneas compuestas que recurso y tag pertenecen al mismo proyecto. Los nombres de tags son únicos sin distinguir mayúsculas dentro de su proyecto; el color se almacena como hexadecimal `#RRGGBB`. Eliminar un tag elimina únicamente sus vínculos.
 
 Las fechas usan `timestamptz`. Bugs y casos guardan estados validados en columnas restringidas (`qa.bugs.status` y `qa.test_cases.status`); las rutas PATCH actualizan esos campos y no requieren una migración adicional. Los resultados de ejecución usan `passed`, `failed`, `blocked` y `skipped`. El repositorio calcula la cantidad de casos y el avance a partir de los resultados. La semántica de omitido frente a no ejecutado deberá refinarse al implementar ese flujo.
 

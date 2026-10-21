@@ -6,6 +6,7 @@ import bugsRouter from "./routes/bugs.routes.js";
 import evidenceRouter from "./routes/evidence.routes.js";
 import testCasesRouter from "./routes/test-cases.routes.js";
 import testRunsRouter from "./routes/test-runs.routes.js";
+import tagsRouter from "./routes/tags.routes.js";
 import type { Repository } from "./repositories/repository.js";
 import { HttpError } from "./http-error.js";
 import type { AuthProvider } from "./models/user.model.js";
@@ -53,6 +54,7 @@ export function createApp(repository: Repository, auth: AuthProvider) {
   app.use("/api/bugs", bugsRouter);
   app.use("/api/test-cases", testCasesRouter);
   app.use("/api/test-runs", testRunsRouter);
+  app.use("/api/tags", tagsRouter);
   app.use("/api/evidence", evidenceRouter);
 
   app.use((_request, response) => {

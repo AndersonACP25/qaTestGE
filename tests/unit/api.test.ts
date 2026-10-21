@@ -2,11 +2,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   api,
   deleteEvidence,
+  downloadEvidenceFile,
   setCsrfToken,
   toRun,
   toEvidence,
   updateBug,
   updateEvidence,
+  uploadEvidenceFile,
 } from "../../src/api";
 
 afterEach(() => {
@@ -93,6 +95,7 @@ describe("frontend API client without network", () => {
         progress: 0,
         status: "En curso",
         createdAt: "2026-01-01T00:00:00Z",
+        tagIds: [],
       }).cases,
     ).toBe("1 caso");
     expect(
@@ -102,6 +105,7 @@ describe("frontend API client without network", () => {
         name: "file",
         type: "Archivo",
         sizeBytes: 1024,
+        hasFile: false,
         related: ["BUG-001", "RUN-001"],
         createdAt: "2026-01-01T00:00:00Z",
       }).related,
@@ -160,5 +164,42 @@ describe("frontend API client without network", () => {
       ["/api/evidence/EVD-001?projectId=1", "DELETE"],
     ]);
     expect(JSON.parse(fetch.mock.calls[2][1].body)).toEqual({});
+  });
+  it("uploads raw evidence bytes and downloads them as a browser file", async () => {
+    const uploaded = {
+      id: "EVD-001",
+      projectId: "1",
+      name: "capture.png",
+      type: "Imagen",
+      sizeBytes: 3,
+      hasFile: true,
+      related: [],
+      createdAt: "2026-01-01T00:00:00Z",
+    };
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: uploaded }), { status: 201 }))
+      .mockResolvedValueOnce(new Response(new Blob(["raw bytes"]), { status: 200 }));
+    vi.stubGlobal("fetch", fetch);
+    setCsrfToken("upload-csrf");
+    const file = new File(["raw"], "capture.png", { type: "image/png" });
+    expect((await uploadEvidenceFile(null, "1", file, "BUG-001")).hasFile).toBe(true);
+    const [uploadUrl, uploadOptions] = fetch.mock.calls[0];
+    expect(uploadUrl).toContain(
+      "/api/evidence/upload?projectId=1&name=capture.png&related=BUG-001",
+    );
+    expect(uploadOptions.headers.get("Content-Type")).toBe("image/png");
+    expect(uploadOptions.headers.get("X-CSRF-Token")).toBe("upload-csrf");
+    expect(uploadOptions.body).toBe(file);
+
+    const click = vi.fn();
+    vi.stubGlobal("document", { createElement: () => ({ click, href: "", download: "" }) });
+    vi.stubGlobal("URL", {
+      createObjectURL: vi.fn(() => "blob:evidence"),
+      revokeObjectURL: vi.fn(),
+    });
+    await downloadEvidenceFile("EVD-001", "1", "capture.png");
+    expect(fetch.mock.calls[1][0]).toBe("/api/evidence/EVD-001/file?projectId=1");
+    expect(click).toHaveBeenCalledOnce();
   });
 });

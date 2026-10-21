@@ -7,7 +7,9 @@ import {
   addTestCaseLink,
   api,
   createBug,
+  listTags,
   deleteEvidence,
+  downloadEvidenceFile,
   deleteTestCase,
   deleteTestCaseAttachment,
   listTestCaseAttachments,
@@ -18,10 +20,12 @@ import {
   updateBug,
   updateEvidence,
   updateTestCase,
+  uploadEvidenceFile,
   uploadTestCaseImage,
 } from "./api";
 import type { BugTemplate, BugTemplatePriority, Project, User } from "./api";
 import AccountSettingsView from "./views/AccountSettingsView";
+import TagsView from "./views/TagsView";
 import RecordDetailsDialog, { type RecordDetail } from "./views/RecordDetailsDialog";
 import { exportRecord, recordExportFormats } from "./utils/exportRecord";
 import type { ExportFormat, ExportRecord } from "./utils/exportRecord";
@@ -38,6 +42,7 @@ import type {
   TestCase,
   TestCaseAttachment,
   TestRun,
+  Tag,
 } from "./types";
 import { bugStatuses, caseStatuses } from "./types";
 import {
@@ -61,6 +66,7 @@ const navigation: {
       { id: "case-builder", label: "Diseñar test cases", icon: "sparkle" },
       { id: "runs", label: "Test runs", icon: "play" },
       { id: "evidence", label: "Evidencias", icon: "image" },
+      { id: "tags", label: "Tags", icon: "tag" },
     ],
   },
   { section: "CUENTA", items: [{ id: "settings", label: "Configuración", icon: "settings" }] },
@@ -180,6 +186,12 @@ function Icon({
       <>
         <path d="m12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z" />
         <path d="m19 16 .8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8L19 16Z" />
+      </>
+    ),
+    tag: (
+      <>
+        <path d="M20 13 13 20 3 10V4h6l11 9Z" />
+        <circle cx="7.5" cy="7.5" r="1" />
       </>
     ),
     close: (
@@ -347,6 +359,8 @@ function App({
   const [activePage, setActivePage] = useState<NavigationPage>("overview");
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectId, setProjectId] = useState("");
+  const [tags, setTags] = useState<Tag[]>([]);
+  const [tagError, setTagError] = useState("");
   const [data, setData] = useState<WorkspaceData>({ bugs: [], cases: [], runs: [], evidence: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -383,6 +397,7 @@ function App({
   });
   const [evidenceRelatedChanged, setEvidenceRelatedChanged] = useState(false);
   const [caseSteps, setCaseSteps] = useState([{ action: "", expectedResult: "" }]);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [editingCase, setEditingCase] = useState<TestCase | null>(null);
   const [caseImageFiles, setCaseImageFiles] = useState<File[]>([]);
   const [caseImageDragging, setCaseImageDragging] = useState(false);
@@ -460,6 +475,25 @@ function App({
       });
     return () => abort.abort();
   }, [projectId, revision]);
+  useEffect(() => {
+    if (!projectId) {
+      setTags([]);
+      return;
+    }
+    const abort = new AbortController();
+    setTagError("");
+    void listTags(projectId)
+      .then((items) => {
+        if (!abort.signal.aborted) setTags(items);
+      })
+      .catch((cause: unknown) => {
+        if (!abort.signal.aborted) {
+          setTags([]);
+          setTagError(cause instanceof Error ? cause.message : "No se pudieron cargar los tags.");
+        }
+      });
+    return () => abort.abort();
+  }, [projectId, revision]);
   const visibleBugs = useMemo(
     () => filterBugs(bugs, { search, statusFilter }),
     [bugs, search, statusFilter],
@@ -479,6 +513,7 @@ function App({
     cases: "Casos de prueba",
     runs: "Test runs",
     evidence: "Evidencias",
+    tags: "Tags",
     settings: "Configuración",
     "case-builder": "Diseñar test cases",
   }[activePage];
@@ -511,6 +546,7 @@ function App({
       setSelectedBugTemplateId("");
     }
     if (value === "case") setCaseSteps([{ action: "", expectedResult: "" }]);
+    setSelectedTagIds([]);
     if (value === "evidence") {
       setEvidenceForm({ name: "", type: "Archivo", sizeBytes: 0, related: "" });
       setEvidenceRelatedChanged(false);
@@ -526,6 +562,7 @@ function App({
       assignee: bug.assignee === "—" ? "" : bug.assignee,
     });
     setEditingBug(bug);
+    setSelectedTagIds(bug.tagIds ?? []);
     setSelectedBugTemplateId("");
     setRecordDetail(null);
     setFormError("");
@@ -560,10 +597,19 @@ function App({
       setSaving(false);
     }
   }
+  async function downloadEvidence(item: Evidence) {
+    try {
+      await downloadEvidenceFile(item.id, item.projectId, item.name);
+      notify(`Descargando ${item.name}.`);
+    } catch (cause) {
+      notify(cause instanceof Error ? cause.message : "No se pudo descargar el archivo.");
+    }
+  }
   function editCase(testCase: TestCase) {
     setFormError("");
     setCaseImageFiles([]);
     setEditingCase(testCase);
+    setSelectedTagIds(testCase.tagIds ?? []);
     setCaseSteps(
       testCase.steps?.length
         ? testCase.steps.map((step) => ({
@@ -638,6 +684,7 @@ function App({
           priority: bugForm.priority,
           status: bugForm.status,
           assignee: bugForm.assignee.trim() || null,
+          tagIds: selectedTagIds,
         });
         setModal("");
         setEditingBug(null);
@@ -646,6 +693,29 @@ function App({
         notify("Bug actualizado.");
       } catch (cause) {
         setFormError(cause instanceof Error ? cause.message : "No se pudo actualizar el bug.");
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+    if (modal === "upload-evidence") {
+      if (!editingEvidence) return;
+      const file = form.get("file");
+      if (!(file instanceof File) || !file.name || file.size < 1 || file.size > 2 * 1024 * 1024) {
+        setFormError("Selecciona un archivo válido de hasta 2 MiB.");
+        return;
+      }
+      setSaving(true);
+      setFormError("");
+      try {
+        await uploadEvidenceFile(editingEvidence.id, projectId, file);
+        setModal("");
+        setEditingEvidence(null);
+        setRevision((current) => current + 1);
+        setActivePage("evidence");
+        notify("Archivo de evidencia guardado.");
+      } catch (cause) {
+        setFormError(cause instanceof Error ? cause.message : "No se pudo subir el archivo.");
       } finally {
         setSaving(false);
       }
@@ -705,27 +775,27 @@ function App({
         suite: String(form.get("suite") ?? "").trim() || undefined,
         preconditions: String(form.get("preconditions") ?? ""),
         steps: steps.filter((step) => step.action && step.expectedResult),
+        tagIds: selectedTagIds,
       };
       body = { projectId, ...caseInput };
     } else if (modal === "run") {
       path = "/test-runs";
-      body = { projectId, title, owner: user.name, caseIds: form.getAll("caseIds") };
+      body = {
+        projectId,
+        title,
+        owner: user.name,
+        caseIds: form.getAll("caseIds"),
+        tagIds: selectedTagIds,
+      };
     } else if (modal === "evidence") {
       path = "/evidence";
       const file = form.get("file");
-      if (!(file instanceof File) || !file.name) {
-        setFormError("Selecciona un archivo para registrar sus metadatos.");
+      if (!(file instanceof File) || !file.name || file.size < 1 || file.size > 2 * 1024 * 1024) {
+        setFormError("Selecciona un archivo válido de hasta 2 MiB.");
         return;
       }
       body = {
         projectId,
-        name: file.name,
-        type: file.type.startsWith("image/")
-          ? "Imagen"
-          : file.type.startsWith("video/")
-            ? "Video"
-            : "Archivo",
-        sizeBytes: file.size,
         related: String(form.get("related") ?? "") || null,
       };
     }
@@ -784,7 +854,17 @@ function App({
           description: bugForm.description,
           priority: bugForm.priority,
           assignee: bugForm.assignee.trim() || null,
+          tagIds: selectedTagIds,
         });
+      } else if (modal === "evidence") {
+        const file = form.get("file");
+        if (!(file instanceof File)) throw new Error("Selecciona un archivo de evidencia.");
+        await uploadEvidenceFile(
+          null,
+          projectId,
+          file,
+          typeof body.related === "string" ? body.related : null,
+        );
       } else {
         await api(path, { method: "POST", body: JSON.stringify(body) });
       }
@@ -802,7 +882,9 @@ function App({
       notify(
         path === "/evidence"
           ? "Metadatos guardados. El archivo no se subió."
-          : "Registro guardado en PostgreSQL.",
+          : modal === "evidence"
+            ? "Archivo guardado en PostgreSQL."
+            : "Registro guardado en PostgreSQL.",
       );
     } catch (cause) {
       setFormError(cause instanceof Error ? cause.message : "No se pudo guardar.");
@@ -1002,7 +1084,7 @@ function App({
               <h1>{activePage === "overview" ? `Hola, ${user.name}` : pageTitle}</h1>
               <p className="page-subtitle">{pageDescription(activePage)}</p>
             </div>
-            {!["case-builder", "settings"].includes(activePage) && (
+            {!["case-builder", "settings", "tags"].includes(activePage) && (
               <button
                 disabled={!projectId || loading || saving || Boolean(error)}
                 className="button button-primary"
@@ -1095,6 +1177,27 @@ function App({
               defaultSelectedCategories={caseDesignCategories}
               projectId={projectId}
             />
+          ) : activePage === "tags" ? (
+            !loading &&
+            projectId && (
+              <>
+                {tagError ? (
+                  <p className="workspace__error" role="alert">
+                    {tagError}
+                  </p>
+                ) : error ? (
+                  <p className="workspace__error" role="alert">
+                    {error}
+                  </p>
+                ) : (
+                  <TagsView
+                    projectId={projectId}
+                    tags={tags}
+                    onChanged={() => setRevision((current) => current + 1)}
+                  />
+                )}
+              </>
+            )
           ) : (
             !loading &&
             !error &&
@@ -1119,6 +1222,7 @@ function App({
                   <h2>Bugs recientes</h2>
                   <BugTable
                     bugs={bugs.slice(0, 5)}
+                    tags={tags}
                     onSelect={(bug) => setRecordDetail({ kind: "bug", record: bug })}
                     onExport={(bug) => setExportTarget({ kind: "bug", record: bug })}
                     onStatusChange={changeBugStatus}
@@ -1130,7 +1234,7 @@ function App({
                 </section>
                 <section className="workspace__panel">
                   <h2>Ejecuciones recientes</h2>
-                  <RunTable items={runs.slice(0, 5)} onSelect={setDetail} />
+                  <RunTable items={runs.slice(0, 5)} tags={tags} onSelect={setDetail} />
                   {!runs.length && (
                     <p className="workspace__notice">
                       Aún no hay ejecuciones. Crea casos y agrúpalos en una ejecución.
@@ -1165,6 +1269,7 @@ function App({
                 {activePage === "bugs" && (
                   <BugTable
                     bugs={visibleBugs}
+                    tags={tags}
                     onSelect={(bug) => setRecordDetail({ kind: "bug", record: bug })}
                     onExport={(bug) => setExportTarget({ kind: "bug", record: bug })}
                     onStatusChange={changeBugStatus}
@@ -1174,13 +1279,16 @@ function App({
                 {activePage === "cases" && (
                   <CaseTable
                     items={visibleCases}
+                    tags={tags}
                     onSelect={(testCase) => setRecordDetail({ kind: "case", record: testCase })}
                     onExport={(item) => setExportTarget({ kind: "case", record: item })}
                     onStatusChange={changeCaseStatus}
                     updatingStatus={updatingStatus}
                   />
                 )}
-                {activePage === "runs" && <RunTable items={visibleRuns} onSelect={setDetail} />}
+                {activePage === "runs" && (
+                  <RunTable items={visibleRuns} tags={tags} onSelect={setDetail} />
+                )}
                 {activePage === "evidence" && (
                   <EvidenceTable
                     items={visibleEvidence}
@@ -1227,7 +1335,9 @@ function App({
                       ? "Nueva ejecución"
                       : modal === "edit-evidence"
                         ? "Editar evidencia"
-                        : "Registrar metadatos"
+                        : modal === "upload-evidence"
+                          ? `Archivo de ${editingEvidence?.id ?? "evidencia"}`
+                          : "Registrar metadatos"
           }
           onClose={() => {
             if (!saving) {
@@ -1267,7 +1377,7 @@ function App({
                   )}
                 </label>
               )}
-              {modal !== "evidence" && modal !== "edit-evidence" && (
+              {modal !== "evidence" && modal !== "edit-evidence" && modal !== "upload-evidence" && (
                 <label className="workspace__field">
                   Título
                   {modal === "bug" || modal === "edit-bug" ? (
@@ -1325,6 +1435,12 @@ function App({
                       <option>Baja</option>
                     </select>
                   </label>
+                  <TagPicker
+                    tags={tags}
+                    error={tagError}
+                    selectedIds={selectedTagIds}
+                    onChange={setSelectedTagIds}
+                  />
                   {modal === "edit-bug" && (
                     <>
                       <label className="workspace__field">
@@ -1370,6 +1486,12 @@ function App({
                       defaultValue={editingCase?.preconditions ?? ""}
                     />
                   </label>
+                  <TagPicker
+                    tags={tags}
+                    error={tagError}
+                    selectedIds={selectedTagIds}
+                    onChange={setSelectedTagIds}
+                  />
                   <fieldset className="workspace__step-editor">
                     <legend>Pasos y resultados esperados · {caseSteps.length}/100</legend>
                     {caseSteps.map((step, index) => (
@@ -1507,24 +1629,32 @@ function App({
                 </>
               )}
               {modal === "run" && (
-                <fieldset className="workspace__fieldset">
-                  <legend>Casos de este proyecto</legend>
-                  {cases.map((c) => (
-                    <label className="workspace__check" key={c.id}>
-                      <input type="checkbox" name="caseIds" value={c.id} />
-                      {c.id} · {c.title}
-                    </label>
-                  ))}
-                  {!cases.length && (
-                    <p>Crea primero tus casos de prueba o guarda una ejecución vacía.</p>
-                  )}
-                </fieldset>
+                <>
+                  <TagPicker
+                    tags={tags}
+                    error={tagError}
+                    selectedIds={selectedTagIds}
+                    onChange={setSelectedTagIds}
+                  />
+                  <fieldset className="workspace__fieldset">
+                    <legend>Casos de este proyecto</legend>
+                    {cases.map((c) => (
+                      <label className="workspace__check" key={c.id}>
+                        <input type="checkbox" name="caseIds" value={c.id} />
+                        {c.id} · {c.title}
+                      </label>
+                    ))}
+                    {!cases.length && (
+                      <p>Crea primero tus casos de prueba o guarda una ejecución vacía.</p>
+                    )}
+                  </fieldset>
+                </>
               )}
               {modal === "evidence" && (
                 <>
                   <p className="workspace__notice">
-                    Solo se guardarán nombre, tipo, tamaño y vínculo. El contenido del archivo no se
-                    sube.
+                    El archivo se almacena de forma privada en PostgreSQL y solo se descarga con
+                    acceso al proyecto. Tamaño máximo: 2 MiB.
                   </p>
                   <label className="workspace__field">
                     Archivo
@@ -1543,11 +1673,26 @@ function App({
                   </label>
                 </>
               )}
+              {modal === "upload-evidence" && (
+                <>
+                  <p className="workspace__notice">
+                    {editingEvidence?.hasFile
+                      ? "Subir un archivo reemplazará el contenido actual. La descarga seguirá protegida por sesión y proyecto."
+                      : "El archivo se almacenará de forma privada y estará disponible para descarga autenticada."}{" "}
+                    Máximo 2 MiB.
+                  </p>
+                  <label className="workspace__field">
+                    Archivo
+                    <input name="file" type="file" required />
+                  </label>
+                </>
+              )}
               {modal === "edit-evidence" && (
                 <>
                   <p className="workspace__notice">
-                    Se editarán solo los metadatos; el archivo original no está almacenado aquí. Si
-                    no cambias el vínculo, se conservarán todas las referencias actuales.
+                    Se editarán los metadatos. Usa las acciones de evidencia para subir o descargar
+                    su archivo. Si no cambias el vínculo, se conservarán todas las referencias
+                    actuales.
                   </p>
                   <label className="workspace__field">
                     Nombre
@@ -1572,6 +1717,7 @@ function App({
                           type: event.target.value as Evidence["type"],
                         })
                       }
+                      disabled={editingEvidence?.hasFile}
                     >
                       <option>Imagen</option>
                       <option>Video</option>
@@ -1589,6 +1735,7 @@ function App({
                       onChange={(event) =>
                         setEvidenceForm({ ...evidenceForm, sizeBytes: event.target.valueAsNumber })
                       }
+                      disabled={editingEvidence?.hasFile}
                       required
                     />
                   </label>
@@ -1702,6 +1849,27 @@ function App({
         <Dialog title={evidenceActionTarget.name} onClose={() => setEvidenceActionTarget(null)}>
           <p className="workspace__notice">Gestiona los metadatos de esta evidencia.</p>
           <div className="workspace__evidence-actions">
+            {evidenceActionTarget.hasFile && (
+              <button
+                type="button"
+                className="workspace__secondary"
+                onClick={() => void downloadEvidence(evidenceActionTarget)}
+              >
+                Descargar archivo
+              </button>
+            )}
+            <button
+              type="button"
+              className="workspace__secondary"
+              onClick={() => {
+                setEditingEvidence(evidenceActionTarget);
+                setEvidenceActionTarget(null);
+                setFormError("");
+                setModal("upload-evidence");
+              }}
+            >
+              {evidenceActionTarget.hasFile ? "Reemplazar archivo" : "Subir archivo"}
+            </button>
             <button
               type="button"
               className="workspace__secondary"
@@ -1871,6 +2039,66 @@ function App({
   );
 }
 
+function TagBadges({ ids, tags }: { ids: string[]; tags: Tag[] }) {
+  const assigned = tags.filter((tag) => ids.includes(tag.id));
+  if (!assigned.length) return null;
+  return (
+    <span className="tags-view__badges" aria-label="Tags asignados">
+      {assigned.map((tag) => (
+        <span className="tags-view__badge" key={tag.id}>
+          <span className="tags-view__swatch" style={{ backgroundColor: tag.color }} />
+          {tag.name}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+function TagPicker({
+  tags,
+  error,
+  selectedIds,
+  onChange,
+}: {
+  tags: Tag[];
+  error: string;
+  selectedIds: string[];
+  onChange: (ids: string[]) => void;
+}) {
+  return (
+    <fieldset className="workspace__fieldset">
+      <legend>Tags</legend>
+      {error ? (
+        <p className="workspace__error" role="alert">
+          {error}
+        </p>
+      ) : tags.length ? (
+        tags.map((tag) => (
+          <label className="workspace__check" key={tag.id}>
+            <input
+              type="checkbox"
+              name="tagIds"
+              value={tag.id}
+              checked={selectedIds.includes(tag.id)}
+              onChange={(event) =>
+                onChange(
+                  event.target.checked
+                    ? [...selectedIds, tag.id]
+                    : selectedIds.filter((id) => id !== tag.id),
+                )
+              }
+            />
+            <span className="tags-view__swatch" style={{ backgroundColor: tag.color }} />
+            {tag.name}
+          </label>
+        ))
+      ) : (
+        <p>No hay tags. Puedes crearlos desde la sección Tags.</p>
+      )}
+    </fieldset>
+  );
+}
+
 function pageDescription(page: NavigationPage): string {
   return {
     overview: "Aquí tienes el estado de calidad de tus proyectos.",
@@ -1878,6 +2106,7 @@ function pageDescription(page: NavigationPage): string {
     cases: "Organiza los escenarios que mantienen tu producto bajo control.",
     runs: "Ejecuta suites de prueba y consulta sus resultados.",
     evidence: "Capturas, videos y archivos vinculados a tu actividad de QA.",
+    tags: "Crea tags por proyecto y clasifica bugs, casos de prueba y ejecuciones.",
     settings: "Preferencias del workspace y de tu perfil.",
     "case-builder": "De una idea a un plan de pruebas: explora la maqueta del futuro asistente.",
   }[page];
@@ -1916,6 +2145,7 @@ function StatusControl<TStatus extends string>({
 
 function BugTable({
   bugs,
+  tags,
   onSelect,
   onExport,
   onStatusChange,
@@ -1923,6 +2153,7 @@ function BugTable({
   compact = false,
 }: {
   bugs: Bug[];
+  tags: Tag[];
   onSelect: (bug: Bug) => void;
   onExport: (bug: Bug) => void;
   onStatusChange: (bug: Bug, status: BugStatus) => void;
@@ -1952,6 +2183,7 @@ function BugTable({
               <td>
                 <span className="bug-title">{bug.title}</span>
                 <span className="table-project">{bug.project}</span>
+                <TagBadges ids={bug.tagIds ?? []} tags={tags} />
               </td>
               <td>
                 <Priority level={bug.priority} />
@@ -1995,12 +2227,14 @@ function BugTable({
 
 function CaseTable({
   items,
+  tags,
   onSelect,
   onExport,
   onStatusChange,
   updatingStatus,
 }: {
   items: TestCase[];
+  tags: Tag[];
   onSelect: (item: TestCase) => void;
   onExport: (item: TestCase) => void;
   onStatusChange: (item: TestCase, status: CaseStatus) => void;
@@ -2027,6 +2261,7 @@ function CaseTable({
               </td>
               <td>
                 <span className="bug-title">{item.title}</span>
+                <TagBadges ids={item.tagIds ?? []} tags={tags} />
               </td>
               <td>
                 <span className="suite-badge">{item.suite || "—"}</span>
@@ -2061,7 +2296,15 @@ function CaseTable({
   );
 }
 
-function RunTable({ items, onSelect }: { items: TestRun[]; onSelect: (item: TestRun) => void }) {
+function RunTable({
+  items,
+  tags,
+  onSelect,
+}: {
+  items: TestRun[];
+  tags: Tag[];
+  onSelect: (item: TestRun) => void;
+}) {
   return (
     <div className="table-scroll">
       <table>
@@ -2084,6 +2327,7 @@ function RunTable({ items, onSelect }: { items: TestRun[]; onSelect: (item: Test
               </td>
               <td>
                 <span className="bug-title">{item.title}</span>
+                <TagBadges ids={item.tagIds ?? []} tags={tags} />
               </td>
               <td className="muted-cell">{item.cases}</td>
               <td>
@@ -2141,7 +2385,12 @@ function EvidenceTable({
                   <span className="evidence-file">
                     <Icon name="file" size={17} />
                   </span>
-                  <span className="bug-title">{item.name}</span>
+                  <span>
+                    <span className="bug-title">{item.name}</span>
+                    <span className="table-project">
+                      {item.hasFile ? "Archivo disponible" : "Solo metadatos"}
+                    </span>
+                  </span>
                 </span>
               </td>
               <td>

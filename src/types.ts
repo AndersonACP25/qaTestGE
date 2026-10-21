@@ -1,5 +1,5 @@
 export type NavigationPage =
-  "overview" | "bugs" | "cases" | "case-builder" | "runs" | "evidence" | "settings";
+  "overview" | "bugs" | "cases" | "case-builder" | "runs" | "evidence" | "tags" | "settings";
 
 export type PriorityLevel = "Crítica" | "Alta" | "Media" | "Baja";
 export type BugStatus = "Abierto" | "En progreso" | "En revisión" | "Resuelto";
@@ -20,6 +20,7 @@ export interface Bug {
   color: "violet" | "blue" | "amber" | "green" | "pink" | "orange";
   updated: string;
   createdAt?: string;
+  tagIds?: string[];
 }
 
 export interface TestCase {
@@ -32,6 +33,7 @@ export interface TestCase {
   preconditions?: string;
   steps?: { action: string; expectedResult: string }[];
   createdAt?: string;
+  tagIds?: string[];
 }
 
 export interface TestCaseAttachment {
@@ -52,6 +54,16 @@ export interface TestRun {
   progress: number;
   status: "En curso" | "Completado";
   owner: string;
+  projectId?: string;
+  tagIds?: string[];
+}
+
+export interface Tag {
+  id: string;
+  projectId: string;
+  name: string;
+  color: string;
+  createdAt: string;
 }
 
 export interface Evidence {
@@ -62,6 +74,7 @@ export interface Evidence {
   related: string;
   size: string;
   sizeBytes: number;
+  hasFile: boolean;
   date: string;
   createdAt: string;
 }
@@ -84,5 +97,6 @@ export type IconName =
   | "filter"
   | "clock"
   | "sparkle"
+  | "tag"
   | "close"
   | "file";

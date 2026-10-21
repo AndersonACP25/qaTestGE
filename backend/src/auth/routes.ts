@@ -17,9 +17,16 @@ export function sameOrigin(): RequestHandler {
     const allowed =
       process.env.FRONTEND_ORIGIN ?? process.env.CORS_ORIGIN ?? "http://localhost:5173";
     const apiOrigin = process.env.API_ORIGIN ?? `http://localhost:${process.env.PORT ?? 3000}`;
+    const mediaType = request.get("content-type")?.split(";")[0].trim();
+    const evidenceUpload =
+      request.method === "POST" &&
+      (request.path === "/evidence/upload" || /^\/evidence\/EVD-\d+\/file$/.test(request.path)) &&
+      typeof mediaType === "string" &&
+      /^[a-z0-9.+-]+\/[a-z0-9.+-]+$/i.test(mediaType);
     const validContentType =
       request.is("application/json") ||
-      ["image/png", "image/jpeg", "image/gif", "image/webp"].some((type) => request.is(type));
+      ["image/png", "image/jpeg", "image/gif", "image/webp"].some((type) => request.is(type)) ||
+      evidenceUpload;
     if ((origin && origin !== allowed && origin !== apiOrigin) || !validContentType) {
       next(new HttpError(403, "INVALID_ORIGIN", "Origen o formato de solicitud no permitido."));
       return;

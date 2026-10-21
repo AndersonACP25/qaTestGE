@@ -34,4 +34,9 @@ export async function checkDatabase(pool: pg.Pool): Promise<void> {
   await pool.query(
     "SELECT id,project_id,test_case_id,kind,image_bytes FROM qa.test_case_attachments LIMIT 0",
   );
+  await pool.query("SELECT id,media_type,file_bytes FROM qa.evidence LIMIT 0");
+  await pool.query("SELECT id,project_id,name,color FROM qa.tags LIMIT 0");
+  await pool.query("SELECT project_id,bug_id,tag_id FROM qa.bug_tags LIMIT 0");
+  await pool.query("SELECT project_id,test_case_id,tag_id FROM qa.test_case_tags LIMIT 0");
+  await pool.query("SELECT project_id,test_run_id,tag_id FROM qa.test_run_tags LIMIT 0");
 }

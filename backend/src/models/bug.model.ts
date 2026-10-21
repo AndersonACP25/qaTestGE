@@ -14,11 +14,13 @@ export interface Bug {
   status: BugStatus;
   assignee: string | null;
   createdAt: string;
+  tagIds: string[];
 }
 
 export type CreateBugInput = Pick<Bug, "title" | "projectId" | "priority"> & {
   description?: string;
   assignee?: string | null;
+  tagIds?: string[];
 };
 
 export type UpdateBugInput = Omit<CreateBugInput, "projectId"> & {

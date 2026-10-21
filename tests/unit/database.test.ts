@@ -27,25 +27,88 @@ describe("database boundaries without network or environment files", () => {
   it("parameterizes user values and project filters", async () => {
     const query = vi.fn().mockResolvedValue({
       rows: [
-        { id: "9007199254740993", project_id: "1", created_at: new Date("2026-01-01T00:00:00Z") },
+        {
+          id: "9007199254740993",
+          project_id: "1",
+          created_at: new Date("2026-01-01T00:00:00Z"),
+          title: "Bug",
+          project: "Demo",
+          tag_ids: [],
+        },
       ],
     });
-    const repo = new PostgresRepository({ query } as unknown as Pool);
+    const pool = {
+      connect: vi.fn().mockResolvedValue({ query, release: vi.fn() }),
+      query,
+    };
+    const repo = new PostgresRepository(pool as unknown as Pool);
     await repo.createBug({
       projectId: "1",
       title: "  Robert'); DROP TABLE qa.bugs;--  ",
       priority: "Alta",
     });
-    expect(query.mock.calls[0][0]).not.toContain("Robert");
-    expect(query.mock.calls[0][1]).toEqual([
-      "1",
-      "Robert'); DROP TABLE qa.bugs;--",
-      "",
-      "Alta",
-      null,
-    ]);
+    const insertCall = query.mock.calls.find(([sql]) =>
+      String(sql).includes("INSERT INTO qa.bugs"),
+    );
+    expect(insertCall?.[0]).not.toContain("Robert");
+    expect(insertCall?.[1]).toEqual(["1", "Robert'); DROP TABLE qa.bugs;--", "", "Alta", null]);
     await repo.listBugs("2");
-    expect(query.mock.calls[1][1]).toEqual(["2"]);
+    expect(query.mock.calls.at(-1)?.[1]).toEqual(["2"]);
+  });
+  it("persists bug-tag associations atomically and rejects tags from another project", async () => {
+    const query = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ id: "9" }] })
+      .mockResolvedValueOnce({ rows: [], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [], rowCount: 1 })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: "9",
+            project_id: "1",
+            created_at: new Date("2026-01-01T00:00:00Z"),
+            title: "Issue",
+            project: "Demo",
+            tag_ids: ["2"],
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] });
+    const client = { query, release: vi.fn() };
+    const pool = { connect: vi.fn().mockResolvedValue(client), query };
+    const repository = new PostgresRepository(pool as unknown as Pool);
+    const created = await repository.createBug({
+      projectId: "1",
+      title: "Issue",
+      priority: "Alta",
+      tagIds: ["2"],
+    });
+    expect(created.tagIds).toEqual(["2"]);
+    expect(query.mock.calls.some(([sql]) => String(sql).includes("INSERT INTO qa.bug_tags"))).toBe(
+      true,
+    );
+    expect(query.mock.calls.map(([sql]) => sql)).toContain("COMMIT");
+
+    const rejectedQuery = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ id: "10" }] })
+      .mockResolvedValueOnce({ rows: [], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 })
+      .mockResolvedValueOnce({ rows: [] });
+    const rejectedPool = {
+      connect: vi.fn().mockResolvedValue({ query: rejectedQuery, release: vi.fn() }),
+    };
+    await expect(
+      new PostgresRepository(rejectedPool as unknown as Pool).createBug({
+        projectId: "1",
+        title: "Issue",
+        priority: "Alta",
+        tagIds: ["999"],
+      }),
+    ).rejects.toMatchObject({ code: "INVALID_TAG" });
+    expect(rejectedQuery.mock.calls.map(([sql]) => sql)).toContain("ROLLBACK");
   });
   it("rolls back a partially created run when some cases are missing", async () => {
     const query = vi.fn().mockResolvedValue({ rows: [] });

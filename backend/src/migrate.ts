@@ -11,6 +11,8 @@ try {
       "005_bug_templates.sql",
       "006_optional_test_suite.sql",
       "007_test_case_attachments.sql",
+      "008_evidence_files.sql",
+      "009_tags.sql",
     ]) {
       const sql = await readFile(new URL(`../sql/${filename}`, import.meta.url), "utf8");
       await client.query(sql);

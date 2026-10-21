@@ -6,6 +6,10 @@ Todos los cambios importantes de qaTestGE se documentan aquí. El formato sigue 
 
 ### Added
 
+- CRUD de tags por proyecto con color, asociación a bugs/casos/ejecuciones y migración versionada 009.
+- Adjuntar y descargar archivos privados de evidencias (hasta 2 MiB) con autorización por proyecto y migración 008.
+- Preferencias por usuario para seleccionar las categorías iniciales del diseñador de casos.
+- CI de validación en pushes a `qa-env`, manteniendo la publicación de artefactos limitada a `main`.
 - Edición autorizada de bugs y vista modal de detalle para bugs y casos, con pasos y resultados esperados legibles.
 - CRUD de metadatos y vínculos de evidencias, incluida la edición y eliminación con validación de proyecto.
 - Documentación del flujo de ramas `qa-env` → pull request a `main` y del formato de asunto/trailers de commits.

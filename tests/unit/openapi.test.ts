@@ -3,8 +3,8 @@ import { openApiDocument } from "../../backend/src/openapi";
 
 describe("OpenAPI contract", () => {
   it("documents all implemented operations and locally resolvable schemas", () => {
-    expect(Object.keys(openApiDocument.paths)).toHaveLength(22);
-    expect(Object.values(openApiDocument.paths).flatMap(Object.keys)).toHaveLength(33);
+    expect(Object.keys(openApiDocument.paths)).toHaveLength(26);
+    expect(Object.values(openApiDocument.paths).flatMap(Object.keys)).toHaveLength(40);
     expect(openApiDocument.paths["/api/auth/me"]).toHaveProperty("patch");
     expect(openApiDocument.paths["/api/auth/me"]).toHaveProperty("delete");
     expect(openApiDocument.paths["/api/auth/bug-templates"]).toHaveProperty("post");
@@ -29,5 +29,11 @@ describe("OpenAPI contract", () => {
     expect(openApiDocument.paths["/api/bugs/{bugId}"]).toHaveProperty("patch");
     expect(openApiDocument.paths["/api/evidence/{evidenceId}"]).toHaveProperty("patch");
     expect(openApiDocument.paths["/api/evidence/{evidenceId}"]).toHaveProperty("delete");
+    expect(openApiDocument.paths["/api/evidence/upload"]).toHaveProperty("post");
+    expect(openApiDocument.paths["/api/evidence/{evidenceId}/file"]).toHaveProperty("get");
+    expect(openApiDocument.paths["/api/evidence/{evidenceId}/file"]).toHaveProperty("post");
+    expect(Reflect.get(openApiDocument.paths, "/api/tags")).toHaveProperty("post");
+    expect(openApiDocument.paths["/api/tags/{tagId}"]).toHaveProperty("patch");
+    expect(openApiDocument.paths["/api/tags/{tagId}"]).toHaveProperty("delete");
   });
 });

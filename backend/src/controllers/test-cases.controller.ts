@@ -105,6 +105,7 @@ function validCaseFields(
 ): body is Record<string, unknown> & CreateTestCaseInput {
   return (
     text(body.title, 200) &&
+    validTagIds(body.tagIds) &&
     (body.suite === undefined ||
       body.suite === null ||
       body.suite === "" ||
@@ -117,5 +118,15 @@ function validCaseFields(
         body.steps.every(
           (step) => isRecord(step) && text(step.action, 10000) && text(step.expectedResult, 10000),
         )))
+  );
+}
+
+function validTagIds(value: unknown): boolean {
+  return (
+    value === undefined ||
+    (Array.isArray(value) &&
+      value.length <= 100 &&
+      value.every(isId) &&
+      new Set(value).size === value.length)
   );
 }

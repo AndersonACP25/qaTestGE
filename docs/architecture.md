@@ -22,14 +22,14 @@ Este documento combina la arquitectura objetivo de la v1.0 con el estado real de
 - Bugs y casos de prueba permiten actualizar su estado mediante endpoints PATCH, con los valores validados por modelo y las restricciones existentes de PostgreSQL. No se requiere una tabla adicional de estados.
 - La interfaz es de cuenta individual: no ofrece gestión de equipo, invitaciones ni administración de membresías.
 - Configuración conserva las cantidades iniciales del diseñador por categoría en localStorage, separadas por usuario en el navegador; no se envían a la API ni a PostgreSQL.
-- No se sube el contenido binario de evidencias; solo se registra metadata.
+- Los archivos generales de evidencia se guardan como bytes privados en PostgreSQL, máximo 2 MiB, y se entregan como descarga autenticada con comprobación de proyecto.
 
 ## Objetivos futuros para v1.0
 
 - Producto web con API de servidor y persistencia duradera.
 - Una organización contiene proyectos; cada proyecto contiene sus bugs, casos, ejecuciones y evidencias.
 - La autenticación y el aislamiento por organización/proyecto se aplican en el servidor, no solo en la interfaz.
-- La carga binaria general de evidencias sigue pendiente. Para adjuntos de casos de prueba, PostgreSQL conserva imágenes privadas PNG/JPEG/GIF/WebP de hasta 2 MiB y metadatos de enlaces HTTP(S).
+- La carga general de evidencias acepta archivos de hasta 2 MiB. Los adjuntos de casos admiten imágenes PNG/JPEG/GIF/WebP de hasta 2 MiB y enlaces HTTP(S).
 - La IA se integra mediante un servicio de aplicación y adaptadores de proveedores intercambiables. La configuración de IA es opcional.
 - Las recomendaciones de IA requieren revisión humana antes de modificar registros.
 - La v1.0 no incluye ejecución automatizada de pruebas, agentes con capacidad de actuar sin aprobación, ni entrenamiento de modelos con datos del cliente.
@@ -70,11 +70,13 @@ La API usa `PostgresRepository` mediante una interfaz inyectada en `createApp`. 
 
 PostgreSQL conserva los datos tras reiniciar. Los proyectos/organizaciones existentes se descubren en GET /api/projects; no se crean automáticamente. projectId es obligatorio en las creaciones. Los IDs bigint se mantienen como strings; los IDs públicos de recursos conservan prefijos BUG, TC, RUN, EVD y RES. La base verifica existencia y pertenencia al mismo proyecto mediante claves compuestas. Las ejecuciones reciben caseIds en vez de caseCount, conservan un snapshot de los pasos y calculan cantidad/progreso a partir de resultados. La respuesta de evidencia usa un array related para conservar todos los vínculos existentes.
 
-backend/sql/ sigue siendo la base de importación manual; las migraciones posteriores son aditivas. La 004 agrega usuarios, membresías y sesiones; la 005 crea plantillas personales en qa.bug_templates; la 006 permite Suite opcional; la 007 agrega qa.test_case_attachments para imágenes y enlaces privados de casos. `db:migrate` las aplica de forma idempotente y `db:check` valida las tablas requeridas sin escrituras. La baja de cuenta conserva membresías y recursos: la fila de usuario queda inactiva y anonimizada, se revocan sesiones y se eliminan las plantillas. Falta permisos granulares, auditoría y respaldos. El repositorio autorizado añade control de acceso y las claves foráneas mantienen integridad. El frontend consulta estos recursos, realiza CRUD de casos y adjunta imágenes/enlaces.
+backend/sql/ sigue siendo la base de importación manual; las migraciones posteriores son aditivas. La 004 agrega usuarios, membresías y sesiones; la 005 crea plantillas personales en qa.bug_templates; la 006 permite Suite opcional; la 007 agrega adjuntos privados de casos; la 008 agrega almacenamiento privado de archivos de evidencia; la 009 añade tags por proyecto y asociaciones explícitas a bugs, casos y ejecuciones. `db:migrate` las aplica de forma idempotente y `db:check` valida las tablas requeridas sin escrituras. La baja de cuenta conserva membresías y recursos: la fila de usuario queda inactiva y anonimizada, se revocan sesiones y se eliminan las plantillas. Falta permisos granulares, auditoría y respaldos. El repositorio autorizado añade control de acceso y las claves foráneas mantienen integridad. El frontend consulta estos recursos, realiza CRUD de casos y adjunta imágenes/enlaces.
+
+Los tags tienen nombre único (sin distinción de mayúsculas) y color hexadecimal dentro de cada proyecto. Los recursos exponen `tagIds`; la API valida que todas las etiquetas asignadas pertenezcan al mismo proyecto. El CRUD de tags se limita al proyecto autorizado y borrar un tag elimina sus asociaciones, no los registros QA.
 
 ### Evidencias
 
-El endpoint general de evidencias solo registra/lista metadatos; no recibe ni sirve esos archivos. Como capacidad distinta, los adjuntos de casos usan `qa.test_case_attachments`: guarda metadatos y hasta 2 MiB de bytes de imagen por adjunto en PostgreSQL. La API admite PNG/JPEG/GIF/WebP con firma comprobada, consulta autenticada con `nosniff` y enlaces HTTP(S) sin credenciales. El selector permite arrastrar o elegir hasta cinco imágenes por operación. Se eliminan los adjuntos junto con el caso en una transacción; si el caso tiene referencias a ejecuciones, el borrado se rechaza para preservar integridad.
+Los archivos generales de evidencias se guardan en `qa.evidence.file_bytes` con un límite de 2 MiB. La API limita la subida, valida tipo MIME, requiere sesión y proyecto, y los descarga con `Content-Disposition: attachment`, `nosniff` y política privada sin caché; los registros heredados solo con metadatos permiten adjuntar el archivo después. Los adjuntos de casos usan `qa.test_case_attachments`: guardan hasta 2 MiB por imagen en PostgreSQL. La API admite PNG/JPEG/GIF/WebP con firma comprobada, consulta autenticada y enlaces HTTP(S) sin credenciales. El selector permite arrastrar o elegir hasta cinco imágenes por operación. Se eliminan los adjuntos junto con el caso en una transacción; si el caso tiene referencias a ejecuciones, el borrado se rechaza para preservar integridad.
 
 ### Servicio de IA
 
@@ -159,7 +161,7 @@ PostgresAuth deriva contraseñas con scrypt (N=131072, r=8, p=1) y sal aleatoria
 
 Cada registro crea usuario, organización, proyecto, membresía owner y sesión en una transacción. Nunca reclama organizaciones existentes. AuthorizedRepository consulta las membresías actuales y no lee/crea recursos de proyectos ajenos. Los roles owner/member permiten las operaciones actuales de lectura y creación; no existe administración HTTP de membresías ni roles. Las rutas de salud, contrato Swagger y autenticación son públicas; los datos del proyecto están protegidos.
 
-El frontend carga proyectos y recursos reales, muestra estados de carga/error, y permite crear y editar bugs, casos con pasos, ejecuciones con casos seleccionados y metadatos de evidencias. Bugs y casos tienen una vista modal de detalle; los casos también se pueden eliminar si ninguna ejecución los referencia, y el formulario permite adjuntar imágenes o enlaces. Los metadatos de evidencias se pueden editar y eliminar, sin subir el archivo binario. Los contadores del resumen se calculan de los registros del proyecto. No se muestran gráficos con cifras ficticias. El diseñador de test cases continúa siendo una maqueta: el usuario puede guardar cada ejemplo de forma explícita, pero no se generan casos por IA ni hay guardado automático.
+El frontend carga proyectos y recursos reales, muestra estados de carga/error, y permite crear y editar bugs, casos con pasos, ejecuciones con casos seleccionados y evidencias con archivos. Bugs y casos tienen una vista modal de detalle; los casos también se pueden eliminar si ninguna ejecución los referencia, y el formulario permite adjuntar imágenes o enlaces. Los metadatos de evidencias se pueden editar y eliminar; los archivos se pueden subir, reemplazar y descargar autenticadamente. Los contadores del resumen se calculan de los registros del proyecto. No se muestran gráficos con cifras ficticias. El diseñador de test cases continúa siendo una maqueta: el usuario puede guardar cada ejemplo de forma explícita, pero no se generan casos por IA ni hay guardado automático.
 
 ### Maqueta del diseñador de test cases
 

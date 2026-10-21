@@ -29,8 +29,19 @@ function valid(body: unknown): body is CreateTestRunInput {
     "caseCount" in body
   )
     return false;
+  if (!validTagIds(body.tagIds)) return false;
   if (body.caseIds === undefined) return true;
   if (!Array.isArray(body.caseIds) || body.caseIds.length > 1000) return false;
   const ids = body.caseIds.map((id) => parseReference(id, "TC"));
   return ids.every((id) => id !== null) && new Set(ids).size === ids.length;
+}
+
+function validTagIds(value: unknown): boolean {
+  return (
+    value === undefined ||
+    (Array.isArray(value) &&
+      value.length <= 100 &&
+      value.every(isId) &&
+      new Set(value).size === value.length)
+  );
 }
