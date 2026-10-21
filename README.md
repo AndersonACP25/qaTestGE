@@ -27,14 +27,14 @@ El frontend usa React, TypeScript y Vite. La API usa Node.js, Express, TypeScrip
 - Plantillas personales de bugs guardadas en PostgreSQL, administrables en Configuración y cargables al crear una incidencia.
 - Desactivación y anonimización de cuenta con contraseña actual, revocación de sesiones y conservación de proyectos y registros QA relacionados.
 - Configuración de IA visible como maqueta no funcional: no guarda claves ni conecta proveedores.
-- Workspaces, membresías y proyectos con autorización en la API.
-- Alta y consulta de bugs y casos de prueba.
+- Una cuenta corresponde a una persona; no hay gestión de equipo, invitaciones ni administración de membresías desde la interfaz.
+- Alta y consulta de bugs y casos de prueba, con estados de bug (`Abierto`, `En progreso`, `En revisión`, `Resuelto`) y de caso (`Pendiente`, `Aprobado`, `Fallido`) editables y guardados en PostgreSQL.
 - Casos de prueba con Suite opcional y hasta 100 pasos, cada uno con acción y resultado esperado.
 - Vista previa del diseñador editable localmente, con múltiples pasos por caso y exportación actualizada a Excel/PDF.
-- Exportación de bugs y casos de prueba individuales a PDF, Excel o Markdown desde el menú de tres puntos.
+- Exportación de bugs y casos de prueba individuales a PDF, Excel o Markdown desde el menú de tres puntos, incluidos los pasos del caso.
 - Creación de ejecuciones manuales vinculadas a casos.
 - Registro de metadatos de evidencias y sus referencias; la carga binaria no está implementada.
-- Diseñador de casos de prueba con categorías identificadas por colores, cantidades ajustables y ejemplos exportables a Excel/PDF. Es una maqueta local: no analiza el requisito, no llama a IA y no guarda casos.
+- Diseñador de casos de prueba con categorías identificadas por colores, cantidades ajustables y ejemplos exportables a Excel/PDF. Configuración permite guardar cantidades iniciales por categoría en el navegador. Es una maqueta local: no analiza el requisito, no llama a IA y no guarda casos.
 - Temas claro y oscuro.
 
 La integración de IA es opcional y todavía no está implementada. No se ofrecen actualmente recuperación de contraseña, verificación de correo, MFA, invitaciones, permisos granulares ni auditoría.
@@ -182,7 +182,9 @@ La documentación interactiva está en `/api/docs/`; el contrato OpenAPI en `/ap
 | `PATCH`, `DELETE` | `/api/auth/bug-templates/{templateId}` | Editar o eliminar una plantilla propia |
 | `POST` | `/api/auth/logout` | Revocar sesión |
 | `GET`, `POST` | `/api/bugs` | Listar y crear bugs |
+| `PATCH` | `/api/bugs/{bugId}/status` | Actualizar el estado de un bug |
 | `GET`, `POST` | `/api/test-cases` | Listar y crear casos de prueba |
+| `PATCH` | `/api/test-cases/{caseId}/status` | Actualizar el estado de un caso de prueba |
 | `GET`, `POST` | `/api/test-runs` | Listar y crear ejecuciones |
 | `GET`, `POST` | `/api/evidence` | Listar y registrar metadatos de evidencias |
 

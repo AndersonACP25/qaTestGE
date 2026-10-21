@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 
-export default function Dialog({ title, children, onClose }: { title: string; children: ReactNode; onClose: () => void }) {
+export default function Dialog({ title, children, onClose, wide = false }: { title: string; children: ReactNode; onClose: () => void; wide?: boolean }) {
   const panel = useRef<HTMLDivElement>(null);
   const close = useRef(onClose);
   close.current = onClose;
@@ -20,7 +20,7 @@ export default function Dialog({ title, children, onClose }: { title: string; ch
     return () => { document.removeEventListener("keydown", handle); previous?.focus(); };
   }, []);
   return <div className="workspace__backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-    <div className="workspace__dialog" ref={panel} role="dialog" aria-modal="true" aria-labelledby="workspace-dialog-title" tabIndex={-1}>
+    <div className={`workspace__dialog${wide ? " workspace__dialog--wide" : ""}`} ref={panel} role="dialog" aria-modal="true" aria-labelledby="workspace-dialog-title" tabIndex={-1}>
       <div className="workspace__dialog-heading"><h2 id="workspace-dialog-title">{title}</h2><button type="button" className="workspace__close" aria-label="Cerrar ventana" onClick={onClose}>×</button></div>
       {children}
     </div>

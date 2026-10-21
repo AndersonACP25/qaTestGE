@@ -7,7 +7,7 @@ SwaggerUI: `http://localhost:3000/api/docs/`. OpenAPI 3.0.3: `GET /api/openapi.j
 - Base local: `http://localhost:3000/api`. JSON de hasta `1mb`.
 - PostgreSQL `qa_test_ge`, esquema `qa`; configuración en `backend/.env` mediante `DATABASE_URL`.
 - `GET /health` comprueba conexión: 200 con `{"data":{"status":"ok","database":"postgresql"}}` o 503 con `DATABASE_UNAVAILABLE`.
-- Hay autenticación y autorización por organización. No hay paginación ni endpoints de edición/eliminación para bugs, casos, ejecuciones o evidencias; el CRUD de plantillas personales sí permite editar y eliminar.
+- Hay autenticación y autorización por proyecto. No hay paginación ni endpoints para editar/eliminar el contenido de bugs y casos, excepto el cambio explícito de estado; el CRUD de plantillas personales sí permite editar y eliminar.
 - CORS usa `FRONTEND_ORIGIN`, o su alias `CORS_ORIGIN`, por defecto `http://localhost:5173`.
 - Los IDs bigint de proyecto y organización se envían como **strings decimales**, sin conversión a Number. Máximo: `9223372036854775807`.
 - Los recursos conservan prefijos (`BUG-001`, `TC-001`, `RUN-001`, `EVD-001`); no se recortan IDs de más de tres dígitos. `RES-001` referencia un resultado de ejecución.
@@ -19,7 +19,9 @@ SwaggerUI: `http://localhost:3000/api/docs/`. OpenAPI 3.0.3: `GET /api/openapi.j
 | GET | `/health` | 200: disponibilidad de conexión |
 | GET | `/projects` | 200: proyectos con `id`, `organizationId`, `name`, `description` |
 | GET, POST | `/bugs` | 200: colección / 201: bug creado |
+| PATCH | `/bugs/{bugId}/status` | 200: bug con estado actualizado |
 | GET, POST | `/test-cases` | 200: colección / 201: caso y pasos creados |
+| PATCH | `/test-cases/{caseId}/status` | 200: caso con estado actualizado |
 | GET, POST | `/test-runs` | 200: colección / 201: ejecución con casos reales |
 | GET, POST | `/evidence` | 200: colección / 201: metadatos y vínculo opcional |
 | GET | `/docs/`, `/openapi.json` | Documentación interactiva / contrato |
@@ -38,7 +40,7 @@ Las colecciones usan `{"data":[...]}`; las creaciones `{"data":{...}}`. Las list
 | PATCH, DELETE | `/auth/bug-templates/{templateId}` | Editar o eliminar una plantilla propia |
 | POST | `/auth/logout` | JSON vacío y X-CSRF-Token; 204 revoca sesión y borra cookie |
 
-Registro e inicio establecen qa_session: cookie HttpOnly, SameSite=Lax, Path=/api, Secure en producción y expiración absoluta de siete días. La base solo conserva su hash SHA-256. La respuesta pública contiene `{"data":{"user":{"id":"1","name":"QA","email":"qa@example.test"},"csrfToken":"..."}}`; nunca contraseñas, hashes ni el token de sesión.
+Registro e inicio establecen qa_session: cookie HttpOnly, SameSite=Lax, Path=/api, Secure en producción y expiración absoluta de siete días. Cada cuenta crea su workspace y proyecto propios; no hay gestión de miembros o invitaciones en la interfaz. La base solo conserva el hash SHA-256 del token de sesión. La respuesta pública contiene `{"data":{"user":{"id":"1","name":"QA","email":"qa@example.test"},"csrfToken":"..."}}`; nunca contraseñas, hashes ni el token de sesión.
 
 Los recursos y proyectos requieren la cookie. Todas las escrituras protegidas (POST, PATCH y DELETE), incluido logout, exigen X-CSRF-Token obtenido de login/registro/me. Las peticiones de escritura usan JSON y se rechazan si declaran un Origin distinto de FRONTEND_ORIGIN/CORS_ORIGIN o API_ORIGIN. La autorización consulta la membresía actual; una cuenta sin acceso recibe 404 PROJECT_NOT_FOUND al seleccionar un proyecto ajeno. Los miembros tienen lectura y creación dentro de la organización; no hay administración HTTP de roles o invitaciones.
 
@@ -64,7 +66,9 @@ Todos los POST requieren `projectId` y validan que el proyecto exista. Los texto
 {"projectId":"1","title":"El checkout falla","priority":"Alta","description":"Pasos para reproducir","assignee":null}
 ```
 
-Título: hasta 200 caracteres; prioridad: `Crítica`, `Alta`, `Media` o `Baja`. Descripción opcional hasta 5000, por defecto vacía. Responsable opcional, null o texto de hasta 100. Estado inicial: `Abierto`. La respuesta añade `project` como nombre informativo; ya no se acepta ese nombre en lugar de `projectId`.
+Título: hasta 200 caracteres; prioridad: `Crítica`, `Alta`, `Media` o `Baja`. Descripción opcional hasta 5000, por defecto vacía. Responsable opcional, null o texto de hasta 100. Estado inicial: `Abierto`; los estados permitidos son `Abierto`, `En progreso`, `En revisión` y `Resuelto`. La respuesta añade `project` como nombre informativo; ya no se acepta ese nombre en lugar de `projectId`.
+
+Para cambiar solo el estado se usa `PATCH /bugs/{bugId}/status` con `{"projectId":"1","status":"En progreso"}`. El identificador y proyecto se comprueban en conjunto; un proyecto no autorizado no puede modificar el registro.
 
 ### Casos y pasos
 
@@ -72,7 +76,7 @@ Título: hasta 200 caracteres; prioridad: `Crítica`, `Alta`, `Media` o `Baja`. 
 {"projectId":"1","title":"Validar registro","preconditions":"Abrir el formulario","steps":[{"action":"Enviar campos vacíos","expectedResult":"Se muestran validaciones"},{"action":"Completar los datos requeridos","expectedResult":"Se permite continuar"}]}
 ```
 
-Título obligatorio hasta 200; `suite` opcional hasta 100 (si se omite o queda vacío se guarda como nula). Precondiciones opcionales hasta 10000. Hasta 100 pasos opcionales, cada uno con acción y resultado esperado no vacíos de hasta 10000 caracteres. El orden del array determina la posición. Caso y pasos se crean en una transacción. Estado inicial: `Pendiente`; los GET también pueden devolver `Aprobado` o `Fallido` según lo almacenado.
+Título obligatorio hasta 200; `suite` opcional hasta 100 (si se omite o queda vacío se guarda como nula). Precondiciones opcionales hasta 10000. Hasta 100 pasos opcionales, cada uno con acción y resultado esperado no vacíos de hasta 10000 caracteres. El orden del array determina la posición. Caso y pasos se crean en una transacción. Estado inicial: `Pendiente`; se puede cambiar a `Aprobado` o `Fallido` desde la interfaz o mediante `PATCH /test-cases/{caseId}/status` con `{"projectId":"1","status":"Aprobado"}`. El estado solo se modifica cuando el caso pertenece al proyecto autorizado.
 
 La migración `006_optional_test_suite.sql`, aplicada por `pnpm db:migrate`, ajusta el esquema existente para permitir Suite nula sin alterar casos actuales.
 

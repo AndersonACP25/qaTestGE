@@ -32,6 +32,8 @@ const bug: Bug = {
 describe("test case and record exports", () => {
   it("preserves multiple actions and expected results in Markdown", () => {
     const markdown = toMarkdown({ kind: "case", record: testCase });
+    expect(markdown).toContain("**Estado:** Pendiente");
+    expect(markdown).toContain("**Suite:** —");
     expect(markdown).toContain("## Pasos");
     expect(markdown).toContain("1. **Acción:** Enviar datos válidos\n   **Resultado esperado:** Se permite continuar");
     expect(markdown).toContain("2. **Acción:** Cerrar el formulario\n   **Resultado esperado:** Se pierde el estado local");

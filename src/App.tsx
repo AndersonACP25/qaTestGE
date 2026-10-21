@@ -3,7 +3,7 @@ import type { FormEvent, SVGProps } from "react";
 import { filterBugs, filterCases, filterEvidence, filterRuns } from "./utils/filterItems";
 import CaseBuilder from "./CaseBuilder";
 import Dialog from "./Dialog";
-import { api, loadProject } from "./api";
+import { api, loadProject, saveBugStatus, saveCaseStatus } from "./api";
 import type { BugTemplate, BugTemplatePriority, Project, User } from "./api";
 import AccountSettingsView from "./views/AccountSettingsView";
 import { exportRecord, recordExportFormats } from "./utils/exportRecord";
@@ -15,9 +15,13 @@ import type {
   IconName,
   NavigationPage,
   PriorityLevel,
+  BugStatus,
+  CaseStatus,
   TestCase,
   TestRun,
 } from "./types";
+import { bugStatuses, caseStatuses } from "./types";
+import { loadCaseCountDefaults, saveCaseCountDefaults, type CaseCountDefaults } from "./models/caseCountDefaults";
 
 const navigation: {
   section: string;
@@ -31,8 +35,7 @@ const navigation: {
     { id: "runs", label: "Test runs", icon: "play" },
     { id: "evidence", label: "Evidencias", icon: "image" },
   ] },
-  { section: "GESTIÓN", items: [
-    { id: "team", label: "Equipo", icon: "users" },
+  { section: "CUENTA", items: [
     { id: "settings", label: "Configuración", icon: "settings" },
   ] },
 ];
@@ -45,7 +48,6 @@ function Icon({ name, size = 18, ...props }: { name: IconName; size?: number } &
     "check-square": <><rect x="3.5" y="3.5" width="17" height="17" rx="3" /><path d="m8 12 2.5 2.5L16.5 9" /></>,
     play: <><circle cx="12" cy="12" r="9" /><path d="m10 8 6 4-6 4V8Z" /></>,
     image: <><rect x="3" y="4" width="18" height="16" rx="2.5" /><circle cx="8.5" cy="9" r="1.5" /><path d="m21 15-5-5L5 20" /></>,
-    users: <><path d="M16 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 18.5V20" /><circle cx="10" cy="8" r="3.5" /><path d="M16 4.7a3.5 3.5 0 0 1 0 6.6M20 20v-1.5a3.5 3.5 0 0 0-2.5-3.35" /></>,
     settings: <><circle cx="12" cy="12" r="3" /><path d="m19.4 15 .1.1a1.7 1.7 0 0 1-2.4 2.4l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 0 1-3.4 0v-.2a1.7 1.7 0 0 0-2.9-1.2l-.1.1a1.7 1.7 0 0 1-2.4-2.4l.1-.1A1.7 1.7 0 0 0 4.2 12H4a1.7 1.7 0 0 1 0-3.4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a1.7 1.7 0 0 1 2.4-2.4l.1.1a1.7 1.7 0 0 0 2.9-1.2V2a1.7 1.7 0 0 1 3.4 0v.2a1.7 1.7 0 0 0 2.9 1.2l.1-.1a1.7 1.7 0 0 1 2.4 2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 0 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2 2.9Z" transform="translate(1 1) scale(.91)" /></>,
     search: <><circle cx="10.8" cy="10.8" r="6.8" /><path d="m16 16 4.5 4.5" /></>,
     plus: <><path d="M12 5v14M5 12h14" /></>,
@@ -92,6 +94,8 @@ function App({ user, onUserUpdated, onAccountDeleted, onLogout, themeControl }: 
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState("");
+  const [caseCountDefaults, setCaseCountDefaults] = useState<CaseCountDefaults>(() => loadCaseCountDefaults(user.id));
   const [modal, setModal] = useState("");
   const [bugTemplates, setBugTemplates] = useState<BugTemplate[]>([]);
   const [bugTemplatesLoading, setBugTemplatesLoading] = useState(false);
@@ -143,7 +147,7 @@ function App({ user, onUserUpdated, onAccountDeleted, onLogout, themeControl }: 
   const visibleCases = useMemo(() => filterCases(cases, { search, statusFilter }), [cases, search, statusFilter]);
   const visibleRuns = useMemo(() => filterRuns(runs, { search, statusFilter }), [runs, search, statusFilter]);
   const visibleEvidence = useMemo(() => filterEvidence(evidence, { search }), [evidence, search]);
-  const pageTitle = ({ overview: "Resumen", bugs: "Bugs", cases: "Casos de prueba", runs: "Test runs", evidence: "Evidencias", team: "Equipo", settings: "Configuración", "case-builder": "Diseñar test cases" })[activePage];
+  const pageTitle = ({ overview: "Resumen", bugs: "Bugs", cases: "Casos de prueba", runs: "Test runs", evidence: "Evidencias", settings: "Configuración", "case-builder": "Diseñar test cases" })[activePage];
   const notify = (message: string) => { clearTimeout(toastTimer.current); setToast(message); toastTimer.current = setTimeout(() => setToast(""), 4000); };
   function navigate(page: NavigationPage) { setActivePage(page); setSearch(""); setStatusFilter("Todos"); setMobileNav(false); }
   function openModal(value: string) {
@@ -214,7 +218,33 @@ function App({ user, onUserUpdated, onAccountDeleted, onLogout, themeControl }: 
       notify(cause instanceof Error ? `No se pudo exportar el registro: ${cause.message}` : "No se pudo exportar el registro.");
     } finally { setExportingRecord(false); }
   }
-  const filters = activePage === "bugs" ? ["Todos", "Abierto", "En progreso", "En revisión", "Resuelto"] : activePage === "cases" ? ["Todos", "Aprobado", "Fallido", "Pendiente"] : activePage === "runs" ? ["Todos", "En curso", "Completado"] : [];
+  function saveDefaultCounts(defaults: CaseCountDefaults) {
+    saveCaseCountDefaults(user.id, defaults);
+    setCaseCountDefaults(defaults);
+  }
+  async function changeBugStatus(bug: Bug, status: BugStatus) {
+    if (!bug.projectId || updatingStatus) return;
+    setUpdatingStatus(bug.id);
+    try {
+      const updated = await saveBugStatus(bug.id, bug.projectId, status);
+      setData((current) => ({ ...current, bugs: current.bugs.map((item) => item.id === updated.id ? updated : item) }));
+      notify(`Estado de ${bug.id} actualizado.`);
+    } catch (cause) {
+      notify(cause instanceof Error ? `No se pudo actualizar ${bug.id}: ${cause.message}` : `No se pudo actualizar ${bug.id}.`);
+    } finally { setUpdatingStatus(""); }
+  }
+  async function changeCaseStatus(testCase: TestCase, status: CaseStatus) {
+    if (!testCase.projectId || updatingStatus) return;
+    setUpdatingStatus(testCase.id);
+    try {
+      const updated = await saveCaseStatus(testCase.id, testCase.projectId, status);
+      setData((current) => ({ ...current, cases: current.cases.map((item) => item.id === updated.id ? updated : item) }));
+      notify(`Estado de ${testCase.id} actualizado.`);
+    } catch (cause) {
+      notify(cause instanceof Error ? `No se pudo actualizar ${testCase.id}: ${cause.message}` : `No se pudo actualizar ${testCase.id}.`);
+    } finally { setUpdatingStatus(""); }
+  }
+  const filters = activePage === "bugs" ? ["Todos", ...bugStatuses] : activePage === "cases" ? ["Todos", ...caseStatuses] : activePage === "runs" ? ["Todos", "En curso", "Completado"] : [];
   const isListing = ["bugs", "cases", "runs", "evidence"].includes(activePage);
   const total = activePage === "bugs" ? visibleBugs.length : activePage === "cases" ? visibleCases.length : activePage === "runs" ? visibleRuns.length : visibleEvidence.length;
   return <div className="app-shell workspace">
@@ -230,29 +260,29 @@ function App({ user, onUserUpdated, onAccountDeleted, onLogout, themeControl }: 
       <header className="topbar"><div className="breadcrumb"><button className="mobile-menu icon-button" onClick={() => setMobileNav(true)} aria-label="Abrir menú"><span className="hamburger" /></button><span>{project?.name ?? "Workspace"}</span><span className="crumb-slash">/</span><strong>{pageTitle}</strong></div><div className="topbar-actions">{themeControl}<button className="session__logout" onClick={onLogout}>Salir</button><span className="ai-pill"><Icon name="sparkle" size={15} /> IA no conectada</span></div></header>
       <div className="page-content">
         <div className="welcome-row"><div><div className="eyebrow">{new Date().toLocaleDateString("es", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</div><h1>{activePage === "overview" ? `Hola, ${user.name}` : pageTitle}</h1><p className="page-subtitle">{pageDescription(activePage)}</p></div>
-          {!["case-builder", "team", "settings"].includes(activePage) && <button disabled={!projectId || loading || saving || Boolean(error)} className="button button-primary" onClick={() => openModal(activePage === "cases" ? "case" : activePage === "runs" ? "run" : activePage === "evidence" ? "evidence" : "bug")}><Icon name="plus" />{activePage === "cases" ? "Nuevo caso" : activePage === "runs" ? "Nueva ejecución" : activePage === "evidence" ? "Registrar metadatos" : "Nuevo bug"}</button>}
+          {!["case-builder", "settings"].includes(activePage) && <button disabled={!projectId || loading || saving || Boolean(error)} className="button button-primary" onClick={() => openModal(activePage === "cases" ? "case" : activePage === "runs" ? "run" : activePage === "evidence" ? "evidence" : "bug")}><Icon name="plus" />{activePage === "cases" ? "Nuevo caso" : activePage === "runs" ? "Nueva ejecución" : activePage === "evidence" ? "Registrar metadatos" : "Nuevo bug"}</button>}
         </div>
         <div className="workspace__toolbar"><label>Proyecto<select disabled={saving} value={projectId} onChange={(event) => { setData({ bugs: [], cases: [], runs: [], evidence: [] }); setLoading(true); setProjectId(event.target.value); }}><option value="" disabled>Selecciona un proyecto</option>{projects.map((p) => <option key={p.id} value={p.id}>{p.name} · #{p.id}</option>)}</select></label><button className="workspace__secondary" disabled={loading || saving} onClick={() => { setError(""); setLoading(true); setRevision((n) => n + 1); }}>Actualizar</button></div>
         {loading && <p className="workspace__notice" role="status">Cargando datos del proyecto…</p>}
         {error && <p className="workspace__error" role="alert">{error}</p>}
         {!loading && !error && !projectId && <p className="workspace__notice">No tienes proyectos disponibles. El administrador debe conceder acceso a un espacio existente.</p>}
-        {activePage === "settings" ? <AccountSettingsView user={user} onUserUpdated={onUserUpdated} onAccountDeleted={onAccountDeleted} /> : activePage === "case-builder" ? <CaseBuilder /> : !loading && !error && projectId && (activePage === "overview" ? <>
+        {activePage === "settings" ? <AccountSettingsView user={user} onUserUpdated={onUserUpdated} onAccountDeleted={onAccountDeleted} caseCountDefaults={caseCountDefaults} onCaseCountDefaultsChanged={saveDefaultCounts} /> : activePage === "case-builder" ? <CaseBuilder defaultCounts={caseCountDefaults} /> : !loading && !error && projectId && (activePage === "overview" ? <>
           <div className="workspace__metrics">{[["Bugs abiertos", bugs.filter((b) => b.status !== "Resuelto").length], ["Casos de prueba", cases.length], ["Ejecuciones activas", runs.filter((r) => r.status === "En curso").length], ["Evidencias", evidence.length]].map(([label, value]) => <div className="workspace__metric" key={label}><span>{label}</span><strong>{value}</strong><small>Proyecto actual · PostgreSQL</small></div>)}</div>
-          <section className="workspace__panel"><h2>Bugs recientes</h2><BugTable bugs={bugs.slice(0, 5)} onSelect={setDetail} onExport={(bug) => setExportTarget({ kind: "bug", record: bug })} />{!bugs.length && <p className="workspace__notice">Aún no hay bugs en este proyecto.</p>}</section>
+          <section className="workspace__panel"><h2>Bugs recientes</h2><BugTable bugs={bugs.slice(0, 5)} onSelect={setDetail} onExport={(bug) => setExportTarget({ kind: "bug", record: bug })} onStatusChange={changeBugStatus} updatingStatus={updatingStatus} />{!bugs.length && <p className="workspace__notice">Aún no hay bugs en este proyecto.</p>}</section>
           <section className="workspace__panel"><h2>Ejecuciones recientes</h2><RunTable items={runs.slice(0, 5)} onSelect={setDetail} />{!runs.length && <p className="workspace__notice">Aún no hay ejecuciones. Crea casos y agrúpalos en una ejecución.</p>}</section>
         </> : isListing ? <section className="listing-card">
           <div className="listing-toolbar"><div className="listing-tabs">{filters.map((filter) => <button key={filter} className={`filter-tab${statusFilter === filter ? " filter-tab-active" : ""}`} onClick={() => setStatusFilter(filter)}>{filter}</button>)}</div><label className="search-field"><Icon name="search" /><input aria-label="Buscar registros" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={`Buscar ${pageTitle.toLowerCase()}…`} /></label></div>
-          {activePage === "bugs" && <BugTable bugs={visibleBugs} onSelect={setDetail} onExport={(bug) => setExportTarget({ kind: "bug", record: bug })} />}
-          {activePage === "cases" && <CaseTable items={visibleCases} onSelect={setDetail} onExport={(item) => setExportTarget({ kind: "case", record: item })} />}
+          {activePage === "bugs" && <BugTable bugs={visibleBugs} onSelect={setDetail} onExport={(bug) => setExportTarget({ kind: "bug", record: bug })} onStatusChange={changeBugStatus} updatingStatus={updatingStatus} />}
+          {activePage === "cases" && <CaseTable items={visibleCases} onSelect={setDetail} onExport={(item) => setExportTarget({ kind: "case", record: item })} onStatusChange={changeCaseStatus} updatingStatus={updatingStatus} />}
           {activePage === "runs" && <RunTable items={visibleRuns} onSelect={setDetail} />}
           {activePage === "evidence" && <EvidenceTable items={visibleEvidence} onSelect={setDetail} />}
           {!total && <p className="workspace__notice">No hay registros que coincidan con los filtros.</p>}
           <div className="table-footer"><span>{total} resultados · datos del proyecto</span></div>
-        </section> : <PlaceholderPage page={activePage} onNavigate={navigate} />)}
+        </section> : null)}
         <footer className="page-footer"><span>© {new Date().getFullYear()} qaTestGE</span><span>{error ? "Datos no disponibles" : loading ? "Actualizando datos…" : "Datos persistidos en PostgreSQL"}</span></footer>
       </div>
     </main>
-    {modal && <Dialog title={modal === "bug" ? "Nuevo bug" : modal === "case" ? "Nuevo caso de prueba" : modal === "run" ? "Nueva ejecución" : "Registrar metadatos"} onClose={() => { if (!saving) setModal(""); }}><form className="workspace__form" onSubmit={(event) => void save(event)} aria-busy={saving}>
+    {modal && <Dialog wide title={modal === "bug" ? "Nuevo bug" : modal === "case" ? "Nuevo caso de prueba" : modal === "run" ? "Nueva ejecución" : "Registrar metadatos"} onClose={() => { if (!saving) setModal(""); }}><form className="workspace__form" onSubmit={(event) => void save(event)} aria-busy={saving}>
       <fieldset disabled={saving} className="workspace__fieldset">
         <label className="workspace__field">Proyecto<input value={project?.name ?? ""} readOnly /></label>
         {modal === "bug" && <label className="workspace__field">Cargar plantilla{bugTemplatesLoading ? <span className="workspace__notice">Cargando plantillas…</span> : <select value={selectedBugTemplateId} onChange={(event) => applyBugTemplate(event.target.value)}><option value="">Sin plantilla</option>{bugTemplates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}</select>}</label>}
@@ -296,25 +326,45 @@ function pageDescription(page: NavigationPage): string {
     cases: "Organiza los escenarios que mantienen tu producto bajo control.",
     runs: "Ejecuta suites de prueba y consulta sus resultados.",
     evidence: "Capturas, videos y archivos vinculados a tu actividad de QA.",
-    team: "Personas y roles del espacio de trabajo.",
     settings: "Preferencias del workspace y de tu perfil.",
     "case-builder": "De una idea a un plan de pruebas: explora la maqueta del futuro asistente.",
   })[page];
 }
 
-function BugTable({ bugs, onSelect, onExport, compact = false }: {
+function StatusControl<TStatus extends string>({ status, statuses, disabled, label, onChange }: {
+  status: TStatus;
+  statuses: readonly TStatus[];
+  disabled: boolean;
+  label: string;
+  onChange: (status: TStatus) => void;
+}) {
+  return <select
+    className={`workspace__status-select workspace__status-select--${status.toLowerCase().replaceAll(" ", "-")}`}
+    aria-label={`Cambiar estado de ${label}`}
+    value={status}
+    disabled={disabled}
+    onClick={(event) => event.stopPropagation()}
+    onChange={(event) => onChange(event.target.value as TStatus)}
+  >
+    {statuses.map((value) => <option key={value} value={value}>{value}</option>)}
+  </select>;
+}
+
+function BugTable({ bugs, onSelect, onExport, onStatusChange, updatingStatus, compact = false }: {
   bugs: Bug[];
   onSelect: (bug: Bug) => void;
   onExport: (bug: Bug) => void;
+  onStatusChange: (bug: Bug, status: BugStatus) => void;
+  updatingStatus: string;
   compact?: boolean;
 }) {
   return <div className={`table-scroll${compact ? " table-compact" : ""}`}><table><thead><tr><th>BUG ID</th><th>TÍTULO</th><th>PRIORIDAD</th><th>ESTADO</th><th>ASIGNADO</th><th>CREADO</th><th /></tr></thead><tbody>
-    {bugs.map((bug) => <tr key={bug.id} onClick={() => onSelect(bug)}><td><span className="id-text">{bug.id}</span></td><td><span className="bug-title">{bug.title}</span><span className="table-project">{bug.project}</span></td><td><Priority level={bug.priority} /></td><td><StatusBadge status={bug.status} /></td><td><span className="assignee"><Avatar initials={bug.assignee} color={bug.color} small /><span>{bug.assignee}</span></span></td><td className="muted-cell">{bug.updated}</td><td><button className="row-more" aria-label={`Exportar ${bug.id}`} onClick={(event) => { event.stopPropagation(); onExport(bug); }}><Icon name="dots" size={18} /></button></td></tr>)}
+    {bugs.map((bug) => <tr key={bug.id} onClick={() => onSelect(bug)}><td><span className="id-text">{bug.id}</span></td><td><span className="bug-title">{bug.title}</span><span className="table-project">{bug.project}</span></td><td><Priority level={bug.priority} /></td><td>    <StatusControl label={bug.id} status={bug.status} statuses={bugStatuses} disabled={Boolean(updatingStatus)} onChange={(status) => onStatusChange(bug, status)} /></td><td><span className="assignee"><Avatar initials={bug.assignee} color={bug.color} small /><span>{bug.assignee}</span></span></td><td className="muted-cell">{bug.updated}</td><td><button className="row-more" aria-label={`Exportar ${bug.id}`} onClick={(event) => { event.stopPropagation(); onExport(bug); }}><Icon name="dots" size={18} /></button></td></tr>)}
   </tbody></table></div>;
 }
 
-function CaseTable({ items, onSelect, onExport }: { items: TestCase[]; onSelect: (item: TestCase) => void; onExport: (item: TestCase) => void }) {
-  return <div className="table-scroll"><table><thead><tr><th>CASO ID</th><th>NOMBRE DEL CASO</th><th>SUITE</th><th>ESTADO</th><th>CREADO</th><th /></tr></thead><tbody>{items.map((item) => <tr key={item.id} onClick={() => onSelect(item)}><td><span className="id-text">{item.id}</span></td><td><span className="bug-title">{item.title}</span></td><td><span className="suite-badge">{item.suite || "—"}</span></td><td><StatusBadge status={item.status} /></td><td className="muted-cell">{item.updated}</td><td><button className="row-more" aria-label={`Exportar ${item.id}`} onClick={(event) => { event.stopPropagation(); onExport(item); }}><Icon name="dots" size={18} /></button></td></tr>)}</tbody></table></div>;
+function CaseTable({ items, onSelect, onExport, onStatusChange, updatingStatus }: { items: TestCase[]; onSelect: (item: TestCase) => void; onExport: (item: TestCase) => void; onStatusChange: (item: TestCase, status: CaseStatus) => void; updatingStatus: string }) {
+  return <div className="table-scroll"><table><thead><tr><th>CASO ID</th><th>NOMBRE DEL CASO</th><th>SUITE</th><th>ESTADO</th><th>CREADO</th><th /></tr></thead><tbody>{items.map((item) => <tr key={item.id} onClick={() => onSelect(item)}><td><span className="id-text">{item.id}</span></td><td><span className="bug-title">{item.title}</span></td><td><span className="suite-badge">{item.suite || "—"}</span></td><td><StatusControl label={item.id} status={item.status} statuses={caseStatuses} disabled={Boolean(updatingStatus)} onChange={(status) => onStatusChange(item, status)} /></td><td className="muted-cell">{item.updated}</td><td><button className="row-more" aria-label={`Exportar ${item.id}`} onClick={(event) => { event.stopPropagation(); onExport(item); }}><Icon name="dots" size={18} /></button></td></tr>)}</tbody></table></div>;
 }
 
 function RunTable({ items, onSelect }: { items: TestRun[]; onSelect: (item: TestRun) => void }) {
@@ -323,14 +373,6 @@ function RunTable({ items, onSelect }: { items: TestRun[]; onSelect: (item: Test
 
 function EvidenceTable({ items, onSelect }: { items: Evidence[]; onSelect: (item: Evidence) => void }) {
   return <div className="table-scroll"><table><thead><tr><th>NOMBRE</th><th>TIPO</th><th>VINCULADO A</th><th>TAMAÑO</th><th>FECHA</th><th /></tr></thead><tbody>{items.map((item) => <tr key={item.id} onClick={() => onSelect(item)}><td><span className="evidence-name"><span className="evidence-file"><Icon name="file" size={17} /></span><span className="bug-title">{item.name}</span></span></td><td><span className="suite-badge">{item.type}</span></td><td><span className="id-text">{item.related}</span></td><td className="muted-cell">{item.size}</td><td className="muted-cell">{item.date}</td><td><button className="row-more" aria-label={`Más opciones para ${item.name}`}><Icon name="dots" size={18} /></button></td></tr>)}</tbody></table></div>;
-}
-
-function PlaceholderPage({ page, onNavigate }: {
-  page: NavigationPage;
-  onNavigate: (page: NavigationPage) => void;
-}) {
-  const team = page === "team";
-  return <section className="placeholder-card"><div className={`placeholder-icon${team ? " placeholder-team" : ""}`}><Icon name={team ? "users" : "settings"} size={24} /></div><div className="eyebrow">QA WORKSPACE</div><h2>{team ? "Tu equipo, en un solo lugar" : "Personaliza tu espacio"}</h2><p>{team ? "La administración de membresías e invitaciones estará disponible en una próxima etapa." : "La configuración se habilitará en una próxima etapa del proyecto."}</p><span className="coming-soon">Disponible próximamente</span><button className="text-link" onClick={() => onNavigate("overview")}>Volver al resumen <Icon name="arrow" size={15} /></button></section>;
 }
 
 export default App;

@@ -2,7 +2,7 @@ import type { Bug as ApiBug } from "../backend/src/models/bug.model";
 import type { TestCase as ApiCase } from "../backend/src/models/test-case.model";
 import type { TestRun as ApiRun } from "../backend/src/models/test-run.model";
 import type { Evidence as ApiEvidence } from "../backend/src/models/evidence.model";
-import type { Bug, TestCase, TestRun, Evidence } from "./types";
+import type { Bug, BugStatus, CaseStatus, TestCase, TestRun, Evidence } from "./types";
 
 export interface User { id: string; name: string; email: string }
 export interface AccountProfile { name: string; email: string }
@@ -54,6 +54,20 @@ export const toBug = (b: ApiBug): Bug => ({ ...b, assignee: b.assignee || "—",
 export const toCase = (c: ApiCase): TestCase => ({ ...c, updated: date(c.createdAt) });
 export const toRun = (r: ApiRun): TestRun => ({ ...r, cases: `${r.caseCount} ${r.caseCount === 1 ? "caso" : "casos"}` });
 export const toEvidence = (e: ApiEvidence): Evidence => ({ ...e, related: e.related.join(", ") || "Sin vincular", size: `${(e.sizeBytes / 1024).toFixed(1)} KB`, date: date(e.createdAt) });
+export async function saveBugStatus(id: string, projectId: string, status: BugStatus) {
+  const updated = await api<ApiBug>(`/bugs/${encodeURIComponent(id)}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ projectId, status }),
+  });
+  return toBug(updated);
+}
+export async function saveCaseStatus(id: string, projectId: string, status: CaseStatus) {
+  const updated = await api<ApiCase>(`/test-cases/${encodeURIComponent(id)}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ projectId, status }),
+  });
+  return toCase(updated);
+}
 export async function loadProject(projectId: string, signal?: AbortSignal) {
   const query = `?projectId=${encodeURIComponent(projectId)}`;
   const [bugs, cases, runs, evidence] = await Promise.all([

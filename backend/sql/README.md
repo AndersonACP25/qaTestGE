@@ -31,7 +31,7 @@ pnpm db:migrate
 pnpm db:check
 ```
 
-El comando aplica en orden `004_authentication.sql` y `005_bug_templates.sql` sobre la base configurada en backend/.env. Cada migración usa una transacción, bloqueo y registro de versión; repetirlas no duplica tablas. No vuelve a importar 001/002 ni cambia sus filas. Para pgAdmin, ejecutar ambos archivos en orden desde Query Tool conectado a qa_test_ge.
+El comando aplica en orden `004_authentication.sql`, `005_bug_templates.sql` y `006_optional_test_suite.sql` sobre la base configurada en backend/.env. Cada migración usa una transacción, bloqueo y registro de versión; repetirlas no duplica tablas. No vuelve a importar 001/002 ni cambia sus filas. Para pgAdmin, ejecutar los archivos en orden desde Query Tool conectado a qa_test_ge.
 
 Tablas añadidas: qa.users (correo único normalizado y hash scrypt), qa.organization_members (usuario/organización/rol), qa.auth_sessions (hash de token, CSRF, expiración), qa.schema_migrations y qa.bug_templates (plantillas de bugs propiedad de una cuenta). El registro crea cuenta, workspace, membresía owner y proyecto; no concede acceso a los datos previamente importados.
 
@@ -59,7 +59,7 @@ No usar este ejemplo sin confirmar los destinatarios. No existe un endpoint púb
 
 Los IDs son `bigint` identity. Las claves foráneas compuestas verifican que los recursos vinculados pertenecen al mismo proyecto. No hay eliminaciones en cascada: los vínculos deben resolverse explícitamente antes de eliminar recursos. Una evidencia puede existir sin vínculo y tener después varios; cada vínculo tiene exactamente un destino. `storage_key` es una referencia futura, no contenido de archivo.
 
-Las fechas usan `timestamptz`. Los estados de presentación mantienen los valores de los modelos actuales; los resultados de ejecución usan `passed`, `failed`, `blocked` y `skipped`. El repositorio calcula la cantidad de casos y el avance a partir de los resultados. La semántica de omitido frente a no ejecutado deberá refinarse al implementar ese flujo.
+Las fechas usan `timestamptz`. Bugs y casos guardan estados validados en columnas restringidas (`qa.bugs.status` y `qa.test_cases.status`); las rutas PATCH actualizan esos campos y no requieren una migración adicional. Los resultados de ejecución usan `passed`, `failed`, `blocked` y `skipped`. El repositorio calcula la cantidad de casos y el avance a partir de los resultados. La semántica de omitido frente a no ejecutado deberá refinarse al implementar ese flujo.
 
 Los pasos de un resultado se guardan en `steps_snapshot` como un array JSON para preservar lo evaluado. La futura capa de aplicación deberá validar su estructura y crearlo a partir de los pasos del caso al añadirlo a la ejecución.
 

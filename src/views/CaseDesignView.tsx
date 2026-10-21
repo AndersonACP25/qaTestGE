@@ -2,7 +2,7 @@ import { categories } from "../models/caseDesign.model";
 import type { CaseDesignController } from "../controllers/useCaseDesignController";
 
 export default function CaseDesignView({
-  text, selected, counts, preview, exporting, exportError,
+  text, selected, counts, defaultCounts, preview, exporting, exportError,
   previewCases, countsValid, total, maxCaseCount, updateDescription, toggleCategory, updateCount, submit,
   updateExampleStep, addExampleStep, removeExampleStep, exportPreview,
 }: CaseDesignController) {
@@ -22,7 +22,7 @@ export default function CaseDesignView({
               <span><strong>{category.label}</strong><small>{category.description}</small></span>
             </label>
             <label className="case-builder__quantity" htmlFor={`case-count-${category.id}`}>Cantidad
-              <input id={`case-count-${category.id}`} className="case-builder__count" type="number" min={1} max={maxCaseCount} step={1} required disabled={!selected.includes(category.id)} value={Number.isNaN(counts[category.id]) ? "" : counts[category.id] ?? 1} aria-label={`Cantidad de pruebas: ${category.label}`} aria-describedby="case-count-help" onChange={(event) => updateCount(category.id, event.target.valueAsNumber)} />
+              <input id={`case-count-${category.id}`} className="case-builder__count" type="number" min={1} max={maxCaseCount} step={1} required disabled={!selected.includes(category.id)} value={Number.isNaN(counts[category.id]) ? "" : counts[category.id] ?? defaultCounts[category.id] ?? 1} aria-label={`Cantidad de pruebas: ${category.label}`} aria-describedby="case-count-help" onChange={(event) => updateCount(category.id, event.target.valueAsNumber)} />
             </label>
           </div>)}</div>
           <p id="case-count-help" className="case-builder__hint">De 1 a {maxCaseCount} pruebas distintas por categoría: son los ejemplos disponibles, sin generación con IA.</p>

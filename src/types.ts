@@ -5,11 +5,14 @@ export type NavigationPage =
   | "case-builder"
   | "runs"
   | "evidence"
-  | "team"
   | "settings";
 
 export type PriorityLevel = "Crítica" | "Alta" | "Media" | "Baja";
+export type BugStatus = "Abierto" | "En progreso" | "En revisión" | "Resuelto";
 export type CaseStatus = "Aprobado" | "Fallido" | "Pendiente";
+
+export const bugStatuses: BugStatus[] = ["Abierto", "En progreso", "En revisión", "Resuelto"];
+export const caseStatuses: CaseStatus[] = ["Pendiente", "Aprobado", "Fallido"];
 
 export interface Bug {
   id: string;
@@ -18,7 +21,7 @@ export interface Bug {
   project: string;
   description?: string;
   priority: PriorityLevel;
-  status: string;
+  status: BugStatus;
   assignee: string;
   color: "violet" | "blue" | "amber" | "green" | "pink" | "orange";
   updated: string;
@@ -61,7 +64,6 @@ export type IconName =
   | "check-square"
   | "play"
   | "image"
-  | "users"
   | "settings"
   | "search"
   | "plus"

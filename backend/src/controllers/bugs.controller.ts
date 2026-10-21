@@ -1,7 +1,8 @@
 ﻿import type { Request, Response } from "express";
-import { bugPriorities, type CreateBugInput } from "../models/bug.model.js";
+import { bugPriorities, bugStatuses, type CreateBugInput, type BugStatus } from "../models/bug.model.js";
 import { repository } from "../repositories/repository.js";
-import { isId, isRecord, projectFilter, text } from "../validation.js";
+import { isId, isRecord, parseReference, projectFilter, text } from "../validation.js";
+import { HttpError } from "../http-error.js";
 
 export async function listBugs(request: Request, response: Response) {
   response.json({ data: await repository(request).listBugs(projectFilter(request)) });
@@ -13,6 +14,17 @@ export async function createBug(request: Request, response: Response) {
     return;
   }
   response.status(201).json({ data: await repository(request).createBug(body) });
+}
+export async function updateBugStatus(request: Request, response: Response) {
+  const body: unknown = request.body;
+  const id = parseReference(request.params.bugId, "BUG");
+  if (!id || !isRecord(body) || !isId(body.projectId) || typeof body.status !== "string" || !bugStatuses.includes(body.status as BugStatus)) {
+    response.status(400).json({ error: { code: "INVALID_BUG_STATUS", message: "Se requiere un bug válido, projectId y un estado permitido." } });
+    return;
+  }
+  const updated = await repository(request).updateBugStatus(id, body.projectId, body.status as BugStatus);
+  if (!updated) throw new HttpError(404, "BUG_NOT_FOUND", "No se encontró el bug en el proyecto indicado.");
+  response.json({ data: updated });
 }
 function isCreateBugInput(input: unknown): input is CreateBugInput {
   return isRecord(input) && isId(input.projectId) && text(input.title, 200)

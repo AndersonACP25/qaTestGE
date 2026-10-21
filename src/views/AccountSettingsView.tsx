@@ -2,16 +2,20 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { api } from "../api";
 import type { BugTemplate, BugTemplateInput, BugTemplatePriority, User } from "../api";
+import { categories, maxCaseCount } from "../models/caseDesign.model";
+import type { CaseCountDefaults } from "../models/caseCountDefaults";
 
 const priorities: BugTemplatePriority[] = ["Crítica", "Alta", "Media", "Baja"];
 const emptyTemplate: BugTemplateInput = { name: "", title: "", description: "", priority: "Media" };
 
 export default function AccountSettingsView({
-  user, onUserUpdated, onAccountDeleted,
+  user, onUserUpdated, onAccountDeleted, caseCountDefaults, onCaseCountDefaultsChanged,
 }: {
   user: User;
   onUserUpdated: (user: User) => void;
   onAccountDeleted: () => void;
+  caseCountDefaults: CaseCountDefaults;
+  onCaseCountDefaultsChanged: (defaults: CaseCountDefaults) => void;
 }) {
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
@@ -35,6 +39,10 @@ export default function AccountSettingsView({
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  const [countDefaults, setCountDefaults] = useState(caseCountDefaults);
+  const [countDefaultsBusy, setCountDefaultsBusy] = useState(false);
+  const [countDefaultsError, setCountDefaultsError] = useState("");
+  const [countDefaultsMessage, setCountDefaultsMessage] = useState("");
 
   useEffect(() => {
     const abort = new AbortController();
@@ -141,6 +149,21 @@ export default function AccountSettingsView({
     } finally { setDeleteBusy(false); }
   }
 
+  function saveCountDefaults(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setCountDefaultsBusy(true);
+    setCountDefaultsError("");
+    setCountDefaultsMessage("");
+    try {
+      onCaseCountDefaultsChanged(countDefaults);
+      setCountDefaultsMessage("Los valores predeterminados se guardaron en este navegador.");
+    } catch (cause) {
+      setCountDefaultsError(cause instanceof Error ? cause.message : "No se pudieron guardar los valores predeterminados.");
+    } finally {
+      setCountDefaultsBusy(false);
+    }
+  }
+
   return <div className="account-settings">
     <section className="account-settings__card">
       <div className="account-settings__heading"><h2>Información de la cuenta</h2><p>Actualiza el nombre y correo asociados a tu usuario.</p></div>
@@ -188,6 +211,22 @@ export default function AccountSettingsView({
             </div>
           </article>)}
       </div>
+    </section>
+    <section className="account-settings__card">
+      <div className="account-settings__heading"><h2>Diseño de test cases</h2><p>Define cuántos ejemplos se seleccionan inicialmente para cada tipo de prueba. Los valores se guardan en este navegador y puedes cambiarlos antes de mostrar la vista previa.</p></div>
+      <form className="account-settings__form" onSubmit={saveCountDefaults} aria-busy={countDefaultsBusy}>
+        <div className="account-settings__count-grid">
+          {categories.map((category) => <label className="account-settings__count-item" key={category.id}>
+            <span>{category.label}</span>
+            <select aria-label={`Valor inicial para ${category.label}`} value={countDefaults[category.id] ?? 1} onChange={(event) => setCountDefaults((current) => ({ ...current, [category.id]: Number(event.target.value) }))}>
+              {Array.from({ length: maxCaseCount }, (_, index) => <option key={index + 1} value={index + 1}>{index + 1}</option>)}
+            </select>
+          </label>)}
+        </div>
+        {countDefaultsError && <p className="workspace__error" role="alert">{countDefaultsError}</p>}
+        {countDefaultsMessage && <p className="account-settings__success" role="status">{countDefaultsMessage}</p>}
+        <div className="workspace__actions"><button className="button button-primary" type="submit" disabled={countDefaultsBusy}>{countDefaultsBusy ? "Guardando…" : "Guardar valores predeterminados"}</button></div>
+      </form>
     </section>
     <section className="account-settings__card">
       <div className="account-settings__heading"><h2>Conexión con IA</h2><p>Vista preliminar de una futura configuración de proveedores. Esta sección es solo una maqueta.</p></div>

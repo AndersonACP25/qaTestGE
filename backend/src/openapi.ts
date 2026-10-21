@@ -1,4 +1,5 @@
 import { bugPriorities, bugStatuses } from "./models/bug.model.js";
+import { testCaseStatuses } from "./models/test-case.model.js";
 import { evidenceTypes } from "./models/evidence.model.js";
 
 const text = (maxLength: number) => ({ type: "string", minLength: 1, maxLength, pattern: "\\S" });
@@ -46,6 +47,12 @@ export const openApiDocument = {
     "/api/auth/logout": { post: { security: [{ sessionCookie: [], csrfToken: [] }], summary: "Revocar sesión y eliminar cookie; enviar JSON vacío", requestBody: { required: true, content: json({ type: "object", example: {} }) }, responses: { "204": { description: "Sesión revocada" }, "401": errorResponse("UNAUTHENTICATED"), "403": errorResponse("INVALID_CSRF") } } },
     "/api/health": { get: { security: [], summary: "Disponibilidad de API y conexión PostgreSQL", responses: { "200": { description: "API y base disponibles", content: json(envelope(object({ status: { type: "string", enum: ["ok"] }, database: { type: "string", enum: ["postgresql"] } }, ["status", "database"]))) }, "503": unavailable } } },
     "/api/projects": { get: { summary: "Listar proyectos existentes", responses: { "200": { description: "Proyectos", content: json(envelope({ type: "array", items: project })) }, "503": unavailable } } },
+    "/api/bugs/{bugId}/status": {
+      patch: { security: [{ sessionCookie: [], csrfToken: [] }], summary: "Actualizar el estado de un bug en un proyecto autorizado", parameters: [{ in: "path", name: "bugId", required: true, schema: { type: "string", pattern: "^BUG-[0-9]{1,19}$" } }], requestBody: { required: true, content: json(ref("BugStatusInput")) }, responses: { "200": { description: "Estado actualizado", content: json(envelope(ref("Bug"))) }, "400": errorResponse("INVALID_BUG_STATUS"), "401": errorResponse("UNAUTHENTICATED"), "403": errorResponse("INVALID_CSRF o INVALID_ORIGIN"), "404": errorResponse("PROJECT_NOT_FOUND o BUG_NOT_FOUND"), "503": unavailable } },
+    },
+    "/api/test-cases/{caseId}/status": {
+      patch: { security: [{ sessionCookie: [], csrfToken: [] }], summary: "Actualizar el estado de un caso de prueba en un proyecto autorizado", parameters: [{ in: "path", name: "caseId", required: true, schema: { type: "string", pattern: "^TC-[0-9]{1,19}$" } }], requestBody: { required: true, content: json(ref("TestCaseStatusInput")) }, responses: { "200": { description: "Estado actualizado", content: json(envelope(ref("TestCase"))) }, "400": errorResponse("INVALID_TEST_CASE_STATUS"), "401": errorResponse("UNAUTHENTICATED"), "403": errorResponse("INVALID_CSRF o INVALID_ORIGIN"), "404": errorResponse("PROJECT_NOT_FOUND o TEST_CASE_NOT_FOUND"), "503": unavailable } },
+    },
     ...Object.fromEntries(resources.map(([path, schema, code]) => [`/api/${path}`, {
       get: { summary: `Listar ${path}`, tags: [path], parameters: [{ in: "query", name: "projectId", required: false, schema: projectId }], responses: { "200": { description: "Colección persistida", content: json(envelope({ type: "array", items: ref(schema) })) }, "400": errorResponse("INVALID_PROJECT_ID: filtro inválido."), "503": unavailable } },
       post: {
@@ -67,9 +74,11 @@ export const openApiDocument = {
       AccountDeletionInput: object({ currentPassword: { type: "string", minLength: 1, maxLength: 128, format: "password" }, confirmation: { type: "string", enum: ["ELIMINAR CUENTA"] } }, ["currentPassword", "confirmation"]),
       BugTemplateInput: object({ name: text(100), title: { type: "string", maxLength: 200 }, description: { type: "string", maxLength: 5000 }, priority: { type: "string", enum: bugPriorities } }, ["name", "title", "description", "priority"]),
       BugTemplate: object({ id: { type: "string", pattern: "^[1-9][0-9]{0,18}$" }, name: text(100), title: { type: "string", maxLength: 200 }, description: { type: "string", maxLength: 5000 }, priority: { type: "string", enum: bugPriorities }, createdAt: { type: "string", format: "date-time" } }, ["id", "name", "title", "description", "priority", "createdAt"]),
+      BugStatusInput: object({ projectId, status: { type: "string", enum: bugStatuses } }, ["projectId", "status"]),
+      TestCaseStatusInput: object({ projectId, status: { type: "string", enum: testCaseStatuses } }, ["projectId", "status"]),
       ...inputs,
       Bug: object({ ...inputs.BugInput.properties, ...common, project: text(100), description: { type: "string" }, assignee: { type: "string", nullable: true }, status: { type: "string", enum: bugStatuses } }, ["id", "projectId", "title", "project", "priority", "description", "status", "assignee", "createdAt"]),
-      TestCase: object({ ...inputs.TestCaseInput.properties, ...common, status: { type: "string", enum: ["Pendiente", "Aprobado", "Fallido"] } }, ["id", "projectId", "title", "suite", "preconditions", "steps", "status", "createdAt"]),
+      TestCase: object({ ...inputs.TestCaseInput.properties, ...common, status: { type: "string", enum: testCaseStatuses } }, ["id", "projectId", "title", "suite", "preconditions", "steps", "status", "createdAt"]),
       TestRun: object({ ...inputs.TestRunInput.properties, ...common, caseCount: { type: "integer", minimum: 0 }, progress: { type: "number", minimum: 0, maximum: 100 }, status: { type: "string", enum: ["En curso", "Completado"] } }, ["id", "projectId", "title", "owner", "caseIds", "caseCount", "progress", "status", "createdAt"]),
       Evidence: object({ ...inputs.EvidenceInput.properties, ...common, related: { type: "array", items: { type: "string" } } }, ["id", "projectId", "name", "type", "sizeBytes", "related", "createdAt"]),
       Error: object({ error: object({ code: { type: "string" }, message: { type: "string" } }, ["code", "message"]) }, ["error"]),

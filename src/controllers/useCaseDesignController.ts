@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { maxCaseCount, selectCaseExamples, validCaseCount } from "../models/caseDesign.model";
+import { defaultCaseCountDefaults, type CaseCountDefaults } from "../models/caseCountDefaults";
 
 export interface CaseDesignPreviewCase {
   categoryId: string;
@@ -10,7 +11,7 @@ export interface CaseDesignPreviewCase {
   steps: { action: string; expected: string }[];
 }
 
-export function useCaseDesignController() {
+export function useCaseDesignController(defaultCounts: CaseCountDefaults = defaultCaseCountDefaults) {
   const [text, setText] = useState("");
   const [selected, setSelected] = useState<string[]>(["edge"]);
   const [counts, setCounts] = useState<Record<string, number>>({});
@@ -18,8 +19,9 @@ export function useCaseDesignController() {
   const [exampleSteps, setExampleSteps] = useState<Record<string, { action: string; expected: string }[]>>({});
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState("");
-  const selectedCategories = selectCaseExamples(selected, counts);
-  const countsValid = selected.every((id) => validCaseCount(counts[id] ?? 1));
+  const effectiveCounts = Object.fromEntries(Object.entries(defaultCounts).map(([id, value]) => [id, counts[id] ?? value]));
+  const selectedCategories = selectCaseExamples(selected, effectiveCounts);
+  const countsValid = selected.every((id) => validCaseCount(effectiveCounts[id] ?? 1));
   const total = selectedCategories.reduce((sum, category) => sum + category.steps.length, 0);
   const previewCases: CaseDesignPreviewCase[] = selectedCategories.flatMap((category) =>
     category.steps.map((sample, index) => ({
@@ -99,7 +101,7 @@ export function useCaseDesignController() {
   }
 
   return {
-    text, selected, counts, preview, exporting, exportError, selectedCategories, previewCases,
+    text, selected, counts, defaultCounts, preview, exporting, exportError, selectedCategories, previewCases,
     countsValid, total, maxCaseCount, updateDescription, toggleCategory, updateCount, submit,
     updateExampleStep, addExampleStep, removeExampleStep, exportPreview,
   };

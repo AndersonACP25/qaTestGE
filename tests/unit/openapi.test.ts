@@ -3,12 +3,14 @@ import { openApiDocument } from "../../backend/src/openapi";
 
 describe("OpenAPI contract", () => {
   it("documents all implemented operations and locally resolvable schemas", () => {
-    expect(Object.keys(openApiDocument.paths)).toHaveLength(13);
-    expect(Object.values(openApiDocument.paths).flatMap(Object.keys)).toHaveLength(21);
+    expect(Object.keys(openApiDocument.paths)).toHaveLength(15);
+    expect(Object.values(openApiDocument.paths).flatMap(Object.keys)).toHaveLength(23);
     expect(openApiDocument.paths["/api/auth/me"]).toHaveProperty("patch");
     expect(openApiDocument.paths["/api/auth/me"]).toHaveProperty("delete");
     expect(openApiDocument.paths["/api/auth/bug-templates"]).toHaveProperty("post");
     expect(openApiDocument.paths["/api/auth/password"]).toHaveProperty("patch");
+    expect(openApiDocument.paths["/api/bugs/{bugId}/status"]).toHaveProperty("patch");
+    expect(openApiDocument.paths["/api/test-cases/{caseId}/status"]).toHaveProperty("patch");
     const refs = JSON.stringify(openApiDocument).matchAll(/"\$ref":"#\/components\/schemas\/([^"]+)"/g);
     for (const [, name] of refs) expect(openApiDocument.components.schemas).toHaveProperty(name);
     expect(openApiDocument.servers[0].url).toBe("/");

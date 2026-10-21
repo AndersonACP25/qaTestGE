@@ -6,6 +6,7 @@ import CaseDesignView from "../../src/views/CaseDesignView";
 import type { CaseDesignController } from "../../src/controllers/useCaseDesignController";
 import { categories, selectCaseExamples, validCaseCount } from "../../src/models/caseDesign.model";
 import { caseExportRows } from "../../src/utils/exportCases";
+import { defaultCaseCountDefaults } from "../../src/models/caseCountDefaults";
 
 describe("case builder mockup", () => {
   it("discloses fixed examples and requires input before showing a preview", () => {
@@ -50,7 +51,8 @@ describe("case builder mockup", () => {
     const controller: CaseDesignController = {
       text: "Validar acceso",
       selected: ["api"],
-      counts: { api: 1 },
+      counts: {},
+      defaultCounts: { ...defaultCaseCountDefaults, api: 2 },
       preview: true,
       exporting: false,
       exportError: "",
@@ -80,6 +82,8 @@ describe("case builder mockup", () => {
     const html = renderToStaticMarkup(createElement(CaseDesignView, controller));
     expect(html).toContain("Enviar solicitud");
     expect(html).toContain("Se muestran los datos");
+    expect(html).toContain('aria-label="Cantidad de pruebas: API"');
+    expect(html).toContain('value="2"');
     expect(html).toContain("Añadir paso (2/100)");
     expect(html.match(/Resultado esperado/g)).toHaveLength(2);
   });

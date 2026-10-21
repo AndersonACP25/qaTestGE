@@ -2,13 +2,13 @@
 
 ## Estado del documento
 
-Este documento combina la arquitectura objetivo de la v1.0 con el estado real del repositorio. El frontend usa React, Vite y TypeScript; existe una API Express MVC en TypeScript con repositorio PostgreSQL sobre qa_test_ge. Hay usuarios locales, sesiones persistidas, autorización por membresía organizativa y plantillas personales de bugs. La interfaz consume la API; el almacenamiento binario y la integración con proveedores de IA siguen pendientes. GitHub Actions valida cambios y publica artefactos compilados al hacer push a main; el despliegue a un proveedor aún no está configurado.
+Este documento combina la arquitectura objetivo de la v1.0 con el estado real del repositorio. El frontend usa React, Vite y TypeScript; existe una API Express MVC en TypeScript con repositorio PostgreSQL sobre qa_test_ge. Hay cuentas locales de una persona, sesiones persistidas, autorización de los proyectos de la cuenta y plantillas personales de bugs. La interfaz consume la API; el almacenamiento binario y la integración con proveedores de IA siguen pendientes. GitHub Actions valida cambios y publica artefactos compilados al hacer push a main; el despliegue a un proveedor aún no está configurado.
 
 ## Objetivos
 
 - Gestionar el ciclo de vida de bugs, casos de prueba, ejecuciones y evidencias desde un mismo espacio de trabajo.
 - Mantener trazabilidad entre un bug, los casos que lo cubren, las ejecuciones y sus resultados.
-- Permitir colaboración con permisos definidos y un historial auditable.
+- Mantener los datos de cada cuenta aislados por proyecto, dejando la colaboración multiusuario para una etapa futura.
 - Ofrecer asistencia de IA útil sin convertirla en autoridad ni requisito para usar el producto.
 - Proteger los datos del proyecto y hacer explícito cuándo información sale a un proveedor de IA.
 
@@ -19,6 +19,9 @@ Este documento combina la arquitectura objetivo de la v1.0 con el estado real de
 - El diseñador de casos es una maqueta frontend: `src/models/caseDesign.model.ts` mantiene el catálogo/validación, un hook controlador gestiona estado y exportación, y la vista presenta el flujo. No genera casos dinámicamente ni los persiste.
 - La API requiere DATABASE_URL, usa un pool pg y comprueba el esquema qa al arrancar. No existe fallback en memoria ni importación automática del SQL.
 - Los endpoints iniciales listan y crean bugs, casos de prueba, ejecuciones y metadatos de evidencias.
+- Bugs y casos de prueba permiten actualizar su estado mediante endpoints PATCH, con los valores validados por modelo y las restricciones existentes de PostgreSQL. No se requiere una tabla adicional de estados.
+- La interfaz es de cuenta individual: no ofrece gestión de equipo, invitaciones ni administración de membresías.
+- Configuración conserva las cantidades iniciales del diseñador por categoría en localStorage, separadas por usuario en el navegador; no se envían a la API ni a PostgreSQL.
 - No se sube el contenido binario de evidencias; solo se registra metadata.
 
 ## Objetivos futuros para v1.0
@@ -67,7 +70,7 @@ La API usa `PostgresRepository` mediante una interfaz inyectada en `createApp`. 
 
 PostgreSQL conserva los datos tras reiniciar. Los proyectos/organizaciones existentes se descubren en GET /api/projects; no se crean automáticamente. projectId es obligatorio en las creaciones. Los IDs bigint se mantienen como strings; los IDs públicos de recursos conservan prefijos BUG, TC, RUN, EVD y RES. La base verifica existencia y pertenencia al mismo proyecto mediante claves compuestas. Las ejecuciones reciben caseIds en vez de caseCount, conservan un snapshot de los pasos y calculan cantidad/progreso a partir de resultados. La respuesta de evidencia usa un array related para conservar todos los vínculos existentes.
 
-backend/sql/ sigue siendo la base de importación manual; las migraciones posteriores son aditivas. La 004 agrega usuarios, membresías y sesiones; la 005 crea plantillas personales en qa.bug_templates. db:migrate las aplica de forma idempotente y db:check valida las tablas requeridas sin escrituras. La baja de cuenta conserva membresías y recursos: la fila de usuario queda inactiva y anonimizada, se revocan sesiones y se eliminan las plantillas. Falta permisos granulares, auditoría y respaldos. El repositorio autorizado añade control de acceso y las claves foráneas mantienen integridad. El frontend consulta estos recursos y guarda creaciones manuales.
+backend/sql/ sigue siendo la base de importación manual; las migraciones posteriores son aditivas. La 004 agrega usuarios, membresías y sesiones; la 005 crea plantillas personales en qa.bug_templates; la 006 permite Suite opcional en los casos de prueba. db:migrate las aplica de forma idempotente y db:check valida las tablas requeridas sin escrituras. La baja de cuenta conserva membresías y recursos: la fila de usuario queda inactiva y anonimizada, se revocan sesiones y se eliminan las plantillas. Falta permisos granulares, auditoría y respaldos. El repositorio autorizado añade control de acceso y las claves foráneas mantienen integridad. El frontend consulta estos recursos y guarda creaciones manuales.
 
 ### Evidencias
 

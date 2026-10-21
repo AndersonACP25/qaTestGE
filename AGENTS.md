@@ -12,7 +12,8 @@ qaTestGE es una plataforma para gestionar bugs, casos de prueba, ejecuciones y e
 - No presentes funciones documentadas como disponibles si todavía no están implementadas. Actualiza README y arquitectura cuando cambien el alcance o las decisiones técnicas.
 - Antes de introducir dependencias, servicios o formatos de datos, revisa el código y reutiliza las convenciones existentes. Evita añadir complejidad que no sea necesaria para la v1.0.
 - Valida cambios TypeScript con `pnpm typecheck`, frontend con `pnpm build` y pruebas con `pnpm test`.
-- Escribe siempre los mensajes de commit en idioma español y formato Conventional Commits: `<tipo>(ámbito opcional): descripción`. Usa tipos claros como `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `build` o `chore`. No crees commits salvo que se solicite.
+- Para cada paquete de cambios, inspecciona el estado de Git, crea una rama de trabajo dedicada, valida y crea un commit en español con formato Conventional Commits: `<tipo>(ámbito opcional): descripción`. No publiques la rama salvo que el usuario lo solicite.
+- Usa tipos claros en commits como `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `build` o `chore`. Incluye el trailer `Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>`.
 - Para el frontend, nombra clases CSS nuevas y modificadas siguiendo BEM: `bloque__elemento--modificador`. Mantén los estilos encapsulados en el bloque del componente y evita selectores globales para detalles internos.
 - Añade pruebas unitarias en `tests/unit/` con Vitest. Las pruebas deben ser deterministas y no depender de un backend, red ni servicios externos.
 - Las skills reutilizables de OpenCode viven en `.opencode/skills/<nombre>/SKILL.md`; respeta el frontmatter requerido por OpenCode y las reglas de IA de `docs/architecture.md`.
@@ -21,8 +22,10 @@ qaTestGE es una plataforma para gestionar bugs, casos de prueba, ejecuciones y e
 
 - `src/` contiene el frontend React/Vite en TypeScript.
 - `backend/src/` contiene la API Express en TypeScript organizada por modelos, controladores y rutas.
-- La API usa PostgreSQL mediante pg y backend/src/repositories/postgres.repository.ts. DATABASE_URL se carga desde backend/.env; no mostrar credenciales ni usar la base local para pruebas destructivas. El esquema inicial y el seed de backend/sql/ se importan manualmente; las migraciones versionadas se aplican con pnpm db:migrate.
+- La API usa PostgreSQL mediante pg y backend/src/repositories/postgres.repository.ts. DATABASE_URL se carga desde backend/.env; no mostrar credenciales ni usar la base local para pruebas destructivas. El esquema inicial y el seed de backend/sql/ se importan manualmente; las migraciones versionadas se aplican con pnpm db:migrate. Las migraciones 004, 005 y 006 agregan autenticación, plantillas de bugs y Suite opcional.
 - `tests/` contiene pruebas unitarias y `backend/tests/` pruebas de endpoints.
-- Hay autenticación local con usuarios/sesiones en PostgreSQL y autorización por membresías de organización; el frontend consume la API. Las plantillas personales de bugs se guardan en PostgreSQL. La baja desactiva y anonimiza al usuario, revoca sesiones y conserva membresías y recursos QA.
+- Hay autenticación local con usuarios/sesiones en PostgreSQL y autorización de proyectos por cuenta; cada cuenta representa una persona y la interfaz no incluye gestión de equipo o invitaciones. Las plantillas personales de bugs se guardan en PostgreSQL. La baja desactiva y anonimiza al usuario, revoca sesiones y conserva membresías y recursos QA.
+- Bugs y casos de prueba tienen estados limitados por sus modelos y restricciones de PostgreSQL; las actualizaciones se realizan mediante API autenticada y scoped al proyecto.
+- Los valores iniciales de cantidades del diseñador se guardan localmente por usuario en el navegador; no requieren migración de base de datos.
 - GitHub Actions valida pull requests y pushes a main; los pushes a main publican artefactos compilados. No hay despliegue automático a un proveedor.
-- No describas carga binaria de archivos, IA real, recuperación de contraseña, verificación de correo, MFA o invitaciones como disponibles. La configuración de IA es solo una maqueta. La migración 004 añade usuarios sin asignarles organizaciones existentes y la 005 agrega plantillas por usuario.
+- No describas carga binaria de archivos, IA real, recuperación de contraseña, verificación de correo, MFA o invitaciones como disponibles. La configuración de IA es solo una maqueta. La migración 004 añade usuarios sin asignarles organizaciones existentes; la 005 agrega plantillas por usuario y la 006 permite Suite opcional.

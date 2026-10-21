@@ -7,7 +7,9 @@ import type { Repository } from "../src/repositories/repository.js";
 const repo = {
   health: vi.fn<Repository["health"]>(), listProjects: vi.fn<Repository["listProjects"]>(),
   listBugs: vi.fn<Repository["listBugs"]>(), createBug: vi.fn<Repository["createBug"]>(),
+  updateBugStatus: vi.fn<Repository["updateBugStatus"]>(),
   listCases: vi.fn<Repository["listCases"]>(), createCase: vi.fn<Repository["createCase"]>(),
+  updateCaseStatus: vi.fn<Repository["updateCaseStatus"]>(),
   listRuns: vi.fn<Repository["listRuns"]>(), createRun: vi.fn<Repository["createRun"]>(),
   listEvidence: vi.fn<Repository["listEvidence"]>(), createEvidence: vi.fn<Repository["createEvidence"]>(),
 };
@@ -50,6 +52,36 @@ describe("qaTestGE API with an injected repository (no database)", () => {
     expect(created.status).toBe(201);
     expect(created.body.data).toEqual(bug);
     expect(repo.createBug).toHaveBeenCalledWith(input);
+  });
+  it("updates bug and test case statuses only through valid status values", async () => {
+    repo.updateBugStatus.mockResolvedValue({ ...bug, status: "En progreso" });
+    const changedBug = await signed().patch("/api/bugs/BUG-001/status").send({ projectId: "1", status: "En progreso" });
+    expect(changedBug.status).toBe(200);
+    expect(changedBug.body.data.status).toBe("En progreso");
+    expect(repo.updateBugStatus).toHaveBeenCalledWith("1", "1", "En progreso");
+    expect((await signed().patch("/api/bugs/BUG-001/status").send({ projectId: "1", status: "Cerrado" })).status).toBe(400);
+    expect((await signed().patch("/api/bugs/INVALID/status").send({ projectId: "1", status: "Resuelto" })).status).toBe(400);
+
+    const testCase = { id: "TC-004", projectId: "1", title: "Acceso", suite: "", status: "Pendiente" as const, createdAt: bug.createdAt, preconditions: "", steps: [] };
+    repo.updateCaseStatus.mockResolvedValue({ ...testCase, status: "Aprobado" });
+    const changedCase = await signed().patch("/api/test-cases/TC-004/status").send({ projectId: "1", status: "Aprobado" });
+    expect(changedCase.status).toBe(200);
+    expect(changedCase.body.data.status).toBe("Aprobado");
+    expect(repo.updateCaseStatus).toHaveBeenCalledWith("4", "1", "Aprobado");
+    expect((await signed().patch("/api/test-cases/TC-004/status").send({ projectId: "1", status: "En curso" })).status).toBe(400);
+  });
+  it("does not update status when the requested resource is outside the account's projects", async () => {
+    repo.updateBugStatus.mockResolvedValue(null);
+    const response = await signed().patch("/api/bugs/BUG-999/status").send({ projectId: "1", status: "Resuelto" });
+    expect(response.status).toBe(404);
+    expect(response.body.error.code).toBe("BUG_NOT_FOUND");
+    const forbidden = await signed().patch("/api/bugs/BUG-001/status").send({ projectId: "2", status: "Resuelto" });
+    expect(forbidden.status).toBe(404);
+    expect(forbidden.body.error.code).toBe("PROJECT_NOT_FOUND");
+    expect(repo.updateBugStatus).toHaveBeenCalledTimes(1);
+    const forbiddenCase = await signed().patch("/api/test-cases/TC-001/status").send({ projectId: "2", status: "Fallido" });
+    expect(forbiddenCase.status).toBe(404);
+    expect(repo.updateCaseStatus).not.toHaveBeenCalled();
   });
   it("rejects legacy or invalid inputs before accessing the repository", async () => {
     for (const body of [{ title: "Bug", project: "Web Store", priority: "Alta" }, { title: "Bug", projectId: 1, priority: "Alta" }, { title: " ", projectId: "1", priority: "Urgente" }]) {
