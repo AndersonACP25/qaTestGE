@@ -21,6 +21,6 @@ qaTestGE es una plataforma para gestionar bugs, casos de prueba, ejecuciones y e
 
 - `src/` contiene el frontend React/Vite en TypeScript.
 - `backend/src/` contiene la API Express en TypeScript organizada por modelos, controladores y rutas.
-- `backend/src/models/in-memory-store.ts` es temporal: no hay base de datos y los datos se pierden al reiniciar el proceso.
+- La API usa PostgreSQL mediante pg y backend/src/repositories/postgres.repository.ts. DATABASE_URL se carga desde backend/.env; no mostrar credenciales ni usar la base local para pruebas destructivas. Los scripts de backend/sql/ se importan manualmente.
 - `tests/` contiene pruebas unitarias y `backend/tests/` pruebas de endpoints.
-- No describas autenticación, persistencia, carga de archivos ni integración real con IA como disponibles.
+- Hay autenticación local con usuarios/sesiones en PostgreSQL y autorización por membresías de organización; el frontend consume la API. No describas carga binaria de archivos, IA real, recuperación de contraseña, verificación de correo, MFA o invitaciones como disponibles. La migración 004 añade usuarios sin asignarles organizaciones existentes.

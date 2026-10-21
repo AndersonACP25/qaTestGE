@@ -5,8 +5,8 @@ Esta guía resume las convenciones para personas colaboradoras. [AGENTS.md](../A
 ## Producto y datos
 
 - Diferenciar funciones disponibles, maquetas y objetivos futuros en interfaz y documentación.
-- Mantener bugs, casos, ejecuciones y evidencias relacionados con identificadores y referencias explícitas. Las relaciones del backend actual son incompletas; no asumir validaciones aún ausentes.
-- No confundir el acceso simulado con autenticación ni el estado en memoria con persistencia.
+- Mantener bugs, casos, ejecuciones y evidencias relacionados con identificadores y referencias explícitas. El repositorio PostgreSQL y las claves compuestas validan referencias y pertenencia al mismo proyecto; la autorización exige membresía de la cuenta en la organización del proyecto.
+- No omitir la autenticación, el token CSRF o la autorización por organización en nuevas rutas de datos. El diseñador de IA sigue siendo una maqueta; los recursos manuales y cuentas ya son persistentes.
 - No añadir servicios, dependencias o formatos antes de revisar y reutilizar las convenciones existentes.
 
 ## Código y estilos

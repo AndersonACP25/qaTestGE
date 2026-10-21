@@ -3,7 +3,25 @@
 **Plataforma de gestión de bugs, casos de prueba, ejecuciones y evidencias.**
 
 > **Versión objetivo:** 1.0  
-> **Estado actual:** frontend de demostración y API MVC inicial; aún sin base de datos.
+> **Estado actual:** frontend conectado a la API, usuarios y sesiones en PostgreSQL; IA y carga binaria pendientes.
+
+## Stack tecnológico
+
+![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-6-646CFF?logo=vite&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-339933?logo=nodedotjs&logoColor=white)
+![Express](https://img.shields.io/badge/Express-5-000000?logo=express&logoColor=white)
+![pnpm](https://img.shields.io/badge/pnpm-12-F69220?logo=pnpm&logoColor=white)
+![Vitest](https://img.shields.io/badge/Vitest-4-6E9F18?logo=vitest&logoColor=white)
+![SwaggerUI](https://img.shields.io/badge/SwaggerUI-85EA2D?logo=swagger&logoColor=black)
+![ExcelJS](https://img.shields.io/badge/ExcelJS-4-217346)
+![jsPDF](https://img.shields.io/badge/jsPDF-4-E34F26)
+
+**Base de datos de la API:**
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)
+
+La API usa PostgreSQL (`qa_test_ge`, esquema `qa`) mediante `pg`. El frontend usa esa API con sesiones de usuario y proyectos autorizados.
 
 ## Propósito
 
@@ -44,16 +62,17 @@ La disponibilidad de cada proveedor, sus condiciones de privacidad, ubicación d
 
 ## Estado del repositorio
 
-El frontend usa React, Vite y TypeScript. La interfaz todavía muestra datos de demostración en el navegador y no consume la API. El backend usa Express y TypeScript, organizado en rutas, controladores y modelos, con endpoints iniciales para bugs, casos de prueba, test runs y metadatos de evidencias. La API guarda datos únicamente en memoria y los pierde al reiniciar; no hay base de datos, autenticación ni almacenamiento del contenido binario de evidencias. La IA sigue sin estar conectada.
+El frontend usa React, Vite y TypeScript y consume la API Express con PostgreSQL. Login y registro crean sesiones reales; proyectos y recursos se limitan a las organizaciones de las que el usuario es miembro. Los listados, contadores y formularios manuales de bugs, casos, ejecuciones y metadatos de evidencias usan datos persistentes. El diseñador de test cases conserva ejemplos fijos y exportaciones locales; la IA no está conectada y no se sube contenido binario de archivos.
 
-## Acceso de demostración y apariencia
+## Autenticación y apariencia
 
-- Pantalla de **Inicio de sesión** y **Registro**: acepta cualquier usuario y contraseña no vacíos. En registro, la confirmación debe coincidir; al enviar, se entra directamente al panel.
-- El formulario de acceso está centrado horizontal y verticalmente, con desplazamiento disponible cuando el contenido supera la altura de la pantalla.
-- El nombre introducido aparece en el perfil y el saludo. **Salir** vuelve al acceso y reinicia los datos de demostración del panel; recargar también requiere entrar de nuevo.
-- No se crean cuentas reales, se verifican identidades ni se guardan o envían credenciales. Usa datos de prueba: esta pantalla no protege la API ni sustituye autenticación o autorización en el servidor.
-- **Tema oscuro y claro** disponibles en el acceso y la barra superior. La primera visita respeta la preferencia del sistema; la selección se guarda en `localStorage` cuando está disponible. Si el almacenamiento está bloqueado, funciona durante la sesión.
-- Los datos de QA siguen siendo ejemplos locales y no se sincronizan con la API.
+- Registro con nombre, correo y contraseña de **12 a 128 caracteres**, con confirmación en el frontend. Cada cuenta recibe su propio workspace y un proyecto inicial.
+- Inicio de sesión con correo y contraseña reales. Los correos se normalizan; las contraseñas se guardan como hashes scrypt con sal aleatoria.
+- Sesión de siete días en cookie HttpOnly/SameSite=Lax, Secure en producción. El token de sesión no se guarda en localStorage y su hash se almacena en PostgreSQL. Recargar recupera la sesión; **Salir** la revoca.
+- La API protege recursos y valida membresía por organización. Los POST autenticados requieren X-CSRF-Token; el frontend lo gestiona automáticamente. Login/registro tienen límite básico de intentos por IP.
+- Los datos anteriores no se borran ni se asignan al primer usuario que se registre. Su acceso exige una membresía explícita, según [backend/sql/README.md](./backend/sql/README.md).
+- Tema claro/oscuro con preferencia del sistema y selección recordada en localStorage cuando esté disponible. Favicon y marca compartidos desde public/favicon.svg.
+- Los fallos de conexión se muestran como errores; no hay fallback a usuarios o datos simulados. Recuperación de contraseña, verificación de correo, MFA e invitaciones todavía no están implementadas.
 
 ## Maqueta de diseño de test cases
 
@@ -70,7 +89,7 @@ La generación contextual y la edición, revisión y confirmación antes de crea
 
 ## SwaggerUI y exportación de casos
 
-- Con `pnpm dev:all`, abre **SwaggerUI · API** en el menú lateral del portal. La documentación interactiva está en `http://localhost:3000/api/docs/` y el contrato OpenAPI en `/api/openapi.json`. Las operaciones POST de «Try it out» crean registros temporales en la API.
+- Con `pnpm dev:all`, abre **SwaggerUI · API** en el menú lateral del portal. La documentación interactiva está en `http://localhost:3000/api/docs/` y el contrato OpenAPI en `/api/openapi.json`. Las operaciones POST de «Try it out» escriben registros persistentes en PostgreSQL.
 - En **Diseñar test cases**, muestra la tabla de ejemplo y pulsa **Exportar Excel** o **Exportar PDF**. Se descargan archivos `.xlsx` o `.pdf` con la descripción, las categorías seleccionadas, los pasos y los resultados esperados. Los archivos indican que son ejemplos fijos; no se generan ni guardan casos reales.
 - La exportación se realiza en el navegador, sin enviar el contenido a servicios externos. ExcelJS y jsPDF/AutoTable se cargan al solicitar la exportación.
 - El enlace usa `/api/docs/`: Vite lo reenvía al backend mediante el proxy `/api`. Al desplegar el frontend por separado, configura ese mismo proxy para `/api`, incluidos SwaggerUI y OpenAPI.
@@ -79,6 +98,7 @@ La generación contextual y la edición, revisión y confirmación antes de crea
 
 Las guías técnicas están en [`docs/`](./docs/). README, AGENTS, CONTRIBUTING, SECURITY y CHANGELOG permanecen en la raíz para facilitar su consulta y descubrimiento en GitHub.
 
+- [TESTING.md](./docs/TESTING.md): pruebas automatizadas, revisión manual y verificación del SQL.
 - [API.md](./docs/API.md): endpoints, cuerpos, respuestas, validaciones y límites actuales.
 - [DESIGN.md](./docs/DESIGN.md): interfaz, temas, accesibilidad y maquetas.
 - [RULES.md](./docs/RULES.md): reglas de producto, código, IA y documentación.
@@ -91,7 +111,7 @@ Las guías técnicas están en [`docs/`](./docs/). README, AGENTS, CONTRIBUTING,
 - [`.opencode/`](./.opencode/): memoria y comandos de proyecto para OpenCode.
 - [`.opencode/skills/`](./.opencode/skills/): skills base para diseño de funciones de IA, prompts y validación de salidas.
 - [`tests/`](./tests/): pruebas unitarias del frontend.
-- [`backend/`](./backend/): API Express MVC con modelos en memoria y pruebas de endpoints.
+- [`backend/`](./backend/): API Express MVC con repositorio PostgreSQL y pruebas de endpoints aisladas.
 - [`.github/CODEOWNERS`](./.github/CODEOWNERS): propietarios sugeridos para revisión en GitHub.
 
 ## Contribuir mediante GitHub
@@ -113,12 +133,26 @@ La versión se considerará lista cuando:
 6. Los datos enviados a IA sean explícitos y limitados al contexto autorizado por la persona usuaria.
 7. Las rutas críticas tengan validación automatizada y se documenten los pasos de instalación, configuración, ejecución y respaldo.
 
+## Base inicial PostgreSQL
+
+La base prevista se llama **`qa_test_ge`**. Los scripts están en [`backend/sql/`](./backend/sql/):
+
+1. `000_create_database.sql`: crear la base fuera de una transacción, conectado a `postgres`.
+2. `001_schema.sql`: importar tablas, relaciones, restricciones e índices conectado a `qa_test_ge`.
+3. `003_verify.sql`: verificar integridad con datos temporales y rollback.
+4. `002_demo_seed.sql`: datos ficticios opcionales para una importación inicial.
+
+Consulta las instrucciones para psql y pgAdmin en [`backend/sql/README.md`](./backend/sql/README.md). La API ya usa el driver pg y repositorios PostgreSQL. Las creaciones requieren projectId; GET /api/projects lista los proyectos. Las ejecuciones reciben caseIds y las referencias de evidencias se validan dentro del mismo proyecto. Importar el SQL es manual; no se ejecuta al arrancar. Autenticación y membresías por organización están implementadas; la administración de invitaciones y permisos granulares sigue pendiente.
+
 ## Desarrollo
 
 Requiere Node.js compatible con las dependencias del proyecto y pnpm `12.11.2`, según `packageManager` en `package.json`:
 
 ```bash
 pnpm install --frozen-lockfile
+# Configura backend/.env a partir del ejemplo con tu DATABASE_URL local
+pnpm db:migrate
+pnpm db:check
 pnpm dev:all
 ```
 
@@ -130,7 +164,11 @@ La API escucha por defecto en `http://localhost:3000`. El frontend corre en `htt
 
 | Método | Ruta | Descripción |
 |---|---|---|
-| `GET` | `/api/health` | Estado de la API |
+| `GET` | `/api/health` | Estado de la API y conexión PostgreSQL |
+| `GET` | `/api/projects` | Proyectos autorizados para la cuenta |
+| `POST` | `/api/auth/register`, `/api/auth/login` | Registro e inicio de sesión |
+| `GET` | `/api/auth/me` | Usuario y token CSRF de la sesión |
+| `POST` | `/api/auth/logout` | Revocar la sesión |
 | `GET`, `POST` | `/api/bugs` | Listar y crear bugs |
 | `GET`, `POST` | `/api/test-cases` | Listar y crear casos de prueba |
 | `GET`, `POST` | `/api/test-runs` | Listar y crear ejecuciones |
@@ -138,7 +176,7 @@ La API escucha por defecto en `http://localhost:3000`. El frontend corre en `htt
 | `GET` | `/api/docs/` | Documentación interactiva SwaggerUI |
 | `GET` | `/api/openapi.json` | Contrato OpenAPI 3.0.3 |
 
-Las escrituras de evidencia registran metadatos únicamente, no cargan el archivo. Todos los recursos se almacenan en memoria temporal.
+Las escrituras de evidencia registran metadatos únicamente, no cargan el archivo. Los recursos de la API se conservan en PostgreSQL tras reiniciar. El frontend consulta recursos del proyecto seleccionado.
 
 ### Validación
 
@@ -149,4 +187,4 @@ pnpm typecheck
 pnpm build
 ```
 
-`pnpm build` verifica tipos y genera la compilación del frontend y backend. La API puede configurarse con `PORT` y `FRONTEND_ORIGIN`. No configures secretos en el cliente. Antes de usar datos reales, implementa una base de datos, autenticación, autorización y almacenamiento seguro para evidencias.
+`pnpm build` verifica tipos y genera la compilación del frontend y backend. La API carga backend/.env (con alternativa en la raíz) y requiere DATABASE_URL. También admite PORT y FRONTEND_ORIGIN o CORS_ORIGIN. No usa JWT_SECRET: las sesiones son opacas y revocables en PostgreSQL. No configures secretos en el cliente. Antes de un despliegue público, configura HTTPS y protección operativa, respaldos y almacenamiento seguro para el contenido de evidencias.

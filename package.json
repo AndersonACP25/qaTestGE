@@ -6,6 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "db:check": "pnpm --dir backend db:check",
+    "db:migrate": "pnpm --dir backend db:migrate",
     "dev:all": "pnpm --parallel --stream --filter qatestge --filter @qatestge/api run dev",
     "dev:frontend": "vite",
     "dev:backend": "pnpm --dir backend dev",

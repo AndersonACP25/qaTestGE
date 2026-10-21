@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <title>qaTestGE</title>
+  <g transform="rotate(-7 16 16)">
+    <rect x="3" y="3" width="11" height="11" rx="3" fill="#7564e6"/>
+    <rect x="17" y="3" width="11" height="11" rx="3" fill="#7564e6" opacity=".72"/>
+    <rect x="3" y="17" width="11" height="11" rx="3" fill="#7564e6" opacity=".52"/>
+    <rect x="17" y="17" width="11" height="11" rx="3" fill="#f4a261"/>
+  </g>
+</svg>

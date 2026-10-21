@@ -1,35 +1,22 @@
-import type { Request, Response } from "express";
-import { store } from "../models/in-memory-store.js";
+﻿import type { Request, Response } from "express";
+import { repository } from "../repositories/repository.js";
+import { isId, isRecord, projectFilter, text } from "../validation.js";
+import type { CreateTestCaseInput } from "../models/test-case.model.js";
 
-export function listTestCases(_request: Request, response: Response): void {
-  response.json({ data: store.testCases });
+export async function listTestCases(request: Request, response: Response) {
+  response.json({ data: await repository(request).listCases(projectFilter(request)) });
 }
-
-export function createTestCase(request: Request, response: Response): void {
+export async function createTestCase(request: Request, response: Response) {
   const body: unknown = request.body;
-  if (!isRecord(body) || !isNonEmptyString(body.title, 200) || !isNonEmptyString(body.suite, 100)) {
-    response.status(400).json({
-      error: { code: "INVALID_TEST_CASE", message: "Título y suite son obligatorios." },
-    });
+  if (!valid(body)) {
+    response.status(400).json({ error: { code: "INVALID_TEST_CASE", message: "projectId, título, suite y pasos válidos son obligatorios." } });
     return;
   }
-
-  const testCase = {
-    id: `TC-${String(store.nextIds.testCase++).padStart(3, "0")}`,
-    title: body.title.trim(),
-    suite: body.suite.trim(),
-    status: "Pendiente" as const,
-    createdAt: new Date().toISOString(),
-  };
-
-  store.testCases.unshift(testCase);
-  response.status(201).json({ data: testCase });
+  response.status(201).json({ data: await repository(request).createCase(body) });
 }
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function isNonEmptyString(value: unknown, maxLength: number): value is string {
-  return typeof value === "string" && value.trim().length > 0 && value.length <= maxLength;
+function valid(body: unknown): body is CreateTestCaseInput {
+  return isRecord(body) && isId(body.projectId) && text(body.title, 200) && text(body.suite, 100)
+    && (body.preconditions === undefined || (typeof body.preconditions === "string" && body.preconditions.length <= 10000))
+    && (body.steps === undefined || (Array.isArray(body.steps) && body.steps.length <= 100
+      && body.steps.every((step) => isRecord(step) && text(step.action, 10000) && text(step.expectedResult, 10000))));
 }
