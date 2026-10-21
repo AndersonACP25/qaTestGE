@@ -13,11 +13,14 @@ qaTestGE es una plataforma para gestionar bugs, casos de prueba, ejecuciones y e
 - Antes de introducir dependencias, servicios o formatos de datos, revisa el código y reutiliza las convenciones existentes. Evita añadir complejidad que no sea necesaria para la v1.0.
 - Valida cambios TypeScript con `pnpm typecheck`, frontend y backend con `pnpm build`, pruebas con `pnpm test`, lint con `pnpm lint` y formato con `pnpm format:check`.
 - Para cada paquete de cambios, inspecciona el estado de Git, crea una rama de trabajo dedicada, valida y crea un commit en español con formato Conventional Commits: `<tipo>(ámbito opcional): descripción`. No publiques la rama salvo que el usuario lo solicite.
-- Usa tipos claros en commits como `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `build` o `chore`. Incluye el trailer `Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>`.
+- Divide los cambios en commits pequeños y coherentes, uno por capacidad o área revisable; evita mezclar funcionalidades independientes.
+- Usa tipos claros en commits como `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `build` o `chore`.
 - Para el frontend, nombra clases CSS nuevas y modificadas siguiendo BEM: `bloque__elemento--modificador`. Mantén los estilos encapsulados en el bloque del componente y evita selectores globales para detalles internos.
 - Añade pruebas unitarias en `tests/unit/` con Vitest. Las pruebas deben ser deterministas y no depender de un backend, red ni servicios externos.
 - Las skills reutilizables de OpenCode viven en `.opencode/skills/<nombre>/SKILL.md`; respeta el frontmatter requerido por OpenCode y las reglas de IA de `docs/architecture.md`.
 - Si estoy en `main` o `qa-env` y solicito una funcionalidad, un arreglo o una refactorización, primero comprueba si hay cambios locales pendientes de subir. Si los hay, no crees una rama nueva; si el árbol está limpio, crea una rama nueva que siga el estándar del repositorio antes de implementar.
+- Al terminar cada prompt de trabajo, actualiza `MEMORY.md` con el estado técnico y las decisiones vigentes; mantenlo en menos de 100 líneas y reemplaza información obsoleta en vez de acumular historial.
+- Las integraciones con APIs y servicios externos se implementan bajo `servicios/`, con interfaces de proveedor y sin acoplar credenciales o datos sensibles al frontend. Los servicios locales de dominio/API permanecen en `backend/`.
 
 ## Estructura y estado conocido
 
@@ -28,5 +31,6 @@ qaTestGE es una plataforma para gestionar bugs, casos de prueba, ejecuciones y e
 - Hay autenticación local con usuarios/sesiones en PostgreSQL y autorización de proyectos por cuenta; cada cuenta representa una persona y la interfaz no incluye gestión de equipo o invitaciones. Las plantillas personales de bugs se guardan en PostgreSQL. La baja desactiva y anonimiza al usuario, revoca sesiones y conserva membresías y recursos QA.
 - Bugs y casos de prueba tienen estados limitados por sus modelos y restricciones de PostgreSQL; las actualizaciones se realizan mediante API autenticada y scoped al proyecto.
 - Los valores iniciales de cantidades del diseñador se guardan localmente por usuario en el navegador; no requieren migración de base de datos.
-- GitHub Actions valida pull requests y pushes a main; los pushes a main publican artefactos compilados. No hay despliegue automático a un proveedor.
-- No describas carga binaria general de evidencias, IA real, recuperación de contraseña, verificación de correo, MFA o invitaciones como disponibles. Las imágenes adjuntas a casos sí se guardan en PostgreSQL mediante la migración 007, con tipo y tamaño restringidos. La configuración de IA es solo una maqueta. La migración 004 añade usuarios sin asignarles organizaciones existentes; la 005 agrega plantillas por usuario; la 006 permite Suite opcional y la 007 crea adjuntos de Test Cases.
+- GitHub Actions valida pull requests y pushes a `main` y `qa-env`; los pushes a `main` publican artefactos compilados. No hay despliegue automático a un proveedor.
+- No describas IA real, recuperación de contraseña, verificación de correo, MFA o invitaciones como disponibles. Las imágenes adjuntas a casos (007) y archivos generales de evidencia (008, máximo 2 MiB) se guardan en PostgreSQL con autorización por proyecto. La configuración de IA es solo una maqueta. La migración 004 añade usuarios sin asignarles organizaciones existentes; la 005 agrega plantillas por usuario; la 006 permite Suite opcional; la 009 añade tags por proyecto asociados con bugs, casos y ejecuciones.
+- Las migraciones nuevas deben ser aditivas, quedar registradas en `backend/src/migrate.ts` y documentarse en README y arquitectura cuando cambien capacidades o límites. La carpeta `servicios/` documenta el límite para integraciones externas; no hay proveedores externos implementados todavía.
