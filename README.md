@@ -219,3 +219,5 @@ Las escrituras autenticadas requieren cookie de sesión y protección CSRF; la A
 - [Esquema, SQL y acceso a proyectos](./backend/sql/README.md)
 - [Seguridad y privacidad](./SECURITY.md)
 - [Contribuciones](./CONTRIBUTING.md)
+
+El cliente API central conserva los estados HTTP y ofrece mensajes de respaldo para errores frecuentes, incluso si recibe texto o HTML. Las vistas presentan los errores con `Alert`. En desarrollo, el proxy de Vite devuelve 503 JSON si la API no responde; inicia frontend y backend con `pnpm dev`. Un 401 de `/api/auth/me` sin sesión es esperado.
