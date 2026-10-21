@@ -1,9 +1,17 @@
 import pg from "pg";
 
 export function createPool(connectionString: string): pg.Pool {
-  const pool = new pg.Pool({ connectionString, max: 10, connectionTimeoutMillis: 5000, idleTimeoutMillis: 30000, statement_timeout: 10000 });
+  const pool = new pg.Pool({
+    connectionString,
+    max: 10,
+    connectionTimeoutMillis: 5000,
+    idleTimeoutMillis: 30000,
+    statement_timeout: 10000,
+  });
   // Never log a connection string, SQL parameters or raw database errors.
-  pool.on("error", () => { console.error("Se perdió una conexión PostgreSQL inactiva."); });
+  pool.on("error", () => {
+    console.error("Se perdió una conexión PostgreSQL inactiva.");
+  });
   return pool;
 }
 
@@ -19,6 +27,11 @@ export async function checkDatabase(pool: pg.Pool): Promise<void> {
     LEFT JOIN qa.evidence e ON e.project_id = p.id
     LEFT JOIN qa.evidence_links el ON el.evidence_id = e.id LIMIT 0`);
   await pool.query("SELECT 1");
-  await pool.query("SELECT u.id,s.token_hash,m.user_id FROM qa.users u LEFT JOIN qa.auth_sessions s ON s.user_id=u.id LEFT JOIN qa.organization_members m ON m.user_id=u.id LIMIT 0");
+  await pool.query(
+    "SELECT u.id,s.token_hash,m.user_id FROM qa.users u LEFT JOIN qa.auth_sessions s ON s.user_id=u.id LEFT JOIN qa.organization_members m ON m.user_id=u.id LIMIT 0",
+  );
   await pool.query("SELECT id,user_id FROM qa.bug_templates LIMIT 0");
+  await pool.query(
+    "SELECT id,project_id,test_case_id,kind,image_bytes FROM qa.test_case_attachments LIMIT 0",
+  );
 }

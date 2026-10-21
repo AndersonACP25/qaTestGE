@@ -9,7 +9,9 @@ describe("access validation", () => {
   it("rejects empty values and mismatched registration passwords", () => {
     expect(validateAccess("  ", "123")).not.toBe("");
     expect(validateAccess("demo", "")).not.toBe("");
-    expect(validateAccess("demo", "a long passphrase", "different passphrase")).toBe("Las contraseñas no coinciden.");
+    expect(validateAccess("demo", "a long passphrase", "different passphrase")).toBe(
+      "Las contraseñas no coinciden.",
+    );
   });
 });
 

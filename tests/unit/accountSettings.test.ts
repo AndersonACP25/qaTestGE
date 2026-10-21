@@ -6,13 +6,15 @@ import { defaultCaseCountDefaults } from "../../src/models/caseCountDefaults";
 
 describe("account settings view", () => {
   it("shows editable profile fields and separate password change fields", () => {
-    const html = renderToStaticMarkup(createElement(AccountSettingsView, {
-      user: { id: "1", name: "QA", email: "qa@example.test" },
-      onUserUpdated: () => {},
-      onAccountDeleted: () => {},
-      caseCountDefaults: defaultCaseCountDefaults,
-      onCaseCountDefaultsChanged: () => {},
-    }));
+    const html = renderToStaticMarkup(
+      createElement(AccountSettingsView, {
+        user: { id: "1", name: "QA", email: "qa@example.test" },
+        onUserUpdated: () => {},
+        onAccountDeleted: () => {},
+        caseCountDefaults: defaultCaseCountDefaults,
+        onCaseCountDefaultsChanged: () => {},
+      }),
+    );
     expect(html).toContain("Información de la cuenta");
     expect(html).toContain('value="qa@example.test"');
     expect(html).toContain("Contraseña actual");

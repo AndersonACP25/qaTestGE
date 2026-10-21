@@ -2,6 +2,8 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { maxCaseCount, selectCaseExamples, validCaseCount } from "../models/caseDesign.model";
 import { defaultCaseCountDefaults, type CaseCountDefaults } from "../models/caseCountDefaults";
+import { createTestCase } from "../api";
+import type { TestCase } from "../types";
 
 export interface CaseDesignPreviewCase {
   categoryId: string;
@@ -11,15 +13,25 @@ export interface CaseDesignPreviewCase {
   steps: { action: string; expected: string }[];
 }
 
-export function useCaseDesignController(defaultCounts: CaseCountDefaults = defaultCaseCountDefaults) {
+export function useCaseDesignController(
+  defaultCounts: CaseCountDefaults = defaultCaseCountDefaults,
+  projectId = "",
+) {
   const [text, setText] = useState("");
   const [selected, setSelected] = useState<string[]>(["edge"]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [preview, setPreview] = useState(false);
-  const [exampleSteps, setExampleSteps] = useState<Record<string, { action: string; expected: string }[]>>({});
+  const [exampleSteps, setExampleSteps] = useState<
+    Record<string, { action: string; expected: string }[]>
+  >({});
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState("");
-  const effectiveCounts = Object.fromEntries(Object.entries(defaultCounts).map(([id, value]) => [id, counts[id] ?? value]));
+  const [savingCaseKey, setSavingCaseKey] = useState("");
+  const [savedCases, setSavedCases] = useState<Record<string, TestCase>>({});
+  const [saveCaseError, setSaveCaseError] = useState("");
+  const effectiveCounts = Object.fromEntries(
+    Object.entries(defaultCounts).map(([id, value]) => [id, counts[id] ?? value]),
+  );
   const selectedCategories = selectCaseExamples(selected, effectiveCounts);
   const countsValid = selected.every((id) => validCaseCount(effectiveCounts[id] ?? 1));
   const total = selectedCategories.reduce((sum, category) => sum + category.steps.length, 0);
@@ -29,8 +41,11 @@ export function useCaseDesignController(defaultCounts: CaseCountDefaults = defau
       categoryLabel: category.label,
       caseNumber: index + 1,
       color: category.color,
-      steps: exampleSteps[`${category.id}:${index}`] ?? [{ action: sample.action, expected: sample.expected }],
-    })));
+      steps: exampleSteps[`${category.id}:${index}`] ?? [
+        { action: sample.action, expected: sample.expected },
+      ],
+    })),
+  );
 
   function updateDescription(value: string) {
     setText(value);
@@ -38,7 +53,7 @@ export function useCaseDesignController(defaultCounts: CaseCountDefaults = defau
   }
 
   function toggleCategory(id: string, checked: boolean) {
-    setSelected((items) => checked ? [...items, id] : items.filter((item) => item !== id));
+    setSelected((items) => (checked ? [...items, id] : items.filter((item) => item !== id)));
     setPreview(false);
     setExportError("");
   }
@@ -54,14 +69,25 @@ export function useCaseDesignController(defaultCounts: CaseCountDefaults = defau
     if (text.trim() && selected.length && countsValid) setPreview(true);
   }
 
-  function updateExampleStep(categoryId: string, caseNumber: number, stepIndex: number, field: "action" | "expected", value: string) {
+  function updateExampleStep(
+    categoryId: string,
+    caseNumber: number,
+    stepIndex: number,
+    field: "action" | "expected",
+    value: string,
+  ) {
     const key = `${categoryId}:${caseNumber - 1}`;
     const category = selectedCategories.find((item) => item.id === categoryId);
     const sample = category?.steps[caseNumber - 1];
     if (!sample) return;
     setExampleSteps((current) => {
       const steps = current[key] ?? [{ action: sample.action, expected: sample.expected }];
-      return { ...current, [key]: steps.map((step, index) => index === stepIndex ? { ...step, [field]: value } : step) };
+      return {
+        ...current,
+        [key]: steps.map((step, index) =>
+          index === stepIndex ? { ...step, [field]: value } : step,
+        ),
+      };
     });
   }
 
@@ -72,7 +98,9 @@ export function useCaseDesignController(defaultCounts: CaseCountDefaults = defau
     if (!sample) return;
     setExampleSteps((current) => {
       const steps = current[key] ?? [{ action: sample.action, expected: sample.expected }];
-      return steps.length >= 100 ? current : { ...current, [key]: [...steps, { action: "", expected: "" }] };
+      return steps.length >= 100
+        ? current
+        : { ...current, [key]: [...steps, { action: "", expected: "" }] };
     });
   }
 
@@ -83,7 +111,9 @@ export function useCaseDesignController(defaultCounts: CaseCountDefaults = defau
     if (!sample) return;
     setExampleSteps((current) => {
       const steps = current[key] ?? [{ action: sample.action, expected: sample.expected }];
-      return steps.length <= 1 ? current : { ...current, [key]: steps.filter((_step, index) => index !== stepIndex) };
+      return steps.length <= 1
+        ? current
+        : { ...current, [key]: steps.filter((_step, index) => index !== stepIndex) };
     });
   }
 
@@ -100,10 +130,54 @@ export function useCaseDesignController(defaultCounts: CaseCountDefaults = defau
     }
   }
 
+  async function savePreviewCase(testCase: CaseDesignPreviewCase) {
+    const key = `${testCase.categoryId}:${testCase.caseNumber}`;
+    if (!projectId || savingCaseKey || savedCases[key]) return;
+    setSavingCaseKey(key);
+    setSaveCaseError("");
+    try {
+      const firstAction = testCase.steps[0]?.action.trim() || "Caso diseñado";
+      const saved = await createTestCase({
+        projectId,
+        title: `${testCase.categoryLabel} · ${firstAction}`.slice(0, 200),
+        suite: testCase.categoryLabel.slice(0, 100),
+        preconditions: text,
+        steps: testCase.steps.map(({ action, expected }) => ({ action, expectedResult: expected })),
+      });
+      setSavedCases((current) => ({ ...current, [key]: saved }));
+    } catch (cause) {
+      setSaveCaseError(cause instanceof Error ? cause.message : "No se pudo guardar el caso.");
+    } finally {
+      setSavingCaseKey("");
+    }
+  }
+
   return {
-    text, selected, counts, defaultCounts, preview, exporting, exportError, selectedCategories, previewCases,
-    countsValid, total, maxCaseCount, updateDescription, toggleCategory, updateCount, submit,
-    updateExampleStep, addExampleStep, removeExampleStep, exportPreview,
+    text,
+    selected,
+    counts,
+    defaultCounts,
+    preview,
+    exporting,
+    exportError,
+    savingCaseKey,
+    savedCases,
+    saveCaseError,
+    selectedCategories,
+    previewCases,
+    countsValid,
+    total,
+    maxCaseCount,
+    updateDescription,
+    toggleCategory,
+    updateCount,
+    submit,
+    updateExampleStep,
+    addExampleStep,
+    removeExampleStep,
+    exportPreview,
+    savePreviewCase,
+    projectId,
   };
 }
 

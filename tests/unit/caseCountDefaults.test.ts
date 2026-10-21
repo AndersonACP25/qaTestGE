@@ -1,12 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { categories } from "../../src/models/caseDesign.model";
-import { defaultCaseCountDefaults, loadCaseCountDefaults, saveCaseCountDefaults } from "../../src/models/caseCountDefaults";
+import {
+  defaultCaseCountDefaults,
+  loadCaseCountDefaults,
+  saveCaseCountDefaults,
+} from "../../src/models/caseCountDefaults";
 
 function createStorage(initial: Record<string, string> = {}) {
   const values = new Map(Object.entries(initial));
   return {
     getItem: (key: string) => values.get(key) ?? null,
-    setItem: (key: string, value: string) => { values.set(key, value); },
+    setItem: (key: string, value: string) => {
+      values.set(key, value);
+    },
   };
 }
 
@@ -32,7 +38,9 @@ describe("case count default preferences", () => {
 
   it("rejects invalid default quantities instead of persisting them", () => {
     const storage = createStorage();
-    expect(() => saveCaseCountDefaults("user-3", { ...defaultCaseCountDefaults, api: 4 }, storage)).toThrow(RangeError);
+    expect(() =>
+      saveCaseCountDefaults("user-3", { ...defaultCaseCountDefaults, api: 4 }, storage),
+    ).toThrow(RangeError);
     expect(loadCaseCountDefaults("user-3", storage)).toEqual(defaultCaseCountDefaults);
   });
 });

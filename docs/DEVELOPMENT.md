@@ -19,31 +19,33 @@ No sobrescribir un `.env` existente. Los scripts SQL se importan manualmente una
 
 ## Scripts
 
-| Comando | Uso |
-|---|---|
-| `pnpm dev` / `pnpm dev:all` | Frontend y backend en paralelo |
-| `pnpm dev:frontend` | Solo Vite |
-| `pnpm dev:backend` / `pnpm dev:api` | API con tsx watch y PostgreSQL |
-| `pnpm db:migrate` | Aplica/verifica las migraciones aditivas 004 (cuentas) y 005 (plantillas), repetible |
-| `pnpm db:check` | Conexión y tablas del esquema qa, solo lectura |
-| `pnpm build` | Tipos y compilación del frontend y backend |
-| `pnpm build:frontend` / `pnpm build:backend` | Compilación por separado |
-| `pnpm preview` | Vista previa local de dist/, normalmente en 4173 |
-| `pnpm typecheck` | Tipos del frontend y pruebas unitarias incluidas |
-| `pnpm test` / `pnpm test:watch` | Pruebas deterministas sin PostgreSQL |
-| `pnpm --dir backend test:db` | Integración opcional con TEST_DATABASE_URL explícita |
+| Comando                                      | Uso                                                         |
+| -------------------------------------------- | ----------------------------------------------------------- |
+| `pnpm dev` / `pnpm dev:all`                  | Frontend y backend en paralelo                              |
+| `pnpm dev:frontend`                          | Solo Vite                                                   |
+| `pnpm dev:backend` / `pnpm dev:api`          | API con tsx watch y PostgreSQL                              |
+| `pnpm db:migrate`                            | Aplica/verifica las migraciones aditivas 004–007, repetible |
+| `pnpm db:check`                              | Conexión y tablas del esquema qa, solo lectura              |
+| `pnpm build`                                 | Tipos y compilación del frontend y backend                  |
+| `pnpm build:frontend` / `pnpm build:backend` | Compilación por separado                                    |
+| `pnpm preview`                               | Vista previa local de dist/, normalmente en 4173            |
+| `pnpm typecheck`                             | Tipos del frontend y pruebas unitarias incluidas            |
+| `pnpm test` / `pnpm test:watch`              | Pruebas deterministas sin PostgreSQL                        |
+| `pnpm lint`                                  | ESLint sobre el proyecto                                    |
+| `pnpm format` / `pnpm format:check`          | Aplicar o verificar el formato Prettier                     |
+| `pnpm --dir backend test:db`                 | Integración opcional con TEST_DATABASE_URL explícita        |
 
 Después del build, `pnpm --dir backend start` ejecuta el servidor compilado, con la misma carga de entorno. Vite preview es una herramienta local, no un despliegue productivo.
 
 ## Configuración del servidor
 
-| Variable | Uso |
-|---|---|
-| `DATABASE_URL` | Obligatoria, URL PostgreSQL para qa_test_ge; solo en el servidor |
-| `PORT` | Puerto API, 3000 por defecto, entre 1 y 65535 |
-| `FRONTEND_ORIGIN` | Origen CORS, 5173 por defecto |
-| `CORS_ORIGIN` | Alias aceptado cuando FRONTEND_ORIGIN no está definido |
-| `TEST_DATABASE_URL` | Solo verificación opcional sobre una base de pruebas |
+| Variable            | Uso                                                              |
+| ------------------- | ---------------------------------------------------------------- |
+| `DATABASE_URL`      | Obligatoria, URL PostgreSQL para qa_test_ge; solo en el servidor |
+| `PORT`              | Puerto API, 3000 por defecto, entre 1 y 65535                    |
+| `FRONTEND_ORIGIN`   | Origen CORS, 5173 por defecto                                    |
+| `CORS_ORIGIN`       | Alias aceptado cuando FRONTEND_ORIGIN no está definido           |
+| `TEST_DATABASE_URL` | Solo verificación opcional sobre una base de pruebas             |
 
 `backend/.env` se busca respecto al módulo, tanto en src/ como dist/. Después se lee `.env` en la raíz como alternativa. Las variables ya definidas en el proceso tienen prioridad; el archivo de la raíz solo completa valores faltantes. Los cambios de `.env` requieren reiniciar el proceso. `backend/.env.example` contiene valores ficticios; `.env` está ignorado por Git. No añadir prefijos VITE_ a secretos. JWT_SECRET no se utiliza: las sesiones son opacas, con estado revocable en PostgreSQL. NODE_ENV=production activa cookies Secure y requiere servir la aplicación mediante HTTPS. API_ORIGIN permite configurar el origen directo del backend para escrituras desde SwaggerUI (por defecto localhost con PORT).
 
@@ -61,8 +63,8 @@ pnpm test
 
 Las pruebas de endpoints usan un repositorio simulado inyectado, sin cargar `.env` ni necesitar PostgreSQL. Las de repositorio comprueban parámetros y rollback mediante dobles. [TESTING.md](./TESTING.md) explica la verificación opcional con PostgreSQL real.
 
-Los datos de la API ya no se pierden al reiniciar: viven en qa_test_ge. La aplicación no crea ni modifica el esquema al arrancar y db:migrate aplica explícitamente las migraciones 004 y 005; no hay migración automática al arrancar ni gestor de respaldos. La migración 005 agrega plantillas privadas por usuario. La baja de cuenta desde Configuración revoca sesiones, anonimiza datos de identidad y elimina plantillas, pero conserva membresías, proyectos y registros QA. Un puerto ocupado requiere detener su proceso o cambiar PORT; un error de conexión requiere revisar servicio, permisos, credenciales y tablas importadas. `pnpm db:check` hace esa comprobación sin escrituras.
+Los datos de la API ya no se pierden al reiniciar: viven en qa_test_ge. La aplicación no crea ni modifica el esquema al arrancar y `db:migrate` aplica explícitamente las migraciones 004–007; no hay migración automática al arrancar ni gestor de respaldos. La migración 005 agrega plantillas privadas por usuario; la 007 agrega imágenes y enlaces de casos de prueba. La baja de cuenta desde Configuración revoca sesiones, anonimiza datos de identidad y elimina plantillas, pero conserva membresías, proyectos y registros QA. Un puerto ocupado requiere detener su proceso o cambiar PORT; un error de conexión requiere revisar servicio, permisos, credenciales y tablas importadas. `pnpm db:check` hace esa comprobación sin escrituras.
 
 ## CI y entrega
 
-`.github/workflows/ci.yml` ejecuta `pnpm install --frozen-lockfile`, `pnpm typecheck`, `pnpm test` y `pnpm build` en pull requests y pushes a `main`. En pushes a `main`, guarda `dist/` y `backend/dist/` como artefacto de Actions durante 14 días. No configura un despliegue a infraestructura: falta definir proveedor y destino.
+`.github/workflows/ci.yml` ejecuta `pnpm install --frozen-lockfile`, `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm test` y `pnpm build` en pull requests y pushes a `main`. En pushes a `main`, guarda `dist/` y `backend/dist/` como artefacto de Actions durante 14 días. No configura un despliegue a infraestructura: falta definir proveedor y destino.

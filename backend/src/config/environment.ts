@@ -12,10 +12,16 @@ export function loadEnvironment(): void {
 
 export function databaseUrl(env: NodeJS.ProcessEnv = process.env): string {
   const value = env.DATABASE_URL;
-  if (!value) throw new Error("Configura DATABASE_URL en backend/.env o en el entorno del servidor.");
+  if (!value)
+    throw new Error("Configura DATABASE_URL en backend/.env o en el entorno del servidor.");
   try {
     const url = new URL(value);
-    if (!["postgres:", "postgresql:"].includes(url.protocol) || !url.hostname || url.pathname !== "/qa_test_ge") throw new Error();
+    if (
+      !["postgres:", "postgresql:"].includes(url.protocol) ||
+      !url.hostname ||
+      url.pathname !== "/qa_test_ge"
+    )
+      throw new Error();
   } catch {
     throw new Error("DATABASE_URL debe ser una URL PostgreSQL válida para qa_test_ge.");
   }

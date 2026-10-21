@@ -58,7 +58,6 @@ Todos los cambios importantes de qaTestGE se documentan aquí. El formato sigue 
 
 ### Added
 
-
 - Interfaz frontend de demostración en React y Vite para el workspace de qaTestGE.
 - Vistas de resumen, bugs, casos de prueba, test runs y evidencias con datos de ejemplo.
 - Navegación responsive, búsqueda, filtros y formularios de demostración locales.

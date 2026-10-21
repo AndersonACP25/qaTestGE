@@ -9,13 +9,26 @@ export async function listTestRuns(request: Request, response: Response) {
 export async function createTestRun(request: Request, response: Response) {
   const body: unknown = request.body;
   if (!valid(body)) {
-    response.status(400).json({ error: { code: "INVALID_TEST_RUN", message: "projectId, título, responsable y referencias válidas son obligatorios; usa caseIds en lugar de caseCount." } });
+    response.status(400).json({
+      error: {
+        code: "INVALID_TEST_RUN",
+        message:
+          "projectId, título, responsable y referencias válidas son obligatorios; usa caseIds en lugar de caseCount.",
+      },
+    });
     return;
   }
   response.status(201).json({ data: await repository(request).createRun(body) });
 }
 function valid(body: unknown): body is CreateTestRunInput {
-  if (!isRecord(body) || !isId(body.projectId) || !text(body.title, 200) || !text(body.owner, 100) || "caseCount" in body) return false;
+  if (
+    !isRecord(body) ||
+    !isId(body.projectId) ||
+    !text(body.title, 200) ||
+    !text(body.owner, 100) ||
+    "caseCount" in body
+  )
+    return false;
   if (body.caseIds === undefined) return true;
   if (!Array.isArray(body.caseIds) || body.caseIds.length > 1000) return false;
   const ids = body.caseIds.map((id) => parseReference(id, "TC"));

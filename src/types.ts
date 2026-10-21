@@ -1,11 +1,5 @@
 export type NavigationPage =
-  | "overview"
-  | "bugs"
-  | "cases"
-  | "case-builder"
-  | "runs"
-  | "evidence"
-  | "settings";
+  "overview" | "bugs" | "cases" | "case-builder" | "runs" | "evidence" | "settings";
 
 export type PriorityLevel = "Crítica" | "Alta" | "Media" | "Baja";
 export type BugStatus = "Abierto" | "En progreso" | "En revisión" | "Resuelto";
@@ -38,6 +32,17 @@ export interface TestCase {
   preconditions?: string;
   steps?: { action: string; expectedResult: string }[];
   createdAt?: string;
+}
+
+export interface TestCaseAttachment {
+  id: string;
+  projectId: string;
+  testCaseId: string;
+  kind: "image" | "link";
+  name: string;
+  url: string | null;
+  mediaType: string | null;
+  createdAt: string;
 }
 
 export interface TestRun {

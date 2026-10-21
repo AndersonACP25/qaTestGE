@@ -42,12 +42,12 @@ export function loadCaseCountDefaults(
   }
 
   const values = stored as Record<string, unknown>;
-  return Object.fromEntries(categories.map(({ id }) => [
-    id,
-    typeof values[id] === "number" && validCaseCount(values[id])
-      ? values[id]
-      : 1,
-  ]));
+  return Object.fromEntries(
+    categories.map(({ id }) => [
+      id,
+      typeof values[id] === "number" && validCaseCount(values[id]) ? values[id] : 1,
+    ]),
+  );
 }
 
 export function saveCaseCountDefaults(
@@ -55,11 +55,13 @@ export function saveCaseCountDefaults(
   defaults: CaseCountDefaults,
   storage?: Pick<Storage, "setItem">,
 ) {
-  const normalized = Object.fromEntries(categories.map(({ id }) => {
-    const value = defaults[id];
-    if (!validCaseCount(value)) throw new RangeError(`Cantidad inicial inválida para ${id}.`);
-    return [id, value];
-  }));
+  const normalized = Object.fromEntries(
+    categories.map(({ id }) => {
+      const value = defaults[id];
+      if (!validCaseCount(value)) throw new RangeError(`Cantidad inicial inválida para ${id}.`);
+      return [id, value];
+    }),
+  );
   const target = storage ?? (typeof window === "undefined" ? undefined : window.localStorage);
   if (!target) throw new Error("El almacenamiento local no está disponible en este entorno.");
   target.setItem(preferenceKey(userId), JSON.stringify(normalized));

@@ -7,38 +7,43 @@ SwaggerUI: `http://localhost:3000/api/docs/`. OpenAPI 3.0.3: `GET /api/openapi.j
 - Base local: `http://localhost:3000/api`. JSON de hasta `1mb`.
 - PostgreSQL `qa_test_ge`, esquema `qa`; configuración en `backend/.env` mediante `DATABASE_URL`.
 - `GET /health` comprueba conexión: 200 con `{"data":{"status":"ok","database":"postgresql"}}` o 503 con `DATABASE_UNAVAILABLE`.
-- Hay autenticación y autorización por proyecto. No hay paginación ni endpoints para editar/eliminar el contenido de bugs y casos, excepto el cambio explícito de estado; el CRUD de plantillas personales sí permite editar y eliminar.
+- Hay autenticación y autorización por proyecto. No hay paginación. Los casos de prueba tienen CRUD, y las plantillas personales permiten editar y eliminar; bugs y ejecuciones no tienen operaciones de edición/eliminación.
 - CORS usa `FRONTEND_ORIGIN`, o su alias `CORS_ORIGIN`, por defecto `http://localhost:5173`.
 - Los IDs bigint de proyecto y organización se envían como **strings decimales**, sin conversión a Number. Máximo: `9223372036854775807`.
 - Los recursos conservan prefijos (`BUG-001`, `TC-001`, `RUN-001`, `EVD-001`); no se recortan IDs de más de tres dígitos. `RES-001` referencia un resultado de ejecución.
 
 ## Endpoints
 
-| Método | Ruta | Respuesta correcta |
-|---|---|---|
-| GET | `/health` | 200: disponibilidad de conexión |
-| GET | `/projects` | 200: proyectos con `id`, `organizationId`, `name`, `description` |
-| GET, POST | `/bugs` | 200: colección / 201: bug creado |
-| PATCH | `/bugs/{bugId}/status` | 200: bug con estado actualizado |
-| GET, POST | `/test-cases` | 200: colección / 201: caso y pasos creados |
-| PATCH | `/test-cases/{caseId}/status` | 200: caso con estado actualizado |
-| GET, POST | `/test-runs` | 200: colección / 201: ejecución con casos reales |
-| GET, POST | `/evidence` | 200: colección / 201: metadatos y vínculo opcional |
-| GET | `/docs/`, `/openapi.json` | Documentación interactiva / contrato |
+| Método        | Ruta                                                    | Respuesta correcta                                                 |
+| ------------- | ------------------------------------------------------- | ------------------------------------------------------------------ |
+| GET           | `/health`                                               | 200: disponibilidad de conexión                                    |
+| GET           | `/projects`                                             | 200: proyectos con `id`, `organizationId`, `name`, `description`   |
+| GET, POST     | `/bugs`                                                 | 200: colección / 201: bug creado                                   |
+| PATCH         | `/bugs/{bugId}/status`                                  | 200: bug con estado actualizado                                    |
+| GET, POST     | `/test-cases`                                           | 200: colección / 201: caso y pasos creados                         |
+| PATCH, DELETE | `/test-cases/{caseId}`                                  | Actualizar caso o eliminarlo si no tiene referencias a ejecuciones |
+| PATCH         | `/test-cases/{caseId}/status`                           | 200: caso con estado actualizado                                   |
+| GET, POST     | `/test-cases/{caseId}/attachments`                      | Listar adjuntos y agregar enlaces HTTP(S)                          |
+| POST          | `/test-cases/{caseId}/attachments/image`                | Guardar una imagen privada PNG/JPEG/GIF/WebP (hasta 2 MiB)         |
+| GET           | `/test-cases/{caseId}/attachments/{attachmentId}/image` | Consultar una imagen autenticada                                   |
+| DELETE        | `/test-cases/{caseId}/attachments/{attachmentId}`       | Eliminar un adjunto                                                |
+| GET, POST     | `/test-runs`                                            | 200: colección / 201: ejecución con casos reales                   |
+| GET, POST     | `/evidence`                                             | 200: colección / 201: metadatos y vínculo opcional                 |
+| GET           | `/docs/`, `/openapi.json`                               | Documentación interactiva / contrato                               |
 
 Las colecciones usan `{"data":[...]}`; las creaciones `{"data":{...}}`. Las listas de recursos admiten `?projectId=1`; omitir el filtro devuelve únicamente recursos de los proyectos autorizados para la cuenta. Orden por ID descendente, salvo proyectos (ascendente). Para seleccionar un proyecto existente, consultar primero `/projects`. No se crean proyectos u organizaciones automáticamente.
 
 ## Autenticación y autorización
 
-| Método | Ruta | Entrada / respuesta |
-|---|---|---|
-| POST | `/auth/register` | Nombre (hasta 100), correo (hasta 254), contraseña (12–128). 201 con usuario y csrfToken; crea workspace, proyecto y membresía owner en una transacción |
-| POST | `/auth/login` | Correo y contraseña. 200 con usuario y csrfToken; rota la sesión previa del navegador |
-| GET, PATCH, DELETE | `/auth/me` | Consultar sesión, actualizar perfil o desactivar/anonimizar cuenta |
-| PATCH | `/auth/password` | Verifica contraseña actual, cambia la nueva (12–128) y revoca las demás sesiones |
-| GET, POST | `/auth/bug-templates` | Listar y crear plantillas personales para bugs |
-| PATCH, DELETE | `/auth/bug-templates/{templateId}` | Editar o eliminar una plantilla propia |
-| POST | `/auth/logout` | JSON vacío y X-CSRF-Token; 204 revoca sesión y borra cookie |
+| Método             | Ruta                               | Entrada / respuesta                                                                                                                                     |
+| ------------------ | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST               | `/auth/register`                   | Nombre (hasta 100), correo (hasta 254), contraseña (12–128). 201 con usuario y csrfToken; crea workspace, proyecto y membresía owner en una transacción |
+| POST               | `/auth/login`                      | Correo y contraseña. 200 con usuario y csrfToken; rota la sesión previa del navegador                                                                   |
+| GET, PATCH, DELETE | `/auth/me`                         | Consultar sesión, actualizar perfil o desactivar/anonimizar cuenta                                                                                      |
+| PATCH              | `/auth/password`                   | Verifica contraseña actual, cambia la nueva (12–128) y revoca las demás sesiones                                                                        |
+| GET, POST          | `/auth/bug-templates`              | Listar y crear plantillas personales para bugs                                                                                                          |
+| PATCH, DELETE      | `/auth/bug-templates/{templateId}` | Editar o eliminar una plantilla propia                                                                                                                  |
+| POST               | `/auth/logout`                     | JSON vacío y X-CSRF-Token; 204 revoca sesión y borra cookie                                                                                             |
 
 Registro e inicio establecen qa_session: cookie HttpOnly, SameSite=Lax, Path=/api, Secure en producción y expiración absoluta de siete días. Cada cuenta crea su workspace y proyecto propios; no hay gestión de miembros o invitaciones en la interfaz. La base solo conserva el hash SHA-256 del token de sesión. La respuesta pública contiene `{"data":{"user":{"id":"1","name":"QA","email":"qa@example.test"},"csrfToken":"..."}}`; nunca contraseñas, hashes ni el token de sesión.
 
@@ -63,7 +68,13 @@ Todos los POST requieren `projectId` y validan que el proyecto exista. Los texto
 ### Bugs
 
 ```json
-{"projectId":"1","title":"El checkout falla","priority":"Alta","description":"Pasos para reproducir","assignee":null}
+{
+  "projectId": "1",
+  "title": "El checkout falla",
+  "priority": "Alta",
+  "description": "Pasos para reproducir",
+  "assignee": null
+}
 ```
 
 Título: hasta 200 caracteres; prioridad: `Crítica`, `Alta`, `Media` o `Baja`. Descripción opcional hasta 5000, por defecto vacía. Responsable opcional, null o texto de hasta 100. Estado inicial: `Abierto`; los estados permitidos son `Abierto`, `En progreso`, `En revisión` y `Resuelto`. La respuesta añade `project` como nombre informativo; ya no se acepta ese nombre en lugar de `projectId`.
@@ -73,17 +84,29 @@ Para cambiar solo el estado se usa `PATCH /bugs/{bugId}/status` con `{"projectId
 ### Casos y pasos
 
 ```json
-{"projectId":"1","title":"Validar registro","preconditions":"Abrir el formulario","steps":[{"action":"Enviar campos vacíos","expectedResult":"Se muestran validaciones"},{"action":"Completar los datos requeridos","expectedResult":"Se permite continuar"}]}
+{
+  "projectId": "1",
+  "title": "Validar registro",
+  "preconditions": "Abrir el formulario",
+  "steps": [
+    { "action": "Enviar campos vacíos", "expectedResult": "Se muestran validaciones" },
+    { "action": "Completar los datos requeridos", "expectedResult": "Se permite continuar" }
+  ]
+}
 ```
 
 Título obligatorio hasta 200; `suite` opcional hasta 100 (si se omite o queda vacío se guarda como nula). Precondiciones opcionales hasta 10000. Hasta 100 pasos opcionales, cada uno con acción y resultado esperado no vacíos de hasta 10000 caracteres. El orden del array determina la posición. Caso y pasos se crean en una transacción. Estado inicial: `Pendiente`; se puede cambiar a `Aprobado` o `Fallido` desde la interfaz o mediante `PATCH /test-cases/{caseId}/status` con `{"projectId":"1","status":"Aprobado"}`. El estado solo se modifica cuando el caso pertenece al proyecto autorizado.
 
 La migración `006_optional_test_suite.sql`, aplicada por `pnpm db:migrate`, ajusta el esquema existente para permitir Suite nula sin alterar casos actuales.
 
+Los casos se pueden editar mediante `PATCH /test-cases/{caseId}` enviando `projectId`, `title` y, opcionalmente, Suite, precondiciones y pasos; los pasos enviados reemplazan el conjunto anterior en una transacción. `DELETE /test-cases/{caseId}?projectId=1` borra un caso y sus adjuntos solo si no tiene referencias a ejecuciones u otros recursos. Una referencia existente devuelve `409 TEST_CASE_IN_USE`. Los DELETE requieren cookie, CSRF y JSON `{}` para cumplir la validación de origen.
+
+Los adjuntos son opcionales y se administran por proyecto. El POST de enlace acepta `{"projectId":"1","name":"Especificación","url":"https://example.com/spec"}`; solo permite URL HTTP(S) de hasta 2048 caracteres y sin credenciales. La carga de imagen envía bytes sin multipart, con el MIME como `Content-Type` y el nombre en query (`?projectId=1&name=captura.png`). Se aceptan PNG, JPEG, GIF o WebP, con firma de contenido validada y máximo de 2 MiB por imagen. La respuesta de listado contiene metadatos, nunca los bytes; `GET .../{attachmentId}/image` los entrega solo con sesión y acceso al proyecto. El cliente permite hasta cinco imágenes por operación. La migración `007_test_case_attachments.sql` guarda los bytes en PostgreSQL; eliminar el caso elimina sus adjuntos en la misma transacción.
+
 ### Ejecuciones
 
 ```json
-{"projectId":"1","title":"Regresión","owner":"QA","caseIds":["TC-001"]}
+{ "projectId": "1", "title": "Regresión", "owner": "QA", "caseIds": ["TC-001"] }
 ```
 
 Título y responsable obligatorios, máximos 200 y 100. `caseIds` es opcional (por defecto vacío), máximo 1000, sin duplicados después de normalizar el ID. Cada caso debe existir en el mismo proyecto. La ejecución y sus resultados iniciales (`skipped`) se crean en una transacción, conservando un snapshot de los pasos. Una referencia inválida revierte toda la operación.
@@ -93,7 +116,13 @@ Título y responsable obligatorios, máximos 200 y 100. `caseIds` es opcional (p
 ### Evidencias
 
 ```json
-{"projectId":"1","name":"checkout.png","type":"Imagen","sizeBytes":1024,"related":"BUG-001"}
+{
+  "projectId": "1",
+  "name": "checkout.png",
+  "type": "Imagen",
+  "sizeBytes": 1024,
+  "related": "BUG-001"
+}
 ```
 
 Nombre obligatorio de hasta 255; tipo `Imagen`, `Video` o `Archivo`; tamaño entero seguro no negativo. `related` es opcional, null o un ID con prefijo BUG, TC, RUN o RES. La referencia debe existir en el mismo proyecto. Metadatos y vínculo se crean en una transacción. Solo se almacenan metadatos; no se carga ningún archivo.
@@ -104,16 +133,16 @@ En la **respuesta**, `related` es ahora un array de referencias (`[]` si no hay 
 
 Formato: `{"error":{"code":"INVALID_REFERENCE","message":"..."}}`.
 
-| HTTP | Códigos |
-|---|---|
-| 400 | `INVALID_BUG`, `INVALID_TEST_CASE`, `INVALID_TEST_RUN`, `INVALID_EVIDENCE`, `INVALID_PROJECT_ID`, `INVALID_REFERENCE`, `INVALID_JSON`, `INVALID_REGISTRATION`, `INVALID_LOGIN`, `INVALID_PROFILE`, `INVALID_PASSWORD`, `INVALID_TEMPLATE`, `INVALID_ACCOUNT_DELETION` |
-| 401 | `UNAUTHENTICATED`, `INVALID_CREDENTIALS`, `INVALID_PASSWORD` (contraseña actual incorrecta) |
-| 403 | `INVALID_CSRF`, `INVALID_ORIGIN` |
-| 404 | `NOT_FOUND`, `PROJECT_NOT_FOUND`, `TEMPLATE_NOT_FOUND` |
-| 429 | `TOO_MANY_ATTEMPTS`, `AUTH_BUSY` |
-| 409 | `CONFLICT` (vínculo duplicado), `ACCOUNT_EXISTS` (correo registrado) |
-| 413 | `PAYLOAD_TOO_LARGE` |
-| 503 | `DATABASE_UNAVAILABLE` |
-| 500 | `INTERNAL_ERROR` |
+| HTTP | Códigos                                                                                                                                                                                                                                                                                                                                                                      |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 400  | `INVALID_BUG`, `INVALID_TEST_CASE`, `INVALID_TEST_CASE_STATUS`, `INVALID_CASE_LINK`, `INVALID_CASE_IMAGE`, `INVALID_ATTACHMENT_REFERENCE`, `INVALID_TEST_RUN`, `INVALID_EVIDENCE`, `INVALID_PROJECT_ID`, `INVALID_REFERENCE`, `INVALID_JSON`, `INVALID_REGISTRATION`, `INVALID_LOGIN`, `INVALID_PROFILE`, `INVALID_PASSWORD`, `INVALID_TEMPLATE`, `INVALID_ACCOUNT_DELETION` |
+| 401  | `UNAUTHENTICATED`, `INVALID_CREDENTIALS`, `INVALID_PASSWORD` (contraseña actual incorrecta)                                                                                                                                                                                                                                                                                  |
+| 403  | `INVALID_CSRF`, `INVALID_ORIGIN`                                                                                                                                                                                                                                                                                                                                             |
+| 404  | `NOT_FOUND`, `PROJECT_NOT_FOUND`, `TEMPLATE_NOT_FOUND`, `TEST_CASE_NOT_FOUND`, `CASE_ATTACHMENT_NOT_FOUND`, `CASE_IMAGE_NOT_FOUND`                                                                                                                                                                                                                                           |
+| 429  | `TOO_MANY_ATTEMPTS`, `AUTH_BUSY`                                                                                                                                                                                                                                                                                                                                             |
+| 409  | `CONFLICT` (vínculo duplicado), `ACCOUNT_EXISTS` (correo registrado), `TEST_CASE_IN_USE` (caso vinculado a una ejecución)                                                                                                                                                                                                                                                    |
+| 413  | `PAYLOAD_TOO_LARGE` o imagen superior a 2 MiB                                                                                                                                                                                                                                                                                                                                |
+| 503  | `DATABASE_UNAVAILABLE`                                                                                                                                                                                                                                                                                                                                                       |
+| 500  | `INTERNAL_ERROR`                                                                                                                                                                                                                                                                                                                                                             |
 
 La API no devuelve SQL, parámetros, credenciales ni errores internos del driver. El arranque falla si no existe una conexión válida y el esquema importado; no hay fallback en memoria. `pnpm db:check` comprueba la configuración sin modificar datos.
