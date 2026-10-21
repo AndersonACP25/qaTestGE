@@ -2,9 +2,7 @@ import type { Bug, TestCase } from "../types";
 
 export const recordExportFormats = ["pdf", "xlsx", "md"] as const;
 export type ExportFormat = (typeof recordExportFormats)[number];
-export type ExportRecord =
-  | { kind: "bug"; record: Bug }
-  | { kind: "case"; record: TestCase };
+export type ExportRecord = { kind: "bug"; record: Bug } | { kind: "case"; record: TestCase };
 
 export async function exportRecord(format: ExportFormat, target: ExportRecord) {
   const { kind, record } = target;
@@ -17,16 +15,31 @@ export async function exportRecord(format: ExportFormat, target: ExportRecord) {
     const { default: ExcelJS } = await import("exceljs");
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet(kind === "bug" ? "Bug" : "Caso de prueba");
-    sheet.columns = [{ header: "Campo", key: "field", width: 28 }, { header: "Valor", key: "value", width: 90 }];
-    sheet.addRows(recordRows(target).map(([field, value]) => ({ field, value: safeSpreadsheetText(value) })));
+    sheet.columns = [
+      { header: "Campo", key: "field", width: 28 },
+      { header: "Valor", key: "value", width: 90 },
+    ];
+    sheet.addRows(
+      recordRows(target).map(([field, value]) => ({ field, value: safeSpreadsheetText(value) })),
+    );
     sheet.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
     sheet.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF6553CF" } };
-    sheet.eachRow((row) => { row.alignment = { vertical: "top", wrapText: true }; });
+    sheet.eachRow((row) => {
+      row.alignment = { vertical: "top", wrapText: true };
+    });
     const bytes = await workbook.xlsx.writeBuffer();
-    download(new Blob([new Uint8Array(bytes)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), filename);
+    download(
+      new Blob([new Uint8Array(bytes)], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      }),
+      filename,
+    );
     return;
   }
-  const [{ jsPDF }, { autoTable }] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
+  const [{ jsPDF }, { autoTable }] = await Promise.all([
+    import("jspdf"),
+    import("jspdf-autotable"),
+  ]);
   const doc = new jsPDF();
   doc.setFontSize(16);
   doc.text(kind === "bug" ? `Bug ${record.id}` : `Caso de prueba ${record.id}`, 14, 18);
@@ -46,12 +59,25 @@ export function toMarkdown(target: ExportRecord) {
   const { kind, record } = target;
   const rows = recordRows(target);
   if (kind === "bug") {
-    return `# ${record.id} · ${record.title}\n\n${rows.filter(([field]) => field !== "Título").map(([field, value]) => `- **${field}:** ${value || "—"}`).join("\n")}\n\n## Descripción\n\n${record.description || "—"}\n`;
+    return `# ${record.id} · ${record.title}\n\n${rows
+      .filter(([field]) => field !== "Título")
+      .map(([field, value]) => `- **${field}:** ${value || "—"}`)
+      .join("\n")}\n\n## Descripción\n\n${record.description || "—"}\n`;
   }
   const steps = record.steps ?? [];
-  return `# ${record.id} · ${record.title}\n\n${rows.filter(([field]) => field !== "Título" && field !== "Pasos").map(([field, value]) => `- **${field}:** ${value || "—"}`).join("\n")}\n\n## Precondiciones\n\n${record.preconditions || "—"}\n\n## Pasos\n\n${steps.length
-    ? steps.map((step, index) => `${index + 1}. **Acción:** ${step.action}\n   **Resultado esperado:** ${step.expectedResult}`).join("\n")
-    : "Sin pasos definidos."}\n`;
+  return `# ${record.id} · ${record.title}\n\n${rows
+    .filter(([field]) => field !== "Título" && field !== "Pasos")
+    .map(([field, value]) => `- **${field}:** ${value || "—"}`)
+    .join("\n")}\n\n## Precondiciones\n\n${record.preconditions || "—"}\n\n## Pasos\n\n${
+    steps.length
+      ? steps
+          .map(
+            (step, index) =>
+              `${index + 1}. **Acción:** ${step.action}\n   **Resultado esperado:** ${step.expectedResult}`,
+          )
+          .join("\n")
+      : "Sin pasos definidos."
+  }\n`;
 }
 
 function recordRows(target: ExportRecord): [string, string][] {
@@ -75,7 +101,15 @@ function recordRows(target: ExportRecord): [string, string][] {
     ["Suite", record.suite ?? ""],
     ["Estado", record.status],
     ["Precondiciones", record.preconditions ?? ""],
-    ["Pasos", (record.steps ?? []).map((step, index) => `${index + 1}. Acción: ${step.action}\n   Resultado esperado: ${step.expectedResult}`).join("\n")],
+    [
+      "Pasos",
+      (record.steps ?? [])
+        .map(
+          (step, index) =>
+            `${index + 1}. Acción: ${step.action}\n   Resultado esperado: ${step.expectedResult}`,
+        )
+        .join("\n"),
+    ],
     ["Creado", record.createdAt ?? record.updated],
   ];
 }
@@ -85,7 +119,12 @@ function safeSpreadsheetText(value: string) {
 }
 
 function safeFilename(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-|-$/g, "") || "qatestge-registro";
+  return (
+    value
+      .toLowerCase()
+      .replace(/[^a-z0-9-]+/g, "-")
+      .replace(/^-|-$/g, "") || "qatestge-registro"
+  );
 }
 
 function download(blob: Blob, filename: string) {

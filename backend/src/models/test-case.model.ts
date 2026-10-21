@@ -12,5 +12,34 @@ export interface TestCase {
   steps: TestStep[];
 }
 
-export interface TestStep { action: string; expectedResult: string }
-export type CreateTestCaseInput = Pick<TestCase, "title" | "projectId"> & { suite?: string; preconditions?: string; steps?: TestStep[] };
+export interface TestStep {
+  action: string;
+  expectedResult: string;
+}
+export type CreateTestCaseInput = Pick<TestCase, "title" | "projectId"> & {
+  suite?: string;
+  preconditions?: string;
+  steps?: TestStep[];
+};
+export type UpdateTestCaseInput = Omit<CreateTestCaseInput, "projectId">;
+
+export interface TestCaseAttachment {
+  id: string;
+  projectId: string;
+  testCaseId: string;
+  kind: "image" | "link";
+  name: string;
+  url: string | null;
+  mediaType: string | null;
+  createdAt: string;
+}
+
+export interface CreateTestCaseAttachmentInput {
+  projectId: string;
+  testCaseId: string;
+  name: string;
+  kind: "image" | "link";
+  url?: string;
+  mediaType?: string;
+  imageData?: Buffer;
+}

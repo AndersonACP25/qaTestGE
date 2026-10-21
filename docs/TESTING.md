@@ -5,14 +5,16 @@
 Desde la raíz, después de instalar las dependencias del workspace:
 
 ```bash
+pnpm format:check
+pnpm lint
 pnpm typecheck
 pnpm build
 pnpm test
 ```
 
-`typecheck` valida el frontend y las pruebas incluidas en su tsconfig. `build` verifica tipos y compila frontend y backend. `test` ejecuta Vitest según `vite.config.ts`, incluyendo `tests/**/*.test.ts` y `backend/tests/**/*.test.ts`. `pnpm test:watch` inicia observación.
+`format:check` valida Prettier sin modificar archivos; `lint` ejecuta ESLint. `typecheck` valida el frontend y las pruebas incluidas en su tsconfig. `build` verifica tipos y compila frontend y backend. `test` ejecuta Vitest según `vite.config.ts`, incluyendo `tests/**/*.test.ts` y `backend/tests/**/*.test.ts`. `pnpm test:watch` inicia observación.
 
-GitHub Actions (`.github/workflows/ci.yml`) ejecuta los mismos tres checks además de instalar dependencias con lockfile congelado. En push a `main` publica como artefacto temporal los directorios `dist/` y `backend/dist/`.
+GitHub Actions (`.github/workflows/ci.yml`) ejecuta estos checks además de instalar dependencias con lockfile congelado. En push a `main` publica como artefacto temporal los directorios `dist/` y `backend/dist/`.
 
 Para una suite concreta:
 
@@ -36,6 +38,7 @@ pnpm exec vitest run backend/tests/api.test.ts
 - `tests/unit/authProvider.test.ts`: ownership de plantillas y anonimización/revocación transaccional mediante dobles de PostgreSQL.
 - `tests/unit/openapi.test.ts`: contrato OpenAPI.
 - `backend/tests/api.test.ts`: endpoints Express con Supertest, validaciones y errores; se inyecta un repositorio simulado y no se conecta a PostgreSQL.
+- `backend/tests/api.test.ts`: también cubre CRUD/adjuntos de casos, autorización, enlaces HTTP(S), firma/MIME de imágenes y headers de consulta privada.
 
 No se configura un umbral ni un informe de cobertura automatizado. Las pruebas actuales no certifican accesibilidad, integración con una base de datos ni comportamiento completo de navegador.
 
@@ -51,14 +54,15 @@ Pruebas unitarias deterministas en `tests/unit/`, con Vitest y sin backend, red 
 4. Confirmar que no aparecen el panel de almacenamiento ni la etiqueta «Demo local» en la barra superior. El diseñador de test cases debe conservar su aviso de maqueta sin IA.
 5. Revisar búsqueda, filtros, estados vacíos y formularios locales.
 6. En el diseñador, probar texto vacío, categorías y cantidades; comprobar Acción / Resultado esperado, limpieza de vista previa y exportaciones Excel/PDF.
-7. En Configuración, crear/editar/eliminar una plantilla, cargarla en «Nuevo bug» y ajustar sus campos antes de guardar.
-8. Verificar que la sección de IA se presenta como maqueta deshabilitada y no pide ni envía credenciales.
-9. Si se prueba la baja de cuenta, usar solo una cuenta y base desechables: confirma la revocación de sesiones y la conservación de recursos QA relacionados.
-10. Abrir SwaggerUI. Recordar que las escrituras de Try it out sí modifican datos persistentes en PostgreSQL.
+7. En Diseñar test cases, guardar un ejemplo de forma explícita y verificar que aparece en Casos de prueba; editarlo, adjuntar enlace e imagen mediante selector y arrastre, abrir el detalle, y probar la eliminación (debe impedirse si se usa en una ejecución).
+8. En Configuración, crear/editar/eliminar una plantilla, cargarla en «Nuevo bug» y ajustar sus campos antes de guardar.
+9. Verificar que la sección de IA se presenta como maqueta deshabilitada y no pide ni envía credenciales.
+10. Si se prueba la baja de cuenta, usar solo una cuenta y base desechables: confirma la revocación de sesiones y la conservación de recursos QA relacionados.
+11. Abrir SwaggerUI. Recordar que las escrituras de Try it out sí modifican datos persistentes en PostgreSQL.
 
 ## SQL y PostgreSQL
 
-Las pruebas Vitest no necesitan PostgreSQL. Para verificar el esquema manualmente en una base local de prueba, seguir [`backend/sql/README.md`](../backend/sql/README.md) e importar `003_verify.sql` después del esquema. Para probar la API, aplicar 004 y 005 (o `pnpm db:migrate`) antes de `test:db`. Comprueba referencias entre proyectos, prioridades, posiciones únicas y destinos de evidencias; revierte sus filas al finalizar. Se requiere un servidor PostgreSQL; no se afirma persistencia de la aplicación por importar esos archivos.
+Las pruebas Vitest no necesitan PostgreSQL. Para verificar el esquema manualmente en una base local de prueba, seguir [`backend/sql/README.md`](../backend/sql/README.md) e importar `003_verify.sql` después del esquema. Para probar la API, aplicar las migraciones 004–007 (o `pnpm db:migrate`) antes de `test:db`. Comprueba referencias entre proyectos, prioridades, posiciones únicas y destinos de evidencias; revierte sus filas al finalizar. Se requiere un servidor PostgreSQL; no se afirma persistencia de la aplicación por importar esos archivos.
 
 Los scripts SQL iniciales se verificaron con PostgreSQL 18 en una instancia temporal aislada: creación de la base, esquema, seed y comprobaciones de integridad. La API ya usa un repositorio PostgreSQL; el esquema sigue importándose manualmente.
 

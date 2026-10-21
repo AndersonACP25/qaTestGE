@@ -1,20 +1,46 @@
-import type { Bug, CreateBugInput } from "../models/bug.model.js";
-import type { TestCase, CreateTestCaseInput } from "../models/test-case.model.js";
+import type { Bug, BugStatus, CreateBugInput } from "../models/bug.model.js";
+import type {
+  TestCase,
+  TestCaseAttachment,
+  TestCaseStatus,
+  CreateTestCaseAttachmentInput,
+  CreateTestCaseInput,
+  UpdateTestCaseInput,
+} from "../models/test-case.model.js";
 import type { TestRun, CreateTestRunInput } from "../models/test-run.model.js";
 import type { Evidence, CreateEvidenceInput } from "../models/evidence.model.js";
 import type { Request } from "express";
 
-export interface Project { id: string; organizationId: string; name: string; description: string }
+export interface Project {
+  id: string;
+  organizationId: string;
+  name: string;
+  description: string;
+}
 export interface Repository {
   health(): Promise<void>;
   listProjects(): Promise<Project[]>;
   listBugs(projectId?: string): Promise<Bug[]>;
   createBug(input: CreateBugInput): Promise<Bug>;
+  updateBugStatus(id: string, projectId: string, status: BugStatus): Promise<Bug | null>;
   listCases(projectId?: string): Promise<TestCase[]>;
   createCase(input: CreateTestCaseInput): Promise<TestCase>;
+  updateCase(id: string, projectId: string, input: UpdateTestCaseInput): Promise<TestCase | null>;
+  deleteCase(id: string, projectId: string): Promise<boolean>;
+  updateCaseStatus(id: string, projectId: string, status: TestCaseStatus): Promise<TestCase | null>;
+  listCaseAttachments(id: string, projectId: string): Promise<TestCaseAttachment[]>;
+  getCaseAttachment(
+    id: string,
+    attachmentId: string,
+    projectId: string,
+  ): Promise<(TestCaseAttachment & { imageData: Buffer | null }) | null>;
+  createCaseAttachment(input: CreateTestCaseAttachmentInput): Promise<TestCaseAttachment | null>;
+  deleteCaseAttachment(id: string, attachmentId: string, projectId: string): Promise<boolean>;
   listRuns(projectId?: string): Promise<TestRun[]>;
   createRun(input: CreateTestRunInput): Promise<TestRun>;
   listEvidence(projectId?: string): Promise<Evidence[]>;
   createEvidence(input: CreateEvidenceInput): Promise<Evidence>;
 }
-export function repository(request: Request): Repository { return request.res!.locals.repository as Repository; }
+export function repository(request: Request): Repository {
+  return request.res!.locals.repository as Repository;
+}

@@ -27,7 +27,9 @@ describe("project authorization without database access", () => {
   it("only reads authorized project IDs even when the caller omits a filter", async () => {
     const listBugs = vi.fn().mockResolvedValue([]);
     const base = { listBugs } as unknown as Repository;
-    const scoped = new AuthorizedRepository(base, async () => [{ id: "2", organizationId: "4", name: "Private", description: "" }]);
+    const scoped = new AuthorizedRepository(base, async () => [
+      { id: "2", organizationId: "4", name: "Private", description: "" },
+    ]);
     await scoped.listBugs();
     expect(listBugs).toHaveBeenCalledExactlyOnceWith("2");
     await expect(scoped.listBugs("1")).rejects.toMatchObject({ status: 404 });

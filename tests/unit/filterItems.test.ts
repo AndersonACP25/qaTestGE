@@ -1,15 +1,22 @@
 import { describe, expect, it } from "vitest";
-import {
-  filterBugs,
-  filterCases,
-  filterEvidence,
-  filterRuns,
-} from "../../src/utils/filterItems";
+import { filterBugs, filterCases, filterEvidence, filterRuns } from "../../src/utils/filterItems";
 
 describe("filterBugs", () => {
   const bugs = [
-    { id: "BUG-1", title: "Checkout fails", project: "Web Store", status: "Abierto", priority: "Alta" },
-    { id: "BUG-2", title: "Login timeout", project: "Mobile App", status: "Resuelto", priority: "Baja" },
+    {
+      id: "BUG-1",
+      title: "Checkout fails",
+      project: "Web Store",
+      status: "Abierto",
+      priority: "Alta",
+    },
+    {
+      id: "BUG-2",
+      title: "Login timeout",
+      project: "Mobile App",
+      status: "Resuelto",
+      priority: "Baja",
+    },
   ];
 
   it("filters by search text without case sensitivity", () => {
@@ -17,8 +24,9 @@ describe("filterBugs", () => {
   });
 
   it("combines project and status filters", () => {
-    expect(filterBugs(bugs, { project: "Mobile App", statusFilter: "Resuelto" }).map((bug) => bug.id))
-      .toEqual(["BUG-2"]);
+    expect(
+      filterBugs(bugs, { project: "Mobile App", statusFilter: "Resuelto" }).map((bug) => bug.id),
+    ).toEqual(["BUG-2"]);
   });
 
   it("returns no results when the selected project has no matching bugs", () => {
@@ -33,8 +41,9 @@ describe("filterCases", () => {
   ];
 
   it("searches suite names and applies status", () => {
-    expect(filterCases(cases, { search: "checkout", statusFilter: "Fallido" }).map((item) => item.id))
-      .toEqual(["TC-1"]);
+    expect(
+      filterCases(cases, { search: "checkout", statusFilter: "Fallido" }).map((item) => item.id),
+    ).toEqual(["TC-1"]);
   });
 
   it("returns all cases for the default filters", () => {
@@ -49,8 +58,9 @@ describe("filterRuns", () => {
   ];
 
   it("searches the owner and filters by status", () => {
-    expect(filterRuns(runs, { search: "carlos", statusFilter: "Completado" }).map((item) => item.id))
-      .toEqual(["RUN-2"]);
+    expect(
+      filterRuns(runs, { search: "carlos", statusFilter: "Completado" }).map((item) => item.id),
+    ).toEqual(["RUN-2"]);
   });
 });
 
