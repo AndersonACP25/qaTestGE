@@ -1,0 +1,211 @@
+import { useEffect, useState } from "react";
+import type { FormEvent } from "react";
+import { api } from "../api";
+import type { BugTemplate, BugTemplateInput, BugTemplatePriority, User } from "../api";
+
+const priorities: BugTemplatePriority[] = ["Crítica", "Alta", "Media", "Baja"];
+const emptyTemplate: BugTemplateInput = { name: "", title: "", description: "", priority: "Media" };
+
+export default function AccountSettingsView({
+  user, onUserUpdated, onAccountDeleted,
+}: {
+  user: User;
+  onUserUpdated: (user: User) => void;
+  onAccountDeleted: () => void;
+}) {
+  const [name, setName] = useState(user.name);
+  const [email, setEmail] = useState(user.email);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmation, setConfirmation] = useState("");
+  const [profileBusy, setProfileBusy] = useState(false);
+  const [passwordBusy, setPasswordBusy] = useState(false);
+  const [profileMessage, setProfileMessage] = useState("");
+  const [passwordMessage, setPasswordMessage] = useState("");
+  const [profileError, setProfileError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [templates, setTemplates] = useState<BugTemplate[]>([]);
+  const [templatesBusy, setTemplatesBusy] = useState(true);
+  const [templateBusy, setTemplateBusy] = useState(false);
+  const [templateError, setTemplateError] = useState("");
+  const [templateMessage, setTemplateMessage] = useState("");
+  const [templateForm, setTemplateForm] = useState<BugTemplateInput>(emptyTemplate);
+  const [editingTemplateId, setEditingTemplateId] = useState("");
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
+  useEffect(() => {
+    const abort = new AbortController();
+    void api<BugTemplate[]>("/auth/bug-templates", { signal: abort.signal })
+      .then(setTemplates)
+      .catch((cause: unknown) => {
+        if (!abort.signal.aborted) setTemplateError(cause instanceof Error ? cause.message : "No se pudieron cargar las plantillas.");
+      })
+      .finally(() => { if (!abort.signal.aborted) setTemplatesBusy(false); });
+    return () => abort.abort();
+  }, []);
+
+  async function saveProfile(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setProfileBusy(true); setProfileError(""); setProfileMessage("");
+    try {
+      const updated = await api<User>("/auth/me", { method: "PATCH", body: JSON.stringify({ name: name.trim(), email: email.trim() }) });
+      onUserUpdated(updated);
+      setName(updated.name); setEmail(updated.email);
+      setProfileMessage("Los datos de tu cuenta se actualizaron.");
+    } catch (cause) {
+      setProfileError(cause instanceof Error ? cause.message : "No se pudo actualizar la cuenta.");
+    } finally { setProfileBusy(false); }
+  }
+
+  async function changePassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPasswordError(""); setPasswordMessage("");
+    if (newPassword.length < 12 || newPassword.length > 128) {
+      setPasswordError("La nueva contraseña debe tener entre 12 y 128 caracteres.");
+      return;
+    }
+    if (newPassword !== confirmation) {
+      setPasswordError("Las contraseñas nuevas no coinciden.");
+      return;
+    }
+    setPasswordBusy(true);
+    try {
+      await api<void>("/auth/password", { method: "PATCH", body: JSON.stringify({ currentPassword, newPassword }) });
+      setCurrentPassword(""); setNewPassword(""); setConfirmation("");
+      setPasswordMessage("La contraseña se actualizó. Se cerraron las demás sesiones de esta cuenta.");
+    } catch (cause) {
+      setPasswordError(cause instanceof Error ? cause.message : "No se pudo cambiar la contraseña.");
+    } finally { setPasswordBusy(false); }
+  }
+
+  function editTemplate(template: BugTemplate) {
+    setEditingTemplateId(template.id);
+    setTemplateForm({ name: template.name, title: template.title, description: template.description, priority: template.priority });
+    setTemplateError(""); setTemplateMessage("");
+  }
+
+  function resetTemplateForm() {
+    setEditingTemplateId(""); setTemplateForm(emptyTemplate);
+  }
+
+  async function saveTemplate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setTemplateBusy(true); setTemplateError(""); setTemplateMessage("");
+    try {
+      const path = editingTemplateId ? `/auth/bug-templates/${encodeURIComponent(editingTemplateId)}` : "/auth/bug-templates";
+      const saved = await api<BugTemplate>(path, {
+        method: editingTemplateId ? "PATCH" : "POST",
+        body: JSON.stringify({ ...templateForm, name: templateForm.name.trim(), title: templateForm.title.trim() }),
+      });
+      setTemplates((current) => editingTemplateId
+        ? current.map((template) => template.id === saved.id ? saved : template)
+        : [...current, saved]);
+      resetTemplateForm();
+      setTemplateMessage("La plantilla se guardó en tu cuenta.");
+    } catch (cause) {
+      setTemplateError(cause instanceof Error ? cause.message : "No se pudo guardar la plantilla.");
+    } finally { setTemplateBusy(false); }
+  }
+
+  async function removeTemplate(template: BugTemplate) {
+    setTemplateBusy(true); setTemplateError(""); setTemplateMessage("");
+    try {
+      await api<void>(`/auth/bug-templates/${encodeURIComponent(template.id)}`, { method: "DELETE" });
+      setTemplates((current) => current.filter((item) => item.id !== template.id));
+      if (editingTemplateId === template.id) resetTemplateForm();
+      setTemplateMessage(`Se eliminó la plantilla «${template.name}».`);
+    } catch (cause) {
+      setTemplateError(cause instanceof Error ? cause.message : "No se pudo eliminar la plantilla.");
+    } finally { setTemplateBusy(false); }
+  }
+
+  async function deactivateAccount(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setDeleteError("");
+    if (deleteConfirmation !== "ELIMINAR CUENTA") {
+      setDeleteError("Escribe ELIMINAR CUENTA para confirmar.");
+      return;
+    }
+    setDeleteBusy(true);
+    try {
+      await api<void>("/auth/me", {
+        method: "DELETE",
+        body: JSON.stringify({ currentPassword: deletePassword, confirmation: deleteConfirmation }),
+      });
+      onAccountDeleted();
+    } catch (cause) {
+      setDeleteError(cause instanceof Error ? cause.message : "No se pudo desactivar la cuenta.");
+    } finally { setDeleteBusy(false); }
+  }
+
+  return <div className="account-settings">
+    <section className="account-settings__card">
+      <div className="account-settings__heading"><h2>Información de la cuenta</h2><p>Actualiza el nombre y correo asociados a tu usuario.</p></div>
+      <form className="account-settings__form" onSubmit={(event) => void saveProfile(event)} aria-busy={profileBusy}>
+        <label className="workspace__field">Nombre<input value={name} onChange={(event) => setName(event.target.value)} autoComplete="name" maxLength={100} required /></label>
+        <label className="workspace__field">Correo electrónico<input value={email} onChange={(event) => setEmail(event.target.value)} type="email" autoComplete="email" maxLength={254} required /></label>
+        {profileError && <p className="workspace__error" role="alert">{profileError}</p>}
+        {profileMessage && <p className="account-settings__success" role="status">{profileMessage}</p>}
+        <div className="workspace__actions"><button className="button button-primary" type="submit" disabled={profileBusy}>{profileBusy ? "Guardando…" : "Guardar cambios"}</button></div>
+      </form>
+    </section>
+    <section className="account-settings__card">
+      <div className="account-settings__heading"><h2>Seguridad</h2><p>Elige una contraseña nueva de al menos 12 caracteres. Las demás sesiones se revocarán.</p></div>
+      <form className="account-settings__form" onSubmit={(event) => void changePassword(event)} aria-busy={passwordBusy}>
+        <label className="workspace__field">Contraseña actual<input value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} type="password" autoComplete="current-password" maxLength={128} required /></label>
+        <label className="workspace__field">Nueva contraseña<input value={newPassword} onChange={(event) => setNewPassword(event.target.value)} type="password" autoComplete="new-password" minLength={12} maxLength={128} required /></label>
+        <label className="workspace__field">Confirmar nueva contraseña<input value={confirmation} onChange={(event) => setConfirmation(event.target.value)} type="password" autoComplete="new-password" maxLength={128} required /></label>
+        {passwordError && <p className="workspace__error" role="alert">{passwordError}</p>}
+        {passwordMessage && <p className="account-settings__success" role="status">{passwordMessage}</p>}
+        <div className="workspace__actions"><button className="button button-primary" type="submit" disabled={passwordBusy}>{passwordBusy ? "Actualizando…" : "Cambiar contraseña"}</button></div>
+      </form>
+    </section>
+    <section className="account-settings__card account-settings__card--wide">
+      <div className="account-settings__heading"><h2>Plantillas para bugs</h2><p>Crea formatos personales inspirados en GitHub Issue Templates. El contenido se guarda como texto y nunca se interpreta como HTML.</p></div>
+      <form className="account-settings__form" onSubmit={(event) => void saveTemplate(event)} aria-busy={templateBusy}>
+        <label className="workspace__field">Nombre de la plantilla<input value={templateForm.name} onChange={(event) => setTemplateForm({ ...templateForm, name: event.target.value })} maxLength={100} required placeholder="Ej. Error funcional" /></label>
+        <label className="workspace__field">Título sugerido<input value={templateForm.title} onChange={(event) => setTemplateForm({ ...templateForm, title: event.target.value })} maxLength={200} placeholder="Ej. [Bug] " /></label>
+        <label className="workspace__field">Descripción / secciones<textarea value={templateForm.description} onChange={(event) => setTemplateForm({ ...templateForm, description: event.target.value })} maxLength={5000} rows={5} placeholder={"## Pasos para reproducir\n\n## Comportamiento esperado\n\n## Comportamiento actual"} /></label>
+        <label className="workspace__field">Prioridad predeterminada<select value={templateForm.priority} onChange={(event) => setTemplateForm({ ...templateForm, priority: event.target.value as BugTemplatePriority })}>{priorities.map((priority) => <option key={priority}>{priority}</option>)}</select></label>
+        {templateError && <p className="workspace__error" role="alert">{templateError}</p>}
+        {templateMessage && <p className="account-settings__success" role="status">{templateMessage}</p>}
+        <div className="workspace__actions">
+          <button className="button button-primary" type="submit" disabled={templateBusy || templatesBusy}>{templateBusy ? "Guardando…" : editingTemplateId ? "Actualizar plantilla" : "Guardar plantilla"}</button>
+          {editingTemplateId && <button className="workspace__secondary" type="button" disabled={templateBusy} onClick={resetTemplateForm}>Cancelar edición</button>}
+        </div>
+      </form>
+      <div className="account-settings__templates" aria-live="polite">
+        {templatesBusy ? <p className="workspace__notice">Cargando plantillas…</p> : templates.length === 0
+          ? <p className="workspace__notice">Todavía no tienes plantillas. Las plantillas creadas aquí aparecerán en el formulario «Nuevo bug».</p>
+          : templates.map((template) => <article className="account-settings__template" key={template.id}>
+            <div><strong>{template.name}</strong><p>{template.title || "Sin título sugerido"} · Prioridad {template.priority}</p></div>
+            <div className="account-settings__template-actions">
+              <button className="workspace__secondary" type="button" disabled={templateBusy} onClick={() => editTemplate(template)}>Editar</button>
+              <button className="workspace__secondary" type="button" disabled={templateBusy} onClick={() => void removeTemplate(template)}>Eliminar</button>
+            </div>
+          </article>)}
+      </div>
+    </section>
+    <section className="account-settings__card">
+      <div className="account-settings__heading"><h2>Conexión con IA</h2><p>Vista preliminar de una futura configuración de proveedores. Esta sección es solo una maqueta.</p></div>
+      <div className="account-settings__mock">
+        <label className="workspace__field">Proveedor<select disabled value=""><option value="">Sin conectar</option><option>OpenAI</option><option>Anthropic</option><option>Proveedor compatible</option></select></label>
+        <label className="workspace__field">Clave del proveedor<input type="password" disabled placeholder="No disponible en esta versión" /></label>
+        <button className="button button-primary" type="button" disabled>Conectar proveedor (próximamente)</button>
+        <p className="workspace__notice">No se almacenan credenciales ni se envían datos a proveedores de IA.</p>
+      </div>
+    </section>
+    <section className="account-settings__card account-settings__card--danger">
+      <div className="account-settings__heading"><h2>Zona de peligro · Desactivar cuenta</h2><p>Tu acceso se desactivará y tu nombre, correo y contraseña se anonimizarán. Se revocarán todas las sesiones y se eliminarán tus plantillas. Los proyectos, membresías y registros de QA se conservarán para no romper su trazabilidad.</p></div>
+      <form className="account-settings__form" onSubmit={(event) => void deactivateAccount(event)} aria-busy={deleteBusy}>
+        <label className="workspace__field">Contraseña actual<input value={deletePassword} onChange={(event) => setDeletePassword(event.target.value)} type="password" autoComplete="current-password" maxLength={128} required /></label>
+        <label className="workspace__field">Escribe ELIMINAR CUENTA para confirmar<input value={deleteConfirmation} onChange={(event) => setDeleteConfirmation(event.target.value)} autoComplete="off" required /></label>
+        {deleteError && <p className="workspace__error" role="alert">{deleteError}</p>}
+        <div className="workspace__actions"><button className="account-settings__delete-button" type="submit" disabled={deleteBusy || deleteConfirmation !== "ELIMINAR CUENTA"}>{deleteBusy ? "Desactivando…" : "Desactivar y anonimizar cuenta"}</button></div>
+      </form>
+    </section>
+  </div>;
+}

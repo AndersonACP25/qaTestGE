@@ -6,6 +6,13 @@ Todos los cambios importantes de qaTestGE se documentan aquí. El formato sigue 
 
 ### Added
 
+- GitHub Actions CI/CD: validación de instalación, tipos, pruebas y build; artefacto frontend/backend al publicar en `main`.
+- Migración aditiva 005 para plantillas personales de bugs persistidas en PostgreSQL.
+- CRUD de plantillas por usuario en Configuración y selector que rellena título, descripción y prioridad al crear bugs.
+- Maqueta deshabilitada de configuración de IA, sin almacenamiento de claves ni conexión a proveedores.
+- Desactivación y anonimización de cuenta con verificación de contraseña, revocación de sesiones y conservación de referencias QA.
+- Pruebas para ownership de plantillas, validación HTTP y transacción de baja de cuenta.
+
 - Migración aditiva 004_authentication: usuarios, membresías y sesiones con registro versionado, y comando db:migrate.
 - Registro/login/logout reales con scrypt, cookies HttpOnly, CSRF, expiración, revocación y autorización por organización; pruebas de aislamiento y acceso.
 - Frontend conectado a proyectos y recursos reales, formularios persistentes y resumen calculado desde la API, con carga y errores explícitos.

@@ -6,7 +6,8 @@ Esta guía resume las convenciones para personas colaboradoras. [AGENTS.md](../A
 
 - Diferenciar funciones disponibles, maquetas y objetivos futuros en interfaz y documentación.
 - Mantener bugs, casos, ejecuciones y evidencias relacionados con identificadores y referencias explícitas. El repositorio PostgreSQL y las claves compuestas validan referencias y pertenencia al mismo proyecto; la autorización exige membresía de la cuenta en la organización del proyecto.
-- No omitir la autenticación, el token CSRF o la autorización por organización en nuevas rutas de datos. El diseñador de IA sigue siendo una maqueta; los recursos manuales y cuentas ya son persistentes.
+- No omitir la autenticación, el token CSRF o la autorización por organización en nuevas rutas de datos. Las plantillas de bugs son privadas por usuario y persistentes; los usuarios solo pueden leer y modificar las propias. El diseñador y la configuración de IA siguen siendo maquetas; los recursos manuales y cuentas son persistentes.
+- Desactivar una cuenta requiere reautenticación, revoca todas sus sesiones y anonimiza identidad. No eliminar membresías ni recursos QA porque rompería trazabilidad explícita.
 - No añadir servicios, dependencias o formatos antes de revisar y reutilizar las convenciones existentes.
 
 ## Código y estilos

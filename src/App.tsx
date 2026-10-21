@@ -4,7 +4,8 @@ import { filterBugs, filterCases, filterEvidence, filterRuns } from "./utils/fil
 import CaseBuilder from "./CaseBuilder";
 import Dialog from "./Dialog";
 import { api, loadProject } from "./api";
-import type { Project } from "./api";
+import type { BugTemplate, BugTemplatePriority, Project, User } from "./api";
+import AccountSettingsView from "./views/AccountSettingsView";
 type WorkspaceData = Awaited<ReturnType<typeof loadProject>>;
 import type {
   Bug,
@@ -74,7 +75,13 @@ function Priority({ level }: { level: PriorityLevel }) {
   return <span className={`priority priority-${level.toLowerCase()}`}><span />{level}</span>;
 }
 
-function App({ user, onLogout, themeControl }: { user: string; onLogout: () => void; themeControl: React.ReactNode }) {
+function App({ user, onUserUpdated, onAccountDeleted, onLogout, themeControl }: {
+  user: User;
+  onUserUpdated: (user: User) => void;
+  onAccountDeleted: () => void;
+  onLogout: () => void;
+  themeControl: React.ReactNode;
+}) {
   const [activePage, setActivePage] = useState<NavigationPage>("overview");
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectId, setProjectId] = useState("");
@@ -84,6 +91,11 @@ function App({ user, onLogout, themeControl }: { user: string; onLogout: () => v
   const [revision, setRevision] = useState(0);
   const [saving, setSaving] = useState(false);
   const [modal, setModal] = useState("");
+  const [bugTemplates, setBugTemplates] = useState<BugTemplate[]>([]);
+  const [bugTemplatesLoading, setBugTemplatesLoading] = useState(false);
+  const [bugTemplatesError, setBugTemplatesError] = useState("");
+  const [selectedBugTemplateId, setSelectedBugTemplateId] = useState("");
+  const [bugForm, setBugForm] = useState<{ title: string; description: string; priority: BugTemplatePriority }>({ title: "", description: "", priority: "Media" });
   const [formError, setFormError] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("Todos");
@@ -104,6 +116,16 @@ function App({ user, onLogout, themeControl }: { user: string; onLogout: () => v
     return () => abort.abort();
   }, [revision]);
   useEffect(() => {
+    if (modal !== "bug") return;
+    const abort = new AbortController();
+    setBugTemplatesLoading(true); setBugTemplatesError("");
+    void api<BugTemplate[]>("/auth/bug-templates", { signal: abort.signal })
+      .then((items) => { if (!abort.signal.aborted) setBugTemplates(items); })
+      .catch((cause: unknown) => { if (!abort.signal.aborted) setBugTemplatesError(cause instanceof Error ? cause.message : "No se pudieron cargar las plantillas."); })
+      .finally(() => { if (!abort.signal.aborted) setBugTemplatesLoading(false); });
+    return () => abort.abort();
+  }, [modal]);
+  useEffect(() => {
     if (!projectId) return;
     const abort = new AbortController();
     setLoading(true); setError(""); setData({ bugs: [], cases: [], runs: [], evidence: [] });
@@ -119,7 +141,21 @@ function App({ user, onLogout, themeControl }: { user: string; onLogout: () => v
   const pageTitle = ({ overview: "Resumen", bugs: "Bugs", cases: "Casos de prueba", runs: "Test runs", evidence: "Evidencias", team: "Equipo", settings: "Configuración", "case-builder": "Diseñar test cases" })[activePage];
   const notify = (message: string) => { clearTimeout(toastTimer.current); setToast(message); toastTimer.current = setTimeout(() => setToast(""), 4000); };
   function navigate(page: NavigationPage) { setActivePage(page); setSearch(""); setStatusFilter("Todos"); setMobileNav(false); }
-  function openModal(value: string) { setFormError(""); setModal(value); }
+  function openModal(value: string) {
+    setFormError("");
+    if (value === "bug") {
+      setBugForm({ title: "", description: "", priority: "Media" });
+      setSelectedBugTemplateId("");
+    }
+    setModal(value);
+  }
+  function applyBugTemplate(templateId: string) {
+    setSelectedBugTemplateId(templateId);
+    const template = bugTemplates.find((item) => item.id === templateId);
+    setBugForm(template
+      ? { title: template.title, description: template.description, priority: template.priority }
+      : { title: "", description: "", priority: "Media" });
+  }
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!projectId || saving) return;
@@ -135,7 +171,7 @@ function App({ user, onLogout, themeControl }: { user: string; onLogout: () => v
       body = { projectId, title, suite: String(form.get("suite") ?? ""), preconditions: String(form.get("preconditions") ?? ""), steps: action ? [{ action, expectedResult }] : [] };
     } else if (modal === "run") {
       path = "/test-runs";
-      body = { projectId, title, owner: user, caseIds: form.getAll("caseIds") };
+      body = { projectId, title, owner: user.name, caseIds: form.getAll("caseIds") };
     } else if (modal === "evidence") {
       path = "/evidence";
       const file = form.get("file");
@@ -157,23 +193,23 @@ function App({ user, onLogout, themeControl }: { user: string; onLogout: () => v
   return <div className="app-shell workspace">
     <aside className={`sidebar${mobileNav ? " sidebar-open" : ""}`}>
       <div className="brand"><img className="brand__icon" src="/favicon.svg" width="25" height="25" alt="" /><span>qaTest<span className="brand-light">GE</span></span><button className="mobile-close icon-button" onClick={() => setMobileNav(false)} aria-label="Cerrar menú"><Icon name="close" /></button></div>
-      <div className="workspace__identity"><strong>{project?.name ?? "Tu workspace"}</strong><small>Cuenta de {user}</small></div>
+      <div className="workspace__identity"><strong>{project?.name ?? "Tu workspace"}</strong><small>Cuenta de {user.name}</small></div>
       <div className="sidebar-nav">{navigation.map((group) => <div className="nav-group" key={group.section}><div className="nav-label">{group.section}</div>{group.items.map((item) => <button className={`nav-item${activePage === item.id ? " nav-active" : ""}`} key={item.id} onClick={() => navigate(item.id)}><Icon name={item.icon} size={18} /><span>{item.label}</span>{item.id === "bugs" && <span className="nav-count">{bugs.length}</span>}</button>)}</div>)}</div>
       <a className="portal-docs__link" href="/api/docs/" target="_blank" rel="noreferrer"><Icon name="file" />SwaggerUI · API ↗</a>
-      <div className="sidebar-bottom"><div className="workspace__identity"><Avatar initials={user.slice(0, 2).toUpperCase()} color="orange" /><strong>{user}</strong><small>Sesión activa</small></div></div>
+      <div className="sidebar-bottom"><div className="workspace__identity"><Avatar initials={user.name.slice(0, 2).toUpperCase()} color="orange" /><strong>{user.name}</strong><small>Sesión activa</small></div></div>
     </aside>
     {mobileNav && <button className="scrim" aria-label="Cerrar menú" onClick={() => setMobileNav(false)} />}
     <main className="main-area">
       <header className="topbar"><div className="breadcrumb"><button className="mobile-menu icon-button" onClick={() => setMobileNav(true)} aria-label="Abrir menú"><span className="hamburger" /></button><span>{project?.name ?? "Workspace"}</span><span className="crumb-slash">/</span><strong>{pageTitle}</strong></div><div className="topbar-actions">{themeControl}<button className="session__logout" onClick={onLogout}>Salir</button><span className="ai-pill"><Icon name="sparkle" size={15} /> IA no conectada</span></div></header>
       <div className="page-content">
-        <div className="welcome-row"><div><div className="eyebrow">{new Date().toLocaleDateString("es", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</div><h1>{activePage === "overview" ? `Hola, ${user}` : pageTitle}</h1><p className="page-subtitle">{pageDescription(activePage)}</p></div>
+        <div className="welcome-row"><div><div className="eyebrow">{new Date().toLocaleDateString("es", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</div><h1>{activePage === "overview" ? `Hola, ${user.name}` : pageTitle}</h1><p className="page-subtitle">{pageDescription(activePage)}</p></div>
           {!["case-builder", "team", "settings"].includes(activePage) && <button disabled={!projectId || loading || saving || Boolean(error)} className="button button-primary" onClick={() => openModal(activePage === "cases" ? "case" : activePage === "runs" ? "run" : activePage === "evidence" ? "evidence" : "bug")}><Icon name="plus" />{activePage === "cases" ? "Nuevo caso" : activePage === "runs" ? "Nueva ejecución" : activePage === "evidence" ? "Registrar metadatos" : "Nuevo bug"}</button>}
         </div>
         <div className="workspace__toolbar"><label>Proyecto<select disabled={saving} value={projectId} onChange={(event) => { setData({ bugs: [], cases: [], runs: [], evidence: [] }); setLoading(true); setProjectId(event.target.value); }}><option value="" disabled>Selecciona un proyecto</option>{projects.map((p) => <option key={p.id} value={p.id}>{p.name} · #{p.id}</option>)}</select></label><button className="workspace__secondary" disabled={loading || saving} onClick={() => { setError(""); setLoading(true); setRevision((n) => n + 1); }}>Actualizar</button></div>
         {loading && <p className="workspace__notice" role="status">Cargando datos del proyecto…</p>}
         {error && <p className="workspace__error" role="alert">{error}</p>}
         {!loading && !error && !projectId && <p className="workspace__notice">No tienes proyectos disponibles. El administrador debe conceder acceso a un espacio existente.</p>}
-        {activePage === "case-builder" ? <CaseBuilder /> : !loading && !error && projectId && (activePage === "overview" ? <>
+        {activePage === "settings" ? <AccountSettingsView user={user} onUserUpdated={onUserUpdated} onAccountDeleted={onAccountDeleted} /> : activePage === "case-builder" ? <CaseBuilder /> : !loading && !error && projectId && (activePage === "overview" ? <>
           <div className="workspace__metrics">{[["Bugs abiertos", bugs.filter((b) => b.status !== "Resuelto").length], ["Casos de prueba", cases.length], ["Ejecuciones activas", runs.filter((r) => r.status === "En curso").length], ["Evidencias", evidence.length]].map(([label, value]) => <div className="workspace__metric" key={label}><span>{label}</span><strong>{value}</strong><small>Proyecto actual · PostgreSQL</small></div>)}</div>
           <section className="workspace__panel"><h2>Bugs recientes</h2><BugTable bugs={bugs.slice(0, 5)} onSelect={setDetail} />{!bugs.length && <p className="workspace__notice">Aún no hay bugs en este proyecto.</p>}</section>
           <section className="workspace__panel"><h2>Ejecuciones recientes</h2><RunTable items={runs.slice(0, 5)} onSelect={setDetail} />{!runs.length && <p className="workspace__notice">Aún no hay ejecuciones. Crea casos y agrúpalos en una ejecución.</p>}</section>
@@ -192,8 +228,11 @@ function App({ user, onLogout, themeControl }: { user: string; onLogout: () => v
     {modal && <Dialog title={modal === "bug" ? "Nuevo bug" : modal === "case" ? "Nuevo caso de prueba" : modal === "run" ? "Nueva ejecución" : "Registrar metadatos"} onClose={() => { if (!saving) setModal(""); }}><form className="workspace__form" onSubmit={(event) => void save(event)} aria-busy={saving}>
       <fieldset disabled={saving} className="workspace__fieldset">
         <label className="workspace__field">Proyecto<input value={project?.name ?? ""} readOnly /></label>
-        {modal !== "evidence" && <label className="workspace__field">Título<input name="title" maxLength={200} required /></label>}
-        {modal === "bug" && <><label className="workspace__field">Descripción<textarea name="description" maxLength={5000} rows={4} /></label><label className="workspace__field">Prioridad<select name="priority" defaultValue="Media"><option>Crítica</option><option>Alta</option><option>Media</option><option>Baja</option></select></label></>}
+        {modal === "bug" && <label className="workspace__field">Cargar plantilla{bugTemplatesLoading ? <span className="workspace__notice">Cargando plantillas…</span> : <select value={selectedBugTemplateId} onChange={(event) => applyBugTemplate(event.target.value)}><option value="">Sin plantilla</option>{bugTemplates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}</select>}</label>}
+        {modal !== "evidence" && <label className="workspace__field">Título{modal === "bug"
+          ? <input name="title" value={bugForm.title} onChange={(event) => setBugForm({ ...bugForm, title: event.target.value })} maxLength={200} required />
+          : <input name="title" maxLength={200} required />}</label>}
+        {modal === "bug" && <>{bugTemplatesError && <p className="workspace__error" role="alert">{bugTemplatesError}</p>}<label className="workspace__field">Descripción<textarea name="description" value={bugForm.description} onChange={(event) => setBugForm({ ...bugForm, description: event.target.value })} maxLength={5000} rows={6} /></label><label className="workspace__field">Prioridad<select name="priority" value={bugForm.priority} onChange={(event) => setBugForm({ ...bugForm, priority: event.target.value as BugTemplatePriority })}><option>Crítica</option><option>Alta</option><option>Media</option><option>Baja</option></select></label></>}
         {modal === "case" && <><label className="workspace__field">Suite<input name="suite" maxLength={100} required /></label><label className="workspace__field">Precondiciones<textarea name="preconditions" maxLength={10000} /></label><label className="workspace__field">Acción (opcional)<textarea name="action" maxLength={10000} /></label><label className="workspace__field">Resultado esperado<textarea name="expectedResult" maxLength={10000} /></label></>}
         {modal === "run" && <fieldset className="workspace__fieldset"><legend>Casos de este proyecto</legend>{cases.map((c) => <label className="workspace__check" key={c.id}><input type="checkbox" name="caseIds" value={c.id} />{c.id} · {c.title}</label>)}{!cases.length && <p>Crea primero tus casos de prueba o guarda una ejecución vacía.</p>}</fieldset>}
         {modal === "evidence" && <><p className="workspace__notice">Solo se guardarán nombre, tipo, tamaño y vínculo. El contenido del archivo no se sube.</p><label className="workspace__field">Archivo<input name="file" type="file" required /></label><label className="workspace__field">Vincular a<select name="related"><option value="">Sin vincular</option>{[...bugs, ...cases, ...runs].map((item) => <option key={item.id} value={item.id}>{item.id} · {item.title}</option>)}</select></label></>}

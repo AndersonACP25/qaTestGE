@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import CaseBuilder from "../../src/CaseBuilder";
-import { categories, selectCaseExamples, validCaseCount } from "../../src/utils/caseCatalog";
+import { categories, selectCaseExamples, validCaseCount } from "../../src/models/caseDesign.model";
 import { caseExportRows } from "../../src/utils/exportCases";
 
 describe("case builder mockup", () => {
@@ -40,5 +40,7 @@ describe("case builder mockup", () => {
     expect(selectCaseExamples([], {})).toEqual([]);
     expect(categories.every((item) => item.steps.length === 3 && new Set(item.steps.map((step) => step.action)).size === 3)).toBe(true);
     expect(new Set(categories.map((item) => item.id)).size).toBe(categories.length);
+    expect(categories.every((item) => /^#[0-9a-f]{6}$/i.test(item.color))).toBe(true);
+    expect(new Set(categories.map((item) => item.color)).size).toBe(categories.length);
   });
 });

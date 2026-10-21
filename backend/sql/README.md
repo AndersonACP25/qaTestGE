@@ -31,9 +31,9 @@ pnpm db:migrate
 pnpm db:check
 ```
 
-El comando aplica `004_authentication.sql` sobre la base configurada en backend/.env. Usa una transacción, bloqueo y registro de versión; repetirlo no duplica tablas. No vuelve a importar 001/002 ni cambia sus filas. También puede ejecutarse 004 manualmente en Query Tool conectado a qa_test_ge.
+El comando aplica en orden `004_authentication.sql` y `005_bug_templates.sql` sobre la base configurada en backend/.env. Cada migración usa una transacción, bloqueo y registro de versión; repetirlas no duplica tablas. No vuelve a importar 001/002 ni cambia sus filas. Para pgAdmin, ejecutar ambos archivos en orden desde Query Tool conectado a qa_test_ge.
 
-Tablas añadidas: qa.users (correo único normalizado y hash scrypt), qa.organization_members (usuario/organización/rol), qa.auth_sessions (hash de token, CSRF, expiración) y qa.schema_migrations. El registro crea cuenta, workspace, membresía owner y proyecto; no concede acceso a los datos previamente importados.
+Tablas añadidas: qa.users (correo único normalizado y hash scrypt), qa.organization_members (usuario/organización/rol), qa.auth_sessions (hash de token, CSRF, expiración), qa.schema_migrations y qa.bug_templates (plantillas de bugs propiedad de una cuenta). El registro crea cuenta, workspace, membresía owner y proyecto; no concede acceso a los datos previamente importados.
 
 Para conceder acceso a una organización existente, un administrador con acceso SQL debe revisar el usuario y organización y ejecutar una operación explícita. Ejemplo con valores ficticios, que se deben sustituir:
 
@@ -65,6 +65,6 @@ Los pasos de un resultado se guardan en `steps_snapshot` como un array JSON para
 
 ## Pendientes de integración
 
-El driver pg, los repositorios, las transacciones, projectId, las referencias verificadas y los IDs bigint como texto ya están integrados. La migración 004 y la capa de autenticación implementan usuarios, sesiones y autorización por membresía en la API. Las claves de proyecto siguen asegurando integridad. Pendiente: migraciones adicionales, permisos granulares, auditoría y respaldos. No se configuran roles PostgreSQL, secretos, RLS ni almacenamiento binario.
+El driver pg, los repositorios, las transacciones, projectId, las referencias verificadas y los IDs bigint como texto ya están integrados. Las migraciones 004 y 005 y la capa de autenticación implementan usuarios, sesiones, autorización por membresía y plantillas privadas en la API. Las claves de proyecto siguen asegurando integridad. Desactivar una cuenta la anonimiza, revoca sus sesiones y elimina sus plantillas; conserva membresías y recursos relacionados. Pendiente: permisos granulares, auditoría y respaldos. No se configuran roles PostgreSQL, secretos, RLS ni almacenamiento binario.
 
 Referencias oficiales utilizadas: [CREATE DATABASE](https://www.postgresql.org/docs/current/sql-createdatabase.html), [restricciones y claves foráneas](https://www.postgresql.org/docs/current/ddl-constraints.html) y [psql](https://www.postgresql.org/docs/current/app-psql.html).

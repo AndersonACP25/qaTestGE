@@ -10,21 +10,21 @@ pnpm install --frozen-lockfile
 # copiar backend/.env.example a backend/.env y ajustar DATABASE_URL
 pnpm db:migrate
 pnpm db:check
-pnpm dev:all
+pnpm dev
 ```
 
 No sobrescribir un `.env` existente. Los scripts SQL se importan manualmente una sola vez según [backend/sql/README.md](../backend/sql/README.md). Si ya creaste las tablas y los datos, no vuelvas a importarlos para iniciar la API.
 
-`dev:all` levanta Vite y tsx watch en paralelo. Frontend: `http://localhost:5173`; API: `http://localhost:3000/api/health`. `Ctrl+C` detiene la sesión. El frontend recupera su sesión por cookie, lista los proyectos autorizados y consulta/crea recursos mediante /api. Registro crea un workspace y un proyecto propios; las membresías sobre datos anteriores se conceden explícitamente.
+`dev` levanta Vite y tsx watch en paralelo. Frontend: `http://localhost:5173`; API: `http://localhost:3000/api/health` por defecto (el puerto real se define con `PORT`). `Ctrl+C` detiene la sesión. El frontend recupera su sesión por cookie, lista los proyectos autorizados y consulta/crea recursos mediante /api. Registro crea un workspace y un proyecto propios; las membresías sobre datos anteriores se conceden explícitamente.
 
 ## Scripts
 
 | Comando | Uso |
 |---|---|
-| `pnpm dev:all` | Frontend y backend en paralelo |
-| `pnpm dev` / `pnpm dev:frontend` | Solo Vite |
+| `pnpm dev` / `pnpm dev:all` | Frontend y backend en paralelo |
+| `pnpm dev:frontend` | Solo Vite |
 | `pnpm dev:backend` / `pnpm dev:api` | API con tsx watch y PostgreSQL |
-| `pnpm db:migrate` | Migración aditiva de usuarios y sesiones (004), repetible |
+| `pnpm db:migrate` | Aplica/verifica las migraciones aditivas 004 (cuentas) y 005 (plantillas), repetible |
 | `pnpm db:check` | Conexión y tablas del esquema qa, solo lectura |
 | `pnpm build` | Tipos y compilación del frontend y backend |
 | `pnpm build:frontend` / `pnpm build:backend` | Compilación por separado |
@@ -49,7 +49,7 @@ Después del build, `pnpm --dir backend start` ejecuta el servidor compilado, co
 
 El servidor comprueba conexión y tablas antes de escuchar. Si falla, sale con error y no usa memoria. Si PostgreSQL se cae durante ejecución, health devuelve 503. Los logs y las respuestas no imprimen credenciales ni SQL.
 
-Vite reenvía `/api` a `http://localhost:3000`; ajustar vite.config.ts si cambias el puerto del backend. Para solicitudes directas desde otro origen, configurar CORS.
+Vite reenvía `/api` al puerto `PORT` del backend, leído desde `backend/.env` o el entorno (3000 por defecto). Reinicia Vite después de cambiar el puerto. Si `ECONNREFUSED` persiste, confirma que la API inició correctamente y que PostgreSQL está disponible con `pnpm db:check`. Para solicitudes directas desde otro origen, configurar CORS.
 
 ## Verificación
 
@@ -61,4 +61,8 @@ pnpm test
 
 Las pruebas de endpoints usan un repositorio simulado inyectado, sin cargar `.env` ni necesitar PostgreSQL. Las de repositorio comprueban parámetros y rollback mediante dobles. [TESTING.md](./TESTING.md) explica la verificación opcional con PostgreSQL real.
 
-Los datos de la API ya no se pierden al reiniciar: viven en qa_test_ge. La aplicación no crea ni modifica el esquema al arrancar y db:migrate aplica explícitamente la migración 004, pero no hay migración automática al arrancar ni gestor de respaldos. Un puerto ocupado requiere detener su proceso o cambiar PORT; un error de conexión requiere revisar servicio, permisos, credenciales y tablas importadas. `pnpm db:check` hace esa comprobación sin escrituras.
+Los datos de la API ya no se pierden al reiniciar: viven en qa_test_ge. La aplicación no crea ni modifica el esquema al arrancar y db:migrate aplica explícitamente las migraciones 004 y 005; no hay migración automática al arrancar ni gestor de respaldos. La migración 005 agrega plantillas privadas por usuario. La baja de cuenta desde Configuración revoca sesiones, anonimiza datos de identidad y elimina plantillas, pero conserva membresías, proyectos y registros QA. Un puerto ocupado requiere detener su proceso o cambiar PORT; un error de conexión requiere revisar servicio, permisos, credenciales y tablas importadas. `pnpm db:check` hace esa comprobación sin escrituras.
+
+## CI y entrega
+
+`.github/workflows/ci.yml` ejecuta `pnpm install --frozen-lockfile`, `pnpm typecheck`, `pnpm test` y `pnpm build` en pull requests y pushes a `main`. En pushes a `main`, guarda `dist/` y `backend/dist/` como artefacto de Actions durante 14 días. No configura un despliegue a infraestructura: falta definir proveedor y destino.

@@ -12,6 +12,8 @@ pnpm test
 
 `typecheck` valida el frontend y las pruebas incluidas en su tsconfig. `build` verifica tipos y compila frontend y backend. `test` ejecuta Vitest según `vite.config.ts`, incluyendo `tests/**/*.test.ts` y `backend/tests/**/*.test.ts`. `pnpm test:watch` inicia observación.
 
+GitHub Actions (`.github/workflows/ci.yml`) ejecuta los mismos tres checks además de instalar dependencias con lockfile congelado. En push a `main` publica como artefacto temporal los directorios `dist/` y `backend/dist/`.
+
 Para una suite concreta:
 
 ```bash
@@ -26,10 +28,12 @@ pnpm exec vitest run backend/tests/api.test.ts
 - `tests/unit/auth.test.ts`: derivación de contraseñas, hashes de sesión y aislamiento por proyecto.
 - `tests/unit/api.test.ts`: cookies, CSRF, errores de red y sesión expirada mediante fetch simulado.
 - `backend/tests/auth.test.ts`: rutas de acceso, cookies, CSRF, autorización y límite de intentos con proveedor simulado.
+- `backend/tests/auth.test.ts`: también valida CRUD de plantillas con CSRF y la confirmación de desactivación/anonimización de cuenta.
 - `tests/unit/theme.test.ts`: preferencia de tema y validación del formulario de acceso real.
 - `tests/unit/caseBuilder.test.ts`: maqueta del diseñador; no valida generación real con IA.
 - `tests/unit/exportCases.test.ts`: estructura y cantidades de ejemplos exportados.
 - `tests/unit/database.test.ts`: IDs bigint, configuración validada sin secretos, consultas parametrizadas y rollback con dobles de cliente.
+- `tests/unit/authProvider.test.ts`: ownership de plantillas y anonimización/revocación transaccional mediante dobles de PostgreSQL.
 - `tests/unit/openapi.test.ts`: contrato OpenAPI.
 - `backend/tests/api.test.ts`: endpoints Express con Supertest, validaciones y errores; se inyecta un repositorio simulado y no se conecta a PostgreSQL.
 
@@ -47,11 +51,14 @@ Pruebas unitarias deterministas en `tests/unit/`, con Vitest y sin backend, red 
 4. Confirmar que no aparecen el panel de almacenamiento ni la etiqueta «Demo local» en la barra superior. El diseñador de test cases debe conservar su aviso de maqueta sin IA.
 5. Revisar búsqueda, filtros, estados vacíos y formularios locales.
 6. En el diseñador, probar texto vacío, categorías y cantidades; comprobar Acción / Resultado esperado, limpieza de vista previa y exportaciones Excel/PDF.
-7. Abrir SwaggerUI. Recordar que los POST de Try it out sí escriben datos persistentes en PostgreSQL.
+7. En Configuración, crear/editar/eliminar una plantilla, cargarla en «Nuevo bug» y ajustar sus campos antes de guardar.
+8. Verificar que la sección de IA se presenta como maqueta deshabilitada y no pide ni envía credenciales.
+9. Si se prueba la baja de cuenta, usar solo una cuenta y base desechables: confirma la revocación de sesiones y la conservación de recursos QA relacionados.
+10. Abrir SwaggerUI. Recordar que las escrituras de Try it out sí modifican datos persistentes en PostgreSQL.
 
 ## SQL y PostgreSQL
 
-Las pruebas Vitest no necesitan PostgreSQL. Para verificar el esquema manualmente en una base local de prueba, seguir [`backend/sql/README.md`](../backend/sql/README.md) e importar `003_verify.sql` después del esquema. Para probar la API, aplicar también 004_authentication.sql o db:migrate antes de test:db. Comprueba referencias entre proyectos, prioridades, posiciones únicas y destinos de evidencias; revierte sus filas al finalizar. Se requiere un servidor PostgreSQL; no se afirma persistencia de la aplicación por importar esos archivos.
+Las pruebas Vitest no necesitan PostgreSQL. Para verificar el esquema manualmente en una base local de prueba, seguir [`backend/sql/README.md`](../backend/sql/README.md) e importar `003_verify.sql` después del esquema. Para probar la API, aplicar 004 y 005 (o `pnpm db:migrate`) antes de `test:db`. Comprueba referencias entre proyectos, prioridades, posiciones únicas y destinos de evidencias; revierte sus filas al finalizar. Se requiere un servidor PostgreSQL; no se afirma persistencia de la aplicación por importar esos archivos.
 
 Los scripts SQL iniciales se verificaron con PostgreSQL 18 en una instancia temporal aislada: creación de la base, esquema, seed y comprobaciones de integridad. La API ya usa un repositorio PostgreSQL; el esquema sigue importándose manualmente.
 

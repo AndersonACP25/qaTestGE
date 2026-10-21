@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
+    "dev:workspace": "tsx watch src/server.ts",
     "db:check": "tsx src/check-database.ts",
     "db:migrate": "tsx src/migrate.ts",
     "test:db": "tsx scripts/verify-postgres.ts",

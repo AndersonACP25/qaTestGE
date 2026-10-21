@@ -21,6 +21,7 @@ export default function Session() {
   const [checking, setChecking] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [accountDeleted, setAccountDeleted] = useState(false);
   const [theme, setTheme] = useState<Theme>(() => {
     let saved: string | null = null;
     try { saved = localStorage.getItem("qatestge-theme"); } catch { /* Appearance storage is optional. */ }
@@ -53,7 +54,7 @@ export default function Session() {
     setBusy(true); setError("");
     try {
       const session = await api<SessionState>(register ? "/auth/register" : "/auth/login", { method: "POST", body: JSON.stringify({ email, password, ...(register ? { name: String(data.get("name") ?? "").trim() } : {}) }) });
-      form.reset(); setCsrfToken(session.csrfToken); setUser(session.user);
+      form.reset(); setCsrfToken(session.csrfToken); setUser(session.user); setAccountDeleted(false);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo iniciar sesión."); }
     finally { setBusy(false); }
   }
@@ -64,7 +65,7 @@ export default function Session() {
     finally { setBusy(false); }
   }
   if (checking) return <main className="session"><p role="status">Comprobando tu sesión…</p>{themeControl}</main>;
-  if (user) return <>{error && <div className="session__error-banner" role="alert">{error}</div>}<App key={user.id} user={user.name} onLogout={() => { if (!busy) void logout(); }} themeControl={themeControl} /></>;
+  if (user) return <>{error && <div className="session__error-banner" role="alert">{error}</div>}<App key={user.id} user={user} onUserUpdated={setUser} onAccountDeleted={() => { setCsrfToken(""); setUser(null); setRegister(false); setError(""); setAccountDeleted(true); }} onLogout={() => { if (!busy) void logout(); }} themeControl={themeControl} /></>;
   return <main className="session">
     <div className="session__toolbar">{themeControl}</div>
     <section className="session__card" aria-labelledby="session-title">
@@ -72,6 +73,7 @@ export default function Session() {
       <p className="session__eyebrow">TU ESPACIO DE CALIDAD</p>
       <h1 id="session-title">{register ? "Crea tu cuenta" : "Inicia sesión"}</h1>
       <p className="session__intro">Organiza tus bugs, pruebas y evidencias en un solo lugar.</p>
+      {accountDeleted && <p className="session__notice" role="status">Tu cuenta se desactivó y anonimizó correctamente. Los recursos QA relacionados se conservaron.</p>}
       <div className="session__tabs" role="group" aria-label="Modo de acceso">
         <button disabled={busy} className={`session__tab${!register ? " session__tab--active" : ""}`} aria-pressed={!register} onClick={() => { setRegister(false); setError(""); }}>Inicio de sesión</button>
         <button disabled={busy} className={`session__tab${register ? " session__tab--active" : ""}`} aria-pressed={register} onClick={() => { setRegister(true); setError(""); }}>Registro</button>
