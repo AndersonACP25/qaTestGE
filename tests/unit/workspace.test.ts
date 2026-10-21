@@ -6,7 +6,8 @@ import App from "../../src/App";
 describe("workspace branding", () => {
   it("uses the favicon as its mark and omits the retired indicators", () => {
     const html = renderToStaticMarkup(createElement(App, {
-      user: "QA",
+      user: { id: "1", name: "QA", email: "qa@example.test" },
+      onUserUpdated: () => {},
       onLogout: () => {},
       themeControl: null,
     }));

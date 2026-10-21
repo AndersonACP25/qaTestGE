@@ -2,11 +2,33 @@ export interface CaseCategory {
   id: string;
   label: string;
   description: string;
+  color: string;
   steps: { action: string; expected: string }[];
 }
 
+const categoryColors: Record<string, string> = {
+  smoke: "#2563eb",
+  regression: "#7c3aed",
+  functional: "#047857",
+  ui: "#be185d",
+  ux: "#c2410c",
+  integration: "#0e7490",
+  sanity: "#4d7c0f",
+  e2e: "#4f46e5",
+  unit: "#0f766e",
+  acceptance: "#9333ea",
+  accessibility: "#0369a1",
+  security: "#dc2626",
+  performance: "#a21caf",
+  compatibility: "#a16207",
+  edge: "#475569",
+  exploratory: "#be123c",
+  stress: "#b45309",
+  api: "#15803d",
+};
+
 function category(id: string, label: string, description: string, examples: [string, string][]): CaseCategory {
-  return { id, label, description, steps: examples.map(([action, expected]) => ({ action, expected })) };
+  return { id, label, description, color: categoryColors[id], steps: examples.map(([action, expected]) => ({ action, expected })) };
 }
 
 // Escenarios ilustrativos de un registro hipotético; no dependen del requisito escrito.

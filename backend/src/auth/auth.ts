@@ -1,19 +1,11 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
 import type { Project } from "../repositories/repository.js";
+import type { AuthGrant, AuthProvider, AuthState, UpdateProfileInput, User } from "../models/user.model.js";
 import { HttpError } from "../http-error.js";
 import { hashPassword, verifyPassword } from "./passwords.js";
 
-export interface User { id: string; name: string; email: string }
-export interface AuthState { user: User; csrfToken: string }
-export interface AuthGrant extends AuthState { token: string; expiresAt: Date }
-export interface AuthProvider {
-  register(input: { name: string; email: string; password: string }, previousToken?: string): Promise<AuthGrant>;
-  login(email: string, password: string, previousToken?: string): Promise<AuthGrant>;
-  authenticate(token: string): Promise<AuthState | null>;
-  logout(token: string): Promise<void>;
-  projects(userId: string): Promise<Project[]>;
-}
+export type { AuthGrant, AuthProvider, AuthState, User } from "../models/user.model.js";
 export function sessionHash(token: string): string { return createHash("sha256").update(token).digest("hex"); }
 export function newSession() {
   return { token: randomBytes(32).toString("hex"), csrfToken: randomBytes(32).toString("hex"), expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) };
@@ -67,6 +59,44 @@ export class PostgresAuth implements AuthProvider {
     const { rows } = await this.pool.query<Project>(`SELECT p.id::text,p.organization_id::text AS "organizationId",p.name,p.description
       FROM qa.projects p JOIN qa.organization_members m ON m.organization_id=p.organization_id WHERE m.user_id=$1 ORDER BY p.id`, [userId]);
     return rows;
+  }
+  async updateProfile(userId: string, input: UpdateProfileInput): Promise<User> {
+    try {
+      const { rows } = await this.pool.query<User>(
+        "UPDATE qa.users SET name=$2,email=$3 WHERE id=$1 AND is_active RETURNING id::text,name,email",
+        [userId, input.name.trim(), input.email.trim().toLowerCase()],
+      );
+      if (!rows[0]) throw new HttpError(401, "UNAUTHENTICATED", "La cuenta ya no está activa.");
+      return rows[0];
+    } catch (error) {
+      if (typeof error === "object" && error !== null && "code" in error && error.code === "23505") {
+        throw new HttpError(409, "ACCOUNT_EXISTS", "Ya existe una cuenta con ese correo.");
+      }
+      throw error;
+    }
+  }
+  async changePassword(userId: string, currentPassword: string, newPassword: string, currentToken: string): Promise<void> {
+    const { rows } = await this.pool.query<{ password_hash: string }>(
+      "SELECT password_hash FROM qa.users WHERE id=$1 AND is_active",
+      [userId],
+    );
+    if (!await verifyPassword(currentPassword, rows[0]?.password_hash)) {
+      throw new HttpError(401, "INVALID_PASSWORD", "La contraseña actual no es correcta.");
+    }
+    const passwordHash = await hashPassword(newPassword);
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const updated = await client.query("UPDATE qa.users SET password_hash=$2 WHERE id=$1 AND is_active", [userId, passwordHash]);
+      if (!updated.rowCount) throw new HttpError(401, "UNAUTHENTICATED", "La cuenta ya no está activa.");
+      await client.query("DELETE FROM qa.auth_sessions WHERE user_id=$1 AND token_hash<>$2", [userId, sessionHash(currentToken)]);
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
   }
   private async saveSession(client: PoolClient, userId: string, grant: ReturnType<typeof newSession>, previousToken?: string) {
     if (previousToken) await client.query("DELETE FROM qa.auth_sessions WHERE token_hash=$1", [sessionHash(previousToken)]);

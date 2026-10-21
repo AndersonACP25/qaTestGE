@@ -8,7 +8,7 @@ import testCasesRouter from "./routes/test-cases.routes.js";
 import testRunsRouter from "./routes/test-runs.routes.js";
 import type { Repository } from "./repositories/repository.js";
 import { HttpError } from "./http-error.js";
-import type { AuthProvider } from "./auth/auth.js";
+import type { AuthProvider } from "./models/user.model.js";
 import { authRouter, requireAuth, sameOrigin } from "./auth/routes.js";
 
 export function createApp(repository: Repository, auth: AuthProvider) {

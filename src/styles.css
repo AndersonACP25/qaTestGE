@@ -2331,6 +2331,12 @@ tbody td {
 .workspace__field { display: grid; gap: 7px; margin-bottom: 15px; color: var(--color-626678); font-size: 12px; }
 .workspace__field input, .workspace__field textarea, .workspace__field select { width: 100%; min-width: 0; padding: 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--color-f7f8fa); color: var(--color-202334); font-size: 13px; }
 .workspace__field textarea { min-height: 75px; resize: vertical; }
+.account-settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.account-settings__card { min-width: 0; padding: 22px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+.account-settings__heading h2 { margin: 0; color: var(--color-202334); font-size: 15px; }
+.account-settings__heading p { margin: 8px 0 20px; color: var(--color-626678); font-size: 12px; line-height: 1.7; }
+.account-settings__form { display: grid; gap: 4px; }
+.account-settings__success { margin: 0 0 12px; color: #16804a; font-size: 12px; line-height: 1.6; }
 .workspace__check { display: flex; align-items: flex-start; gap: 8px; margin: 10px 0; color: var(--color-626678); font-size: 12px; }
 .workspace__actions { display: flex; justify-content: flex-end; gap: 10px; }
 .workspace__detail { margin: 0; display: grid; gap: 8px; font-size: 13px; }
@@ -2338,5 +2344,6 @@ tbody td {
 .workspace__detail dd { margin: 0; overflow-wrap: anywhere; line-height: 1.7; }
 .workspace__detail pre { margin: 0; white-space: pre-wrap; font: inherit; }
 @media (max-width: 850px) { .workspace__metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 850px) { .account-settings { grid-template-columns: 1fr; } }
 @media (max-width: 620px) { .workspace__toolbar select { max-width: 190px; } .workspace__dialog { padding: 18px; } .workspace__metric { padding: 14px; } }
 .workspace .button:disabled { opacity: .5; cursor: not-allowed; }

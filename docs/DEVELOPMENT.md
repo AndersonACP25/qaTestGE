@@ -10,19 +10,19 @@ pnpm install --frozen-lockfile
 # copiar backend/.env.example a backend/.env y ajustar DATABASE_URL
 pnpm db:migrate
 pnpm db:check
-pnpm dev:all
+pnpm dev
 ```
 
 No sobrescribir un `.env` existente. Los scripts SQL se importan manualmente una sola vez según [backend/sql/README.md](../backend/sql/README.md). Si ya creaste las tablas y los datos, no vuelvas a importarlos para iniciar la API.
 
-`dev:all` levanta Vite y tsx watch en paralelo. Frontend: `http://localhost:5173`; API: `http://localhost:3000/api/health`. `Ctrl+C` detiene la sesión. El frontend recupera su sesión por cookie, lista los proyectos autorizados y consulta/crea recursos mediante /api. Registro crea un workspace y un proyecto propios; las membresías sobre datos anteriores se conceden explícitamente.
+`dev` levanta Vite y tsx watch en paralelo. Frontend: `http://localhost:5173`; API: `http://localhost:3000/api/health` por defecto (el puerto real se define con `PORT`). `Ctrl+C` detiene la sesión. El frontend recupera su sesión por cookie, lista los proyectos autorizados y consulta/crea recursos mediante /api. Registro crea un workspace y un proyecto propios; las membresías sobre datos anteriores se conceden explícitamente.
 
 ## Scripts
 
 | Comando | Uso |
 |---|---|
-| `pnpm dev:all` | Frontend y backend en paralelo |
-| `pnpm dev` / `pnpm dev:frontend` | Solo Vite |
+| `pnpm dev` / `pnpm dev:all` | Frontend y backend en paralelo |
+| `pnpm dev:frontend` | Solo Vite |
 | `pnpm dev:backend` / `pnpm dev:api` | API con tsx watch y PostgreSQL |
 | `pnpm db:migrate` | Migración aditiva de usuarios y sesiones (004), repetible |
 | `pnpm db:check` | Conexión y tablas del esquema qa, solo lectura |
@@ -49,7 +49,7 @@ Después del build, `pnpm --dir backend start` ejecuta el servidor compilado, co
 
 El servidor comprueba conexión y tablas antes de escuchar. Si falla, sale con error y no usa memoria. Si PostgreSQL se cae durante ejecución, health devuelve 503. Los logs y las respuestas no imprimen credenciales ni SQL.
 
-Vite reenvía `/api` a `http://localhost:3000`; ajustar vite.config.ts si cambias el puerto del backend. Para solicitudes directas desde otro origen, configurar CORS.
+Vite reenvía `/api` al puerto `PORT` del backend, leído desde `backend/.env` o el entorno (3000 por defecto). Reinicia Vite después de cambiar el puerto. Si `ECONNREFUSED` persiste, confirma que la API inició correctamente y que PostgreSQL está disponible con `pnpm db:check`. Para solicitudes directas desde otro origen, configurar CORS.
 
 ## Verificación
 

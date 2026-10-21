@@ -5,6 +5,8 @@ import type { Evidence as ApiEvidence } from "../backend/src/models/evidence.mod
 import type { Bug, TestCase, TestRun, Evidence } from "./types";
 
 export interface User { id: string; name: string; email: string }
+export interface AccountProfile { name: string; email: string }
+export interface PasswordChange { currentPassword: string; newPassword: string }
 export interface Project { id: string; organizationId: string; name: string; description: string }
 export interface SessionState { user: User; csrfToken: string }
 let csrfToken = "";
@@ -27,7 +29,7 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   try { body = await response.json(); }
   catch { throw new ApiError("La API devolvió una respuesta no válida.", response.status, "INVALID_RESPONSE"); }
   if (!response.ok) {
-    if (response.status === 401 && !["/auth/login", "/auth/register"].includes(path)) window.dispatchEvent(new Event("qa:unauthorized"));
+    if (response.status === 401 && body.error?.code === "UNAUTHENTICATED") window.dispatchEvent(new Event("qa:unauthorized"));
     throw new ApiError(body.error?.message ?? "No se pudo completar la operación.", response.status, body.error?.code ?? "API_ERROR");
   }
   return body.data as T;

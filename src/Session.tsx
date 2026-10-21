@@ -64,7 +64,7 @@ export default function Session() {
     finally { setBusy(false); }
   }
   if (checking) return <main className="session"><p role="status">Comprobando tu sesión…</p>{themeControl}</main>;
-  if (user) return <>{error && <div className="session__error-banner" role="alert">{error}</div>}<App key={user.id} user={user.name} onLogout={() => { if (!busy) void logout(); }} themeControl={themeControl} /></>;
+  if (user) return <>{error && <div className="session__error-banner" role="alert">{error}</div>}<App key={user.id} user={user} onUserUpdated={setUser} onLogout={() => { if (!busy) void logout(); }} themeControl={themeControl} /></>;
   return <main className="session">
     <div className="session__toolbar">{themeControl}</div>
     <section className="session__card" aria-labelledby="session-title">

@@ -4,7 +4,8 @@ import { filterBugs, filterCases, filterEvidence, filterRuns } from "./utils/fil
 import CaseBuilder from "./CaseBuilder";
 import Dialog from "./Dialog";
 import { api, loadProject } from "./api";
-import type { Project } from "./api";
+import type { Project, User } from "./api";
+import AccountSettingsView from "./views/AccountSettingsView";
 type WorkspaceData = Awaited<ReturnType<typeof loadProject>>;
 import type {
   Bug,
@@ -74,7 +75,7 @@ function Priority({ level }: { level: PriorityLevel }) {
   return <span className={`priority priority-${level.toLowerCase()}`}><span />{level}</span>;
 }
 
-function App({ user, onLogout, themeControl }: { user: string; onLogout: () => void; themeControl: React.ReactNode }) {
+function App({ user, onUserUpdated, onLogout, themeControl }: { user: User; onUserUpdated: (user: User) => void; onLogout: () => void; themeControl: React.ReactNode }) {
   const [activePage, setActivePage] = useState<NavigationPage>("overview");
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectId, setProjectId] = useState("");
@@ -135,7 +136,7 @@ function App({ user, onLogout, themeControl }: { user: string; onLogout: () => v
       body = { projectId, title, suite: String(form.get("suite") ?? ""), preconditions: String(form.get("preconditions") ?? ""), steps: action ? [{ action, expectedResult }] : [] };
     } else if (modal === "run") {
       path = "/test-runs";
-      body = { projectId, title, owner: user, caseIds: form.getAll("caseIds") };
+      body = { projectId, title, owner: user.name, caseIds: form.getAll("caseIds") };
     } else if (modal === "evidence") {
       path = "/evidence";
       const file = form.get("file");
@@ -157,23 +158,23 @@ function App({ user, onLogout, themeControl }: { user: string; onLogout: () => v
   return <div className="app-shell workspace">
     <aside className={`sidebar${mobileNav ? " sidebar-open" : ""}`}>
       <div className="brand"><img className="brand__icon" src="/favicon.svg" width="25" height="25" alt="" /><span>qaTest<span className="brand-light">GE</span></span><button className="mobile-close icon-button" onClick={() => setMobileNav(false)} aria-label="Cerrar menú"><Icon name="close" /></button></div>
-      <div className="workspace__identity"><strong>{project?.name ?? "Tu workspace"}</strong><small>Cuenta de {user}</small></div>
+      <div className="workspace__identity"><strong>{project?.name ?? "Tu workspace"}</strong><small>Cuenta de {user.name}</small></div>
       <div className="sidebar-nav">{navigation.map((group) => <div className="nav-group" key={group.section}><div className="nav-label">{group.section}</div>{group.items.map((item) => <button className={`nav-item${activePage === item.id ? " nav-active" : ""}`} key={item.id} onClick={() => navigate(item.id)}><Icon name={item.icon} size={18} /><span>{item.label}</span>{item.id === "bugs" && <span className="nav-count">{bugs.length}</span>}</button>)}</div>)}</div>
       <a className="portal-docs__link" href="/api/docs/" target="_blank" rel="noreferrer"><Icon name="file" />SwaggerUI · API ↗</a>
-      <div className="sidebar-bottom"><div className="workspace__identity"><Avatar initials={user.slice(0, 2).toUpperCase()} color="orange" /><strong>{user}</strong><small>Sesión activa</small></div></div>
+      <div className="sidebar-bottom"><div className="workspace__identity"><Avatar initials={user.name.slice(0, 2).toUpperCase()} color="orange" /><strong>{user.name}</strong><small>Sesión activa</small></div></div>
     </aside>
     {mobileNav && <button className="scrim" aria-label="Cerrar menú" onClick={() => setMobileNav(false)} />}
     <main className="main-area">
       <header className="topbar"><div className="breadcrumb"><button className="mobile-menu icon-button" onClick={() => setMobileNav(true)} aria-label="Abrir menú"><span className="hamburger" /></button><span>{project?.name ?? "Workspace"}</span><span className="crumb-slash">/</span><strong>{pageTitle}</strong></div><div className="topbar-actions">{themeControl}<button className="session__logout" onClick={onLogout}>Salir</button><span className="ai-pill"><Icon name="sparkle" size={15} /> IA no conectada</span></div></header>
       <div className="page-content">
-        <div className="welcome-row"><div><div className="eyebrow">{new Date().toLocaleDateString("es", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</div><h1>{activePage === "overview" ? `Hola, ${user}` : pageTitle}</h1><p className="page-subtitle">{pageDescription(activePage)}</p></div>
+        <div className="welcome-row"><div><div className="eyebrow">{new Date().toLocaleDateString("es", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</div><h1>{activePage === "overview" ? `Hola, ${user.name}` : pageTitle}</h1><p className="page-subtitle">{pageDescription(activePage)}</p></div>
           {!["case-builder", "team", "settings"].includes(activePage) && <button disabled={!projectId || loading || saving || Boolean(error)} className="button button-primary" onClick={() => openModal(activePage === "cases" ? "case" : activePage === "runs" ? "run" : activePage === "evidence" ? "evidence" : "bug")}><Icon name="plus" />{activePage === "cases" ? "Nuevo caso" : activePage === "runs" ? "Nueva ejecución" : activePage === "evidence" ? "Registrar metadatos" : "Nuevo bug"}</button>}
         </div>
         <div className="workspace__toolbar"><label>Proyecto<select disabled={saving} value={projectId} onChange={(event) => { setData({ bugs: [], cases: [], runs: [], evidence: [] }); setLoading(true); setProjectId(event.target.value); }}><option value="" disabled>Selecciona un proyecto</option>{projects.map((p) => <option key={p.id} value={p.id}>{p.name} · #{p.id}</option>)}</select></label><button className="workspace__secondary" disabled={loading || saving} onClick={() => { setError(""); setLoading(true); setRevision((n) => n + 1); }}>Actualizar</button></div>
         {loading && <p className="workspace__notice" role="status">Cargando datos del proyecto…</p>}
         {error && <p className="workspace__error" role="alert">{error}</p>}
         {!loading && !error && !projectId && <p className="workspace__notice">No tienes proyectos disponibles. El administrador debe conceder acceso a un espacio existente.</p>}
-        {activePage === "case-builder" ? <CaseBuilder /> : !loading && !error && projectId && (activePage === "overview" ? <>
+        {activePage === "settings" ? <AccountSettingsView user={user} onUserUpdated={onUserUpdated} /> : activePage === "case-builder" ? <CaseBuilder /> : !loading && !error && projectId && (activePage === "overview" ? <>
           <div className="workspace__metrics">{[["Bugs abiertos", bugs.filter((b) => b.status !== "Resuelto").length], ["Casos de prueba", cases.length], ["Ejecuciones activas", runs.filter((r) => r.status === "En curso").length], ["Evidencias", evidence.length]].map(([label, value]) => <div className="workspace__metric" key={label}><span>{label}</span><strong>{value}</strong><small>Proyecto actual · PostgreSQL</small></div>)}</div>
           <section className="workspace__panel"><h2>Bugs recientes</h2><BugTable bugs={bugs.slice(0, 5)} onSelect={setDetail} />{!bugs.length && <p className="workspace__notice">Aún no hay bugs en este proyecto.</p>}</section>
           <section className="workspace__panel"><h2>Ejecuciones recientes</h2><RunTable items={runs.slice(0, 5)} onSelect={setDetail} />{!runs.length && <p className="workspace__notice">Aún no hay ejecuciones. Crea casos y agrúpalos en una ejecución.</p>}</section>

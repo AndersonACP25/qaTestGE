@@ -19,6 +19,13 @@ describe("frontend API client without network", () => {
     await expect(api("/projects")).rejects.toMatchObject({ status: 401, message: "Sesión expirada" });
     expect(expired).toHaveBeenCalledOnce();
   });
+  it("does not expire the session when an authenticated action rejects credentials", async () => {
+    const target = new EventTarget(); const expired = vi.fn(); target.addEventListener("qa:unauthorized", expired);
+    vi.stubGlobal("window", target);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: { message: "Contraseña actual incorrecta", code: "INVALID_PASSWORD" } }), { status: 401 })));
+    await expect(api("/auth/password", { method: "PATCH", body: JSON.stringify({ currentPassword: "wrong", newPassword: "new long password" }) })).rejects.toMatchObject({ status: 401, code: "INVALID_PASSWORD" });
+    expect(expired).not.toHaveBeenCalled();
+  });
   it("does not replace failed network requests with example data", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
     await expect(api("/projects")).rejects.toMatchObject({ code: "NETWORK_ERROR" });

@@ -32,16 +32,17 @@ Las colecciones usan `{"data":[...]}`; las creaciones `{"data":{...}}`. Las list
 |---|---|---|
 | POST | `/auth/register` | Nombre (hasta 100), correo (hasta 254), contraseña (12–128). 201 con usuario y csrfToken; crea workspace, proyecto y membresía owner en una transacción |
 | POST | `/auth/login` | Correo y contraseña. 200 con usuario y csrfToken; rota la sesión previa del navegador |
-| GET | `/auth/me` | 200 con sesión actual o 401 |
+| GET, PATCH | `/auth/me` | Consultar sesión; PATCH cambia nombre/correo con cookie y X-CSRF-Token |
+| PATCH | `/auth/password` | Verifica contraseña actual, cambia la nueva (12–128) y revoca las demás sesiones |
 | POST | `/auth/logout` | JSON vacío y X-CSRF-Token; 204 revoca sesión y borra cookie |
 
 Registro e inicio establecen qa_session: cookie HttpOnly, SameSite=Lax, Path=/api, Secure en producción y expiración absoluta de siete días. La base solo conserva su hash SHA-256. La respuesta pública contiene `{"data":{"user":{"id":"1","name":"QA","email":"qa@example.test"},"csrfToken":"..."}}`; nunca contraseñas, hashes ni el token de sesión.
 
-Los recursos y proyectos requieren la cookie. Todos los POST protegidos, incluido logout, exigen X-CSRF-Token obtenido de login/registro/me. Las peticiones de escritura usan JSON y se rechazan si declaran un Origin distinto de FRONTEND_ORIGIN/CORS_ORIGIN o API_ORIGIN. La autorización consulta la membresía actual; una cuenta sin acceso recibe 404 PROJECT_NOT_FOUND al seleccionar un proyecto ajeno. Los miembros tienen lectura y creación dentro de la organización; no hay administración HTTP de roles o invitaciones.
+Los recursos y proyectos requieren la cookie. Todas las escrituras protegidas (POST y PATCH), incluido logout, exigen X-CSRF-Token obtenido de login/registro/me. Las peticiones de escritura usan JSON y se rechazan si declaran un Origin distinto de FRONTEND_ORIGIN/CORS_ORIGIN o API_ORIGIN. La autorización consulta la membresía actual; una cuenta sin acceso recibe 404 PROJECT_NOT_FOUND al seleccionar un proyecto ajeno. Los miembros tienen lectura y creación dentro de la organización; no hay administración HTTP de roles o invitaciones.
 
 En SwaggerUI, iniciar sesión con el endpoint login, consultar me y copiar csrfToken al campo X-CSRF-Token de **Authorize** para probar POST. La cookie se envía automáticamente desde el mismo origen. No introducir el token de sesión manualmente en JavaScript.
 
-Login y registro comparten un límite básico en memoria por proceso: 20 solicitudes por IP/15 minutos, con Retry-After y 429. La derivación de contraseñas limita también la concurrencia; ante saturación se devuelve AUTH_BUSY. No hay recuperación de contraseña, verificación de correo ni MFA.
+Login y registro comparten un límite básico en memoria por proceso: 20 solicitudes por IP/15 minutos, con Retry-After y 429. La derivación de contraseñas limita también la concurrencia; ante saturación se devuelve AUTH_BUSY. Cambiar la contraseña requiere la contraseña actual; se mantiene la sesión actual y se revocan las demás. No hay recuperación de contraseña, verificación de correo ni MFA.
 
 ## Creación de recursos
 
@@ -89,8 +90,8 @@ Formato: `{"error":{"code":"INVALID_REFERENCE","message":"..."}}`.
 
 | HTTP | Códigos |
 |---|---|
-| 400 | `INVALID_BUG`, `INVALID_TEST_CASE`, `INVALID_TEST_RUN`, `INVALID_EVIDENCE`, `INVALID_PROJECT_ID`, `INVALID_REFERENCE`, `INVALID_JSON`, `INVALID_REGISTRATION`, `INVALID_LOGIN` |
-| 401 | `UNAUTHENTICATED`, `INVALID_CREDENTIALS` |
+| 400 | `INVALID_BUG`, `INVALID_TEST_CASE`, `INVALID_TEST_RUN`, `INVALID_EVIDENCE`, `INVALID_PROJECT_ID`, `INVALID_REFERENCE`, `INVALID_JSON`, `INVALID_REGISTRATION`, `INVALID_LOGIN`, `INVALID_PROFILE`, `INVALID_PASSWORD` |
+| 401 | `UNAUTHENTICATED`, `INVALID_CREDENTIALS`, `INVALID_PASSWORD` (contraseña actual incorrecta) |
 | 403 | `INVALID_CSRF`, `INVALID_ORIGIN` |
 | 404 | `NOT_FOUND`, `PROJECT_NOT_FOUND` |
 | 429 | `TOO_MANY_ATTEMPTS`, `AUTH_BUSY` |
