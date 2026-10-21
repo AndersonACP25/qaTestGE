@@ -1,5 +1,5 @@
 import type { Repository, Project } from "../repositories/repository.js";
-import type { BugStatus, CreateBugInput } from "../models/bug.model.js";
+import type { BugStatus, CreateBugInput, UpdateBugInput } from "../models/bug.model.js";
 import type {
   TestCaseStatus,
   CreateTestCaseAttachmentInput,
@@ -53,6 +53,10 @@ export class AuthorizedRepository implements Repository {
     await this.projectIds(projectId);
     return this.base.updateBugStatus(id, projectId, status);
   }
+  async updateBug(id: string, projectId: string, input: UpdateBugInput) {
+    await this.projectIds(projectId);
+    return this.base.updateBug(id, projectId, input);
+  }
   async createCase(input: CreateTestCaseInput) {
     await this.projectIds(input.projectId);
     return this.base.createCase(input);
@@ -92,5 +96,13 @@ export class AuthorizedRepository implements Repository {
   async createEvidence(input: CreateEvidenceInput) {
     await this.projectIds(input.projectId);
     return this.base.createEvidence(input);
+  }
+  async updateEvidence(id: string, projectId: string, input: UpdateEvidenceInput) {
+    await this.projectIds(projectId);
+    return this.base.updateEvidence(id, projectId, input);
+  }
+  async deleteEvidence(id: string, projectId: string) {
+    await this.projectIds(projectId);
+    return this.base.deleteEvidence(id, projectId);
   }
 }

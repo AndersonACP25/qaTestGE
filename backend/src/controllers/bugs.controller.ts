@@ -4,6 +4,7 @@ import {
   bugStatuses,
   type CreateBugInput,
   type BugStatus,
+  type UpdateBugInput,
 } from "../models/bug.model.js";
 import { repository } from "../repositories/repository.js";
 import { isId, isRecord, parseReference, projectFilter, text } from "../validation.js";
@@ -52,6 +53,24 @@ export async function updateBugStatus(request: Request, response: Response) {
     throw new HttpError(404, "BUG_NOT_FOUND", "No se encontró el bug en el proyecto indicado.");
   response.json({ data: updated });
 }
+export async function updateBug(request: Request, response: Response) {
+  const body: unknown = request.body;
+  const id = parseReference(request.params.bugId, "BUG");
+  if (!id || !isUpdateBugInput(body)) {
+    response.status(400).json({
+      error: {
+        code: "INVALID_BUG",
+        message: "projectId, título, prioridad y campos de bug válidos son obligatorios.",
+      },
+    });
+    return;
+  }
+  const { projectId, ...input } = body;
+  const updated = await repository(request).updateBug(id, projectId, input);
+  if (!updated)
+    throw new HttpError(404, "BUG_NOT_FOUND", "No se encontró el bug en el proyecto indicado.");
+  response.json({ data: updated });
+}
 function isCreateBugInput(input: unknown): input is CreateBugInput {
   return (
     isRecord(input) &&
@@ -65,6 +84,25 @@ function isCreateBugInput(input: unknown): input is CreateBugInput {
     (input.assignee === undefined ||
       input.assignee === null ||
       (typeof input.assignee === "string" && input.assignee.length <= 100))
+  );
+}
+
+function isUpdateBugInput(
+  input: unknown,
+): input is CreateBugInput & Pick<UpdateBugInput, "status"> {
+  return (
+    isRecord(input) &&
+    isId(input.projectId) &&
+    text(input.title, 200) &&
+    !("project" in input) &&
+    typeof input.priority === "string" &&
+    bugPriorities.includes(input.priority as (typeof bugPriorities)[number]) &&
+    (input.description === undefined ||
+      (typeof input.description === "string" && input.description.length <= 5000)) &&
+    (input.assignee === undefined ||
+      input.assignee === null ||
+      (typeof input.assignee === "string" && input.assignee.length <= 100)) &&
+    (input.status === undefined || isBugStatus(input.status))
   );
 }
 

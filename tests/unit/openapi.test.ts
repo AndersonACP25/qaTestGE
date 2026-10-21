@@ -3,8 +3,8 @@ import { openApiDocument } from "../../backend/src/openapi";
 
 describe("OpenAPI contract", () => {
   it("documents all implemented operations and locally resolvable schemas", () => {
-    expect(Object.keys(openApiDocument.paths)).toHaveLength(20);
-    expect(Object.values(openApiDocument.paths).flatMap(Object.keys)).toHaveLength(30);
+    expect(Object.keys(openApiDocument.paths)).toHaveLength(22);
+    expect(Object.values(openApiDocument.paths).flatMap(Object.keys)).toHaveLength(33);
     expect(openApiDocument.paths["/api/auth/me"]).toHaveProperty("patch");
     expect(openApiDocument.paths["/api/auth/me"]).toHaveProperty("delete");
     expect(openApiDocument.paths["/api/auth/bug-templates"]).toHaveProperty("post");

@@ -1,10 +1,17 @@
-import type { Bug as ApiBug } from "../backend/src/models/bug.model";
+import type {
+  Bug as ApiBug,
+  CreateBugInput,
+  UpdateBugInput,
+} from "../backend/src/models/bug.model";
 import type {
   CreateTestCaseInput,
   TestCase as ApiCase,
 } from "../backend/src/models/test-case.model";
 import type { TestRun as ApiRun } from "../backend/src/models/test-run.model";
-import type { Evidence as ApiEvidence } from "../backend/src/models/evidence.model";
+import type {
+  Evidence as ApiEvidence,
+  UpdateEvidenceInput,
+} from "../backend/src/models/evidence.model";
 import type {
   Bug,
   BugStatus,
@@ -112,6 +119,31 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
 }
 export async function createTestCase(input: CreateTestCaseInput) {
   return toCase(await api<ApiCase>("/test-cases", { method: "POST", body: JSON.stringify(input) }));
+}
+export async function createBug(input: CreateBugInput) {
+  return toBug(await api<ApiBug>("/bugs", { method: "POST", body: JSON.stringify(input) }));
+}
+export async function updateBug(id: string, projectId: string, input: UpdateBugInput) {
+  return toBug(
+    await api<ApiBug>(`/bugs/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ projectId, ...input }),
+    }),
+  );
+}
+export async function updateEvidence(id: string, projectId: string, input: UpdateEvidenceInput) {
+  return toEvidence(
+    await api<ApiEvidence>(`/evidence/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ projectId, ...input }),
+    }),
+  );
+}
+export async function deleteEvidence(id: string, projectId: string) {
+  return api<void>(
+    `/evidence/${encodeURIComponent(id)}?projectId=${encodeURIComponent(projectId)}`,
+    { method: "DELETE", body: JSON.stringify({}) },
+  );
 }
 export async function updateTestCase(
   id: string,

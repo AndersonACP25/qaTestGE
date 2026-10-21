@@ -1,5 +1,10 @@
 import { Router } from "express";
-import { createEvidence, deleteEvidence, listEvidence, updateEvidence } from "../controllers/evidence.controller.js";
+import {
+  createEvidence,
+  deleteEvidence,
+  listEvidence,
+  updateEvidence,
+} from "../controllers/evidence.controller.js";
 
 const evidenceRouter = Router();
 

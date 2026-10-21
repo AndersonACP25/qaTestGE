@@ -47,6 +47,7 @@ Todos los cambios importantes de qaTestGE se documentan aquí. El formato sigue 
 
 ### Changed
 
+- Se mejoró el botón para guardar casos diseñados, con estados visuales de guardado, foco, hover y carga.
 - La API usa PostgreSQL sin fallback en memoria; requiere projectId, sustituye caseCount de entrada por caseIds y devuelve related como array en evidencias. Swagger y documentación actualizados.
 
 - Retirados el panel de almacenamiento y la etiqueta Demo local de la barra superior.

@@ -6,6 +6,8 @@ import Dialog from "./Dialog";
 import {
   addTestCaseLink,
   api,
+  createBug,
+  deleteEvidence,
   deleteTestCase,
   deleteTestCaseAttachment,
   listTestCaseAttachments,
@@ -13,6 +15,8 @@ import {
   saveBugStatus,
   saveCaseStatus,
   testCaseImageUrl,
+  updateBug,
+  updateEvidence,
   updateTestCase,
   uploadTestCaseImage,
 } from "./api";
@@ -359,7 +363,20 @@ function App({
     title: string;
     description: string;
     priority: BugTemplatePriority;
-  }>({ title: "", description: "", priority: "Media" });
+    status: BugStatus;
+    assignee: string;
+  }>({ title: "", description: "", priority: "Media", status: "Abierto", assignee: "" });
+  const [editingBug, setEditingBug] = useState<Bug | null>(null);
+  const [editingEvidence, setEditingEvidence] = useState<Evidence | null>(null);
+  const [evidenceActionTarget, setEvidenceActionTarget] = useState<Evidence | null>(null);
+  const [evidenceToDelete, setEvidenceToDelete] = useState<Evidence | null>(null);
+  const [evidenceForm, setEvidenceForm] = useState({
+    name: "",
+    type: "Archivo" as Evidence["type"],
+    sizeBytes: 0,
+    related: "",
+  });
+  const [evidenceRelatedChanged, setEvidenceRelatedChanged] = useState(false);
   const [caseSteps, setCaseSteps] = useState([{ action: "", expectedResult: "" }]);
   const [editingCase, setEditingCase] = useState<TestCase | null>(null);
   const [caseImageFiles, setCaseImageFiles] = useState<File[]>([]);
@@ -473,16 +490,70 @@ function App({
   }
   function openModal(value: string) {
     setFormError("");
+    setEditingBug(null);
+    setEditingEvidence(null);
     setEditingCase(null);
     setCaseImageFiles([]);
     setCaseImageDragging(false);
     if (value === "bug") {
-      setBugForm({ title: "", description: "", priority: "Media", status: "Abierto", assignee: "" });
+      setBugForm({
+        title: "",
+        description: "",
+        priority: "Media",
+        status: "Abierto",
+        assignee: "",
+      });
       setSelectedBugTemplateId("");
     }
     if (value === "case") setCaseSteps([{ action: "", expectedResult: "" }]);
-    if (value === "evidence") setEvidenceForm({ name: "", type: "Archivo", sizeBytes: 0, related: "" });
+    if (value === "evidence") {
+      setEvidenceForm({ name: "", type: "Archivo", sizeBytes: 0, related: "" });
+      setEvidenceRelatedChanged(false);
+    }
     setModal(value);
+  }
+  function editBug(bug: Bug) {
+    setBugForm({
+      title: bug.title,
+      description: bug.description ?? "",
+      priority: bug.priority,
+      status: bug.status,
+      assignee: bug.assignee === "—" ? "" : bug.assignee,
+    });
+    setEditingBug(bug);
+    setSelectedBugTemplateId("");
+    setRecordDetail(null);
+    setFormError("");
+    setModal("edit-bug");
+  }
+  function editEvidence(evidenceRecord: Evidence) {
+    setEditingEvidence(evidenceRecord);
+    setEvidenceForm({
+      name: evidenceRecord.name,
+      type: evidenceRecord.type,
+      sizeBytes: evidenceRecord.sizeBytes,
+      related:
+        evidenceRecord.related === "Sin vincular" ? "" : evidenceRecord.related.split(", ")[0],
+    });
+    setEvidenceRelatedChanged(false);
+    setEvidenceActionTarget(null);
+    setFormError("");
+    setModal("edit-evidence");
+  }
+  async function removeEvidence() {
+    if (!evidenceToDelete || saving) return;
+    setSaving(true);
+    setFormError("");
+    try {
+      await deleteEvidence(evidenceToDelete.id, projectId);
+      setEvidenceToDelete(null);
+      setRevision((current) => current + 1);
+      notify("Evidencia eliminada.");
+    } catch (cause) {
+      setFormError(cause instanceof Error ? cause.message : "No se pudo eliminar la evidencia.");
+    } finally {
+      setSaving(false);
+    }
   }
   function editCase(testCase: TestCase) {
     setFormError("");
@@ -536,8 +607,14 @@ function App({
     const template = bugTemplates.find((item) => item.id === templateId);
     setBugForm(
       template
-        ? { title: template.title, description: template.description, priority: template.priority }
-        : { title: "", description: "", priority: "Media" },
+        ? {
+            title: template.title,
+            description: template.description,
+            priority: template.priority,
+            status: "Abierto",
+            assignee: "",
+          }
+        : { title: "", description: "", priority: "Media", status: "Abierto", assignee: "" },
     );
   }
   async function save(event: FormEvent<HTMLFormElement>) {
@@ -545,6 +622,59 @@ function App({
     if (!projectId || saving) return;
     const form = new FormData(event.currentTarget);
     const title = String(form.get("title") ?? "").trim();
+    if (modal === "edit-bug") {
+      if (!editingBug) return;
+      setSaving(true);
+      setFormError("");
+      try {
+        await updateBug(editingBug.id, projectId, {
+          title,
+          description: bugForm.description,
+          priority: bugForm.priority,
+          status: bugForm.status,
+          assignee: bugForm.assignee.trim() || null,
+        });
+        setModal("");
+        setEditingBug(null);
+        setRevision((current) => current + 1);
+        setActivePage("bugs");
+        notify("Bug actualizado.");
+      } catch (cause) {
+        setFormError(cause instanceof Error ? cause.message : "No se pudo actualizar el bug.");
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+    if (modal === "edit-evidence") {
+      if (!editingEvidence) return;
+      if (!Number.isSafeInteger(evidenceForm.sizeBytes) || evidenceForm.sizeBytes < 0) {
+        setFormError("El tamaño debe ser un número entero no negativo.");
+        return;
+      }
+      setSaving(true);
+      setFormError("");
+      try {
+        await updateEvidence(editingEvidence.id, projectId, {
+          name: evidenceForm.name.trim(),
+          type: evidenceForm.type,
+          sizeBytes: evidenceForm.sizeBytes,
+          ...(evidenceRelatedChanged ? { related: evidenceForm.related || null } : {}),
+        });
+        setModal("");
+        setEditingEvidence(null);
+        setRevision((current) => current + 1);
+        setActivePage("evidence");
+        notify("Metadatos de evidencia actualizados.");
+      } catch (cause) {
+        setFormError(
+          cause instanceof Error ? cause.message : "No se pudieron actualizar los metadatos.",
+        );
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
     let path = "/bugs";
     let body: Record<string, unknown> = {
       projectId,
@@ -642,7 +772,17 @@ function App({
         );
         return;
       }
-      await api(path, { method: "POST", body: JSON.stringify(body) });
+      if (modal === "bug") {
+        await createBug({
+          projectId,
+          title,
+          description: bugForm.description,
+          priority: bugForm.priority,
+          assignee: bugForm.assignee.trim() || null,
+        });
+      } else {
+        await api(path, { method: "POST", body: JSON.stringify(body) });
+      }
       setModal("");
       setRevision((n) => n + 1);
       setActivePage(
@@ -964,7 +1104,7 @@ function App({
                   <h2>Bugs recientes</h2>
                   <BugTable
                     bugs={bugs.slice(0, 5)}
-                    onSelect={setDetail}
+                    onSelect={(bug) => setRecordDetail({ kind: "bug", record: bug })}
                     onExport={(bug) => setExportTarget({ kind: "bug", record: bug })}
                     onStatusChange={changeBugStatus}
                     updatingStatus={updatingStatus}
@@ -1010,7 +1150,7 @@ function App({
                 {activePage === "bugs" && (
                   <BugTable
                     bugs={visibleBugs}
-                    onSelect={setDetail}
+                    onSelect={(bug) => setRecordDetail({ kind: "bug", record: bug })}
                     onExport={(bug) => setExportTarget({ kind: "bug", record: bug })}
                     onStatusChange={changeBugStatus}
                     updatingStatus={updatingStatus}
@@ -1019,7 +1159,7 @@ function App({
                 {activePage === "cases" && (
                   <CaseTable
                     items={visibleCases}
-                    onSelect={setDetail}
+                    onSelect={(testCase) => setRecordDetail({ kind: "case", record: testCase })}
                     onExport={(item) => setExportTarget({ kind: "case", record: item })}
                     onStatusChange={changeCaseStatus}
                     updatingStatus={updatingStatus}
@@ -1027,7 +1167,11 @@ function App({
                 )}
                 {activePage === "runs" && <RunTable items={visibleRuns} onSelect={setDetail} />}
                 {activePage === "evidence" && (
-                  <EvidenceTable items={visibleEvidence} onSelect={setDetail} />
+                  <EvidenceTable
+                    items={visibleEvidence}
+                    onSelect={setDetail}
+                    onActions={setEvidenceActionTarget}
+                  />
                 )}
                 {!total && (
                   <p className="workspace__notice">
@@ -1058,13 +1202,17 @@ function App({
           title={
             modal === "bug"
               ? "Nuevo bug"
-              : modal === "case"
-                ? "Nuevo caso de prueba"
-                : modal === "edit-case"
-                  ? `Editar ${editingCase?.id ?? "caso"}`
-                  : modal === "run"
-                    ? "Nueva ejecución"
-                    : "Registrar metadatos"
+              : modal === "edit-bug"
+                ? "Editar bug"
+                : modal === "case"
+                  ? "Nuevo caso de prueba"
+                  : modal === "edit-case"
+                    ? `Editar ${editingCase?.id ?? "caso"}`
+                    : modal === "run"
+                      ? "Nueva ejecución"
+                      : modal === "edit-evidence"
+                        ? "Editar evidencia"
+                        : "Registrar metadatos"
           }
           onClose={() => {
             if (!saving) {
@@ -1104,10 +1252,10 @@ function App({
                   )}
                 </label>
               )}
-              {modal !== "evidence" && (
+              {modal !== "evidence" && modal !== "edit-evidence" && (
                 <label className="workspace__field">
                   Título
-                  {modal === "bug" ? (
+                  {modal === "bug" || modal === "edit-bug" ? (
                     <input
                       name="title"
                       value={bugForm.title}
@@ -1125,9 +1273,9 @@ function App({
                   )}
                 </label>
               )}
-              {modal === "bug" && (
+              {(modal === "bug" || modal === "edit-bug") && (
                 <>
-                  {bugTemplatesError && (
+                  {modal === "bug" && bugTemplatesError && (
                     <p className="workspace__error" role="alert">
                       {bugTemplatesError}
                     </p>
@@ -1162,6 +1310,35 @@ function App({
                       <option>Baja</option>
                     </select>
                   </label>
+                  {modal === "edit-bug" && (
+                    <>
+                      <label className="workspace__field">
+                        Estado
+                        <select
+                          name="status"
+                          value={bugForm.status}
+                          onChange={(event) =>
+                            setBugForm({ ...bugForm, status: event.target.value as BugStatus })
+                          }
+                        >
+                          {bugStatuses.map((status) => (
+                            <option key={status}>{status}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="workspace__field">
+                        Responsable
+                        <input
+                          name="assignee"
+                          value={bugForm.assignee}
+                          onChange={(event) =>
+                            setBugForm({ ...bugForm, assignee: event.target.value })
+                          }
+                          maxLength={100}
+                        />
+                      </label>
+                    </>
+                  )}
                 </>
               )}
               {(modal === "case" || modal === "edit-case") && (
@@ -1351,6 +1528,75 @@ function App({
                   </label>
                 </>
               )}
+              {modal === "edit-evidence" && (
+                <>
+                  <p className="workspace__notice">
+                    Se editarán solo los metadatos; el archivo original no está almacenado aquí. Si
+                    no cambias el vínculo, se conservarán todas las referencias actuales.
+                  </p>
+                  <label className="workspace__field">
+                    Nombre
+                    <input
+                      name="name"
+                      value={evidenceForm.name}
+                      onChange={(event) =>
+                        setEvidenceForm({ ...evidenceForm, name: event.target.value })
+                      }
+                      maxLength={255}
+                      required
+                    />
+                  </label>
+                  <label className="workspace__field">
+                    Tipo
+                    <select
+                      name="type"
+                      value={evidenceForm.type}
+                      onChange={(event) =>
+                        setEvidenceForm({
+                          ...evidenceForm,
+                          type: event.target.value as Evidence["type"],
+                        })
+                      }
+                    >
+                      <option>Imagen</option>
+                      <option>Video</option>
+                      <option>Archivo</option>
+                    </select>
+                  </label>
+                  <label className="workspace__field">
+                    Tamaño en bytes
+                    <input
+                      name="sizeBytes"
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={evidenceForm.sizeBytes}
+                      onChange={(event) =>
+                        setEvidenceForm({ ...evidenceForm, sizeBytes: event.target.valueAsNumber })
+                      }
+                      required
+                    />
+                  </label>
+                  <label className="workspace__field">
+                    Vincular a
+                    <select
+                      name="related"
+                      value={evidenceForm.related}
+                      onChange={(event) => {
+                        setEvidenceForm({ ...evidenceForm, related: event.target.value });
+                        setEvidenceRelatedChanged(true);
+                      }}
+                    >
+                      <option value="">Sin vincular</option>
+                      {[...bugs, ...cases, ...runs].map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.id} · {item.title}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </>
+              )}
             </fieldset>
             {formError && (
               <p className="workspace__error" role="alert">
@@ -1370,11 +1616,27 @@ function App({
                 Cancelar
               </button>
               <button type="submit" disabled={saving} className="button button-primary">
-                {saving ? "Guardando…" : modal === "edit-case" ? "Guardar cambios" : "Guardar"}
+                {saving
+                  ? "Guardando…"
+                  : ["edit-case", "edit-bug", "edit-evidence"].includes(modal)
+                    ? "Guardar cambios"
+                    : "Guardar"}
               </button>
             </div>
           </form>
         </Dialog>
+      )}
+      {recordDetail && (
+        <RecordDetailsDialog
+          detail={recordDetail}
+          onClose={() => setRecordDetail(null)}
+          onEdit={() => {
+            if (recordDetail.kind === "bug") editBug(recordDetail.record);
+            else editCase(recordDetail.record);
+          }}
+        >
+          {recordDetail.kind === "case" && <CaseAttachmentsPanel testCase={recordDetail.record} />}
+        </RecordDetailsDialog>
       )}
       {detail && (
         <Dialog wide title="Detalle del registro" onClose={() => setDetail(null)}>
@@ -1419,6 +1681,73 @@ function App({
               ))}
           </dl>
           {isTestCaseRecord(detail) && <CaseAttachmentsPanel testCase={detail} />}
+        </Dialog>
+      )}
+      {evidenceActionTarget && (
+        <Dialog title={evidenceActionTarget.name} onClose={() => setEvidenceActionTarget(null)}>
+          <p className="workspace__notice">Gestiona los metadatos de esta evidencia.</p>
+          <div className="workspace__evidence-actions">
+            <button
+              type="button"
+              className="workspace__secondary"
+              onClick={() => editEvidence(evidenceActionTarget)}
+            >
+              Editar metadatos
+            </button>
+            <button
+              type="button"
+              className="workspace__danger"
+              onClick={() => {
+                setEvidenceToDelete(evidenceActionTarget);
+                setEvidenceActionTarget(null);
+                setFormError("");
+              }}
+            >
+              Eliminar evidencia
+            </button>
+          </div>
+        </Dialog>
+      )}
+      {evidenceToDelete && (
+        <Dialog
+          title="Eliminar evidencia"
+          onClose={() => {
+            if (!saving) {
+              setEvidenceToDelete(null);
+              setFormError("");
+            }
+          }}
+        >
+          <p>
+            ¿Quieres eliminar los metadatos de <strong>{evidenceToDelete.name}</strong>? Esta acción
+            no se puede deshacer.
+          </p>
+          {formError && (
+            <p className="workspace__error" role="alert">
+              {formError}
+            </p>
+          )}
+          <div className="workspace__actions">
+            <button
+              type="button"
+              className="workspace__secondary"
+              disabled={saving}
+              onClick={() => {
+                setEvidenceToDelete(null);
+                setFormError("");
+              }}
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              className="workspace__danger"
+              disabled={saving}
+              onClick={() => void removeEvidence()}
+            >
+              {saving ? "Eliminando…" : "Eliminar"}
+            </button>
+          </div>
         </Dialog>
       )}
       {exportTarget && (
@@ -1770,9 +2099,11 @@ function RunTable({ items, onSelect }: { items: TestRun[]; onSelect: (item: Test
 function EvidenceTable({
   items,
   onSelect,
+  onActions,
 }: {
   items: Evidence[];
   onSelect: (item: Evidence) => void;
+  onActions: (item: Evidence) => void;
 }) {
   return (
     <div className="table-scroll">
@@ -1807,7 +2138,15 @@ function EvidenceTable({
               <td className="muted-cell">{item.size}</td>
               <td className="muted-cell">{item.date}</td>
               <td>
-                <button className="row-more" aria-label={`Más opciones para ${item.name}`}>
+                <button
+                  type="button"
+                  className="row-more"
+                  aria-label={`Más opciones para ${item.name}`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onActions(item);
+                  }}
+                >
                   <Icon name="dots" size={18} />
                 </button>
               </td>

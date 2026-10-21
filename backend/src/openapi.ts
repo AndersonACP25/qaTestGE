@@ -331,6 +331,74 @@ export const openApiDocument = {
         },
       },
     },
+    "/api/bugs/{bugId}": {
+      patch: {
+        security: [{ sessionCookie: [], csrfToken: [] }],
+        summary: "Actualizar los datos de un bug en un proyecto autorizado",
+        parameters: [
+          {
+            in: "path",
+            name: "bugId",
+            required: true,
+            schema: { type: "string", pattern: "^BUG-[0-9]{1,19}$" },
+          },
+        ],
+        requestBody: { required: true, content: json(ref("BugUpdateInput")) },
+        responses: {
+          "200": { description: "Bug actualizado", content: json(envelope(ref("Bug"))) },
+          "400": errorResponse("INVALID_BUG"),
+          "401": errorResponse("UNAUTHENTICATED"),
+          "403": errorResponse("INVALID_CSRF o INVALID_ORIGIN"),
+          "404": errorResponse("PROJECT_NOT_FOUND o BUG_NOT_FOUND"),
+          "503": unavailable,
+        },
+      },
+    },
+    "/api/evidence/{evidenceId}": {
+      patch: {
+        security: [{ sessionCookie: [], csrfToken: [] }],
+        summary: "Actualizar metadatos y vínculo de una evidencia",
+        parameters: [
+          {
+            in: "path",
+            name: "evidenceId",
+            required: true,
+            schema: { type: "string", pattern: "^EVD-[0-9]{1,19}$" },
+          },
+        ],
+        requestBody: { required: true, content: json(ref("EvidenceInput")) },
+        responses: {
+          "200": { description: "Evidencia actualizada", content: json(envelope(ref("Evidence"))) },
+          "400": errorResponse("INVALID_EVIDENCE o INVALID_REFERENCE"),
+          "401": errorResponse("UNAUTHENTICATED"),
+          "403": errorResponse("INVALID_CSRF o INVALID_ORIGIN"),
+          "404": errorResponse("PROJECT_NOT_FOUND o EVIDENCE_NOT_FOUND"),
+          "503": unavailable,
+        },
+      },
+      delete: {
+        security: [{ sessionCookie: [], csrfToken: [] }],
+        summary: "Eliminar metadatos y vínculos de una evidencia",
+        parameters: [
+          {
+            in: "path",
+            name: "evidenceId",
+            required: true,
+            schema: { type: "string", pattern: "^EVD-[0-9]{1,19}$" },
+          },
+          { in: "query", name: "projectId", required: true, schema: projectId },
+        ],
+        requestBody: { required: true, content: json({ type: "object", example: {} }) },
+        responses: {
+          "204": { description: "Evidencia eliminada" },
+          "400": errorResponse("INVALID_EVIDENCE"),
+          "401": errorResponse("UNAUTHENTICATED"),
+          "403": errorResponse("INVALID_CSRF o INVALID_ORIGIN"),
+          "404": errorResponse("PROJECT_NOT_FOUND o EVIDENCE_NOT_FOUND"),
+          "503": unavailable,
+        },
+      },
+    },
     "/api/test-cases/{caseId}/status": {
       patch: {
         security: [{ sessionCookie: [], csrfToken: [] }],
@@ -690,6 +758,13 @@ export const openApiDocument = {
         ["id", "projectId", "testCaseId", "kind", "name", "createdAt"],
       ),
       ...inputs,
+      BugUpdateInput: object(
+        {
+          ...inputs.BugInput.properties,
+          status: { type: "string", enum: bugStatuses },
+        },
+        ["projectId", "title", "priority"],
+      ),
       Bug: object(
         {
           ...inputs.BugInput.properties,

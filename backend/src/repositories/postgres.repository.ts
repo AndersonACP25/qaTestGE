@@ -1,6 +1,6 @@
 import type { Pool, PoolClient, QueryResultRow } from "pg";
 import type { Repository } from "./repository.js";
-import type { BugStatus, CreateBugInput } from "../models/bug.model.js";
+import type { BugStatus, CreateBugInput, UpdateBugInput } from "../models/bug.model.js";
 import type {
   TestCaseAttachment,
   TestCaseStatus,
@@ -119,6 +119,26 @@ export class PostgresRepository implements Repository {
       UPDATE qa.bugs SET status=$3 WHERE id=$1 AND project_id=$2 RETURNING *
     ) SELECT b.*, p.name AS project FROM updated b JOIN qa.projects p ON p.id=b.project_id`,
       [id, projectId, status],
+    );
+    return rows[0] ? bug(rows[0]) : null;
+  }
+  async updateBug(id: string, projectId: string, input: UpdateBugInput) {
+    const { rows } = await this.pool.query<Row>(
+      `WITH updated AS (
+        UPDATE qa.bugs SET title=$3,description=COALESCE($4,description),priority=$5,
+          assignee=CASE WHEN $8 THEN $6 ELSE assignee END,status=COALESCE($7,status)
+        WHERE id=$1 AND project_id=$2 RETURNING *
+      ) SELECT b.*, p.name AS project FROM updated b JOIN qa.projects p ON p.id=b.project_id`,
+      [
+        id,
+        projectId,
+        input.title.trim(),
+        input.description?.trim() ?? null,
+        input.priority,
+        input.assignee?.trim() || null,
+        input.status ?? null,
+        input.assignee !== undefined,
+      ],
     );
     return rows[0] ? bug(rows[0]) : null;
   }
@@ -345,26 +365,46 @@ export class PostgresRepository implements Repository {
         [id, projectId, input.name.trim(), input.type, input.sizeBytes],
       );
       if (!updated.rows[0]) return null;
-      await client.query("DELETE FROM qa.evidence_links WHERE project_id=$1 AND evidence_id=$2", [projectId, id]);
-      if (input.related) {
-        const targets = { BUG: "bug_id", TC: "test_case_id", RUN: "test_run_id", RES: "test_run_result_id" } as const;
-        const prefix = input.related.split("-")[0] as keyof typeof targets;
-        const target = targets[prefix];
-        const targetId = target && parseReference(input.related, prefix);
-        if (!targetId) throw new HttpError(400, "INVALID_REFERENCE", "Referencia de evidencia inválida.");
-        await client.query(
-          `INSERT INTO qa.evidence_links(project_id,evidence_id,${target}) VALUES($1,$2,$3)`,
-          [projectId, id, targetId],
-        );
+      if (input.related !== undefined) {
+        await client.query("DELETE FROM qa.evidence_links WHERE project_id=$1 AND evidence_id=$2", [
+          projectId,
+          id,
+        ]);
+        if (input.related) {
+          const targets = {
+            BUG: "bug_id",
+            TC: "test_case_id",
+            RUN: "test_run_id",
+            RES: "test_run_result_id",
+          } as const;
+          const prefix = input.related.split("-")[0] as keyof typeof targets;
+          const target = targets[prefix];
+          const targetId = target && parseReference(input.related, prefix);
+          if (!targetId)
+            throw new HttpError(400, "INVALID_REFERENCE", "Referencia de evidencia inválida.");
+          await client.query(
+            `INSERT INTO qa.evidence_links(project_id,evidence_id,${target}) VALUES($1,$2,$3)`,
+            [projectId, id, targetId],
+          );
+        }
       }
-      const result = await client.query<Row>(`${evidenceSql} WHERE e.id=$1 AND e.project_id=$2`, [id, projectId]);
+      const result = await client.query<Row>(`${evidenceSql} WHERE e.id=$1 AND e.project_id=$2`, [
+        id,
+        projectId,
+      ]);
       return evidence(result.rows[0]);
     });
   }
   async deleteEvidence(id: string, projectId: string) {
     return this.transaction(async (client) => {
-      await client.query("DELETE FROM qa.evidence_links WHERE project_id=$1 AND evidence_id=$2", [projectId, id]);
-      const { rowCount } = await client.query("DELETE FROM qa.evidence WHERE id=$1 AND project_id=$2", [id, projectId]);
+      await client.query("DELETE FROM qa.evidence_links WHERE project_id=$1 AND evidence_id=$2", [
+        projectId,
+        id,
+      ]);
+      const { rowCount } = await client.query(
+        "DELETE FROM qa.evidence WHERE id=$1 AND project_id=$2",
+        [id, projectId],
+      );
       return rowCount === 1;
     });
   }

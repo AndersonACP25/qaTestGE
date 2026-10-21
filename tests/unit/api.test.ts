@@ -1,5 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { api, deleteEvidence, setCsrfToken, toRun, toEvidence, updateBug, updateEvidence } from "../../src/api";
+import {
+  api,
+  deleteEvidence,
+  setCsrfToken,
+  toRun,
+  toEvidence,
+  updateBug,
+  updateEvidence,
+} from "../../src/api";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -100,13 +108,51 @@ describe("frontend API client without network", () => {
     ).toBe("BUG-001, RUN-001");
   });
   it("uses project-scoped mutation routes for bugs and evidence", async () => {
-    const fetch = vi.fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { id: "BUG-001", projectId: "1", title: "Bug", description: "", project: "QA", priority: "Alta", status: "Resuelto", assignee: null, createdAt: "2026-01-01T00:00:00Z" } }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { id: "EVD-001", projectId: "1", name: "capture.png", type: "Imagen", sizeBytes: 42, related: ["BUG-001"], createdAt: "2026-01-01T00:00:00Z" } }), { status: 200 }))
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              id: "BUG-001",
+              projectId: "1",
+              title: "Bug",
+              description: "",
+              project: "QA",
+              priority: "Alta",
+              status: "Resuelto",
+              assignee: null,
+              createdAt: "2026-01-01T00:00:00Z",
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              id: "EVD-001",
+              projectId: "1",
+              name: "capture.png",
+              type: "Imagen",
+              sizeBytes: 42,
+              related: ["BUG-001"],
+              createdAt: "2026-01-01T00:00:00Z",
+            },
+          }),
+          { status: 200 },
+        ),
+      )
       .mockResolvedValueOnce(new Response(null, { status: 204 }));
     vi.stubGlobal("fetch", fetch);
     await updateBug("BUG-001", "1", { title: "Bug", priority: "Alta", status: "Resuelto" });
-    await updateEvidence("EVD-001", "1", { name: "capture.png", type: "Imagen", sizeBytes: 42, related: "BUG-001" });
+    await updateEvidence("EVD-001", "1", {
+      name: "capture.png",
+      type: "Imagen",
+      sizeBytes: 42,
+      related: "BUG-001",
+    });
     await deleteEvidence("EVD-001", "1");
     expect(fetch.mock.calls.map(([url, options]) => [url, options.method])).toEqual([
       ["/api/bugs/BUG-001", "PATCH"],

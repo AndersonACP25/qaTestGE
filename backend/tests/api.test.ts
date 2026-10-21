@@ -9,6 +9,7 @@ const repo = {
   listProjects: vi.fn<Repository["listProjects"]>(),
   listBugs: vi.fn<Repository["listBugs"]>(),
   createBug: vi.fn<Repository["createBug"]>(),
+  updateBug: vi.fn<Repository["updateBug"]>(),
   updateBugStatus: vi.fn<Repository["updateBugStatus"]>(),
   listCases: vi.fn<Repository["listCases"]>(),
   createCase: vi.fn<Repository["createCase"]>(),
@@ -23,6 +24,8 @@ const repo = {
   createRun: vi.fn<Repository["createRun"]>(),
   listEvidence: vi.fn<Repository["listEvidence"]>(),
   createEvidence: vi.fn<Repository["createEvidence"]>(),
+  updateEvidence: vi.fn<Repository["updateEvidence"]>(),
+  deleteEvidence: vi.fn<Repository["deleteEvidence"]>(),
 };
 const app = createApp(repo, testAuth);
 const signed = () =>
@@ -83,6 +86,36 @@ describe("qaTestGE API with an injected repository (no database)", () => {
     expect(created.status).toBe(201);
     expect(created.body.data).toEqual(bug);
     expect(repo.createBug).toHaveBeenCalledWith(input);
+  });
+  it("edits bug fields and validates the status", async () => {
+    const updated = { ...bug, title: "Checkout corregido", status: "Resuelto" as const };
+    repo.updateBug.mockResolvedValue(updated);
+    const input = {
+      projectId: "1",
+      title: updated.title,
+      priority: "Alta",
+      status: "Resuelto",
+      description: "",
+      assignee: null,
+    };
+    const response = await signed().patch("/api/bugs/BUG-001").send(input);
+    expect(response.status).toBe(200);
+    expect(response.body.data).toEqual(updated);
+    expect(repo.updateBug).toHaveBeenCalledWith("1", "1", {
+      title: updated.title,
+      priority: "Alta",
+      status: "Resuelto",
+      description: "",
+      assignee: null,
+    });
+    expect(
+      (
+        await signed()
+          .patch("/api/bugs/BUG-001")
+          .send({ ...input, status: "Cerrado" })
+      ).status,
+    ).toBe(400);
+    expect(repo.updateBug).toHaveBeenCalledTimes(1);
   });
   it("updates bug and test case statuses only through valid status values", async () => {
     repo.updateBugStatus.mockResolvedValue({ ...bug, status: "En progreso" });
@@ -239,14 +272,39 @@ describe("qaTestGE API with an injected repository (no database)", () => {
     ).toBe(400);
   });
   it("updates and deletes evidence metadata using the project boundary", async () => {
-    const current = { id: "EVD-001", projectId: "1", name: "file.png", type: "Imagen" as const, sizeBytes: 10, related: [bug.id], createdAt: bug.createdAt };
-    const input = { projectId: "1", name: "renamed.png", type: "Imagen", sizeBytes: 20, related: bug.id };
+    const current = {
+      id: "EVD-001",
+      projectId: "1",
+      name: "file.png",
+      type: "Imagen" as const,
+      sizeBytes: 10,
+      related: [bug.id],
+      createdAt: bug.createdAt,
+    };
+    const input = {
+      projectId: "1",
+      name: "renamed.png",
+      type: "Imagen",
+      sizeBytes: 20,
+      related: bug.id,
+    };
     repo.updateEvidence.mockResolvedValue({ ...current, ...input, related: [bug.id] });
     const updated = await signed().patch("/api/evidence/EVD-001").send(input);
     expect(updated.status).toBe(200);
     expect(updated.body.data.name).toBe("renamed.png");
-    expect(repo.updateEvidence).toHaveBeenCalledWith("1", "1", { name: "renamed.png", type: "Imagen", sizeBytes: 20, related: bug.id });
-    expect((await signed().patch("/api/evidence/EVD-001").send({ ...input, related: "invalid" })).status).toBe(400);
+    expect(repo.updateEvidence).toHaveBeenCalledWith("1", "1", {
+      name: "renamed.png",
+      type: "Imagen",
+      sizeBytes: 20,
+      related: bug.id,
+    });
+    expect(
+      (
+        await signed()
+          .patch("/api/evidence/EVD-001")
+          .send({ ...input, related: "invalid" })
+      ).status,
+    ).toBe(400);
     expect(repo.updateEvidence).toHaveBeenCalledTimes(1);
 
     repo.deleteEvidence.mockResolvedValue(true);

@@ -255,7 +255,7 @@ export default function CaseDesignView({
                     </button>
                     <button
                       type="button"
-                      className="case-builder__save-case"
+                      className={`case-builder__save-case${savedCases[`${testCase.categoryId}:${testCase.caseNumber}`] ? " case-builder__save-case--saved" : ""}`}
                       disabled={
                         !projectId ||
                         Boolean(savingCaseKey) ||

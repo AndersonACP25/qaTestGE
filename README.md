@@ -191,6 +191,7 @@ La documentación interactiva está en `/api/docs/`; el contrato OpenAPI en `/ap
 | `PATCH`, `DELETE` | `/api/auth/bug-templates/{templateId}`                      | Editar o eliminar una plantilla propia                  |
 | `POST`            | `/api/auth/logout`                                          | Revocar sesión                                          |
 | `GET`, `POST`     | `/api/bugs`                                                 | Listar y crear bugs                                     |
+| `PATCH`           | `/api/bugs/{bugId}`                                         | Editar los datos de un bug                              |
 | `PATCH`           | `/api/bugs/{bugId}/status`                                  | Actualizar el estado de un bug                          |
 | `GET`, `POST`     | `/api/test-cases`                                           | Listar y crear casos de prueba                          |
 | `PATCH`, `DELETE` | `/api/test-cases/{caseId}`                                  | Editar o eliminar un caso no asociado a ejecuciones     |
@@ -201,6 +202,7 @@ La documentación interactiva está en `/api/docs/`; el contrato OpenAPI en `/ap
 | `DELETE`          | `/api/test-cases/{caseId}/attachments/{attachmentId}`       | Eliminar un adjunto                                     |
 | `GET`, `POST`     | `/api/test-runs`                                            | Listar y crear ejecuciones                              |
 | `GET`, `POST`     | `/api/evidence`                                             | Listar y registrar metadatos de evidencias              |
+| `PATCH`, `DELETE` | `/api/evidence/{evidenceId}`                                | Editar o eliminar metadatos y vínculos de evidencias    |
 
 Las escrituras autenticadas requieren cookie de sesión y protección CSRF; la API valida las referencias y la pertenencia al proyecto. Consulta [docs/API.md](./docs/API.md) para los límites de imágenes y los detalles de las operaciones.
 

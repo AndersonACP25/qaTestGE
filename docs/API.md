@@ -7,7 +7,7 @@ SwaggerUI: `http://localhost:3000/api/docs/`. OpenAPI 3.0.3: `GET /api/openapi.j
 - Base local: `http://localhost:3000/api`. JSON de hasta `1mb`.
 - PostgreSQL `qa_test_ge`, esquema `qa`; configuración en `backend/.env` mediante `DATABASE_URL`.
 - `GET /health` comprueba conexión: 200 con `{"data":{"status":"ok","database":"postgresql"}}` o 503 con `DATABASE_UNAVAILABLE`.
-- Hay autenticación y autorización por proyecto. No hay paginación. Los casos de prueba tienen CRUD, y las plantillas personales permiten editar y eliminar; bugs y ejecuciones no tienen operaciones de edición/eliminación.
+- Hay autenticación y autorización por proyecto. No hay paginación. Los casos de prueba tienen CRUD; los bugs permiten edición y cambio de estado; los metadatos de evidencias permiten edición y eliminación. Las ejecuciones no tienen operaciones de edición/eliminación.
 - CORS usa `FRONTEND_ORIGIN`, o su alias `CORS_ORIGIN`, por defecto `http://localhost:5173`.
 - Los IDs bigint de proyecto y organización se envían como **strings decimales**, sin conversión a Number. Máximo: `9223372036854775807`.
 - Los recursos conservan prefijos (`BUG-001`, `TC-001`, `RUN-001`, `EVD-001`); no se recortan IDs de más de tres dígitos. `RES-001` referencia un resultado de ejecución.
@@ -19,6 +19,7 @@ SwaggerUI: `http://localhost:3000/api/docs/`. OpenAPI 3.0.3: `GET /api/openapi.j
 | GET           | `/health`                                               | 200: disponibilidad de conexión                                    |
 | GET           | `/projects`                                             | 200: proyectos con `id`, `organizationId`, `name`, `description`   |
 | GET, POST     | `/bugs`                                                 | 200: colección / 201: bug creado                                   |
+| PATCH         | `/bugs/{bugId}`                                         | 200: datos del bug actualizados                                    |
 | PATCH         | `/bugs/{bugId}/status`                                  | 200: bug con estado actualizado                                    |
 | GET, POST     | `/test-cases`                                           | 200: colección / 201: caso y pasos creados                         |
 | PATCH, DELETE | `/test-cases/{caseId}`                                  | Actualizar caso o eliminarlo si no tiene referencias a ejecuciones |
@@ -29,6 +30,8 @@ SwaggerUI: `http://localhost:3000/api/docs/`. OpenAPI 3.0.3: `GET /api/openapi.j
 | DELETE        | `/test-cases/{caseId}/attachments/{attachmentId}`       | Eliminar un adjunto                                                |
 | GET, POST     | `/test-runs`                                            | 200: colección / 201: ejecución con casos reales                   |
 | GET, POST     | `/evidence`                                             | 200: colección / 201: metadatos y vínculo opcional                 |
+| PATCH         | `/evidence/{evidenceId}`                                | 200: metadatos y vínculo actualizados                              |
+| DELETE        | `/evidence/{evidenceId}?projectId=1`                    | Eliminar metadatos y vínculos                                      |
 | GET           | `/docs/`, `/openapi.json`                               | Documentación interactiva / contrato                               |
 
 Las colecciones usan `{"data":[...]}`; las creaciones `{"data":{...}}`. Las listas de recursos admiten `?projectId=1`; omitir el filtro devuelve únicamente recursos de los proyectos autorizados para la cuenta. Orden por ID descendente, salvo proyectos (ascendente). Para seleccionar un proyecto existente, consultar primero `/projects`. No se crean proyectos u organizaciones automáticamente.
@@ -130,6 +133,8 @@ Título y responsable obligatorios, máximos 200 y 100. `caseIds` es opcional (p
 Nombre obligatorio de hasta 255; tipo `Imagen`, `Video` o `Archivo`; tamaño entero seguro no negativo. `related` es opcional, null o un ID con prefijo BUG, TC, RUN o RES. La referencia debe existir en el mismo proyecto. Metadatos y vínculo se crean en una transacción. Solo se almacenan metadatos; no se carga ningún archivo.
 
 En la **respuesta**, `related` es ahora un array de referencias (`[]` si no hay vínculos) porque el SQL permite varias asociaciones para una evidencia. El POST actual crea como máximo un vínculo. No se expone `storage_key`.
+
+`PATCH /evidence/{evidenceId}` requiere `projectId`, `name`, `type` y `sizeBytes`. Si se omite `related`, se conservan todos los vínculos existentes; enviar `null` los elimina, y enviar un ID válido sustituye los vínculos por esa referencia. `DELETE /evidence/{evidenceId}?projectId=1` elimina los metadatos y sus vínculos. Ambos requieren cookie, CSRF y JSON `{}` en DELETE; el archivo original no se modifica ni se almacena.
 
 ## Errores
 
