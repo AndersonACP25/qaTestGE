@@ -3,6 +3,8 @@ export type TestRunStatus = (typeof testRunStatuses)[number];
 
 export interface TestRun {
   id: string;
+  projectId: string;
+  caseIds: string[];
   title: string;
   caseCount: number;
   progress: number;
@@ -11,6 +13,6 @@ export interface TestRun {
   createdAt: string;
 }
 
-export type CreateTestRunInput = Pick<TestRun, "title" | "owner"> & {
-  caseCount?: number;
+export type CreateTestRunInput = Pick<TestRun, "title" | "owner" | "projectId"> & {
+  caseIds?: string[];
 };

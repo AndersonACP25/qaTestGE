@@ -2,7 +2,7 @@
 
 ## Estado del documento
 
-Este documento combina la arquitectura objetivo de la v1.0 con el estado real del repositorio. El frontend usa React, Vite y TypeScript; existe una API Express MVC en TypeScript con almacenamiento temporal en memoria. No hay base de datos, autenticación, autorización ni almacenamiento binario de evidencias. La interfaz aún no consume la API.
+Este documento combina la arquitectura objetivo de la v1.0 con el estado real del repositorio. El frontend usa React, Vite y TypeScript; existe una API Express MVC en TypeScript con repositorio PostgreSQL sobre qa_test_ge. Hay usuarios locales, sesiones persistidas y autorización por membresía organizativa. La interfaz consume la API; el almacenamiento binario y la IA siguen pendientes.
 
 ## Objetivos
 
@@ -16,7 +16,7 @@ Este documento combina la arquitectura objetivo de la v1.0 con el estado real de
 
 - Workspace pnpm con frontend en la raíz y API en `backend/`. `pnpm dev:all` ejecuta ambos scripts de desarrollo en paralelo mediante filtros del workspace; no añade una dependencia ni conecta automáticamente el frontend con la API.
 - La API Express organiza endpoints en rutas, controladores y modelos.
-- El almacén temporal de la API vive en memoria y se reinicia con el proceso.
+- La API requiere DATABASE_URL, usa un pool pg y comprueba el esquema qa al arrancar. No existe fallback en memoria ni importación automática del SQL.
 - Los endpoints iniciales listan y crean bugs, casos de prueba, ejecuciones y metadatos de evidencias.
 - No se sube el contenido binario de evidencias; solo se registra metadata.
 
@@ -41,12 +41,12 @@ Interfaz React/Vite (TypeScript, raíz)
    v
 API Express (backend/, TypeScript)
    |
-   +-- Rutas -> Controladores -> Modelos -> Almacén en memoria (actual)
+   +-- Rutas -> Controladores -> Repositorio -> Pool pg -> PostgreSQL (actual)
    |
-   +-- Persistencia / servicio de IA (futuro)
+   +-- Servicio de IA / autenticación y permisos (futuro)
 ```
 
-La interfaz todavía no consume la API; ambas capas se ejecutan independientemente. `GET /api/health` permite verificar disponibilidad. Los recursos exponen `GET` y `POST` en `/api/bugs`, `/api/test-cases`, `/api/test-runs` y `/api/evidence`.
+La interfaz consume la API mediante el proxy /api y envía la cookie de sesión y el token CSRF en escrituras. `GET /api/health` permite verificar disponibilidad. Los recursos exponen `GET` y `POST` en `/api/bugs`, `/api/test-cases`, `/api/test-runs` y `/api/evidence`.
 
 ### Interfaz web
 
@@ -54,7 +54,7 @@ Presenta espacios de trabajo, proyectos, listas y formularios para los cuatro re
 
 ### API y capa de aplicación
 
-Autentica al usuario, comprueba permisos y pertenencia al proyecto, valida entradas y coordina casos de uso. Devuelve errores explícitos y no expone credenciales de almacenamiento ni secretos de proveedores a la interfaz.
+Actualmente valida entradas, referencias y pertenencia al proyecto, y coordina el repositorio PostgreSQL. Los middlewares autentican sesiones y el repositorio autorizado limita lectura/creación a proyectos de organizaciones con membresía vigente. Devuelve errores explícitos y no expone credenciales de almacenamiento ni secretos de proveedores a la interfaz.
 
 ### Dominio
 
@@ -62,7 +62,11 @@ La lógica de estados y relaciones vive en servicios de dominio o de aplicación
 
 ### Persistencia
 
-Actualmente, los modelos usan `backend/src/models/in-memory-store.ts`, sin persistencia duradera. Los datos se reinician al detener el backend. Una base de datos relacional es adecuada para las relaciones y consultas de trazabilidad; el esquema y las migraciones quedan pendientes.
+La API usa `PostgresRepository` mediante una interfaz inyectada en `createApp`. El pool vive únicamente en el arranque del servidor; las pruebas pueden inyectar dobles sin cargar configuración local ni abrir conexiones. Se eliminó el almacén en memoria. Las consultas usan parámetros para valores; las únicas columnas dinámicas provienen de una lista fija para vínculos de evidencias. Las operaciones de casos con pasos, ejecuciones con resultados y evidencias con vínculos usan una transacción y un solo cliente, con rollback y liberación garantizada.
+
+PostgreSQL conserva los datos tras reiniciar. Los proyectos/organizaciones existentes se descubren en GET /api/projects; no se crean automáticamente. projectId es obligatorio en las creaciones. Los IDs bigint se mantienen como strings; los IDs públicos de recursos conservan prefijos BUG, TC, RUN, EVD y RES. La base verifica existencia y pertenencia al mismo proyecto mediante claves compuestas. Las ejecuciones reciben caseIds en vez de caseCount, conservan un snapshot de los pasos y calculan cantidad/progreso a partir de resultados. La respuesta de evidencia usa un array related para conservar todos los vínculos existentes.
+
+backend/sql/ sigue siendo la base de importación manual; este cambio no altera las tablas existentes. La migración versionada 004 agrega usuarios, membresías y sesiones sin alterar datos existentes; db:migrate la aplica de forma idempotente. Falta ampliar migraciones, permisos granulares, auditoría y respaldos. El repositorio autorizado añade control de acceso y las claves foráneas mantienen integridad. El frontend consulta estos recursos y guarda creaciones manuales.
 
 ### Evidencias
 
@@ -136,16 +140,22 @@ Correlacionar solicitudes y errores con identificadores de operación. Medir lat
 
 ## Decisiones pendientes antes de implementar
 
-- Framework y lenguaje de interfaz/API, motor relacional y proveedor de almacenamiento.
-- Estrategia de inicio de sesión, invitaciones, roles y permisos a nivel de proyecto.
+- Migraciones automáticas y proveedor de almacenamiento binario; PostgreSQL, el driver pg, React/TypeScript y Express ya están implementados.
+- Invitaciones, permisos granulares de proyecto, recuperación de contraseña, verificación de correo y MFA; el acceso básico con sesiones ya está implementado.
 - Límites de archivos, tipos admitidos, retención y política de borrado.
 - Proveedores de IA permitidos, ubicación de procesamiento, consentimiento, costos y cuotas.
 - Necesidades de importación/exportación y migración de datos.
 - Objetivos de disponibilidad, respaldo y recuperación.
 
-### Acceso simulado y tema del frontend
+### Autenticación local y tema
 
-La raíz Session muestra los formularios de inicio de sesión y registro antes de montar App. Acepta cualquier usuario y contraseña no vacíos; el registro comprueba la confirmación y no crea una cuenta. Solo el nombre se mantiene en estado React; no se almacenan ni envían credenciales. Salir desmonta el panel y descarta sus datos locales. La recarga vuelve al acceso. No constituye autenticación ni protege endpoints. El tema usa variables CSS compartidas, preferencia inicial del sistema y localStorage opcional para recordar la apariencia. No se añadieron servicios ni dependencias.
+Session comprueba /api/auth/me al cargar, usa /register y /login y revoca la sesión en /logout. No mantiene tokens de autenticación en localStorage. El nombre y correo pertenecen a la cuenta persistida; las credenciales no se registran en logs ni respuestas. El tema sigue siendo una preferencia local independiente de la autenticación.
+
+PostgresAuth deriva contraseñas con scrypt (N=131072, r=8, p=1) y sal aleatoria de 16 bytes; compara claves con timingSafeEqual y limita la concurrencia de derivación. Los tokens de sesión son aleatorios de 32 bytes y se almacenan como hash SHA-256; las sesiones expiran a los siete días, se rotan en login y se revocan en logout. La cookie es HttpOnly, SameSite=Lax y Secure en producción. Un token CSRF separado protege POST autenticados; las escrituras validan además Origin y Content-Type JSON. Se limita login/registro a 20 intentos por IP/15 minutos en memoria por proceso.
+
+Cada registro crea usuario, organización, proyecto, membresía owner y sesión en una transacción. Nunca reclama organizaciones existentes. AuthorizedRepository consulta las membresías actuales y no lee/crea recursos de proyectos ajenos. Los roles owner/member permiten las operaciones actuales de lectura y creación; no existe administración HTTP de membresías ni roles. Las rutas de salud, contrato Swagger y autenticación son públicas; los datos del proyecto están protegidos.
+
+El frontend carga proyectos y recursos reales, muestra estados de carga/error, y permite crear bugs, casos con un paso opcional, ejecuciones con casos seleccionados y metadatos de evidencias. Los contadores del resumen se calculan de los registros del proyecto. No se muestran gráficos con cifras ficticias. El diseñador de test cases sigue siendo una maqueta separada, sin generación o guardado automático.
 
 ### Maqueta del diseñador de test cases
 
@@ -157,7 +167,7 @@ El flujo futuro partirá de una descripción, categorías y cantidades, solicita
 
 ### Documentación interactiva y exportaciones locales
 
-`backend/src/openapi.ts` define OpenAPI 3.0.3 para las nueve operaciones existentes, con esquemas de entrada, respuestas y errores. Express lo expone en `/api/openapi.json` y sirve SwaggerUI con `swagger-ui-express` en `/api/docs/`. Los servidores relativos permiten probar la API desde su origen directo o el proxy `/api` de Vite. No hay autenticación; las pruebas POST modifican el almacén temporal. Los cambios de endpoints deben actualizar este contrato y `API.md`. SwaggerUI sirve sus recursos localmente y desactiva el validador externo.
+`backend/src/openapi.ts` define OpenAPI 3.0.3 para las catorce operaciones existentes, con esquemas de entrada, respuestas y errores. Express lo expone en `/api/openapi.json` y sirve SwaggerUI con `swagger-ui-express` en `/api/docs/`. Los servidores relativos permiten probar la API desde su origen directo o el proxy `/api` de Vite. Los recursos requieren cookie de sesión y los POST también token CSRF; Try it out escribe en PostgreSQL. Los cambios de endpoints deben actualizar este contrato y `API.md`. SwaggerUI sirve sus recursos localmente y desactiva el validador externo.
 
 El portal enlaza `/api/docs/`. En un despliegue separado se requiere reenviar `/api` al backend.
 

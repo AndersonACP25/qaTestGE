@@ -6,6 +6,18 @@ Todos los cambios importantes de qaTestGE se documentan aquí. El formato sigue 
 
 ### Added
 
+- Migración aditiva 004_authentication: usuarios, membresías y sesiones con registro versionado, y comando db:migrate.
+- Registro/login/logout reales con scrypt, cookies HttpOnly, CSRF, expiración, revocación y autorización por organización; pruebas de aislamiento y acceso.
+- Frontend conectado a proyectos y recursos reales, formularios persistentes y resumen calculado desde la API, con carga y errores explícitos.
+
+- Conexión PostgreSQL con pg, carga de backend/.env, verificación de esquema al arrancar y comando db:check de solo lectura.
+- Repositorio con consultas parametrizadas, pasos de casos, referencias de proyecto y transacciones para ejecuciones y evidencias.
+- GET /api/projects y verificación opcional test:db sobre PostgreSQL aislado; pruebas unitarias y de endpoints sin base de datos.
+
+- Favicon SVG compartido con la marca del workspace.
+- Guía docs/TESTING.md y badges del stack tecnológico en README.
+- Scripts de PostgreSQL para qa_test_ge: creación, esquema relacionado por proyecto, datos ficticios opcionales y verificación transaccional. La API todavía usa memoria.
+
 - Catálogo del diseñador ampliado a 18 categorías, con contador independiente de 1 a 3 pruebas ilustrativas y cantidades compartidas entre la vista previa y las exportaciones.
 - Directorio `docs/` para las guías de API, diseño, desarrollo, reglas y arquitectura; enlaces actualizados en documentación e instrucciones de agentes.
 
@@ -24,6 +36,10 @@ Todos los cambios importantes de qaTestGE se documentan aquí. El formato sigue 
 - Vitest y una primera suite de pruebas unitarias en `tests/unit/`.
 
 ### Changed
+
+- La API usa PostgreSQL sin fallback en memoria; requiere projectId, sustituye caseCount de entrada por caseIds y devuelve related como array en evidencias. Swagger y documentación actualizados.
+
+- Retirados el panel de almacenamiento y la etiqueta Demo local de la barra superior.
 
 - Migración de la aplicación, configuración Vite, utilidades y pruebas de JavaScript a TypeScript.
 - Documentación actualizada para reflejar el backend en memoria y la ausencia de base de datos.

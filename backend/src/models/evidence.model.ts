@@ -3,13 +3,14 @@ export type EvidenceType = (typeof evidenceTypes)[number];
 
 export interface Evidence {
   id: string;
+  projectId: string;
   name: string;
   type: EvidenceType;
-  related: string | null;
+  related: string[];
   sizeBytes: number;
   createdAt: string;
 }
 
-export type CreateEvidenceInput = Pick<Evidence, "name" | "type" | "sizeBytes"> & {
+export type CreateEvidenceInput = Pick<Evidence, "name" | "type" | "sizeBytes" | "projectId"> & {
   related?: string | null;
 };

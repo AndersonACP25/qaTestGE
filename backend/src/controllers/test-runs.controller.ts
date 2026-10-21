@@ -1,41 +1,23 @@
-import type { Request, Response } from "express";
-import { store } from "../models/in-memory-store.js";
+﻿import type { Request, Response } from "express";
+import { repository } from "../repositories/repository.js";
+import { isId, isRecord, parseReference, projectFilter, text } from "../validation.js";
+import type { CreateTestRunInput } from "../models/test-run.model.js";
 
-export function listTestRuns(_request: Request, response: Response): void {
-  response.json({ data: store.testRuns });
+export async function listTestRuns(request: Request, response: Response) {
+  response.json({ data: await repository(request).listRuns(projectFilter(request)) });
 }
-
-export function createTestRun(request: Request, response: Response): void {
+export async function createTestRun(request: Request, response: Response) {
   const body: unknown = request.body;
-  if (!isRecord(body)
-    || !isNonEmptyString(body.title, 200)
-    || !isNonEmptyString(body.owner, 100)
-    || (body.caseCount !== undefined
-      && (typeof body.caseCount !== "number" || !Number.isInteger(body.caseCount) || body.caseCount < 0))) {
-    response.status(400).json({
-      error: { code: "INVALID_TEST_RUN", message: "Título y responsable válidos son obligatorios." },
-    });
+  if (!valid(body)) {
+    response.status(400).json({ error: { code: "INVALID_TEST_RUN", message: "projectId, título, responsable y referencias válidas son obligatorios; usa caseIds en lugar de caseCount." } });
     return;
   }
-
-  const testRun = {
-    id: `RUN-${String(store.nextIds.testRun++).padStart(3, "0")}`,
-    title: body.title.trim(),
-    caseCount: typeof body.caseCount === "number" ? body.caseCount : 0,
-    progress: 0,
-    status: "En curso" as const,
-    owner: body.owner.trim(),
-    createdAt: new Date().toISOString(),
-  };
-
-  store.testRuns.unshift(testRun);
-  response.status(201).json({ data: testRun });
+  response.status(201).json({ data: await repository(request).createRun(body) });
 }
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function isNonEmptyString(value: unknown, maxLength: number): value is string {
-  return typeof value === "string" && value.trim().length > 0 && value.length <= maxLength;
+function valid(body: unknown): body is CreateTestRunInput {
+  if (!isRecord(body) || !isId(body.projectId) || !text(body.title, 200) || !text(body.owner, 100) || "caseCount" in body) return false;
+  if (body.caseIds === undefined) return true;
+  if (!Array.isArray(body.caseIds) || body.caseIds.length > 1000) return false;
+  const ids = body.caseIds.map((id) => parseReference(id, "TC"));
+  return ids.every((id) => id !== null) && new Set(ids).size === ids.length;
 }

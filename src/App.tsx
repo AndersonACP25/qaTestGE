@@ -1,7 +1,11 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent, SVGProps } from "react";
 import { filterBugs, filterCases, filterEvidence, filterRuns } from "./utils/filterItems";
 import CaseBuilder from "./CaseBuilder";
+import Dialog from "./Dialog";
+import { api, loadProject } from "./api";
+import type { Project } from "./api";
+type WorkspaceData = Awaited<ReturnType<typeof loadProject>>;
 import type {
   Bug,
   Evidence,
@@ -12,41 +16,13 @@ import type {
   TestRun,
 } from "./types";
 
-const initialBugs: Bug[] = [
-  { id: "BUG-248", title: "El checkout falla al aplicar un cupón expirado", project: "Web Store", priority: "Crítica", status: "En progreso", assignee: "LM", color: "violet", updated: "hace 12 min" },
-  { id: "BUG-247", title: "El menú lateral se superpone en tablet", project: "Web Store", priority: "Alta", status: "Abierto", assignee: "CR", color: "blue", updated: "hace 48 min" },
-  { id: "BUG-246", title: "La fecha aparece en formato incorrecto", project: "Mobile App", priority: "Media", status: "En revisión", assignee: "AM", color: "amber", updated: "hace 2 h" },
-  { id: "BUG-245", title: "El botón de exportar no responde en Safari", project: "Dashboard", priority: "Alta", status: "Abierto", assignee: "JP", color: "green", updated: "hace 3 h" },
-  { id: "BUG-244", title: "Error de validación en el formulario de registro", project: "Mobile App", priority: "Baja", status: "Resuelto", assignee: "DS", color: "pink", updated: "ayer" },
-];
-
-const initialCases: TestCase[] = [
-  { id: "TC-089", title: "Compra con tarjeta de crédito válida", suite: "Checkout", status: "Aprobado", updated: "hace 20 min" },
-  { id: "TC-088", title: "Aplicar código de descuento activo", suite: "Checkout", status: "Fallido", updated: "hace 35 min" },
-  { id: "TC-087", title: "Validar campos obligatorios de registro", suite: "Autenticación", status: "Aprobado", updated: "hace 1 h" },
-  { id: "TC-086", title: "Recuperación de contraseña por email", suite: "Autenticación", status: "Pendiente", updated: "hace 2 h" },
-  { id: "TC-085", title: "Filtrar productos por categoría", suite: "Catálogo", status: "Aprobado", updated: "ayer" },
-];
-
-const initialRuns: TestRun[] = [
-  { id: "RUN-042", title: "Regresión — Sprint 18", cases: "24 casos", progress: 83, status: "En curso", owner: "Laura M." },
-  { id: "RUN-041", title: "Smoke test — Web Store", cases: "12 casos", progress: 100, status: "Completado", owner: "Carlos R." },
-  { id: "RUN-040", title: "Validación de release 2.4", cases: "36 casos", progress: 100, status: "Completado", owner: "Ana M." },
-];
-
-const initialEvidence: Evidence[] = [
-  { name: "checkout-error.png", type: "Imagen", related: "BUG-248", size: "1.8 MB", date: "Hoy, 10:42" },
-  { name: "regresion-sprint18.mp4", type: "Video", related: "RUN-042", size: "12.4 MB", date: "Hoy, 09:18" },
-  { name: "captura-mobile.png", type: "Imagen", related: "TC-086", size: "926 KB", date: "Ayer, 16:30" },
-];
-
 const navigation: {
   section: string;
   items: { id: NavigationPage; label: string; icon: IconName; count?: string }[];
 }[] = [
   { section: "WORKSPACE", items: [
     { id: "overview", label: "Resumen", icon: "grid" },
-    { id: "bugs", label: "Bugs", icon: "bug", count: "12" },
+    { id: "bugs", label: "Bugs", icon: "bug", count: undefined },
     { id: "cases", label: "Casos de prueba", icon: "check-square" },
     { id: "case-builder", label: "Diseñar test cases", icon: "sparkle" },
     { id: "runs", label: "Test runs", icon: "play" },
@@ -100,216 +76,134 @@ function Priority({ level }: { level: PriorityLevel }) {
 
 function App({ user, onLogout, themeControl }: { user: string; onLogout: () => void; themeControl: React.ReactNode }) {
   const [activePage, setActivePage] = useState<NavigationPage>("overview");
-  const [bugs, setBugs] = useState(initialBugs);
-  const [runs, setRuns] = useState(initialRuns);
-  const [cases] = useState(initialCases);
-  const [evidence, setEvidence] = useState<Evidence[]>(initialEvidence);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [projectId, setProjectId] = useState("");
+  const [data, setData] = useState<WorkspaceData>({ bugs: [], cases: [], runs: [], evidence: [] });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [revision, setRevision] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const [modal, setModal] = useState("");
+  const [formError, setFormError] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("Todos");
-  const [modal, setModal] = useState("");
-  const [toast, setToast] = useState("");
-  const [project, setProject] = useState("Web Store");
   const [mobileNav, setMobileNav] = useState(false);
-
-  const notify = (message: string) => {
-    setToast(message);
-    window.setTimeout(() => setToast(""), 3000);
-  };
-
-  const visibleBugs = useMemo(
-    () => filterBugs(bugs, { search, statusFilter, project }),
-    [bugs, search, statusFilter, project],
-  );
-  const visibleCases = useMemo(
-    () => filterCases(cases, { search, statusFilter }),
-    [cases, search, statusFilter],
-  );
-  const visibleRuns = useMemo(
-    () => filterRuns(runs, { search, statusFilter }),
-    [runs, search, statusFilter],
-  );
-  const visibleEvidence = useMemo(
-    () => filterEvidence(evidence, { search }),
-    [evidence, search],
-  );
-
-  const pageTitle: string = ({
-    overview: "Resumen", bugs: "Bugs", cases: "Casos de prueba", runs: "Test runs",
-    evidence: "Evidencias", team: "Equipo", settings: "Configuración", "case-builder": "Diseñar test cases",
-  })[activePage];
-
-  function handleCreateBug(event: FormEvent<HTMLFormElement>) {
+  const [toast, setToast] = useState("");
+  const [detail, setDetail] = useState<object | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout>>();
+  const project = projects.find((p) => p.id === projectId);
+  const { bugs, cases, runs, evidence } = data;
+  useEffect(() => () => clearTimeout(toastTimer.current), []);
+  useEffect(() => {
+    const abort = new AbortController();
+    void api<Project[]>("/projects", { signal: abort.signal }).then((items) => {
+      if (abort.signal.aborted) return;
+      setProjects(items); setProjectId((current) => items.some((p) => p.id === current) ? current : items[0]?.id ?? "");
+      if (!items.length) setLoading(false);
+    }).catch((cause: unknown) => { if (!abort.signal.aborted) { setError(cause instanceof Error ? cause.message : "No se pudieron cargar los proyectos."); setLoading(false); } });
+    return () => abort.abort();
+  }, [revision]);
+  useEffect(() => {
+    if (!projectId) return;
+    const abort = new AbortController();
+    setLoading(true); setError(""); setData({ bugs: [], cases: [], runs: [], evidence: [] });
+    void loadProject(projectId, abort.signal).then((items) => { if (!abort.signal.aborted) setData(items); })
+      .catch((cause: unknown) => { if (!abort.signal.aborted) setError(cause instanceof Error ? cause.message : "No se pudieron cargar los datos."); })
+      .finally(() => { if (!abort.signal.aborted) setLoading(false); });
+    return () => abort.abort();
+  }, [projectId, revision]);
+  const visibleBugs = useMemo(() => filterBugs(bugs, { search, statusFilter }), [bugs, search, statusFilter]);
+  const visibleCases = useMemo(() => filterCases(cases, { search, statusFilter }), [cases, search, statusFilter]);
+  const visibleRuns = useMemo(() => filterRuns(runs, { search, statusFilter }), [runs, search, statusFilter]);
+  const visibleEvidence = useMemo(() => filterEvidence(evidence, { search }), [evidence, search]);
+  const pageTitle = ({ overview: "Resumen", bugs: "Bugs", cases: "Casos de prueba", runs: "Test runs", evidence: "Evidencias", team: "Equipo", settings: "Configuración", "case-builder": "Diseñar test cases" })[activePage];
+  const notify = (message: string) => { clearTimeout(toastTimer.current); setToast(message); toastTimer.current = setTimeout(() => setToast(""), 4000); };
+  function navigate(page: NavigationPage) { setActivePage(page); setSearch(""); setStatusFilter("Todos"); setMobileNav(false); }
+  function openModal(value: string) { setFormError(""); setModal(value); }
+  async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!projectId || saving) return;
     const form = new FormData(event.currentTarget);
-    const title = String(form.get("title")).trim();
-    if (!title) return;
-    setBugs((items) => [{
-      id: `BUG-${248 + items.length - initialBugs.length + 1}`,
-      title,
-      project,
-      priority: String(form.get("priority")) as PriorityLevel,
-      status: "Abierto",
-      assignee: "TU",
-      color: "blue",
-      updated: "ahora",
-    }, ...items]);
-    setModal("");
-    setActivePage("bugs");
-    notify("Bug creado en esta sesión.");
+    const title = String(form.get("title") ?? "").trim();
+    let path = "/bugs";
+    let body: Record<string, unknown> = { projectId, title, description: String(form.get("description") ?? ""), priority: String(form.get("priority") ?? "Media") };
+    if (modal === "case") {
+      path = "/test-cases";
+      const action = String(form.get("action") ?? "").trim();
+      const expectedResult = String(form.get("expectedResult") ?? "").trim();
+      if (Boolean(action) !== Boolean(expectedResult)) { setFormError("Completa la acción y el resultado esperado, o deja ambos vacíos."); return; }
+      body = { projectId, title, suite: String(form.get("suite") ?? ""), preconditions: String(form.get("preconditions") ?? ""), steps: action ? [{ action, expectedResult }] : [] };
+    } else if (modal === "run") {
+      path = "/test-runs";
+      body = { projectId, title, owner: user, caseIds: form.getAll("caseIds") };
+    } else if (modal === "evidence") {
+      path = "/evidence";
+      const file = form.get("file");
+      if (!(file instanceof File) || !file.name) { setFormError("Selecciona un archivo para registrar sus metadatos."); return; }
+      body = { projectId, name: file.name, type: file.type.startsWith("image/") ? "Imagen" : file.type.startsWith("video/") ? "Video" : "Archivo", sizeBytes: file.size, related: String(form.get("related") ?? "") || null };
+    }
+    setSaving(true); setFormError("");
+    try {
+      await api(path, { method: "POST", body: JSON.stringify(body) });
+      setModal(""); setRevision((n) => n + 1);
+      setActivePage(path === "/test-cases" ? "cases" : path === "/test-runs" ? "runs" : path === "/evidence" ? "evidence" : "bugs");
+      notify(path === "/evidence" ? "Metadatos guardados. El archivo no se subió." : "Registro guardado en PostgreSQL.");
+    } catch (cause) { setFormError(cause instanceof Error ? cause.message : "No se pudo guardar."); }
+    finally { setSaving(false); }
   }
-
-  function handleNewRun() {
-    setRuns((items) => [{
-      id: `RUN-${42 + items.length - initialRuns.length + 1}`,
-      title: "Nueva ejecución de pruebas",
-      cases: "0 casos",
-      progress: 0,
-      status: "En curso",
-      owner: "Tú",
-    }, ...items]);
-    setActivePage("runs");
-    notify("Test run creado en esta sesión.");
-  }
-
-  function handleFile(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setEvidence((items) => [{
-      name: file.name,
-      type: file.type.startsWith("image/") ? "Imagen" : file.type.startsWith("video/") ? "Video" : "Archivo",
-      related: "Sin vincular",
-      size: `${(file.size / 1024 / 1024).toFixed(1)} MB`,
-      date: "Ahora",
-    }, ...items]);
-    setActivePage("evidence");
-    notify("Archivo agregado a la vista local; no se subió a un servidor.");
-    event.target.value = "";
-  }
-
-  function navigate(page: NavigationPage) {
-    setActivePage(page);
-    setSearch("");
-    setStatusFilter("Todos");
-    setMobileNav(false);
-  }
-
-  const filters = activePage === "bugs"
-    ? ["Todos", "Abierto", "En progreso", "En revisión", "Resuelto"]
-    : activePage === "cases"
-      ? ["Todos", "Aprobado", "Fallido", "Pendiente"]
-      : activePage === "runs"
-        ? ["Todos", "En curso", "Completado"]
-        : [];
+  const filters = activePage === "bugs" ? ["Todos", "Abierto", "En progreso", "En revisión", "Resuelto"] : activePage === "cases" ? ["Todos", "Aprobado", "Fallido", "Pendiente"] : activePage === "runs" ? ["Todos", "En curso", "Completado"] : [];
   const isListing = ["bugs", "cases", "runs", "evidence"].includes(activePage);
-
-  return (
-    <div className="app-shell">
-      <aside className={`sidebar${mobileNav ? " sidebar-open" : ""}`}>
-        <div className="brand">
-          <span className="brand-mark"><span /><span /><span /><span /></span>
-          <span>qaTest<span className="brand-light">GE</span></span>
-          <button className="mobile-close icon-button" onClick={() => setMobileNav(false)} aria-label="Cerrar menú"><Icon name="close" /></button>
+  const total = activePage === "bugs" ? visibleBugs.length : activePage === "cases" ? visibleCases.length : activePage === "runs" ? visibleRuns.length : visibleEvidence.length;
+  return <div className="app-shell workspace">
+    <aside className={`sidebar${mobileNav ? " sidebar-open" : ""}`}>
+      <div className="brand"><img className="brand__icon" src="/favicon.svg" width="25" height="25" alt="" /><span>qaTest<span className="brand-light">GE</span></span><button className="mobile-close icon-button" onClick={() => setMobileNav(false)} aria-label="Cerrar menú"><Icon name="close" /></button></div>
+      <div className="workspace__identity"><strong>{project?.name ?? "Tu workspace"}</strong><small>Cuenta de {user}</small></div>
+      <div className="sidebar-nav">{navigation.map((group) => <div className="nav-group" key={group.section}><div className="nav-label">{group.section}</div>{group.items.map((item) => <button className={`nav-item${activePage === item.id ? " nav-active" : ""}`} key={item.id} onClick={() => navigate(item.id)}><Icon name={item.icon} size={18} /><span>{item.label}</span>{item.id === "bugs" && <span className="nav-count">{bugs.length}</span>}</button>)}</div>)}</div>
+      <a className="portal-docs__link" href="/api/docs/" target="_blank" rel="noreferrer"><Icon name="file" />SwaggerUI · API ↗</a>
+      <div className="sidebar-bottom"><div className="workspace__identity"><Avatar initials={user.slice(0, 2).toUpperCase()} color="orange" /><strong>{user}</strong><small>Sesión activa</small></div></div>
+    </aside>
+    {mobileNav && <button className="scrim" aria-label="Cerrar menú" onClick={() => setMobileNav(false)} />}
+    <main className="main-area">
+      <header className="topbar"><div className="breadcrumb"><button className="mobile-menu icon-button" onClick={() => setMobileNav(true)} aria-label="Abrir menú"><span className="hamburger" /></button><span>{project?.name ?? "Workspace"}</span><span className="crumb-slash">/</span><strong>{pageTitle}</strong></div><div className="topbar-actions">{themeControl}<button className="session__logout" onClick={onLogout}>Salir</button><span className="ai-pill"><Icon name="sparkle" size={15} /> IA no conectada</span></div></header>
+      <div className="page-content">
+        <div className="welcome-row"><div><div className="eyebrow">{new Date().toLocaleDateString("es", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</div><h1>{activePage === "overview" ? `Hola, ${user}` : pageTitle}</h1><p className="page-subtitle">{pageDescription(activePage)}</p></div>
+          {!["case-builder", "team", "settings"].includes(activePage) && <button disabled={!projectId || loading || saving || Boolean(error)} className="button button-primary" onClick={() => openModal(activePage === "cases" ? "case" : activePage === "runs" ? "run" : activePage === "evidence" ? "evidence" : "bug")}><Icon name="plus" />{activePage === "cases" ? "Nuevo caso" : activePage === "runs" ? "Nueva ejecución" : activePage === "evidence" ? "Registrar metadatos" : "Nuevo bug"}</button>}
         </div>
-        <button className="workspace-select" onClick={() => notify("Selector de espacios de trabajo — demo local")}>
-          <span className="workspace-icon">Q</span>
-          <span className="workspace-copy"><strong>QA Workspace</strong><small>Plan Team</small></span>
-          <Icon name="chevron" size={16} />
-        </button>
-        <div className="sidebar-nav">
-          {navigation.map((group) => <div className="nav-group" key={group.section}>
-            <div className="nav-label">{group.section}</div>
-            {group.items.map((item) => <button className={`nav-item${activePage === item.id ? " nav-active" : ""}`} key={item.id} onClick={() => navigate(item.id)}>
-              <Icon name={item.icon} size={18} /><span>{item.label}</span>
-              {item.count && <span className="nav-count">{item.count}</span>}
-            </button>)}
-          </div>)}
-        </div>
-        <a className="portal-docs__link" href="/api/docs/" target="_blank" rel="noreferrer"><Icon name="file" />SwaggerUI · API ↗</a>
-        <div className="sidebar-bottom">
-          <div className="storage-card">
-            <div className="storage-top"><span>Almacenamiento</span><span>68%</span></div>
-            <div className="storage-track"><span /></div>
-            <small>6.8 GB de 10 GB usados</small>
-          </div>
-          <button className="profile-button" onClick={() => notify(`Sesión de demostración: ${user}`)}>
-            <Avatar initials={user.slice(0, 2).toUpperCase()} color="orange" />
-            <span className="profile-copy"><strong>{user}</strong><small>Usuario de demostración</small></span>
-            <Icon name="dots" size={19} />
-          </button>
-        </div>
-      </aside>
-
-      {mobileNav && <button className="scrim" aria-label="Cerrar menú" onClick={() => setMobileNav(false)} />}
-
-      <main className="main-area">
-        <header className="topbar">
-          <div className="breadcrumb"><button className="mobile-menu icon-button" onClick={() => setMobileNav(true)} aria-label="Abrir menú"><span className="hamburger" /></button><span>QA Workspace</span><span className="crumb-slash">/</span><strong>{pageTitle}</strong></div>
-          <div className="topbar-actions">{themeControl}<button className="session__logout" onClick={onLogout}>Salir</button>
-            <div className="demo-pill"><span />Demo local</div>
-            <span className="ai-pill"><Icon name="sparkle" size={15} /> IA no conectada</span>
-            <button className="icon-button notification-button" onClick={() => notify("No tienes notificaciones nuevas.")} aria-label="Notificaciones"><Icon name="bell" /><i /></button>
-            <Avatar initials={user.slice(0, 2).toUpperCase()} color="orange" small />
-          </div>
-        </header>
-
-        <div className="page-content">
-          <div className="welcome-row">
-            <div>
-              <div className="eyebrow"><span className="live-dot" /> MIÉRCOLES, 14 DE OCTUBRE, 2026</div>
-              <h1>{activePage === "overview" ? <>Hola, {user} <span className="wave">✦</span></> : pageTitle}</h1>
-              <p className="page-subtitle">{activePage === "overview" ? "Aquí tienes el estado de calidad de tus proyectos." : pageDescription(activePage)}</p>
-            </div>
-            {activePage !== "case-builder" && <div className="header-buttons">
-              {activePage === "overview" && <button className="button button-secondary" onClick={() => notify("Reporte de calidad preparado en la demo local.")}><Icon name="download" size={16} /> Exportar reporte</button>}
-              {activePage === "runs" ? <button className="button button-primary" onClick={handleNewRun}><Icon name="plus" size={17} /> Nueva ejecución</button>
-                : activePage === "evidence" ? <label className="button button-primary"><Icon name="plus" size={17} /> Agregar evidencia<input type="file" hidden onChange={handleFile} /></label>
-                  : <button className="button button-primary" onClick={() => setModal("bug")}><Icon name="plus" size={17} /> Nuevo bug</button>}
-            </div>}
-          </div>
-
-          {activePage === "overview" ? <Overview
-            bugs={visibleBugs}
-            runs={runs}
-            setActivePage={navigate}
-            project={project}
-            setProject={setProject}
-            onNewRun={handleNewRun}
-            onCreateBug={() => setModal("bug")}
-          /> : activePage === "case-builder" ? <CaseBuilder /> : isListing ? <section className="listing-card">
-            <div className="listing-toolbar">
-              <div className="listing-tabs">
-                {filters.map((filter) => <button key={filter} className={`filter-tab${statusFilter === filter ? " filter-tab-active" : ""}`} onClick={() => setStatusFilter(filter)}>{filter}{filter === "Todos" && <span>{activePage === "bugs" ? bugs.length : activePage === "cases" ? cases.length : activePage === "runs" ? runs.length : evidence.length}</span>}</button>)}
-              </div>
-              <div className="listing-tools">
-                {activePage === "bugs" && <label className="project-filter"><span>Proyecto</span><select value={project} onChange={(event) => setProject(event.target.value)}><option>Web Store</option><option>Mobile App</option><option>Dashboard</option><option>Todos los proyectos</option></select></label>}
-                <label className="search-field"><Icon name="search" size={17} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={`Buscar ${pageTitle.toLowerCase()}...`} /><kbd>⌘ K</kbd></label>
-                <button className="icon-button filter-button" onClick={() => notify("Usa las pestañas para filtrar por estado.")} aria-label="Filtros"><Icon name="filter" /></button>
-              </div>
-            </div>
-            {activePage === "bugs" && <BugTable bugs={visibleBugs} onSelect={() => notify("Detalle del bug — demo local")} />}
-            {activePage === "cases" && <CaseTable items={visibleCases} onSelect={() => notify("Detalle del caso de prueba — demo local")} />}
-            {activePage === "runs" && <RunTable items={visibleRuns} onSelect={() => notify("Detalle de la ejecución — demo local")} />}
-            {activePage === "evidence" && <EvidenceTable items={visibleEvidence} onSelect={() => notify("Vista previa de evidencia — demo local")} />}
-            {((activePage === "bugs" && visibleBugs.length === 0) || (activePage === "cases" && visibleCases.length === 0) || (activePage === "runs" && visibleRuns.length === 0) || (activePage === "evidence" && visibleEvidence.length === 0)) && <div className="empty-state">No se encontraron resultados. Prueba otra búsqueda o filtro.</div>}
-            <div className="table-footer"><span>Mostrando <strong>{activePage === "bugs" ? visibleBugs.length : activePage === "cases" ? visibleCases.length : activePage === "runs" ? visibleRuns.length : visibleEvidence.length}</strong> resultados <span className="local-note">· datos de ejemplo, solo en esta sesión</span></span><div><button disabled>← Anterior</button><button className="page-number">1</button><button disabled>Siguiente →</button></div></div>
-          </section> : <PlaceholderPage page={activePage} onNavigate={navigate} />}
-          <footer className="page-footer"><span>© 2026 qaTestGE</span><span>Hecho para equipos que cuidan la calidad <span className="footer-heart">♥</span></span><span>v1.0.0 · Frontend demo</span></footer>
-        </div>
-      </main>
-
-      {modal === "bug" && <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setModal(""); }}>
-        <form className="modal-card" onSubmit={handleCreateBug}>
-          <div className="modal-heading"><div><div className="modal-icon"><Icon name="bug" size={20} /></div><h2>Crear un bug</h2><p>Registra una incidencia para que el equipo pueda darle seguimiento.</p></div><button type="button" className="icon-button" onClick={() => setModal("")} aria-label="Cerrar"><Icon name="close" /></button></div>
-          <label className="form-label">Título <span>*</span><input name="title" required autoFocus placeholder="Describe brevemente el problema" /></label>
-          <label className="form-label">Descripción<textarea name="description" rows={3} placeholder="Pasos para reproducir, resultado esperado y actual..." /></label>
-          <div className="form-row"><label className="form-label">Prioridad<select name="priority"><option>Media</option><option>Crítica</option><option>Alta</option><option>Baja</option></select></label><label className="form-label">Proyecto<input value={project} readOnly /></label></div>
-          <div className="local-warning"><Icon name="file" size={16} /> Se agregará solo a esta sesión. No hay backend conectado.</div>
-          <div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setModal("")}>Cancelar</button><button type="submit" className="button button-primary">Crear bug</button></div>
-        </form>
-      </div>}
-      {toast && <div className="toast"><span className="toast-check">✓</span>{toast}</div>}
-    </div>
-  );
+        <div className="workspace__toolbar"><label>Proyecto<select disabled={saving} value={projectId} onChange={(event) => { setData({ bugs: [], cases: [], runs: [], evidence: [] }); setLoading(true); setProjectId(event.target.value); }}><option value="" disabled>Selecciona un proyecto</option>{projects.map((p) => <option key={p.id} value={p.id}>{p.name} · #{p.id}</option>)}</select></label><button className="workspace__secondary" disabled={loading || saving} onClick={() => { setError(""); setLoading(true); setRevision((n) => n + 1); }}>Actualizar</button></div>
+        {loading && <p className="workspace__notice" role="status">Cargando datos del proyecto…</p>}
+        {error && <p className="workspace__error" role="alert">{error}</p>}
+        {!loading && !error && !projectId && <p className="workspace__notice">No tienes proyectos disponibles. El administrador debe conceder acceso a un espacio existente.</p>}
+        {activePage === "case-builder" ? <CaseBuilder /> : !loading && !error && projectId && (activePage === "overview" ? <>
+          <div className="workspace__metrics">{[["Bugs abiertos", bugs.filter((b) => b.status !== "Resuelto").length], ["Casos de prueba", cases.length], ["Ejecuciones activas", runs.filter((r) => r.status === "En curso").length], ["Evidencias", evidence.length]].map(([label, value]) => <div className="workspace__metric" key={label}><span>{label}</span><strong>{value}</strong><small>Proyecto actual · PostgreSQL</small></div>)}</div>
+          <section className="workspace__panel"><h2>Bugs recientes</h2><BugTable bugs={bugs.slice(0, 5)} onSelect={setDetail} />{!bugs.length && <p className="workspace__notice">Aún no hay bugs en este proyecto.</p>}</section>
+          <section className="workspace__panel"><h2>Ejecuciones recientes</h2><RunTable items={runs.slice(0, 5)} onSelect={setDetail} />{!runs.length && <p className="workspace__notice">Aún no hay ejecuciones. Crea casos y agrúpalos en una ejecución.</p>}</section>
+        </> : isListing ? <section className="listing-card">
+          <div className="listing-toolbar"><div className="listing-tabs">{filters.map((filter) => <button key={filter} className={`filter-tab${statusFilter === filter ? " filter-tab-active" : ""}`} onClick={() => setStatusFilter(filter)}>{filter}</button>)}</div><label className="search-field"><Icon name="search" /><input aria-label="Buscar registros" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={`Buscar ${pageTitle.toLowerCase()}…`} /></label></div>
+          {activePage === "bugs" && <BugTable bugs={visibleBugs} onSelect={setDetail} />}
+          {activePage === "cases" && <CaseTable items={visibleCases} onSelect={setDetail} />}
+          {activePage === "runs" && <RunTable items={visibleRuns} onSelect={setDetail} />}
+          {activePage === "evidence" && <EvidenceTable items={visibleEvidence} onSelect={setDetail} />}
+          {!total && <p className="workspace__notice">No hay registros que coincidan con los filtros.</p>}
+          <div className="table-footer"><span>{total} resultados · datos del proyecto</span></div>
+        </section> : <PlaceholderPage page={activePage} onNavigate={navigate} />)}
+        <footer className="page-footer"><span>© {new Date().getFullYear()} qaTestGE</span><span>{error ? "Datos no disponibles" : loading ? "Actualizando datos…" : "Datos persistidos en PostgreSQL"}</span></footer>
+      </div>
+    </main>
+    {modal && <Dialog title={modal === "bug" ? "Nuevo bug" : modal === "case" ? "Nuevo caso de prueba" : modal === "run" ? "Nueva ejecución" : "Registrar metadatos"} onClose={() => { if (!saving) setModal(""); }}><form className="workspace__form" onSubmit={(event) => void save(event)} aria-busy={saving}>
+      <fieldset disabled={saving} className="workspace__fieldset">
+        <label className="workspace__field">Proyecto<input value={project?.name ?? ""} readOnly /></label>
+        {modal !== "evidence" && <label className="workspace__field">Título<input name="title" maxLength={200} required /></label>}
+        {modal === "bug" && <><label className="workspace__field">Descripción<textarea name="description" maxLength={5000} rows={4} /></label><label className="workspace__field">Prioridad<select name="priority" defaultValue="Media"><option>Crítica</option><option>Alta</option><option>Media</option><option>Baja</option></select></label></>}
+        {modal === "case" && <><label className="workspace__field">Suite<input name="suite" maxLength={100} required /></label><label className="workspace__field">Precondiciones<textarea name="preconditions" maxLength={10000} /></label><label className="workspace__field">Acción (opcional)<textarea name="action" maxLength={10000} /></label><label className="workspace__field">Resultado esperado<textarea name="expectedResult" maxLength={10000} /></label></>}
+        {modal === "run" && <fieldset className="workspace__fieldset"><legend>Casos de este proyecto</legend>{cases.map((c) => <label className="workspace__check" key={c.id}><input type="checkbox" name="caseIds" value={c.id} />{c.id} · {c.title}</label>)}{!cases.length && <p>Crea primero tus casos de prueba o guarda una ejecución vacía.</p>}</fieldset>}
+        {modal === "evidence" && <><p className="workspace__notice">Solo se guardarán nombre, tipo, tamaño y vínculo. El contenido del archivo no se sube.</p><label className="workspace__field">Archivo<input name="file" type="file" required /></label><label className="workspace__field">Vincular a<select name="related"><option value="">Sin vincular</option>{[...bugs, ...cases, ...runs].map((item) => <option key={item.id} value={item.id}>{item.id} · {item.title}</option>)}</select></label></>}
+      </fieldset>
+      {formError && <p className="workspace__error" role="alert">{formError}</p>}
+      <div className="workspace__actions"><button type="button" className="workspace__secondary" disabled={saving} onClick={() => setModal("")}>Cancelar</button><button type="submit" disabled={saving} className="button button-primary">{saving ? "Guardando…" : "Guardar"}</button></div>
+    </form></Dialog>}
+    {detail && <Dialog title="Detalle del registro" onClose={() => setDetail(null)}><dl className="workspace__detail">{Object.entries(detail).filter(([key]) => !["color", "updated", "date", "cases", "size"].includes(key)).map(([key, value]) => <React.Fragment key={key}><dt>{({ title: "Título", description: "Descripción", status: "Estado", project: "Proyecto", projectId: "ID de proyecto", priority: "Prioridad", assignee: "Responsable", suite: "Suite", preconditions: "Precondiciones", steps: "Pasos", owner: "Responsable", caseIds: "Casos", caseCount: "Cantidad de casos", progress: "Progreso", name: "Nombre", type: "Tipo", related: "Vinculado a", sizeBytes: "Tamaño en bytes", createdAt: "Creación" } as Record<string, string>)[key] ?? key}</dt><dd>{typeof value === "object" ? <pre>{JSON.stringify(value, null, 2)}</pre> : String(value ?? "—")}</dd></React.Fragment>)}</dl></Dialog>}
+    {toast && <div className="toast" role="status">{toast}</div>}
+  </div>;
 }
 
 function pageDescription(page: NavigationPage): string {
@@ -325,86 +219,18 @@ function pageDescription(page: NavigationPage): string {
   })[page];
 }
 
-interface OverviewProps {
-  bugs: Bug[];
-  runs: TestRun[];
-  setActivePage: (page: NavigationPage) => void;
-  project: string;
-  setProject: (project: string) => void;
-  onNewRun: () => void;
-  onCreateBug: () => void;
-}
-
-function Overview({ bugs, runs, setActivePage, project, setProject, onNewRun, onCreateBug }: OverviewProps) {
-  return <>
-    <div className="project-toolbar">
-      <div className="project-switch"><span className="project-dot" /><span>Proyecto:</span><select value={project} onChange={(event) => setProject(event.target.value)}><option>Web Store</option><option>Mobile App</option><option>Dashboard</option><option>Todos los proyectos</option></select><Icon name="chevron" size={14} /></div>
-      <div className="updated-label"><Icon name="clock" size={15} /> Actualizado hace 2 min</div>
-    </div>
-    <section className="metrics-grid">
-      <MetricCard label="Bugs abiertos" value={project === "Todos los proyectos" ? "24" : project === "Web Store" ? "12" : "6"} change="3 nuevos esta semana" icon="bug" tone="purple" trend="up" />
-      <MetricCard label="Casos de prueba" value="128" change="8 añadidos este mes" icon="check-square" tone="blue" trend="up" />
-      <MetricCard label="Tasa de éxito" value="94.2%" change="+2.4% vs. semana anterior" icon="sparkle" tone="green" trend="up" />
-      <MetricCard label="Ejecuciones activas" value={String(runs.filter((run) => run.status === "En curso").length).padStart(2, "0")} change="1 ejecución en progreso" icon="play" tone="orange" trend="neutral" />
-    </section>
-    <section className="dashboard-grid">
-      <div className="panel quality-panel">
-        <div className="panel-heading"><div><h2>Tendencia de calidad</h2><p>Rendimiento de pruebas durante los últimos 30 días</p></div><button className="select-button" onClick={() => {}}><Icon name="calendar" size={15} /> Últimos 30 días <Icon name="chevron" size={14} /></button></div>
-        <div className="chart-legend"><span><i className="legend-purple" /> Pruebas aprobadas <strong>94.2%</strong></span><span><i className="legend-orange" /> Bugs reportados <strong>18</strong></span></div>
-        <div className="chart-wrap">
-          <div className="chart-y-labels"><span>100%</span><span>75%</span><span>50%</span><span>25%</span><span>0%</span></div>
-          <svg className="chart" viewBox="0 0 720 210" preserveAspectRatio="none" role="img" aria-label="Gráfico de tendencia ascendente de pruebas aprobadas y bugs reportados">
-            <defs><linearGradient id="fillPurple" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#7562e8" stopOpacity=".18" /><stop offset="100%" stopColor="#7562e8" stopOpacity="0" /></linearGradient></defs>
-            {[10, 55, 100, 145, 190].map((y) => <line key={y} x1="0" y1={y} x2="720" y2={y} className="grid-line" />)}
-            <path d="M0 103 C35 93 42 122 78 111 S120 84 150 95 S193 72 225 83 S270 101 300 73 S350 80 375 61 S420 79 450 54 S495 66 525 45 S568 63 600 38 S650 51 680 29 S702 40 720 21 L720 190 L0 190Z" fill="url(#fillPurple)" />
-            <path d="M0 103 C35 93 42 122 78 111 S120 84 150 95 S193 72 225 83 S270 101 300 73 S350 80 375 61 S420 79 450 54 S495 66 525 45 S568 63 600 38 S650 51 680 29 S702 40 720 21" fill="none" stroke="#7562e8" strokeWidth="3" vectorEffect="non-scaling-stroke" />
-            <path d="M0 154 C36 158 49 139 78 147 S120 159 150 143 S195 153 225 132 S268 148 300 137 S347 145 375 124 S418 136 450 119 S495 133 525 115 S568 127 600 107 S651 119 680 96 S702 105 720 88" fill="none" stroke="#f4a261" strokeWidth="2" strokeDasharray="5 6" vectorEffect="non-scaling-stroke" />
-            <circle cx="600" cy="38" r="5" fill="#fff" stroke="#7562e8" strokeWidth="3" vectorEffect="non-scaling-stroke" />
-          </svg>
-        </div>
-        <div className="chart-x-labels"><span>15 sep</span><span>20 sep</span><span>25 sep</span><span>30 sep</span><span>05 oct</span><span>10 oct</span><span>14 oct</span></div>
-      </div>
-      <div className="panel run-panel">
-        <div className="panel-heading"><div><h2>Ejecuciones recientes</h2><p>Actividad de tus suites de prueba</p></div><button className="more-button" onClick={() => setActivePage("runs")} aria-label="Ver todas las ejecuciones"><Icon name="dots" /></button></div>
-        <div className="run-list">{runs.slice(0, 3).map((run, index) => <div className="run-row" key={run.id}>
-          <span className={`run-icon run-icon-${index}`}><Icon name="play" size={17} /></span>
-          <div className="run-info"><strong>{run.title}</strong><span>{run.id} <i /> {run.cases}</span><div className="progress-track"><span style={{ width: `${run.progress}%` }} /></div></div>
-          <StatusBadge status={run.status} />
-        </div>)}</div>
-        <button className="text-link run-link" onClick={onNewRun}>Iniciar nueva ejecución <Icon name="arrow" size={15} /></button>
-      </div>
-    </section>
-    <section className="panel bugs-panel">
-      <div className="panel-heading"><div><h2>Bugs recientes</h2><p>Incidencias que requieren atención</p></div><button className="button button-small button-secondary" onClick={onCreateBug}><Icon name="plus" size={15} /> Nuevo bug</button></div>
-      <BugTable bugs={bugs.slice(0, 4)} onSelect={() => setActivePage("bugs")} compact />
-      <button className="text-link all-link" onClick={() => setActivePage("bugs")}>Ver todos los bugs <Icon name="arrow" size={15} /></button>
-    </section>
-  </>;
-}
-
-function MetricCard({ label, value, change, icon, tone, trend }: {
-  label: string;
-  value: string;
-  change: string;
-  icon: IconName;
-  tone: "purple" | "blue" | "green" | "orange";
-  trend: "up" | "neutral";
-}) {
-  return <div className="metric-card"><div className="metric-top"><span>{label}</span><span className={`metric-icon metric-${tone}`}><Icon name={icon} size={17} /></span></div><div className="metric-value">{value}</div><div className="metric-change"><span className={`trend trend-${trend}`}>{trend === "up" ? "↗" : "•"}</span>{change}</div><div className={`metric-decoration metric-decoration-${tone}`} /></div>;
-}
-
 function BugTable({ bugs, onSelect, compact = false }: {
   bugs: Bug[];
   onSelect: (bug: Bug) => void;
   compact?: boolean;
 }) {
-  return <div className={`table-scroll${compact ? " table-compact" : ""}`}><table><thead><tr><th>BUG ID</th><th>TÍTULO</th><th>PRIORIDAD</th><th>ESTADO</th><th>ASIGNADO</th><th>ACTUALIZADO</th><th /></tr></thead><tbody>
+  return <div className={`table-scroll${compact ? " table-compact" : ""}`}><table><thead><tr><th>BUG ID</th><th>TÍTULO</th><th>PRIORIDAD</th><th>ESTADO</th><th>ASIGNADO</th><th>CREADO</th><th /></tr></thead><tbody>
     {bugs.map((bug) => <tr key={bug.id} onClick={() => onSelect(bug)}><td><span className="id-text">{bug.id}</span></td><td><span className="bug-title">{bug.title}</span><span className="table-project">{bug.project}</span></td><td><Priority level={bug.priority} /></td><td><StatusBadge status={bug.status} /></td><td><span className="assignee"><Avatar initials={bug.assignee} color={bug.color} small /><span>{bug.assignee}</span></span></td><td className="muted-cell">{bug.updated}</td><td><button className="row-more" aria-label={`Más opciones para ${bug.id}`} onClick={(event) => { event.stopPropagation(); onSelect(bug); }}><Icon name="dots" size={18} /></button></td></tr>)}
   </tbody></table></div>;
 }
 
 function CaseTable({ items, onSelect }: { items: TestCase[]; onSelect: (item: TestCase) => void }) {
-  return <div className="table-scroll"><table><thead><tr><th>CASO ID</th><th>NOMBRE DEL CASO</th><th>SUITE</th><th>ESTADO</th><th>ACTUALIZADO</th><th /></tr></thead><tbody>{items.map((item) => <tr key={item.id} onClick={() => onSelect(item)}><td><span className="id-text">{item.id}</span></td><td><span className="bug-title">{item.title}</span></td><td><span className="suite-badge">{item.suite}</span></td><td><StatusBadge status={item.status} /></td><td className="muted-cell">{item.updated}</td><td><button className="row-more" aria-label={`Más opciones para ${item.id}`}><Icon name="dots" size={18} /></button></td></tr>)}</tbody></table></div>;
+  return <div className="table-scroll"><table><thead><tr><th>CASO ID</th><th>NOMBRE DEL CASO</th><th>SUITE</th><th>ESTADO</th><th>CREADO</th><th /></tr></thead><tbody>{items.map((item) => <tr key={item.id} onClick={() => onSelect(item)}><td><span className="id-text">{item.id}</span></td><td><span className="bug-title">{item.title}</span></td><td><span className="suite-badge">{item.suite}</span></td><td><StatusBadge status={item.status} /></td><td className="muted-cell">{item.updated}</td><td><button className="row-more" aria-label={`Más opciones para ${item.id}`}><Icon name="dots" size={18} /></button></td></tr>)}</tbody></table></div>;
 }
 
 function RunTable({ items, onSelect }: { items: TestRun[]; onSelect: (item: TestRun) => void }) {
@@ -412,7 +238,7 @@ function RunTable({ items, onSelect }: { items: TestRun[]; onSelect: (item: Test
 }
 
 function EvidenceTable({ items, onSelect }: { items: Evidence[]; onSelect: (item: Evidence) => void }) {
-  return <div className="table-scroll"><table><thead><tr><th>NOMBRE</th><th>TIPO</th><th>VINCULADO A</th><th>TAMAÑO</th><th>FECHA</th><th /></tr></thead><tbody>{items.map((item) => <tr key={`${item.name}-${item.date}`} onClick={() => onSelect(item)}><td><span className="evidence-name"><span className="evidence-file"><Icon name="file" size={17} /></span><span className="bug-title">{item.name}</span></span></td><td><span className="suite-badge">{item.type}</span></td><td><span className="id-text">{item.related}</span></td><td className="muted-cell">{item.size}</td><td className="muted-cell">{item.date}</td><td><button className="row-more" aria-label={`Más opciones para ${item.name}`}><Icon name="dots" size={18} /></button></td></tr>)}</tbody></table></div>;
+  return <div className="table-scroll"><table><thead><tr><th>NOMBRE</th><th>TIPO</th><th>VINCULADO A</th><th>TAMAÑO</th><th>FECHA</th><th /></tr></thead><tbody>{items.map((item) => <tr key={item.id} onClick={() => onSelect(item)}><td><span className="evidence-name"><span className="evidence-file"><Icon name="file" size={17} /></span><span className="bug-title">{item.name}</span></span></td><td><span className="suite-badge">{item.type}</span></td><td><span className="id-text">{item.related}</span></td><td className="muted-cell">{item.size}</td><td className="muted-cell">{item.date}</td><td><button className="row-more" aria-label={`Más opciones para ${item.name}`}><Icon name="dots" size={18} /></button></td></tr>)}</tbody></table></div>;
 }
 
 function PlaceholderPage({ page, onNavigate }: {
@@ -420,7 +246,7 @@ function PlaceholderPage({ page, onNavigate }: {
   onNavigate: (page: NavigationPage) => void;
 }) {
   const team = page === "team";
-  return <section className="placeholder-card"><div className={`placeholder-icon${team ? " placeholder-team" : ""}`}><Icon name={team ? "users" : "settings"} size={24} /></div><div className="eyebrow">QA WORKSPACE</div><h2>{team ? "Tu equipo, en un solo lugar" : "Personaliza tu espacio"}</h2><p>{team ? "La gestión de miembros estará disponible cuando se conecte el backend." : "La configuración se habilitará en una próxima etapa del proyecto."}</p><span className="coming-soon">Disponible próximamente</span><button className="text-link" onClick={() => onNavigate("overview")}>Volver al resumen <Icon name="arrow" size={15} /></button></section>;
+  return <section className="placeholder-card"><div className={`placeholder-icon${team ? " placeholder-team" : ""}`}><Icon name={team ? "users" : "settings"} size={24} /></div><div className="eyebrow">QA WORKSPACE</div><h2>{team ? "Tu equipo, en un solo lugar" : "Personaliza tu espacio"}</h2><p>{team ? "La administración de membresías e invitaciones estará disponible en una próxima etapa." : "La configuración se habilitará en una próxima etapa del proyecto."}</p><span className="coming-soon">Disponible próximamente</span><button className="text-link" onClick={() => onNavigate("overview")}>Volver al resumen <Icon name="arrow" size={15} /></button></section>;
 }
 
 export default App;

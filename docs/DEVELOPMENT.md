@@ -2,54 +2,56 @@
 
 ## Preparación
 
-El entorno validado en este proyecto usa Node.js 24.12.0 y pnpm 12.11.2. El campo `packageManager` fija la versión de pnpm. Tener `pnpm` disponible en PATH y ejecutar desde la raíz:
+Entorno validado: Node.js 24.12.0 y pnpm 12.11.2. Se usa `process.loadEnvFile` de Node para cargar la configuración del servidor. Tener pnpm en PATH y ejecutar desde la raíz:
 
 ```bash
-pnpm install
+pnpm install --frozen-lockfile
+# Si aún no tienes configuración local:
+# copiar backend/.env.example a backend/.env y ajustar DATABASE_URL
+pnpm db:migrate
+pnpm db:check
 pnpm dev:all
 ```
 
-`dev:all` usa los filtros del workspace pnpm para ejecutar en paralelo el script `dev` de la raíz y de `@qatestge/api`, con salida identificada por paquete. Frontend: `http://localhost:5173`; API: `http://localhost:3000/api/health`. Detener la sesión conjunta con `Ctrl+C`.
+No sobrescribir un `.env` existente. Los scripts SQL se importan manualmente una sola vez según [backend/sql/README.md](../backend/sql/README.md). Si ya creaste las tablas y los datos, no vuelvas a importarlos para iniciar la API.
 
-Iniciar ambos servicios no conecta automáticamente los datos: el frontend todavía funciona con ejemplos propios.
+`dev:all` levanta Vite y tsx watch en paralelo. Frontend: `http://localhost:5173`; API: `http://localhost:3000/api/health`. `Ctrl+C` detiene la sesión. El frontend recupera su sesión por cookie, lista los proyectos autorizados y consulta/crea recursos mediante /api. Registro crea un workspace y un proyecto propios; las membresías sobre datos anteriores se conceden explícitamente.
 
-## Scripts de la raíz
+## Scripts
 
 | Comando | Uso |
 |---|---|
-| `pnpm dev:all` | Frontend y backend en paralelo con recarga de desarrollo |
-| `pnpm dev` / `pnpm dev:frontend` | Solo frontend con Vite |
-| `pnpm dev:backend` / `pnpm dev:api` | Solo backend con tsx watch |
-| `pnpm build` | Tipos del frontend y compilación de frontend y backend |
-| `pnpm build:frontend` | Tipos y build del frontend en `dist/` |
-| `pnpm build:backend` | Build del backend en `backend/dist/` |
-| `pnpm preview` | Vista previa local del frontend compilado, normalmente en puerto 4173 |
-| `pnpm typecheck` | Tipos del frontend y pruebas unitarias incluidas en su tsconfig |
-| `pnpm test` | Pruebas unitarias y de endpoints |
-| `pnpm test:watch` | Vitest en modo observación |
+| `pnpm dev:all` | Frontend y backend en paralelo |
+| `pnpm dev` / `pnpm dev:frontend` | Solo Vite |
+| `pnpm dev:backend` / `pnpm dev:api` | API con tsx watch y PostgreSQL |
+| `pnpm db:migrate` | Migración aditiva de usuarios y sesiones (004), repetible |
+| `pnpm db:check` | Conexión y tablas del esquema qa, solo lectura |
+| `pnpm build` | Tipos y compilación del frontend y backend |
+| `pnpm build:frontend` / `pnpm build:backend` | Compilación por separado |
+| `pnpm preview` | Vista previa local de dist/, normalmente en 4173 |
+| `pnpm typecheck` | Tipos del frontend y pruebas unitarias incluidas |
+| `pnpm test` / `pnpm test:watch` | Pruebas deterministas sin PostgreSQL |
+| `pnpm --dir backend test:db` | Integración opcional con TEST_DATABASE_URL explícita |
 
-`pnpm build` también valida los tipos del backend. Para ejecutar su compilado usar `pnpm --dir backend start` después del build. `vite preview` es una herramienta de comprobación local, no una estrategia de despliegue productivo.
+Después del build, `pnpm --dir backend start` ejecuta el servidor compilado, con la misma carga de entorno. Vite preview es una herramienta local, no un despliegue productivo.
 
-## Configuración
+## Configuración del servidor
 
-| Variable | Valor por defecto | Alcance |
-|---|---|---|
-| `PORT` | `3000` | Puerto de la API, entero entre 1 y 65535 |
-| `FRONTEND_ORIGIN` | `http://localhost:5173` | Origen permitido por CORS en la API |
+| Variable | Uso |
+|---|---|
+| `DATABASE_URL` | Obligatoria, URL PostgreSQL para qa_test_ge; solo en el servidor |
+| `PORT` | Puerto API, 3000 por defecto, entre 1 y 65535 |
+| `FRONTEND_ORIGIN` | Origen CORS, 5173 por defecto |
+| `CORS_ORIGIN` | Alias aceptado cuando FRONTEND_ORIGIN no está definido |
+| `TEST_DATABASE_URL` | Solo verificación opcional sobre una base de pruebas |
 
-Establecer variables en la terminal antes de iniciar el proceso. No hay carga explícita de archivos `.env` en el backend actual.
+`backend/.env` se busca respecto al módulo, tanto en src/ como dist/. Después se lee `.env` en la raíz como alternativa. Las variables ya definidas en el proceso tienen prioridad; el archivo de la raíz solo completa valores faltantes. Los cambios de `.env` requieren reiniciar el proceso. `backend/.env.example` contiene valores ficticios; `.env` está ignorado por Git. No añadir prefijos VITE_ a secretos. JWT_SECRET no se utiliza: las sesiones son opacas, con estado revocable en PostgreSQL. NODE_ENV=production activa cookies Secure y requiere servir la aplicación mediante HTTPS. API_ORIGIN permite configurar el origen directo del backend para escrituras desde SwaggerUI (por defecto localhost con PORT).
 
-Ejemplo en PowerShell:
+El servidor comprueba conexión y tablas antes de escuchar. Si falla, sale con error y no usa memoria. Si PostgreSQL se cae durante ejecución, health devuelve 503. Los logs y las respuestas no imprimen credenciales ni SQL.
 
-```powershell
-$env:PORT = '3000'
-$env:FRONTEND_ORIGIN = 'http://localhost:5173'
-pnpm dev:all
-```
+Vite reenvía `/api` a `http://localhost:3000`; ajustar vite.config.ts si cambias el puerto del backend. Para solicitudes directas desde otro origen, configurar CORS.
 
-Vite redirige `/api` a `http://localhost:3000` durante desarrollo según `vite.config.ts`. Si cambias el puerto de la API, ajusta ese destino. Si Vite usa otro puerto porque 5173 está ocupado, revisa la URL anunciada y `FRONTEND_ORIGIN` para solicitudes directas a la API.
-
-## Verificación y problemas comunes
+## Verificación
 
 ```bash
 pnpm typecheck
@@ -57,6 +59,6 @@ pnpm build
 pnpm test
 ```
 
-Si faltan módulos, ejecutar `pnpm install` desde la raíz. Si el puerto 3000 está ocupado, cerrar el proceso que lo usa o configurar otro puerto. El reinicio del backend, incluso por tsx watch, borra sus datos en memoria. No hay base de datos, migraciones ni restauración de datos implementadas.
+Las pruebas de endpoints usan un repositorio simulado inyectado, sin cargar `.env` ni necesitar PostgreSQL. Las de repositorio comprueban parámetros y rollback mediante dobles. [TESTING.md](./TESTING.md) explica la verificación opcional con PostgreSQL real.
 
-Las pruebas unitarias no necesitan servicios externos; las de API usan Supertest sobre la aplicación Express sin levantar un backend de desarrollo separado.
+Los datos de la API ya no se pierden al reiniciar: viven en qa_test_ge. La aplicación no crea ni modifica el esquema al arrancar y db:migrate aplica explícitamente la migración 004, pero no hay migración automática al arrancar ni gestor de respaldos. Un puerto ocupado requiere detener su proceso o cambiar PORT; un error de conexión requiere revisar servicio, permisos, credenciales y tablas importadas. `pnpm db:check` hace esa comprobación sin escrituras.

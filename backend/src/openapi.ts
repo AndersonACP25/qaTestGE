@@ -5,42 +5,51 @@ const text = (maxLength: number) => ({ type: "string", minLength: 1, maxLength, 
 const ref = (name: string) => ({ $ref: `#/components/schemas/${name}` });
 const json = (schema: object) => ({ "application/json": { schema } });
 const object = <T extends object>(properties: T, required: string[]) => ({ type: "object", properties, required });
+const projectId = { type: "string", pattern: "^[1-9][0-9]{0,18}$", example: "1", description: "ID bigint decimal como texto, hasta 9223372036854775807. Requiere membresía en la organización del proyecto." };
+const step = object({ action: text(10000), expectedResult: text(10000) }, ["action", "expectedResult"]);
+const caseIds = { type: "array", maxItems: 1000, uniqueItems: true, items: { type: "string", pattern: "^TC-[0-9]{1,19}$" }, default: [] };
 const inputs = {
-  BugInput: object({ title: text(200), project: text(100), priority: { type: "string", enum: bugPriorities }, description: { type: "string", maxLength: 5000 }, assignee: { type: "string", nullable: true, maxLength: 100 } }, ["title", "project", "priority"]),
-  TestCaseInput: object({ title: text(200), suite: text(100) }, ["title", "suite"]),
-  TestRunInput: object({ title: text(200), owner: text(100), caseCount: { type: "integer", minimum: 0, default: 0 } }, ["title", "owner"]),
-  EvidenceInput: object({ name: text(255), type: { type: "string", enum: evidenceTypes }, sizeBytes: { type: "integer", minimum: 0, maximum: Number.MAX_SAFE_INTEGER }, related: { type: "string", nullable: true, maxLength: 100, description: "Referencia opcional; actualmente no se comprueba su existencia." } }, ["name", "type", "sizeBytes"]),
+  BugInput: object({ projectId, title: text(200), priority: { type: "string", enum: bugPriorities }, description: { type: "string", maxLength: 5000 }, assignee: { type: "string", nullable: true, maxLength: 100 } }, ["projectId", "title", "priority"]),
+  TestCaseInput: object({ projectId, title: text(200), suite: text(100), preconditions: { type: "string", maxLength: 10000 }, steps: { type: "array", maxItems: 100, items: step } }, ["projectId", "title", "suite"]),
+  TestRunInput: object({ projectId, title: text(200), owner: text(100), caseIds }, ["projectId", "title", "owner"]),
+  EvidenceInput: object({ projectId, name: text(255), type: { type: "string", enum: evidenceTypes }, sizeBytes: { type: "integer", minimum: 0, maximum: Number.MAX_SAFE_INTEGER }, related: { type: "string", nullable: true, pattern: "^(BUG|TC|RUN|RES)-[0-9]{1,19}$", description: "Referencia existente en el mismo proyecto, o null." } }, ["projectId", "name", "type", "sizeBytes"]),
 };
 const common = { id: { type: "string" }, createdAt: { type: "string", format: "date-time" } };
-const resources = [
-  ["bugs", "Bug", "INVALID_BUG"], ["test-cases", "TestCase", "INVALID_TEST_CASE"],
-  ["test-runs", "TestRun", "INVALID_TEST_RUN"], ["evidence", "Evidence", "INVALID_EVIDENCE"],
-] as const;
+const resources = [["bugs", "Bug", "INVALID_BUG"], ["test-cases", "TestCase", "INVALID_TEST_CASE"], ["test-runs", "TestRun", "INVALID_TEST_RUN"], ["evidence", "Evidence", "INVALID_EVIDENCE"]] as const;
 const errorResponse = (description: string) => ({ description, content: json(ref("Error")) });
 const envelope = (data: object) => object({ data }, ["data"]);
+const project = object({ id: projectId, organizationId: projectId, name: text(100), description: { type: "string" } }, ["id", "organizationId", "name", "description"]);
+const unavailable = errorResponse("DATABASE_UNAVAILABLE: PostgreSQL no disponible.");
 
 export const openApiDocument = {
   openapi: "3.0.3",
-  info: { title: "qaTestGE API", version: "1.0.0", description: "API de demostración sin autenticación. Datos temporales en memoria. Evidencias: solo metadatos. Probar POST crea registros en memoria." },
+  info: { title: "qaTestGE API", version: "1.0.0", description: "API con usuarios locales y sesiones HttpOnly persistidas en PostgreSQL. Los POST requieren sesión y X-CSRF-Token y modifican datos reales. Evidencias: solo metadatos. projectId obligatorio; caseIds sustituye caseCount; related en la respuesta es un array." },
   servers: [{ url: "/", description: "Servidor actual (directo o proxy /api)" }],
+  security: [{ sessionCookie: [] as string[] }],
   paths: {
-    "/api/health": { get: { summary: "Estado de la API", responses: { "200": { description: "API disponible", content: json(envelope(object({ status: { type: "string", enum: ["ok"] } }, ["status"]))) } } } },
+    "/api/auth/register": { post: { security: [], summary: "Registrar usuario y crear workspace/proyecto propios", requestBody: { required: true, content: json(object({ name: text(100), email: { type: "string", format: "email", maxLength: 254 }, password: { type: "string", minLength: 12, maxLength: 128, format: "password" } }, ["name", "email", "password"])) }, responses: { "201": { description: "Cuenta y cookie creadas", content: json(envelope(ref("AuthState"))) }, "400": errorResponse("INVALID_REGISTRATION"), "409": errorResponse("ACCOUNT_EXISTS"), "429": errorResponse("TOO_MANY_ATTEMPTS o AUTH_BUSY") } } },
+    "/api/auth/login": { post: { security: [], summary: "Iniciar sesión y rotar cookie del navegador", requestBody: { required: true, content: json(object({ email: { type: "string", format: "email" }, password: { type: "string", maxLength: 128, format: "password" } }, ["email", "password"])) }, responses: { "200": { description: "Sesión iniciada", content: json(envelope(ref("AuthState"))) }, "401": errorResponse("INVALID_CREDENTIALS"), "429": errorResponse("TOO_MANY_ATTEMPTS o AUTH_BUSY") } } },
+    "/api/auth/me": { get: { summary: "Sesión actual y token CSRF", responses: { "200": { description: "Usuario actual", content: json(envelope(ref("AuthState"))) }, "401": errorResponse("UNAUTHENTICATED") } } },
+    "/api/auth/logout": { post: { security: [{ sessionCookie: [], csrfToken: [] }], summary: "Revocar sesión y eliminar cookie; enviar JSON vacío", requestBody: { required: true, content: json({ type: "object", example: {} }) }, responses: { "204": { description: "Sesión revocada" }, "401": errorResponse("UNAUTHENTICATED"), "403": errorResponse("INVALID_CSRF") } } },
+    "/api/health": { get: { security: [], summary: "Disponibilidad de API y conexión PostgreSQL", responses: { "200": { description: "API y base disponibles", content: json(envelope(object({ status: { type: "string", enum: ["ok"] }, database: { type: "string", enum: ["postgresql"] } }, ["status", "database"]))) }, "503": unavailable } } },
+    "/api/projects": { get: { summary: "Listar proyectos existentes", responses: { "200": { description: "Proyectos", content: json(envelope({ type: "array", items: project })) }, "503": unavailable } } },
     ...Object.fromEntries(resources.map(([path, schema, code]) => [`/api/${path}`, {
-      get: { summary: `Listar ${path}`, tags: [path], responses: { "200": { description: "Colección actual", content: json(envelope({ type: "array", items: ref(schema) })) } } },
-      post: { summary: `Crear ${path}`, tags: [path], requestBody: { required: true, content: json(ref(`${schema}Input`)) }, responses: {
-        "201": { description: "Recurso creado", content: json(envelope(ref(schema))) },
-        "400": errorResponse(`${code}: campos inválidos; INVALID_JSON: JSON inválido.`),
-        "413": errorResponse("PAYLOAD_TOO_LARGE: cuerpo superior a 1 MB."),
-        "500": errorResponse("INTERNAL_ERROR: error interno."),
+      get: { summary: `Listar ${path}`, tags: [path], parameters: [{ in: "query", name: "projectId", required: false, schema: projectId }], responses: { "200": { description: "Colección persistida", content: json(envelope({ type: "array", items: ref(schema) })) }, "400": errorResponse("INVALID_PROJECT_ID: filtro inválido."), "503": unavailable } },
+      post: { security: [{ sessionCookie: [], csrfToken: [] }], summary: `Crear ${path}`, tags: [path], requestBody: { required: true, content: json(ref(`${schema}Input`)) }, responses: {
+        "201": { description: "Recurso persistido", content: json(envelope(ref(schema))) },
+        "400": errorResponse(`${code}: campos inválidos; INVALID_JSON; INVALID_REFERENCE: referencia inexistente o de otro proyecto.`),
+        "401": errorResponse("UNAUTHENTICATED"), "403": errorResponse("INVALID_CSRF o INVALID_ORIGIN"), "404": errorResponse("PROJECT_NOT_FOUND"), "409": errorResponse("CONFLICT: vínculo duplicado."), "413": errorResponse("PAYLOAD_TOO_LARGE: cuerpo superior a 1 MB."),
+        "500": errorResponse("INTERNAL_ERROR: error interno."), "503": unavailable,
       } },
     }])),
   },
-  components: { schemas: {
+  components: { securitySchemes: { sessionCookie: { type: "apiKey", in: "cookie", name: "qa_session" }, csrfToken: { type: "apiKey", in: "header", name: "X-CSRF-Token", description: "Copiar csrfToken de /api/auth/me después de iniciar sesión." } }, schemas: {
+    AuthState: object({ user: object({ id: projectId, name: text(100), email: { type: "string", format: "email" } }, ["id", "name", "email"]), csrfToken: { type: "string", minLength: 64, maxLength: 64 } }, ["user", "csrfToken"]),
     ...inputs,
-    Bug: object({ ...inputs.BugInput.properties, ...common, description: { type: "string" }, assignee: { type: "string", nullable: true }, status: { type: "string", enum: bugStatuses, default: "Abierto" } }, ["id", "title", "description", "project", "priority", "status", "assignee", "createdAt"]),
-    TestCase: object({ ...inputs.TestCaseInput.properties, ...common, status: { type: "string", enum: ["Pendiente"] } }, ["id", "title", "suite", "status", "createdAt"]),
-    TestRun: object({ ...inputs.TestRunInput.properties, ...common, progress: { type: "number", enum: [0] }, status: { type: "string", enum: ["En curso"] } }, ["id", "title", "owner", "caseCount", "progress", "status", "createdAt"]),
-    Evidence: object({ ...inputs.EvidenceInput.properties, ...common }, ["id", "name", "type", "sizeBytes", "related", "createdAt"]),
+    Bug: object({ ...inputs.BugInput.properties, ...common, project: text(100), description: { type: "string" }, assignee: { type: "string", nullable: true }, status: { type: "string", enum: bugStatuses } }, ["id", "projectId", "title", "project", "priority", "description", "status", "assignee", "createdAt"]),
+    TestCase: object({ ...inputs.TestCaseInput.properties, ...common, status: { type: "string", enum: ["Pendiente", "Aprobado", "Fallido"] } }, ["id", "projectId", "title", "suite", "preconditions", "steps", "status", "createdAt"]),
+    TestRun: object({ ...inputs.TestRunInput.properties, ...common, caseCount: { type: "integer", minimum: 0 }, progress: { type: "number", minimum: 0, maximum: 100 }, status: { type: "string", enum: ["En curso", "Completado"] } }, ["id", "projectId", "title", "owner", "caseIds", "caseCount", "progress", "status", "createdAt"]),
+    Evidence: object({ ...inputs.EvidenceInput.properties, ...common, related: { type: "array", items: { type: "string" } } }, ["id", "projectId", "name", "type", "sizeBytes", "related", "createdAt"]),
     Error: object({ error: object({ code: { type: "string" }, message: { type: "string" } }, ["code", "message"]) }, ["error"]),
   } },
 };

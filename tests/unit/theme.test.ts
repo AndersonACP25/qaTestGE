@@ -1,15 +1,15 @@
-﻿import { describe, expect, it } from "vitest";
-import { resolveTheme, validateDemoAccess } from "../../src/Session";
+import { describe, expect, it } from "vitest";
+import { resolveTheme, validateAccess } from "../../src/Session";
 
-describe("demo access", () => {
-  it("accepts arbitrary users without account lookup", () => {
-    expect(validateDemoAccess("cualquier usuario", "123")).toBe("");
-    expect(validateDemoAccess("nuevo", "prueba", "prueba")).toBe("");
+describe("access validation", () => {
+  it("validates form fields without authenticating locally", () => {
+    expect(validateAccess("qa@example.test", "123")).toBe("");
+    expect(validateAccess("qa@example.test", "a long passphrase", "a long passphrase")).toBe("");
   });
   it("rejects empty values and mismatched registration passwords", () => {
-    expect(validateDemoAccess("  ", "123")).not.toBe("");
-    expect(validateDemoAccess("demo", "  ")).not.toBe("");
-    expect(validateDemoAccess("demo", "abc", "xyz")).toBe("Las contraseñas no coinciden.");
+    expect(validateAccess("  ", "123")).not.toBe("");
+    expect(validateAccess("demo", "")).not.toBe("");
+    expect(validateAccess("demo", "a long passphrase", "different passphrase")).toBe("Las contraseñas no coinciden.");
   });
 });
 

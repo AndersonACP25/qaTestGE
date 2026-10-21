@@ -1,22 +1,30 @@
 # Seguridad y privacidad
 
-## Estado actual
+## Capacidades actuales
 
-qaTestGE es una demostración en desarrollo. El acceso del frontend acepta credenciales ficticias y no crea identidades ni protege la API. El backend no tiene autenticación, autorización, base de datos ni almacenamiento binario de evidencias. CORS no sustituye controles de acceso.
+El backend usa PostgreSQL y autenticación local con usuarios y sesiones persistidas. Registro crea un workspace/proyecto propio. La API exige membresía en la organización del proyecto tanto para lectura como para creación; las claves foráneas verifican además integridad de las relaciones. No hay carga binaria de evidencias ni integración con IA.
 
-Usar datos ficticios en un entorno local controlado. No está preparado para exposición pública con información real. Los datos en memoria se pierden al reiniciar y no existe un procedimiento de respaldo implementado.
+Las organizaciones previamente importadas no se asignan al primer usuario registrado. Un administrador debe conceder explícitamente las membresías desde SQL; no existe endpoint de autoasignación o cambio de roles. Owner y member pueden leer/crear en la organización; permisos más granulares e invitaciones quedan pendientes.
 
-## Manejo de información
+## Credenciales y sesiones
 
-- No incluir claves, tokens, contraseñas, archivos privados ni datos personales en commits, issues o ejemplos.
-- El formulario de acceso no guarda ni envía credenciales; solo mantiene el nombre en estado React. El tema puede guardarse en `localStorage`.
-- La maqueta del diseñador no envía el requisito a servicios ni genera contenido real.
-- Una integración futura con IA deberá mostrar qué información se envía, limitarla al contexto autorizado y exigir revisión humana para cambiar datos. No enviar evidencias por defecto.
+- Contraseñas de 12–128 caracteres, derivadas con scrypt N=131072, r=8, p=1 y sal aleatoria de 16 bytes. Nunca se almacenan contraseñas reversibles ni se devuelven hashes.
+- Tokens aleatorios de 32 bytes; solo su hash SHA-256 se conserva en qa.auth_sessions. Se verifican expiración y usuario activo en cada solicitud.
+- Cookie qa_session: HttpOnly, SameSite=Lax, Path=/api, Secure con NODE_ENV=production y expiración absoluta de siete días. Login rota la sesión previa del navegador; logout la elimina de PostgreSQL y borra la cookie.
+- CSRF independiente obtenido en login/registro/me y obligatorio para escrituras autenticadas. Los POST usan JSON y validan Origin cuando se declara. CORS no sustituye la autenticación ni la autorización.
+- Registro/login: límite básico de 20 intentos por IP/15 minutos y dos derivaciones simultáneas por proceso. No se confían cabeceras de proxy. En un despliegue con varias instancias se necesitará un límite compartido y una política de proxy explícita.
+- La aplicación no guarda cookies de sesión, contraseñas o tokens CSRF en localStorage. El tema visual sí puede recordarse allí.
+
+DATABASE_URL solo se carga en el servidor desde backend/.env; ese archivo está ignorado por Git. backend/.env.example usa valores ficticios. No usar prefijos VITE_ para secretos. JWT_SECRET no se utiliza: no hay JWTs. Las consultas usan parámetros; las operaciones compuestas usan transacciones y los errores no incluyen credenciales, SQL ni parámetros.
+
+## Operación y límites
+
+Configurar HTTPS para producción y FRONTEND_ORIGIN/CORS_ORIGIN; API_ORIGIN permite indicar el origen directo del backend para SwaggerUI. No usar la configuración local como despliegue público sin revisar secretos, TLS, límites compartidos, respaldos, auditoría y retención. Las sesiones expiradas no autorizan acceso, pero su limpieza periódica aún debe programarse. No hay recuperación de contraseña, verificación de correo, MFA, administración HTTP de cuentas/membresías o gestión de archivos privados.
+
+El diseñador sigue mostrando ejemplos fijos sin enviar texto a proveedores. Una integración futura con IA deberá mostrar qué se enviará, limitarlo al contexto autorizado y exigir revisión humana para cambiar datos. No enviar evidencias por defecto.
 
 ## Reportar un problema
 
-No existe aún un canal privado de seguridad dedicado ni un plazo de respuesta comprometido. Contactar al propietario por un canal privado acordado antes de compartir detalles explotables. Evitar publicar secretos o datos sensibles en una issue pública; si se publica una referencia, limitarla a una descripción general sin instrucciones de explotación.
+No existe aún un canal privado dedicado ni un plazo de respuesta comprometido. Contactar al propietario por un canal privado acordado antes de compartir detalles explotables. No publicar secretos, contraseñas, cookies, datos personales o evidencias sensibles en issues o commits.
 
-## Pendiente antes de producción
-
-Autenticación y permisos de servidor, aislamiento por proyecto, validación de relaciones, almacenamiento privado, límites de archivos, gestión segura de secretos, TLS, auditoría, persistencia, respaldos y políticas de retención. Los objetivos están descritos en [architecture.md](./docs/architecture.md); no son capacidades disponibles.
+Referencias de implementación: [scrypt de Node.js](https://nodejs.org/docs/latest-v24.x/api/crypto.html#cryptoscryptpassword-salt-keylen-options-callback), [almacenamiento de contraseñas de OWASP](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html) y [sesiones de OWASP](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html).

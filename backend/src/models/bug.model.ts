@@ -9,13 +9,14 @@ export interface Bug {
   title: string;
   description: string;
   project: string;
+  projectId: string;
   priority: BugPriority;
   status: BugStatus;
   assignee: string | null;
   createdAt: string;
 }
 
-export type CreateBugInput = Pick<Bug, "title" | "project" | "priority"> & {
+export type CreateBugInput = Pick<Bug, "title" | "projectId" | "priority"> & {
   description?: string;
   assignee?: string | null;
 };

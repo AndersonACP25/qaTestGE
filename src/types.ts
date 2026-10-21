@@ -40,6 +40,7 @@ export interface TestRun {
 }
 
 export interface Evidence {
+  id: string;
   name: string;
   type: "Imagen" | "Video" | "Archivo";
   related: string;

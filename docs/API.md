@@ -1,102 +1,102 @@
 # API de qaTestGE
 
-SwaggerUI: `http://localhost:3000/api/docs/`. Contrato OpenAPI 3.0.3: `GET /api/openapi.json`. El portal incluye un enlace **SwaggerUI · API** a través del proxy `/api` de Vite. Los recursos de SwaggerUI se sirven desde el backend, sin CDN ni validador remoto. Las operaciones POST de «Try it out» crean registros temporales; el acceso simulado del portal no protege la documentación ni los endpoints.
+SwaggerUI: `http://localhost:3000/api/docs/`. OpenAPI 3.0.3: `GET /api/openapi.json`. El portal abre la documentación a través del proxy `/api`. Los POST de Try it out ahora escriben datos persistentes en PostgreSQL. Los recursos requieren sesión y autorización por organización.
 
-Contrato actual de la API Express. Consulta [architecture.md](./architecture.md) para el diseño futuro.
+## Conexión y contrato
 
-## Conexión y límites
-
-- Base local: `http://localhost:3000/api`. Puerto configurable con `PORT`.
-- Solicitudes de creación: `Content-Type: application/json`; límite del cuerpo JSON: `1mb`.
-- CORS permite el origen de `FRONTEND_ORIGIN`, por defecto `http://localhost:5173`. CORS no es autorización.
-- No hay autenticación, permisos, paginación, filtros ni persistencia. Reiniciar la API elimina los datos.
-- El frontend todavía no consume estos endpoints; usa su propio estado de demostración.
+- Base local: `http://localhost:3000/api`. JSON de hasta `1mb`.
+- PostgreSQL `qa_test_ge`, esquema `qa`; configuración en `backend/.env` mediante `DATABASE_URL`.
+- `GET /health` comprueba conexión: 200 con `{"data":{"status":"ok","database":"postgresql"}}` o 503 con `DATABASE_UNAVAILABLE`.
+- Hay autenticación y autorización por organización. No hay paginación ni endpoints de edición/eliminación de recursos; el frontend ya consume estas colecciones.
+- CORS usa `FRONTEND_ORIGIN`, o su alias `CORS_ORIGIN`, por defecto `http://localhost:5173`.
+- Los IDs bigint de proyecto y organización se envían como **strings decimales**, sin conversión a Number. Máximo: `9223372036854775807`.
+- Los recursos conservan prefijos (`BUG-001`, `TC-001`, `RUN-001`, `EVD-001`); no se recortan IDs de más de tres dígitos. `RES-001` referencia un resultado de ejecución.
 
 ## Endpoints
 
 | Método | Ruta | Respuesta correcta |
 |---|---|---|
-| GET | `/health` | 200: `{"data":{"status":"ok"}}` |
-| GET | `/bugs` | 200: `{"data":[]}` con los bugs actuales |
-| POST | `/bugs` | 201: `{"data":{...}}` con el bug creado |
-| GET | `/test-cases` | 200: colección en `data` |
-| POST | `/test-cases` | 201: caso creado en `data` |
-| GET | `/test-runs` | 200: colección en `data` |
-| POST | `/test-runs` | 201: ejecución creada en `data` |
-| GET | `/evidence` | 200: colección en `data` |
-| POST | `/evidence` | 201: metadatos creados en `data` |
+| GET | `/health` | 200: disponibilidad de conexión |
+| GET | `/projects` | 200: proyectos con `id`, `organizationId`, `name`, `description` |
+| GET, POST | `/bugs` | 200: colección / 201: bug creado |
+| GET, POST | `/test-cases` | 200: colección / 201: caso y pasos creados |
+| GET, POST | `/test-runs` | 200: colección / 201: ejecución con casos reales |
+| GET, POST | `/evidence` | 200: colección / 201: metadatos y vínculo opcional |
+| GET | `/docs/`, `/openapi.json` | Documentación interactiva / contrato |
 
-Las colecciones empiezan vacías y presentan primero los registros más recientes. No existen rutas de detalle, edición o eliminación.
+Las colecciones usan `{"data":[...]}`; las creaciones `{"data":{...}}`. Las listas de recursos admiten `?projectId=1`; omitir el filtro devuelve únicamente recursos de los proyectos autorizados para la cuenta. Orden por ID descendente, salvo proyectos (ascendente). Para seleccionar un proyecto existente, consultar primero `/projects`. No se crean proyectos u organizaciones automáticamente.
 
-## Cuerpos de creación
+## Autenticación y autorización
 
-Las longitudes máximas se comprueban sobre el texto recibido, antes de recortarlo. Los campos obligatorios de texto deben tener contenido después de `trim`.
+| Método | Ruta | Entrada / respuesta |
+|---|---|---|
+| POST | `/auth/register` | Nombre (hasta 100), correo (hasta 254), contraseña (12–128). 201 con usuario y csrfToken; crea workspace, proyecto y membresía owner en una transacción |
+| POST | `/auth/login` | Correo y contraseña. 200 con usuario y csrfToken; rota la sesión previa del navegador |
+| GET | `/auth/me` | 200 con sesión actual o 401 |
+| POST | `/auth/logout` | JSON vacío y X-CSRF-Token; 204 revoca sesión y borra cookie |
+
+Registro e inicio establecen qa_session: cookie HttpOnly, SameSite=Lax, Path=/api, Secure en producción y expiración absoluta de siete días. La base solo conserva su hash SHA-256. La respuesta pública contiene `{"data":{"user":{"id":"1","name":"QA","email":"qa@example.test"},"csrfToken":"..."}}`; nunca contraseñas, hashes ni el token de sesión.
+
+Los recursos y proyectos requieren la cookie. Todos los POST protegidos, incluido logout, exigen X-CSRF-Token obtenido de login/registro/me. Las peticiones de escritura usan JSON y se rechazan si declaran un Origin distinto de FRONTEND_ORIGIN/CORS_ORIGIN o API_ORIGIN. La autorización consulta la membresía actual; una cuenta sin acceso recibe 404 PROJECT_NOT_FOUND al seleccionar un proyecto ajeno. Los miembros tienen lectura y creación dentro de la organización; no hay administración HTTP de roles o invitaciones.
+
+En SwaggerUI, iniciar sesión con el endpoint login, consultar me y copiar csrfToken al campo X-CSRF-Token de **Authorize** para probar POST. La cookie se envía automáticamente desde el mismo origen. No introducir el token de sesión manualmente en JavaScript.
+
+Login y registro comparten un límite básico en memoria por proceso: 20 solicitudes por IP/15 minutos, con Retry-After y 429. La derivación de contraseñas limita también la concurrencia; ante saturación se devuelve AUTH_BUSY. No hay recuperación de contraseña, verificación de correo ni MFA.
+
+## Creación de recursos
+
+Todos los POST requieren `projectId` y validan que el proyecto exista. Los textos obligatorios no pueden quedar vacíos tras trim; las longitudes máximas se comprueban antes del recorte. Las respuestas incluyen `id`, `projectId` y `createdAt` ISO UTC.
 
 ### Bugs
 
 ```json
-{"title":"El checkout falla","project":"Web Store","priority":"Alta","description":"Pasos para reproducir","assignee":null}
+{"projectId":"1","title":"El checkout falla","priority":"Alta","description":"Pasos para reproducir","assignee":null}
 ```
 
-| Campo | Reglas |
-|---|---|
-| `title` | Obligatorio, texto de hasta 200 caracteres |
-| `project` | Obligatorio, texto de hasta 100 caracteres; actualmente es un nombre, no un ID |
-| `priority` | Obligatorio: `Crítica`, `Alta`, `Media` o `Baja` |
-| `description` | Opcional, texto de hasta 5000 caracteres; por defecto `""` |
-| `assignee` | Opcional, `null` o texto de hasta 100 caracteres; por defecto `null` |
+Título: hasta 200 caracteres; prioridad: `Crítica`, `Alta`, `Media` o `Baja`. Descripción opcional hasta 5000, por defecto vacía. Responsable opcional, null o texto de hasta 100. Estado inicial: `Abierto`. La respuesta añade `project` como nombre informativo; ya no se acepta ese nombre en lugar de `projectId`.
 
-La respuesta añade `id` (desde `BUG-001`), `status: "Abierto"` y `createdAt` en ISO UTC. Se recortan título, descripción y proyecto.
-
-### Casos de prueba
+### Casos y pasos
 
 ```json
-{"title":"Validar checkout","suite":"Checkout"}
+{"projectId":"1","title":"Validar registro","suite":"Registro","preconditions":"Abrir el formulario","steps":[{"action":"Enviar campos vacíos","expectedResult":"Se muestran validaciones"}]}
 ```
 
-`title` es obligatorio y admite hasta 200 caracteres; `suite` es obligatorio y admite hasta 100. Ambos se recortan. La respuesta añade `id` (desde `TC-001`), `status: "Pendiente"` y `createdAt`. Aún no recibe pasos, resultados esperados ni categorías del diseñador de test cases.
+Título y suite obligatorios, máximos 200 y 100. Precondiciones opcionales hasta 10000. Hasta 100 pasos opcionales, cada uno con acción y resultado no vacíos de hasta 10000 caracteres. El orden del array determina la posición. Caso y pasos se crean en una transacción. Estado inicial: `Pendiente`; los GET también pueden devolver `Aprobado` o `Fallido` según lo almacenado.
 
 ### Ejecuciones
 
 ```json
-{"title":"Regresión","owner":"QA","caseCount":4}
+{"projectId":"1","title":"Regresión","owner":"QA","caseIds":["TC-001"]}
 ```
 
-`title` y `owner` son obligatorios, con máximos de 200 y 100 caracteres respectivamente; ambos se recortan. `caseCount` es opcional, entero mayor o igual a cero, por defecto `0`. La respuesta añade `id` (desde `RUN-001`), `progress: 0`, `status: "En curso"` y `createdAt`. El contador todavía no referencia casos concretos.
+Título y responsable obligatorios, máximos 200 y 100. `caseIds` es opcional (por defecto vacío), máximo 1000, sin duplicados después de normalizar el ID. Cada caso debe existir en el mismo proyecto. La ejecución y sus resultados iniciales (`skipped`) se crean en una transacción, conservando un snapshot de los pasos. Una referencia inválida revierte toda la operación.
+
+`caseCount` ya no se acepta como entrada: se calcula a partir de los casos relacionados. La respuesta incluye `caseIds`, `caseCount` y `progress`, calculado como porcentaje de resultados distintos de `skipped`. Inicialmente es 0; los resultados persistidos pueden dar otro valor. La distinción entre omitido y no ejecutado se refinará al implementar la edición de resultados. Todavía no hay endpoints para registrar resultados o completar ejecuciones.
 
 ### Evidencias
 
 ```json
-{"name":"checkout.png","type":"Imagen","sizeBytes":1024,"related":"BUG-001"}
+{"projectId":"1","name":"checkout.png","type":"Imagen","sizeBytes":1024,"related":"BUG-001"}
 ```
 
-`name` es obligatorio, texto de hasta 255 caracteres, y se recorta. `type` debe ser `Imagen`, `Video` o `Archivo`. `sizeBytes` es obligatorio, entero seguro no negativo. `related` es opcional, `null` o texto de hasta 100 caracteres, por defecto `null`. La respuesta añade `id` (desde `EVD-001`) y `createdAt`.
+Nombre obligatorio de hasta 255; tipo `Imagen`, `Video` o `Archivo`; tamaño entero seguro no negativo. `related` es opcional, null o un ID con prefijo BUG, TC, RUN o RES. La referencia debe existir en el mismo proyecto. Metadatos y vínculo se crean en una transacción. Solo se almacenan metadatos; no se carga ningún archivo.
 
-Solo se guardan metadatos: no se cargan ni descargan archivos. Actualmente no se comprueba que `related` exista ni pertenezca a un proyecto. Esa validación de trazabilidad queda pendiente.
+En la **respuesta**, `related` es ahora un array de referencias (`[]` si no hay vínculos) porque el SQL permite varias asociaciones para una evidencia. El POST actual crea como máximo un vínculo. No se expone `storage_key`.
 
 ## Errores
 
-```json
-{"error":{"code":"INVALID_TEST_CASE","message":"Título y suite son obligatorios."}}
-```
+Formato: `{"error":{"code":"INVALID_REFERENCE","message":"..."}}`.
 
-| HTTP | Código | Motivo |
-|---|---|---|
-| 400 | `INVALID_BUG` | Campos de bug inválidos |
-| 400 | `INVALID_TEST_CASE` | Campos de caso inválidos |
-| 400 | `INVALID_TEST_RUN` | Campos de ejecución inválidos |
-| 400 | `INVALID_EVIDENCE` | Metadatos inválidos |
-| 400 | `INVALID_JSON` | JSON malformado |
-| 404 | `NOT_FOUND` | Ruta o método sin handler |
-| 413 | `PAYLOAD_TOO_LARGE` | JSON superior al límite |
-| 500 | `INTERNAL_ERROR` | Error no controlado |
+| HTTP | Códigos |
+|---|---|
+| 400 | `INVALID_BUG`, `INVALID_TEST_CASE`, `INVALID_TEST_RUN`, `INVALID_EVIDENCE`, `INVALID_PROJECT_ID`, `INVALID_REFERENCE`, `INVALID_JSON`, `INVALID_REGISTRATION`, `INVALID_LOGIN` |
+| 401 | `UNAUTHENTICATED`, `INVALID_CREDENTIALS` |
+| 403 | `INVALID_CSRF`, `INVALID_ORIGIN` |
+| 404 | `NOT_FOUND`, `PROJECT_NOT_FOUND` |
+| 429 | `TOO_MANY_ATTEMPTS`, `AUTH_BUSY` |
+| 409 | `CONFLICT` (vínculo duplicado), `ACCOUNT_EXISTS` (correo registrado) |
+| 413 | `PAYLOAD_TOO_LARGE` |
+| 503 | `DATABASE_UNAVAILABLE` |
+| 500 | `INTERNAL_ERROR` |
 
-## Comprobación local
-
-```bash
-curl http://localhost:3000/api/health
-```
-
-En PowerShell también puedes usar `Invoke-RestMethod http://localhost:3000/api/health`.
-
-La implementación está en [`backend/src/controllers/`](../backend/src/controllers/) y las pruebas en [`backend/tests/api.test.ts`](../backend/tests/api.test.ts).
+La API no devuelve SQL, parámetros, credenciales ni errores internos del driver. El arranque falla si no existe una conexión válida y el esquema importado; no hay fallback en memoria. `pnpm db:check` comprueba la configuración sin modificar datos.
