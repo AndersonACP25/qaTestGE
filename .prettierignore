@@ -2,6 +2,9 @@ node_modules/
 dist/
 backend/dist/
 coverage/
-playwright-report/
 test-results/
+playwright-report/
 pnpm-lock.yaml
+
+# Skills importadas: conservar el formato de su distribución original.
+.agents/skills/
