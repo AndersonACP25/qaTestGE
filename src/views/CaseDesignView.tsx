@@ -166,6 +166,14 @@ export default function CaseDesignView({
                 <div className="case-builder__exports">
                   <button
                     type="button"
+                    className="case-builder__export case-builder__export--markdown"
+                    disabled={exporting}
+                    onClick={() => void exportPreview("md")}
+                  >
+                    Exportar Markdown
+                  </button>
+                  <button
+                    type="button"
                     className="case-builder__export case-builder__export--excel"
                     disabled={exporting}
                     onClick={() => void exportPreview("xlsx")}
@@ -257,15 +265,11 @@ export default function CaseDesignView({
                     <button
                       type="button"
                       className={`case-builder__save-case${savedCases[`${testCase.categoryId}:${testCase.caseNumber}`] ? " case-builder__save-case--saved" : ""}`}
-                      disabled={
-                        !projectId ||
-                        Boolean(savingCaseKey) ||
-                        Boolean(savedCases[`${testCase.categoryId}:${testCase.caseNumber}`])
-                      }
+                      disabled={!projectId || Boolean(savingCaseKey)}
                       onClick={() => void savePreviewCase(testCase)}
                     >
                       {savedCases[`${testCase.categoryId}:${testCase.caseNumber}`]
-                        ? `Guardado como ${savedCases[`${testCase.categoryId}:${testCase.caseNumber}`].id}`
+                        ? `Actualizar ${savedCases[`${testCase.categoryId}:${testCase.caseNumber}`].id} con todos los pasos`
                         : savingCaseKey === `${testCase.categoryId}:${testCase.caseNumber}`
                           ? "Guardando…"
                           : "Guardar en casos de prueba"}

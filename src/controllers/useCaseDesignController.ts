@@ -2,7 +2,8 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { maxCaseCount, selectCaseExamples, validCaseCount } from "../models/caseDesign.model";
 import { defaultCaseCountDefaults, type CaseCountDefaults } from "../models/caseCountDefaults";
-import { createTestCase } from "../api";
+import { createTestCase, updateTestCase } from "../api";
+import { designedCaseInput } from "../models/designedCaseInput";
 import type { TestCase } from "../types";
 
 export interface CaseDesignPreviewCase {
@@ -118,7 +119,7 @@ export function useCaseDesignController(
     });
   }
 
-  async function exportPreview(format: "xlsx" | "pdf") {
+  async function exportPreview(format: "xlsx" | "pdf" | "md") {
     setExporting(true);
     setExportError("");
     try {
@@ -133,18 +134,20 @@ export function useCaseDesignController(
 
   async function savePreviewCase(testCase: CaseDesignPreviewCase) {
     const key = `${testCase.categoryId}:${testCase.caseNumber}`;
-    if (!projectId || savingCaseKey || savedCases[key]) return;
+    if (!projectId || savingCaseKey) return;
     setSavingCaseKey(key);
     setSaveCaseError("");
     try {
-      const firstAction = testCase.steps[0]?.action.trim() || "Caso diseñado";
-      const saved = await createTestCase({
-        projectId,
-        title: `${testCase.categoryLabel} · ${firstAction}`.slice(0, 200),
-        suite: testCase.categoryLabel.slice(0, 100),
-        preconditions: text,
-        steps: testCase.steps.map(({ action, expected }) => ({ action, expectedResult: expected })),
-      });
+      const currentCase = previewCases.find(
+        (item) =>
+          item.categoryId === testCase.categoryId && item.caseNumber === testCase.caseNumber,
+      );
+      if (!currentCase) throw new Error("La vista previa ya no contiene este caso.");
+      const input = designedCaseInput(projectId, text, currentCase);
+      const existing = savedCases[key];
+      const saved = existing
+        ? await updateTestCase(existing.id, projectId, { ...input, tagIds: existing.tagIds ?? [] })
+        : await createTestCase(input);
       setSavedCases((current) => ({ ...current, [key]: saved }));
     } catch (cause) {
       setSaveCaseError(cause instanceof Error ? cause.message : "No se pudo guardar el caso.");

@@ -39,23 +39,24 @@ describe("case builder mockup", () => {
   });
 
   it("validates counts and excludes invalid quantities", () => {
-    for (const value of [0, -1, 1.5, 4, NaN, Infinity]) {
+    for (const value of [0, -1, 1.5, 6, NaN, Infinity]) {
       expect(validCaseCount(value)).toBe(false);
       expect(selectCaseExamples(["smoke"], { smoke: value })[0].steps).toEqual([]);
     }
-    for (const value of [1, 2, 3]) expect(validCaseCount(value)).toBe(true);
+    for (const value of [1, 2, 3, 4, 5]) expect(validCaseCount(value)).toBe(true);
   });
 
   it("selects independent counts and exports only the preview examples", () => {
     const result = selectCaseExamples(["smoke", "api"], { smoke: 3, api: 2, ui: 3 });
     expect(result.map((item) => item.steps.length)).toEqual([3, 2]);
     expect(caseExportRows(result)).toHaveLength(5);
+    expect(selectCaseExamples(["api"], { api: 5 })[0].steps).toHaveLength(5);
     expect(selectCaseExamples(["edge"], {})[0].steps).toHaveLength(1);
     expect(selectCaseExamples([], {})).toEqual([]);
     expect(
       categories.every(
         (item) =>
-          item.steps.length === 3 && new Set(item.steps.map((step) => step.action)).size === 3,
+          item.steps.length === 5 && new Set(item.steps.map((step) => step.action)).size === 5,
       ),
     ).toBe(true);
     expect(new Set(categories.map((item) => item.id)).size).toBe(categories.length);
@@ -92,7 +93,7 @@ describe("case builder mockup", () => {
       ],
       countsValid: true,
       total: 1,
-      maxCaseCount: 3,
+      maxCaseCount: 5,
       updateDescription: () => {},
       toggleCategory: () => {},
       updateCount: () => {},
@@ -104,6 +105,7 @@ describe("case builder mockup", () => {
     };
     const html = renderToStaticMarkup(createElement(CaseDesignView, controller));
     expect(html).toContain("Enviar solicitud");
+    expect(html).toContain("Exportar Markdown");
     expect(html).toContain("Se muestran los datos");
     expect(html).toContain('aria-label="Cantidad de pruebas: API"');
     expect(html).toContain('value="2"');

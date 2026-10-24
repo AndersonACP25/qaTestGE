@@ -59,7 +59,7 @@ describe("case count default preferences", () => {
   it("rejects invalid default quantities instead of persisting them", () => {
     const storage = createStorage();
     expect(() =>
-      saveCaseCountDefaults("user-3", { ...defaultCaseCountDefaults, api: 4 }, storage),
+      saveCaseCountDefaults("user-3", { ...defaultCaseCountDefaults, api: 6 }, storage),
     ).toThrow(RangeError);
     expect(loadCaseCountDefaults("user-3", storage)).toEqual(defaultCaseCountDefaults);
   });

@@ -99,7 +99,7 @@ export const openApiDocument = {
   openapi: "3.0.3",
   info: {
     title: "qaTestGE API",
-    version: "1.0.0",
+    version: "1.1.0",
     description:
       "API con usuarios locales y sesiones HttpOnly persistidas en PostgreSQL. Las plantillas de bugs son privadas por cuenta. Las escrituras requieren sesión y X-CSRF-Token. Los archivos de evidencia se almacenan en PostgreSQL y se descargan de forma privada. projectId obligatorio; caseIds sustituye caseCount; related en la respuesta es un array.",
   },
@@ -741,6 +741,112 @@ export const openApiDocument = {
         },
       },
     },
+    "/api/test-runs/{runId}": {
+      patch: {
+        summary: "Editar ejecución, seleccionar casos y completar o reabrir",
+        security: [{ sessionCookie: [], csrfToken: [] }],
+        parameters: [
+          {
+            in: "path",
+            name: "runId",
+            required: true,
+            schema: { type: "string", pattern: "^RUN-[0-9]{1,19}$" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: json(
+            object(
+              {
+                ...inputs.TestRunInput.properties,
+                status: { type: "string", enum: ["En curso", "Completado"] },
+              },
+              ["projectId", "title", "owner", "caseIds", "status"],
+            ),
+          ),
+        },
+        responses: {
+          "200": {
+            description: "Ejecución actualizada; conserva resultados de los casos mantenidos",
+            content: json(envelope(ref("TestRun"))),
+          },
+          "400": errorResponse("INVALID_TEST_RUN o INVALID_REFERENCE"),
+          "401": errorResponse("UNAUTHENTICATED"),
+          "403": errorResponse("INVALID_CSRF o INVALID_ORIGIN"),
+          "404": errorResponse("TEST_RUN_NOT_FOUND o PROJECT_NOT_FOUND"),
+          "409": errorResponse("RUN_INCOMPLETE o RUN_REFERENCED"),
+          "503": unavailable,
+        },
+      },
+      delete: {
+        summary: "Eliminar ejecución y resultados sin evidencias vinculadas; conserva casos",
+        security: [{ sessionCookie: [], csrfToken: [] }],
+        parameters: [
+          {
+            in: "path",
+            name: "runId",
+            required: true,
+            schema: { type: "string", pattern: "^RUN-[0-9]{1,19}$" },
+          },
+          { in: "query", name: "projectId", required: true, schema: projectId },
+        ],
+        requestBody: { required: true, content: json({ type: "object", example: {} }) },
+        responses: {
+          "204": { description: "Eliminada" },
+          "400": errorResponse("INVALID_TEST_RUN"),
+          "401": errorResponse("UNAUTHENTICATED"),
+          "403": errorResponse("INVALID_CSRF o INVALID_ORIGIN"),
+          "404": errorResponse("TEST_RUN_NOT_FOUND o PROJECT_NOT_FOUND"),
+          "409": errorResponse("RUN_REFERENCED"),
+          "503": unavailable,
+        },
+      },
+    },
+    "/api/test-runs/{runId}/results/{resultId}": {
+      patch: {
+        summary: "Registrar estado y notas de un caso en una ejecución abierta",
+        security: [{ sessionCookie: [], csrfToken: [] }],
+        parameters: [
+          {
+            in: "path",
+            name: "runId",
+            required: true,
+            schema: { type: "string", pattern: "^RUN-[0-9]{1,19}$" },
+          },
+          {
+            in: "path",
+            name: "resultId",
+            required: true,
+            schema: { type: "string", pattern: "^RES-[0-9]{1,19}$" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: json(
+            object(
+              {
+                projectId,
+                status: { type: "string", enum: ["passed", "failed", "blocked", "skipped"] },
+                notes: { type: "string", maxLength: 10000 },
+              },
+              ["projectId", "status", "notes"],
+            ),
+          ),
+        },
+        responses: {
+          "200": {
+            description: "Ejecución con resultados y progreso recalculados",
+            content: json(envelope(ref("TestRun"))),
+          },
+          "400": errorResponse("INVALID_RUN_RESULT"),
+          "401": errorResponse("UNAUTHENTICATED"),
+          "403": errorResponse("INVALID_CSRF o INVALID_ORIGIN"),
+          "404": errorResponse("RUN_RESULT_NOT_FOUND o PROJECT_NOT_FOUND"),
+          "409": errorResponse("RUN_COMPLETED"),
+          "503": unavailable,
+        },
+      },
+    },
     ...Object.fromEntries(
       resources.map(([path, schema, code]) => [
         `/api/${path}`,
@@ -939,6 +1045,7 @@ export const openApiDocument = {
           ...common,
           caseCount: { type: "integer", minimum: 0 },
           progress: { type: "number", minimum: 0, maximum: 100 },
+          results: { type: "array", items: ref("TestRunResult") },
           status: { type: "string", enum: ["En curso", "Completado"] },
           tagIds,
         },
@@ -950,10 +1057,23 @@ export const openApiDocument = {
           "caseIds",
           "caseCount",
           "progress",
+          "results",
           "status",
           "createdAt",
           "tagIds",
         ],
+      ),
+      TestRunResult: object(
+        {
+          id: { type: "string", pattern: "^RES-[0-9]{1,19}$" },
+          caseId: { type: "string", pattern: "^TC-[0-9]{1,19}$" },
+          title: text(200),
+          status: { type: "string", enum: ["passed", "failed", "blocked", "skipped"] },
+          notes: { type: "string", maxLength: 10000 },
+          executedAt: { type: "string", format: "date-time", nullable: true },
+          steps: { type: "array", items: step },
+        },
+        ["id", "caseId", "title", "status", "notes", "executedAt", "steps"],
       ),
       TagInput: object(
         {

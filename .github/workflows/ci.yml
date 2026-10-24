@@ -35,6 +35,20 @@ jobs:
         run: pnpm test
       - name: Build frontend and API
         run: pnpm build
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Run browser regressions (desktop, Mobile-M, Mobile-L)
+        run: pnpm test:e2e
+      - name: Save Playwright failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Publish build artifact
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4

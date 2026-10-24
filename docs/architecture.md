@@ -50,7 +50,7 @@ API Express (backend/, TypeScript)
    +-- Modelo/Proveedor de usuarios, controlador HTTP de autenticación y permisos
 ```
 
-La interfaz consume la API mediante el proxy /api y envía la cookie de sesión y el token CSRF en escrituras. `GET /api/health` permite verificar disponibilidad. Bugs y evidencias exponen edición; evidencias también permiten eliminar metadatos. Casos y ejecuciones tienen alta y consulta. Los estados de bug se actualizan mediante `PATCH /api/bugs/{bugId}`.
+La interfaz consume la API mediante el proxy /api y envía la cookie de sesión y el token CSRF en escrituras. `GET /api/health` permite verificar disponibilidad. Bugs y evidencias exponen edición; evidencias también permiten eliminar metadatos. Casos y ejecuciones tienen CRUD. Los estados de bug se actualizan mediante `PATCH /api/bugs/{bugId}`.
 
 ### Interfaz web
 
@@ -171,6 +171,14 @@ El flujo futuro podrá partir de una descripción, categorías y cantidades y so
 
 ## Documentación complementaria
 
+### Ejecuciones manuales y QA en 1.1.0
+
+`TestRunDialog` permite editar ejecuciones y registrar resultados con notas por caso. `PostgresRepository` usa las tablas existentes `test_runs` y `test_run_results`; no hay migración nueva. Las operaciones bloquean la ejecución con `FOR UPDATE` dentro de una transacción para serializar edición, resultados y eliminación. Los casos mantenidos conservan resultado y snapshot; los nuevos capturan sus pasos actuales. Las consultas y claves de proyecto mantienen referencias explícitas. Borrar o retirar resultados con evidencias se rechaza sin eliminar las evidencias ni los casos.
+
+El progreso cuenta `executed_at` no nulos, distinguiendo pendientes de resultados explícitos Omitido. Completar exige al menos un caso y todos sus resultados registrados; reabrir restaura `En curso` y permite corregirlos. El diseñador convierte y valida todos los pasos de la vista actual y actualiza el mismo ID cuando el usuario vuelve a guardar un ejemplo ya creado.
+
+Playwright ejecuta regresiones sobre Vite aislado y una API simulada por prueba, sin PostgreSQL ni credenciales. Vitest verifica validaciones, autorización y transacciones con dobles de repositorio/cliente. CI ejecuta Chromium en escritorio, 375 px y 425 px. Consultar [TESTING.md](./TESTING.md).
+
 ### Documentación interactiva y exportaciones locales
 
 `backend/src/openapi.ts` define OpenAPI 3.0.3 para las catorce operaciones existentes, con esquemas de entrada, respuestas y errores. Express lo expone en `/api/openapi.json` y sirve SwaggerUI con `swagger-ui-express` en `/api/docs/`. Los servidores relativos permiten probar la API desde su origen directo o el proxy `/api` de Vite. Los recursos requieren cookie de sesión y los POST también token CSRF; Try it out escribe en PostgreSQL. Los cambios de endpoints deben actualizar este contrato y `API.md`. SwaggerUI sirve sus recursos localmente y desactiva el validador externo.
@@ -181,4 +189,4 @@ El portal enlaza `/api/docs/`. En un despliegue separado se requiere reenviar `/
 
 Consultar [API.md](./API.md) para el contrato implementado, [DESIGN.md](./DESIGN.md) para la interfaz, [RULES.md](./RULES.md) para convenciones y [DEVELOPMENT.md](./DEVELOPMENT.md) para comandos y entorno. [CONTRIBUTING.md](../CONTRIBUTING.md) describe el flujo de contribución y [SECURITY.md](../SECURITY.md) los límites de seguridad actuales.
 
-El cliente API central conserva los estados HTTP y ofrece mensajes de respaldo para errores frecuentes, incluso si recibe texto o HTML. Las vistas presentan los errores con `Alert`. En desarrollo, el proxy de Vite devuelve 503 JSON si la API no responde; inicia frontend y backend con `pnpm dev`. Un 401 de `/api/auth/me` sin sesión es esperado.
+El diseñador admite de 1 a 5 ejemplos por categoría y exporta Markdown `.md` de la vista previa editada, con texto escapado y descarga local, sin dependencias adicionales. Los perfiles de `.opencode/agents/` coordinan el desarrollo en OpenCode y no son agentes dentro del producto.

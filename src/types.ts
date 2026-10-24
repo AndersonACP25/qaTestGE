@@ -56,6 +56,8 @@ export interface TestRun {
   owner: string;
   projectId?: string;
   tagIds?: string[];
+  caseIds?: string[];
+  results?: import("../backend/src/models/test-run.model").TestRunResult[];
 }
 
 export interface Tag {

@@ -4,6 +4,19 @@ Todos los cambios importantes de qaTestGE se documentan aquí. El formato sigue 
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-10-23
+
+- Gestión de Test Runs: crear, consultar, editar título/responsable/casos/estado y eliminar con confirmación.
+- Registro de resultados Aprobado, Fallido, Bloqueado u Omitido por caso, con notas y pasos conservados como snapshot.
+- Progreso basado en resultados registrados, incluido Omitido explícito; completar exige al menos un caso y todos sus resultados. Reabrir permite corregirlos.
+- Protección de ejecuciones y resultados con evidencias vinculadas; los casos originales se conservan al eliminar una ejecución.
+- Vista adaptable de listados y diálogos para Mobile-M (375 px) y Mobile-L (425 px), con contenido largo sin scroll horizontal permanente.
+- El diseñador permite actualizar el mismo caso ya guardado con todos sus pasos actuales, sin crear duplicados; valida campos incompletos sin descartarlos.
+- Playwright con Chromium, tres viewports, API simulada y regresiones de navegación, responsive, casos, diseñador y ejecuciones. Integrado en CI.
+- Subagente QA de desarrollo en `.opencode/agents/qa.md` y guía de pruebas en `docs/TESTING.md`.
+
+No requiere migraciones nuevas ni habilita IA real. PostgreSQL conserva las tablas y relaciones existentes.
+
 ### Added
 
 - CRUD de tags por proyecto con color, asociación a bugs/casos/ejecuciones y migración versionada 009.
