@@ -205,22 +205,26 @@ export async function createDesignedPdfExport(
 }
 
 export async function downloadDesignedCaseExport(
-  format: "xlsx" | "pdf",
+  format: "xlsx" | "pdf" | "md",
   description: string,
   cases: readonly DesignedExportCase[],
 ) {
   const bytes =
-    format === "xlsx"
-      ? await createDesignedExcelExport(description, cases)
-      : await createDesignedPdfExport(description, cases);
+    format === "md"
+      ? new TextEncoder().encode(createDesignedMarkdownExport(description, cases)).buffer
+      : format === "xlsx"
+        ? await createDesignedExcelExport(description, cases)
+        : await createDesignedPdfExport(description, cases);
   downloadBytes(bytes, format, `qatestge-diseno-casos.${format}`);
 }
 
-function downloadBytes(bytes: ArrayBuffer, format: "xlsx" | "pdf", filename: string) {
+function downloadBytes(bytes: ArrayBuffer, format: "xlsx" | "pdf" | "md", filename: string) {
   const mime =
     format === "xlsx"
       ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-      : "application/pdf";
+      : format === "md"
+        ? "text/markdown;charset=utf-8"
+        : "application/pdf";
   const url = URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type: mime }));
   const link = document.createElement("a");
   link.href = url;
@@ -229,4 +233,37 @@ function downloadBytes(bytes: ArrayBuffer, format: "xlsx" | "pdf", filename: str
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function markdownText(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/([\\`*{}[\]()#+.!_|~-])/g, "\\$1")
+    .replace(/\r?\n/g, "<br>");
+}
+export function createDesignedMarkdownExport(
+  description: string,
+  cases: readonly DesignedExportCase[],
+) {
+  return (
+    [
+      "# qaTestGE · Diseño de casos de prueba",
+      "Vista previa editable e ilustrativa. IA no conectada. No son casos guardados en el proyecto.",
+      "## Descripción",
+      markdownText(description),
+      ...cases.flatMap((testCase) => [
+        `## ${markdownText(testCase.categoryLabel)} · Caso ${testCase.caseNumber}`,
+        [
+          "| Paso | Acción | Resultado esperado |",
+          "| --- | --- | --- |",
+          ...testCase.steps.map(
+            (step, index) =>
+              `| ${index + 1} | ${markdownText(step.action)} | ${markdownText(stepExpected(step))} |`,
+          ),
+        ].join("\n"),
+      ]),
+    ].join("\n\n") + "\n"
+  );
 }

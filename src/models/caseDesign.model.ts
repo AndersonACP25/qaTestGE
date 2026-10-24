@@ -38,7 +38,17 @@ function category(
     label,
     description,
     color: categoryColors[id],
-    steps: examples.map(([action, expected]) => ({ action, expected })),
+    steps: [
+      ...examples,
+      [
+        `Repetir el escenario de ${label} tras corregir una entrada inválida.`,
+        "El registro permite continuar sin conservar errores anteriores.",
+      ],
+      [
+        `Revisar el escenario de ${label} al volver al formulario después de cancelarlo.`,
+        "El formulario vuelve a un estado coherente y no crea registros parciales.",
+      ],
+    ].map(([action, expected]) => ({ action, expected })),
   };
 }
 
@@ -278,7 +288,7 @@ export const categories: CaseCategory[] = [
   ]),
 ];
 
-export const maxCaseCount = 3;
+export const maxCaseCount = 5;
 
 export function validCaseCount(value: number): boolean {
   return Number.isInteger(value) && value >= 1 && value <= maxCaseCount;
