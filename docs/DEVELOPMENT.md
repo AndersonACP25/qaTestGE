@@ -73,4 +73,6 @@ Los datos de la API ya no se pierden al reiniciar: viven en qa_test_ge. La aplic
 
 ## CI y entrega
 
+`pnpm format:check` valida el código, la documentación y las skills propias de `.opencode/skills/`. `.prettierignore` excluye las skills importadas de `.agents/skills/` para conservar su formato original, además de compilados, dependencias e informes generados de pruebas. No desactivar el paso de formato ni añadir `continue-on-error` para resolver errores de estilo: los archivos mantenidos por el proyecto deben seguir pasando Prettier.
+
 `.github/workflows/ci.yml` ejecuta `pnpm install --frozen-lockfile`, `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm test` y `pnpm build` en pull requests y pushes a `main`. En pushes a `main`, guarda `dist/` y `backend/dist/` como artefacto de Actions durante 14 días. No configura un despliegue a infraestructura: falta definir proveedor y destino.
