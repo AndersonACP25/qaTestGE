@@ -204,3 +204,21 @@ describe("frontend API client without network", () => {
     expect(click).toHaveBeenCalledOnce();
   });
 });
+
+describe("errores HTTP", () => {
+  it.each([400, 401, 403, 404, 409, 413, 422, 429, 500, 502, 503, 504])(
+    "conserva HTTP %s con respuestas HTML",
+    async (status) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue(new Response("<html>Error</html>", { status })),
+      );
+      await expect(api("/auth/me")).rejects.toMatchObject({ status, code: "API_ERROR" });
+      await expect(api("/auth/me")).rejects.not.toThrow("<html>");
+    },
+  );
+  it("tolera errores JSON nulos", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("null", { status: 503 })));
+    await expect(api("/auth/me")).rejects.toMatchObject({ status: 503, code: "API_ERROR" });
+  });
+});
