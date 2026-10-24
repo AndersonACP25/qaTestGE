@@ -1254,12 +1254,12 @@ function App({
               </>
             ) : isListing ? (
               <section className="listing-card">
-                <div className="listing-toolbar">
-                  <div className="listing-tabs">
+                <div className="listing-toolbar listing-filters">
+                  <div className="listing-filters__tabs">
                     {filters.map((filter) => (
                       <button
                         key={filter}
-                        className={`filter-tab${statusFilter === filter ? " filter-tab-active" : ""}`}
+                        className={`listing-filters__tab${statusFilter === filter ? " listing-filters__tab--active" : ""}`}
                         onClick={() => setStatusFilter(filter)}
                       >
                         {filter}

@@ -30,6 +30,7 @@
 - Alertas con tokens semánticos `--feedback-*` para ambos temas, icono destacado, cierre accesible y movimiento reducido.
 - Resumen se llama Dashboard y no ofrece Nuevo bug. Editar un caso cierra primero su detalle, igual que al editar bugs; no apilar diálogos del mismo flujo.
 - Tablas usan BEM `workspace-table__scroll` y `workspace-table__table`: columnas ajustadas en escritorio, filas con etiquetas en móvil hasta 620 px, sin scroll horizontal permanente. Menú móvil con icono visible y controles táctiles ampliados.
+- El scroll vertical señalado encima de las tablas provenía de los filtros: `overflow-x:auto` y subrayado `bottom:-1px` creaban 1 px de overflow vertical. Se reprodujo con Playwright antes de corregirlo. Usar bloque BEM `listing-filters`, filtros con wrap y subrayado dentro del contenedor; no reintroducir overflow en esa barra.
 - El diseñador admite 1–5 ejemplos por categoría y exporta su vista previa editada a Excel, PDF y Markdown local. No hay cambios de esquema ni IA real.
 - El diseñador valida/envía todos los pasos actuales y permite actualizar el mismo caso ya guardado mediante confirmación explícita. No crea duplicados al actualizar.
 - Test Runs permite crear, consultar, editar y eliminar; resultados por caso con notas y snapshots, progreso por `executed_at` y finalización/reapertura. Se exige al menos un caso y todos los resultados registrados para completar.
@@ -37,7 +38,7 @@
 - `.opencode/agents/` contiene orquestador y subagentes frontend, dominio-api, calidad y qa; son perfiles de desarrollo, no funciones del producto.
 - `docs/DESIGN.md` fija tokens, componentes reutilizables, BEM, accesibilidad y estados; sustituye referencias obsoletas al catálogo y capacidades.
 - Playwright/Chromium usa Vite aislado en 127.0.0.1:4174 y API sintética por prueba, bloqueando red externa. Proyectos desktop, Mobile-M 375 px y Mobile-L 425 px. Scripts `test:e2e`, `test:e2e:ui`, `test:e2e:report`; CI instala Chromium y conserva artefactos de fallos.
-- Validación de 1.1.0: 96 pruebas Vitest/API y 12 E2E; revisión de capturas de ambos temas/móviles y ejecuciones. `format:check` global falla por formato previo en 36 archivos de `.agents/skills/`; mantenerlos ajenos. No se ejecutan pruebas contra PostgreSQL local.
+- Validación del arreglo: tipos, lint, build y 96 pruebas Vitest/API pasan; 3 regresiones de filtros pasan en 375/425/1024/1180/1440 px y ambos temas. Las 12 E2E previas también pasan; capturas revisadas. `format:check` global falla por formato previo en 36 archivos de `.agents/skills/`; mantenerlos ajenos. Sin pruebas contra PostgreSQL local.
 - Incidencia de API resuelta: faltaban objetos de migraciones en el esquema; `pnpm db:migrate` aplicó/verificó 004–009 y `pnpm db:check` pasó. Backend usa puerto 4000 desde configuración local; `/api/health` da 200 y `/api/auth/me` sin sesión da 401 por backend y Vite. El backend valida esquema antes de escuchar.
 
 - Diagnóstico actual: 500 de Vite por backend detenido en puerto 4000; API iniciada y `/api/auth/me` responde 401 sin cookie. `db:check` pasa sin modificar datos.
