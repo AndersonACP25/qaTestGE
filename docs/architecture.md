@@ -181,4 +181,4 @@ El portal enlaza `/api/docs/`. En un despliegue separado se requiere reenviar `/
 
 Consultar [API.md](./API.md) para el contrato implementado, [DESIGN.md](./DESIGN.md) para la interfaz, [RULES.md](./RULES.md) para convenciones y [DEVELOPMENT.md](./DEVELOPMENT.md) para comandos y entorno. [CONTRIBUTING.md](../CONTRIBUTING.md) describe el flujo de contribución y [SECURITY.md](../SECURITY.md) los límites de seguridad actuales.
 
-El cliente API central conserva los estados HTTP y ofrece mensajes de respaldo para errores frecuentes, incluso si recibe texto o HTML. Las vistas presentan los errores con `Alert`. En desarrollo, el proxy de Vite devuelve 503 JSON si la API no responde; inicia frontend y backend con `pnpm dev`. Un 401 de `/api/auth/me` sin sesión es esperado.
+El diseñador admite de 1 a 5 ejemplos por categoría y exporta Markdown `.md` de la vista previa editada, con texto escapado y descarga local, sin dependencias adicionales. Los perfiles de `.opencode/agents/` coordinan el desarrollo en OpenCode y no son agentes dentro del producto.

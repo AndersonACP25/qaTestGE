@@ -31,11 +31,11 @@ El frontend usa React, TypeScript y Vite. La API usa Node.js, Express, TypeScrip
 - Alta, consulta, edición y eliminación de casos de prueba. Los cambios se persisten en PostgreSQL; un caso asociado a una ejecución no se puede eliminar para preservar sus referencias.
 - Casos de prueba con estados (`Pendiente`, `Aprobado`, `Fallido`), Suite opcional y hasta 100 pasos, cada uno con acción y resultado esperado.
 - Adjuntos de imágenes PNG, JPEG, GIF o WebP (máximo 2 MiB cada una y 5 por carga) y enlaces HTTP(S), almacenados o referenciados en PostgreSQL. Su consulta requiere sesión y acceso al proyecto.
-- Vista previa del diseñador editable localmente, con múltiples pasos por caso y exportación actualizada a Excel/PDF.
+- Vista previa del diseñador editable localmente, con múltiples pasos por caso y exportación actualizada a Excel/PDF/Markdown.
 - Exportación de bugs y casos de prueba individuales a PDF, Excel o Markdown desde el menú de tres puntos, incluidos los pasos del caso.
 - Creación de ejecuciones manuales vinculadas a casos.
 - Evidencias con archivos privados de hasta 2 MiB, vínculo a recursos QA y descarga autenticada desde el mantenimiento.
-- Diseñador de casos de prueba con categorías identificadas por colores, cantidades ajustables, vista previa editable y ejemplos exportables a Excel/PDF. El usuario puede guardar explícitamente casos individuales en el proyecto; la descripción no se analiza y no se llama a IA. Configuración permite guardar cantidades iniciales por categoría en el navegador.
+- Diseñador de casos de prueba con categorías identificadas por colores, cantidades ajustables, vista previa editable y ejemplos exportables a Excel/PDF/Markdown. El usuario puede guardar explícitamente casos individuales en el proyecto; la descripción no se analiza y no se llama a IA. Configuración permite guardar cantidades iniciales por categoría en el navegador.
 - ESLint y Prettier para validar y mantener consistentes el estilo y formato del código.
 - Temas claro y oscuro.
 
@@ -220,4 +220,4 @@ Las escrituras autenticadas requieren cookie de sesión y protección CSRF; la A
 - [Seguridad y privacidad](./SECURITY.md)
 - [Contribuciones](./CONTRIBUTING.md)
 
-El cliente API central conserva los estados HTTP y ofrece mensajes de respaldo para errores frecuentes, incluso si recibe texto o HTML. Las vistas presentan los errores con `Alert`. En desarrollo, el proxy de Vite devuelve 503 JSON si la API no responde; inicia frontend y backend con `pnpm dev`. Un 401 de `/api/auth/me` sin sesión es esperado.
+Los perfiles de desarrollo de OpenCode viven en `.opencode/agents/`: un orquestador coordina frontend, dominio/API y calidad. El Dashboard sustituye a Resumen; el diseñador admite de 1 a 5 casos por categoría.

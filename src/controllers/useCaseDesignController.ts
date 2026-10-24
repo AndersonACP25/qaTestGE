@@ -118,7 +118,7 @@ export function useCaseDesignController(
     });
   }
 
-  async function exportPreview(format: "xlsx" | "pdf") {
+  async function exportPreview(format: "xlsx" | "pdf" | "md") {
     setExporting(true);
     setExportError("");
     try {

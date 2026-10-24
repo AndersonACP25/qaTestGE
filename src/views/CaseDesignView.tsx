@@ -166,6 +166,14 @@ export default function CaseDesignView({
                 <div className="case-builder__exports">
                   <button
                     type="button"
+                    className="case-builder__export case-builder__export--markdown"
+                    disabled={exporting}
+                    onClick={() => void exportPreview("md")}
+                  >
+                    Exportar Markdown
+                  </button>
+                  <button
+                    type="button"
                     className="case-builder__export case-builder__export--excel"
                     disabled={exporting}
                     onClick={() => void exportPreview("xlsx")}
