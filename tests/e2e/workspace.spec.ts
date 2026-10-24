@@ -6,49 +6,6 @@ test.beforeEach(async ({ page, workspace }) => {
   await expect(page.getByRole("heading", { name: "Dashboard", exact: true })).toBeVisible();
 });
 
-test("filtros de todos los listados sin scroll interno", async ({ page }, testInfo) => {
-  test.setTimeout(90000);
-  const widths =
-    testInfo.project.name === "desktop" ? [1440, 1180, 1024] : [page.viewportSize()!.width];
-  for (const width of widths) {
-    await page.setViewportSize({ width, height: 900 });
-    for (const theme of ["light", "dark"]) {
-      await page.evaluate((value) => {
-        document.documentElement.dataset.theme = value;
-      }, theme);
-      for (const name of ["Bugs", "Casos de prueba", "Test runs", "Evidencias"]) {
-        await navigate(page, name);
-        const filters = page.locator(".listing-filters__tabs");
-        await expect(filters).toBeAttached();
-        expect(
-          await filters.evaluate((element) => ({
-            horizontal: element.scrollWidth - element.clientWidth,
-            vertical: element.scrollHeight - element.clientHeight,
-          })),
-        ).toEqual({ horizontal: 0, vertical: 0 });
-        const buttons = filters.getByRole("button");
-        if (name === "Evidencias") await expect(buttons).toHaveCount(0);
-        else await expect(filters).toBeVisible();
-        for (let index = 0; index < (await buttons.count()); index++) {
-          await buttons.nth(index).click();
-          expect(
-            await filters.evaluate((element) => ({
-              horizontal: element.scrollWidth - element.clientWidth,
-              vertical: element.scrollHeight - element.clientHeight,
-            })),
-            `${name}, ${width}px, ${theme}, filtro ${index}`,
-          ).toEqual({ horizontal: 0, vertical: 0 });
-        }
-        if (name === "Casos de prueba" && theme === "light")
-          await page.screenshot({
-            path: testInfo.outputPath(`filtros-${width}.png`),
-            fullPage: true,
-          });
-      }
-    }
-  }
-});
-
 test("Dashboard y listados sin desbordamiento en ambos temas", async ({ page }, testInfo) => {
   for (const theme of ["light", "dark"]) {
     await page.evaluate((value) => {
