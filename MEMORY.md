@@ -19,8 +19,10 @@
 
 ## Estado conocido al 2026-10-23
 
-- Versión actual 1.1.0. Rama de este paquete: `feat/v1-1-test-runs-qa`, creada desde `feat/dashboard-alertas-exportacion` con árbol limpio. No publicar sin solicitud.
+- Rama de trabajo: `fix/ci-formato-skills`, creada desde `main` limpio para corregir el bloqueo de formato de Actions. No publicar sin solicitud.
 - CI valida pull requests y pushes a `main` y `qa-env`; artefacto solo se publica desde `main`.
+- El job 120736496879 falló en `format:check` por 36 archivos de skills importadas. `.prettierignore` excluye `.agents/skills/` y los informes de pruebas; código, documentación y `.opencode/skills/` conservan la validación estricta. No se desactiva ningún paso del workflow.
+- Validación local del arreglo: formato global, lint, tipos, build frontend/backend y 92 pruebas pasan. La ejecución remota seguirá usando la configuración anterior hasta integrar esta rama; no se ha publicado ni reejecutado Actions.
 - Bugs, casos, evidencias y tags admiten sus CRUD implementados; evidencias pueden almacenar/descargar archivos privados con límite de 2 MiB. Adjuntos de casos admiten imágenes/enlaces; migraciones `007` y `008`.
 - Los conteos y las categorías iniciales del diseñador se guardan por usuario en localStorage.
 - Tags tienen CRUD por proyecto, nombre único por proyecto, color y asignaciones explícitas a bugs/casos/runs. Migración `009`.
