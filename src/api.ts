@@ -7,7 +7,11 @@ import type {
   CreateTestCaseInput,
   TestCase as ApiCase,
 } from "../backend/src/models/test-case.model";
-import type { TestRun as ApiRun } from "../backend/src/models/test-run.model";
+import type {
+  TestRun as ApiRun,
+  UpdateTestRunInput,
+  UpdateRunResultInput,
+} from "../backend/src/models/test-run.model";
 import type {
   Evidence as ApiEvidence,
   UpdateEvidenceInput,
@@ -275,6 +279,33 @@ export const toRun = (r: ApiRun): TestRun => ({
   ...r,
   cases: `${r.caseCount} ${r.caseCount === 1 ? "caso" : "casos"}`,
 });
+export async function updateTestRun(id: string, projectId: string, input: UpdateTestRunInput) {
+  return toRun(
+    await api<ApiRun>(`/test-runs/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ projectId, ...input }),
+    }),
+  );
+}
+export async function deleteTestRun(id: string, projectId: string) {
+  return api<void>(
+    `/test-runs/${encodeURIComponent(id)}?projectId=${encodeURIComponent(projectId)}`,
+    { method: "DELETE", body: JSON.stringify({}) },
+  );
+}
+export async function updateTestRunResult(
+  id: string,
+  resultId: string,
+  projectId: string,
+  input: UpdateRunResultInput,
+) {
+  return toRun(
+    await api<ApiRun>(
+      `/test-runs/${encodeURIComponent(id)}/results/${encodeURIComponent(resultId)}`,
+      { method: "PATCH", body: JSON.stringify({ projectId, ...input }) },
+    ),
+  );
+}
 export const toEvidence = (e: ApiEvidence): Evidence => ({
   ...e,
   hasFile: e.hasFile,
