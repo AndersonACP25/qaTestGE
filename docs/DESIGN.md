@@ -56,6 +56,8 @@ Las evidencias permiten archivos privados de hasta 2 MiB; los casos admiten imá
 
 La versión 1.1.0 prueba Mobile-M (375 px) y Mobile-L (425 px). A 620 px o menos, las tablas QA se reorganizan como filas con etiquetas visibles y encabezados semánticos conservados. En escritorio usan columnas flexibles y texto que puede envolver. No ocultar el overflow de toda la página para simular que cabe el contenido.
 
+Los filtros de listados usan `listing-filters__tabs` y `listing-filters__tab--active`: se distribuyen en varias líneas si falta espacio y el subrayado permanece dentro del botón. No aplicar `overflow-x: auto` ni desplazar el indicador fuera del contenedor: esa combinación creaba una barra vertical de 1 px sobre las tablas.
+
 `TestRunDialog` centraliza edición, resultados por caso, snapshots de pasos y confirmación de eliminación. Mantener un único diálogo activo. Distinguir Pendiente de ejecutar de Omitido registrado; completar exige un resultado explícito por caso. Las ejecuciones completadas deben reabrirse antes de corregir resultados.
 
 Antes de añadir un componente, comprobar si puede resolverse con una variante existente. Documentar propósito, propiedades, estados y accesibilidad al ampliar un contrato. Revisar escritorio/móvil, ambos temas, teclado, contenido largo, carga, vacío, error y éxito. Ejecutar los cinco comandos de AGENTS.md; las pruebas automáticas no sustituyen una revisión visual ni certifican accesibilidad.
