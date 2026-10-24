@@ -8,7 +8,12 @@ import type {
   CreateTestCaseInput,
   UpdateTestCaseInput,
 } from "../models/test-case.model.js";
-import type { CreateTestRunInput } from "../models/test-run.model.js";
+import type {
+  CreateTestRunInput,
+  UpdateTestRunInput,
+  UpdateRunResultInput,
+  TestRunResult,
+} from "../models/test-run.model.js";
 import type { CreateTagInput, Tag, UpdateTagInput } from "../models/tag.model.js";
 import type {
   CreateEvidenceInput,
@@ -59,6 +64,7 @@ const run = (r: Row) => ({
   caseCount: r.case_ids.length,
   progress: r.progress,
   tagIds: (r.tag_ids as string[] | undefined) ?? [],
+  results: (r.results as TestRunResult[] | undefined) ?? [],
 });
 const evidence = (r: Row) => ({
   ...common(r, "EVD"),
@@ -83,7 +89,12 @@ const casesSql = `SELECT c.*, COALESCE((SELECT json_agg(json_build_object('actio
  FROM qa.test_case_steps s WHERE s.test_case_id=c.id), '[]'::json) AS steps,
  COALESCE((SELECT array_agg(tc.tag_id::text ORDER BY tc.tag_id) FROM qa.test_case_tags tc WHERE tc.test_case_id=c.id), ARRAY[]::text[]) AS tag_ids FROM qa.test_cases c`;
 const runsSql = `SELECT r.*, COALESCE((SELECT array_agg(rr.test_case_id::text ORDER BY rr.test_case_id) FROM qa.test_run_results rr WHERE rr.test_run_id=r.id), ARRAY[]::text[]) AS case_ids,
- COALESCE((SELECT round(100.0 * count(*) FILTER (WHERE rr.status <> 'skipped') / NULLIF(count(*),0))::integer FROM qa.test_run_results rr WHERE rr.test_run_id=r.id),0) AS progress,
+ COALESCE((SELECT round(100.0 * count(*) FILTER (WHERE rr.executed_at IS NOT NULL) / NULLIF(count(*),0))::integer FROM qa.test_run_results rr WHERE rr.test_run_id=r.id),0) AS progress,
+ COALESCE((SELECT json_agg(json_build_object('id', 'RES-' || lpad(rr.id::text,greatest(3,length(rr.id::text)),'0'),
+ 'caseId','TC-' || lpad(c.id::text,greatest(3,length(c.id::text)),'0'), 'title',c.title,'status',rr.status,'notes',rr.notes,'executedAt',rr.executed_at,
+ 'steps',COALESCE((SELECT json_agg(json_build_object('action',s.value->>'action','expectedResult',COALESCE(s.value->>'expected_result',s.value->>'expectedResult','')) ORDER BY s.position)
+ FROM jsonb_array_elements(rr.steps_snapshot) WITH ORDINALITY s(value,position)),'[]'::json)) ORDER BY rr.test_case_id)
+ FROM qa.test_run_results rr JOIN qa.test_cases c ON c.id=rr.test_case_id AND c.project_id=rr.project_id WHERE rr.test_run_id=r.id),'[]'::json) AS results,
  COALESCE((SELECT array_agg(rt.tag_id::text ORDER BY rt.tag_id) FROM qa.test_run_tags rt WHERE rt.test_run_id=r.id), ARRAY[]::text[]) AS tag_ids FROM qa.test_runs r`;
 const evidenceSql = `SELECT e.id, e.project_id, e.name, e.type, e.size_bytes, e.created_at,
  e.file_bytes IS NOT NULL AS has_file, COALESCE((SELECT json_agg(
@@ -384,6 +395,131 @@ export class PostgresRepository implements Repository {
         );
       const result = await client.query<Row>(`${runsSql} WHERE r.id=$1`, [id]);
       return run(result.rows[0]);
+    });
+  }
+  async updateRun(id: string, projectId: string, input: UpdateTestRunInput) {
+    return this.transaction(async (client) => {
+      const locked = await client.query(
+        "SELECT id FROM qa.test_runs WHERE id=$1 AND project_id=$2 FOR UPDATE",
+        [id, projectId],
+      );
+      if (!locked.rowCount) return null;
+      const caseIds = input.caseIds.map((value) => parseReference(value, "TC")!);
+      const linkedRemoval = await client.query(
+        `SELECT 1 FROM qa.evidence_links l JOIN qa.test_run_results rr ON rr.id=l.test_run_result_id AND rr.project_id=l.project_id
+        WHERE rr.test_run_id=$1 AND rr.project_id=$2 AND NOT(rr.test_case_id=ANY($3::bigint[])) LIMIT 1`,
+        [id, projectId, caseIds],
+      );
+      if (linkedRemoval.rowCount)
+        throw new HttpError(
+          409,
+          "RUN_REFERENCED",
+          "No puedes retirar un caso cuyo resultado tiene evidencias vinculadas.",
+        );
+      // Preserve existing results and snapshots for cases that remain selected.
+      await client.query(
+        "DELETE FROM qa.test_run_results WHERE test_run_id=$1 AND project_id=$2 AND NOT(test_case_id=ANY($3::bigint[]))",
+        [id, projectId, caseIds],
+      );
+      await client.query(
+        `INSERT INTO qa.test_run_results(project_id,test_run_id,test_case_id,steps_snapshot)
+        SELECT $1,$2,c.id,COALESCE((SELECT jsonb_agg(jsonb_build_object('action',s.action,'expected_result',s.expected_result) ORDER BY s.position)
+        FROM qa.test_case_steps s WHERE s.test_case_id=c.id),'[]'::jsonb)
+        FROM qa.test_cases c WHERE c.project_id=$1 AND c.id=ANY($3::bigint[]) ON CONFLICT(test_run_id,test_case_id) DO NOTHING`,
+        [projectId, id, caseIds],
+      );
+      const selected = await client.query(
+        "SELECT id,executed_at FROM qa.test_run_results WHERE test_run_id=$1 AND project_id=$2",
+        [id, projectId],
+      );
+      if (selected.rows.length !== caseIds.length)
+        throw new HttpError(400, "INVALID_REFERENCE", "Los casos deben pertenecer al proyecto.");
+      if (
+        input.status === "Completado" &&
+        (!selected.rows.length || selected.rows.some((row) => !row.executed_at))
+      )
+        throw new HttpError(
+          409,
+          "RUN_INCOMPLETE",
+          "Registra un resultado para cada caso antes de completar la ejecución.",
+        );
+      await client.query(
+        "UPDATE qa.test_runs SET title=$3,owner=$4,status=$5,completed_at=CASE WHEN $5='Completado' THEN COALESCE(completed_at,now()) ELSE NULL END WHERE id=$1 AND project_id=$2",
+        [id, projectId, input.title.trim(), input.owner.trim(), input.status],
+      );
+      if (input.tagIds !== undefined)
+        await this.replaceTags(
+          "qa.test_run_tags",
+          "test_run_id",
+          id,
+          projectId,
+          input.tagIds,
+          client,
+        );
+      const result = await client.query<Row>(`${runsSql} WHERE r.id=$1 AND r.project_id=$2`, [
+        id,
+        projectId,
+      ]);
+      return run(result.rows[0]);
+    });
+  }
+  async updateRunResult(
+    id: string,
+    resultId: string,
+    projectId: string,
+    input: UpdateRunResultInput,
+  ) {
+    return this.transaction(async (client) => {
+      const locked = await client.query(
+        "SELECT status FROM qa.test_runs WHERE id=$1 AND project_id=$2 FOR UPDATE",
+        [id, projectId],
+      );
+      if (!locked.rowCount) return null;
+      if (locked.rows[0].status === "Completado")
+        throw new HttpError(
+          409,
+          "RUN_COMPLETED",
+          "Reabre la ejecución antes de cambiar sus resultados.",
+        );
+      const updated = await client.query(
+        "UPDATE qa.test_run_results SET status=$4,notes=$5,executed_at=now() WHERE test_run_id=$1 AND id=$2 AND project_id=$3",
+        [id, resultId, projectId, input.status, input.notes],
+      );
+      if (!updated.rowCount) return null;
+      const result = await client.query<Row>(`${runsSql} WHERE r.id=$1 AND r.project_id=$2`, [
+        id,
+        projectId,
+      ]);
+      return run(result.rows[0]);
+    });
+  }
+  async deleteRun(id: string, projectId: string) {
+    return this.transaction(async (client) => {
+      const locked = await client.query(
+        "SELECT id FROM qa.test_runs WHERE id=$1 AND project_id=$2 FOR UPDATE",
+        [id, projectId],
+      );
+      if (!locked.rowCount) return false;
+      const linked = await client.query(
+        `SELECT 1 FROM qa.evidence_links WHERE project_id=$2 AND (test_run_id=$1 OR test_run_result_id IN
+        (SELECT id FROM qa.test_run_results WHERE test_run_id=$1 AND project_id=$2)) LIMIT 1`,
+        [id, projectId],
+      );
+      if (linked.rowCount)
+        throw new HttpError(
+          409,
+          "RUN_REFERENCED",
+          "La ejecución o sus resultados tienen evidencias vinculadas; conserva sus referencias.",
+        );
+      await client.query("DELETE FROM qa.test_run_results WHERE test_run_id=$1 AND project_id=$2", [
+        id,
+        projectId,
+      ]);
+      const removed = await client.query("DELETE FROM qa.test_runs WHERE id=$1 AND project_id=$2", [
+        id,
+        projectId,
+      ]);
+      return removed.rowCount === 1;
     });
   }
   async listEvidence(projectId?: string) {

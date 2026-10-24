@@ -7,7 +7,12 @@ import type {
   CreateTestCaseInput,
   UpdateTestCaseInput,
 } from "../models/test-case.model.js";
-import type { TestRun, CreateTestRunInput } from "../models/test-run.model.js";
+import type {
+  TestRun,
+  CreateTestRunInput,
+  UpdateTestRunInput,
+  UpdateRunResultInput,
+} from "../models/test-run.model.js";
 import type {
   Evidence,
   EvidenceFile,
@@ -45,6 +50,14 @@ export interface Repository {
   deleteCaseAttachment(id: string, attachmentId: string, projectId: string): Promise<boolean>;
   listRuns(projectId?: string): Promise<TestRun[]>;
   createRun(input: CreateTestRunInput): Promise<TestRun>;
+  updateRun(id: string, projectId: string, input: UpdateTestRunInput): Promise<TestRun | null>;
+  deleteRun(id: string, projectId: string): Promise<boolean>;
+  updateRunResult(
+    id: string,
+    resultId: string,
+    projectId: string,
+    input: UpdateRunResultInput,
+  ): Promise<TestRun | null>;
   listEvidence(projectId?: string): Promise<Evidence[]>;
   createEvidence(input: CreateEvidenceInput): Promise<Evidence>;
   updateEvidence(
