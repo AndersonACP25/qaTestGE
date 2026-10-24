@@ -1255,9 +1255,11 @@ h1 {
   align-items: center;
 }
 
-.table-scroll {
+.workspace-table__scroll {
   width: 100%;
   overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 2px;
 }
 
 table {
@@ -1607,7 +1609,7 @@ tbody td {
   font-size: 9px;
 }
 
-.listing-card .table-scroll {
+.listing-card .workspace-table__scroll {
   padding: 0 19px;
 }
 
@@ -2041,7 +2043,7 @@ tbody td {
 }
 
 .alert {
-  --alert-accent: #5378cf;
+  --alert-accent: var(--feedback-info);
   display: flex;
   align-items: flex-start;
   gap: 12px;
@@ -2057,22 +2059,26 @@ tbody td {
 }
 
 .alert--success {
-  --alert-accent: #21845a;
+  --alert-accent: var(--feedback-success);
 }
 
 .alert--error {
-  --alert-accent: #c2414b;
+  --alert-accent: var(--feedback-error);
 }
 
 .alert--warning {
-  --alert-accent: #b7791f;
+  --alert-accent: var(--feedback-warning);
 }
 
 .alert--info {
-  --alert-accent: #5378cf;
+  --alert-accent: var(--feedback-info);
 }
 
 .alert__icon {
+  box-sizing: content-box;
+  padding: 8px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--alert-accent) 12%, transparent);
   width: 21px;
   height: 21px;
   flex: 0 0 auto;
@@ -2104,6 +2110,8 @@ tbody td {
 }
 
 .alert__dismiss {
+  min-width: 32px;
+  min-height: 32px;
   display: grid;
   width: 26px;
   height: 26px;
@@ -2429,7 +2437,7 @@ tbody td {
     max-width: none;
   }
 
-  .listing-card .table-scroll {
+  .listing-card .workspace-table__scroll {
     padding: 0 12px;
   }
 
@@ -2962,6 +2970,9 @@ tbody td {
 .case-builder__export--pdf {
   background: #b42318;
   box-shadow: 0 3px 8px #b4231830;
+}
+.case-builder__export--markdown {
+  background: var(--purple);
 }
 .case-builder__export:hover:not(:disabled) {
   transform: translateY(-1px);
@@ -3953,5 +3964,23 @@ tbody td {
   .case-builder__export {
     animation: none;
     transition: none;
+  }
+}
+
+:root {
+  --feedback-success: #16754b;
+  --feedback-warning: #946200;
+  --feedback-error: #bc303d;
+  --feedback-info: #3963b8;
+}
+:root[data-theme="dark"] {
+  --feedback-success: #73d5a5;
+  --feedback-warning: #f0c36a;
+  --feedback-error: #ff9ba4;
+  --feedback-info: #9bbcff;
+}
+@media (prefers-reduced-motion: reduce) {
+  .alert {
+    animation: none;
   }
 }

@@ -61,7 +61,7 @@ const navigation: {
   {
     section: "WORKSPACE",
     items: [
-      { id: "overview", label: "Resumen", icon: "grid" },
+      { id: "overview", label: "Dashboard", icon: "grid" },
       { id: "bugs", label: "Bugs", icon: "bug", count: undefined },
       { id: "cases", label: "Casos de prueba", icon: "check-square" },
       { id: "case-builder", label: "Diseñar test cases", icon: "sparkle" },
@@ -506,7 +506,7 @@ function App({
   );
   const visibleEvidence = useMemo(() => filterEvidence(evidence, { search }), [evidence, search]);
   const pageTitle = {
-    overview: "Resumen",
+    overview: "Dashboard",
     bugs: "Bugs",
     cases: "Casos de prueba",
     runs: "Test runs",
@@ -605,6 +605,7 @@ function App({
     }
   }
   function editCase(testCase: TestCase) {
+    setRecordDetail(null);
     setFormError("");
     setCaseImageFiles([]);
     setEditingCase(testCase);
@@ -1083,10 +1084,10 @@ function App({
                   year: "numeric",
                 })}
               </div>
-              <h1>{activePage === "overview" ? `Hola, ${user.name}` : pageTitle}</h1>
+              <h1>{pageTitle}</h1>
               <p className="page-subtitle">{pageDescription(activePage)}</p>
             </div>
-            {!["case-builder", "settings", "tags"].includes(activePage) && (
+            {!["overview", "case-builder", "settings", "tags"].includes(activePage) && (
               <button
                 disabled={!projectId || loading || saving || Boolean(error)}
                 className="button button-primary"
@@ -2146,7 +2147,7 @@ function BugTable({
   compact?: boolean;
 }) {
   return (
-    <div className={`table-scroll${compact ? " table-compact" : ""}`}>
+    <div className={`workspace-table__scroll${compact ? " table-compact" : ""}`}>
       <table>
         <thead>
           <tr>
@@ -2226,7 +2227,7 @@ function CaseTable({
   updatingStatus: string;
 }) {
   return (
-    <div className="table-scroll">
+    <div className="workspace-table__scroll">
       <table>
         <thead>
           <tr>
@@ -2291,7 +2292,7 @@ function RunTable({
   onSelect: (item: TestRun) => void;
 }) {
   return (
-    <div className="table-scroll">
+    <div className="workspace-table__scroll">
       <table>
         <thead>
           <tr>
@@ -2350,7 +2351,7 @@ function EvidenceTable({
   onActions: (item: Evidence) => void;
 }) {
   return (
-    <div className="table-scroll">
+    <div className="workspace-table__scroll">
       <table>
         <thead>
           <tr>

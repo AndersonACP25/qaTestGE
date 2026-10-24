@@ -1,53 +1,57 @@
 # Diseño de interfaz
 
-## Alcance actual
+## Alcance
 
-Interfaz React/Vite conectada a la API. Incluye autenticación, resumen y listados reales, formularios de creación, configuración de cuenta, plantillas personales de bugs, una zona de baja de cuenta y la maqueta separada del diseñador de test cases. Equipo sigue pendiente. Los recursos manuales se consultan y guardan en PostgreSQL mediante la API.
+Frontend React/Vite conectado a la API: Dashboard, bugs, casos, ejecuciones, evidencias, tags y configuración individual. El diseñador ofrece ejemplos ilustrativos editables; no hay IA conectada. La navegación vive en estado React, sin rutas URL. `src/styles.css` define los tokens y ambos temas; este documento fija las reglas para extenderlos.
 
-## Estructura
+## Colores
 
-| Archivo                             | Responsabilidad                                                            |
-| ----------------------------------- | -------------------------------------------------------------------------- |
-| `src/Session.tsx`                   | Login, registro, restauración de sesión, cierre y preferencia de tema      |
-| `src/App.tsx`                       | Navegación en estado React, shell, vistas, carga de API y formularios      |
-| `src/views/AccountSettingsView.tsx` | Perfil, contraseña, CRUD de plantillas, maqueta de IA y baja de cuenta     |
-| `src/CaseBuilder.tsx`               | Descripción, selección de categorías, cantidades y tablas fijas de ejemplo |
-| `src/utils/caseCatalog.ts`          | Catálogo de escenarios ilustrativos y validación de cantidades             |
-| `src/styles.css`                    | Estilos actuales, variables de color y reglas responsive                   |
-| `src/types.ts`                      | Tipos de navegación y modelos de presentación                              |
+| Rol                        | Token                | Uso                             |
+| -------------------------- | -------------------- | ------------------------------- |
+| Marca y acción principal   | `--purple`           | CTA principal, selección y foco |
+| Superficie                 | `--panel`            | Tarjetas, alertas y diálogos    |
+| Separación                 | `--line`             | Bordes y divisores              |
+| Texto principal existente  | `--color-202334`     | Títulos y contenido             |
+| Texto secundario existente | `--color-626678`     | Ayuda y metadatos               |
+| Éxito                      | `--feedback-success` | Operación confirmada            |
+| Advertencia                | `--feedback-warning` | Atención requerida              |
+| Error                      | `--feedback-error`   | Fallo y recuperación            |
+| Información                | `--feedback-info`    | Contexto y límites              |
 
-La navegación actual no usa rutas URL. Recargar restaura la sesión y vuelve a consultar los datos persistentes.
+Reutilizar tokens; no crear un hexadecimal distinto por componente. Los tokens `--color-*` son legado: para roles nuevos definir nombres semánticos con valores en `:root` y `:root[data-theme="dark"]`. Los colores de categorías y tags identifican grupos, no severidad. Nunca comunicar estados solo con color: acompañarlos de texto e icono. Mantener contraste AA: 4.5:1 para texto normal y 3:1 para texto grande y controles. Verificar hover, foco y deshabilitado en ambos temas.
 
-## Marca
+La marca usa `public/favicon.svg`. El tema inicial respeta el sistema; una elección explícita se guarda en `qatestge-theme` cuando localStorage está disponible.
 
-La marca de cuatro bloques violeta/naranja está en public/favicon.svg. El workspace y la pestaña del navegador usan el mismo SVG. Se retiraron el panel de almacenamiento y la etiqueta Demo local de la cabecera; permanecen los avisos de funciones aún simuladas, como el diseñador sin IA.
+## Componentes y contratos
 
-## Lenguaje visual
+| Necesidad   | Reutilizar                              | Reglas                                                                                                  |
+| ----------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Mensajes    | `src/Alert.tsx`                         | `success`, `warning`, `error`, `info`; título, mensaje y cierre opcional; sin autocierre de errores     |
+| Diálogos    | `src/Dialog.tsx`                        | Título accesible, Escape, foco inicial, contención y restauración de foco                               |
+| Detalle QA  | `src/views/RecordDetailsDialog.tsx`     | Cerrar el detalle al abrir edición; un único diálogo activo por flujo                                   |
+| Formularios | Controles nativos del workspace         | Etiquetas asociadas, validación, bloqueo durante guardado y datos conservados ante fallo                |
+| Listados    | `workspace-table__scroll`               | Encabezados semánticos y scroll horizontal cuando sea necesario; sin scroll vertical interno permanente |
+| Diseñador   | Modelo → controlador → `CaseDesignView` | Vista previa, totales y exportaciones comparten los datos editados                                      |
 
-- Acento violeta, superficies de tarjetas, bordes discretos y jerarquía de títulos y textos auxiliares.
-- Colores compartidos mediante variables CSS. El atributo `data-theme` de la raíz activa el tema claro u oscuro.
-- La primera visita respeta el tema del sistema; `qatestge-theme` en `localStorage` recuerda una elección explícita cuando el almacenamiento está disponible.
-- Reutilizar las variables existentes y comprobar contraste, foco, estados deshabilitados y legibilidad en ambos temas.
-- Clases nuevas y modificadas con BEM: `bloque__elemento--modificador`. Hay clases heredadas anteriores a esa convención; evitar extenderlas con estilos globales.
+`Alert` usa `role="alert"` para errores/advertencias y `role="status"` para éxito/información. Escribir mensajes concretos con una forma de continuar cuando corresponda. No usar alertas bloqueantes del navegador ni duplicar sistemas de notificaciones. Reservar confirmaciones para acciones destructivas que las requieran.
 
-## Flujos y estados
+## Composición y CSS
 
-El acceso verifica correo y contraseña contra la API; el registro pide nombre, correo, contraseña de 12–128 caracteres y confirmación. Mostrar errores, espera y sesión expirada; nunca ofrecer acceso ficticio al fallar la API. No persistir credenciales o tokens en localStorage. Los nuevos usuarios ven su propio proyecto y los datos anteriores exigen membresía explícita.
+- Usar BEM en clases nuevas y modificadas: `bloque__elemento--modificador`. Encapsular reglas; no añadir selectores globales para detalles internos.
+- Reutilizar botones, paneles y controles existentes. Una acción principal por sección; acciones secundarias con menor peso visual.
+- Usar pasos de espacio de 4, 8, 12, 16, 24 y 32 px y radios de 8–14 px para superficies. Tipografía del sistema y jerarquía consistente entre títulos, etiquetas, contenido y ayuda.
+- En móvil, apilar paneles y permitir lectura de tablas sin cortar columnas. Contenido largo debe envolver o truncarse con acceso al valor completo.
+- Los diálogos limitan su altura al viewport y desplazan su propio contenido; no resolver superposiciones aumentando z-index arbitrariamente.
+- Mantener foco visible, cierres accesibles y animación breve que respete `prefers-reduced-motion`.
 
-Configuración agrupa perfil, seguridad, plantillas, IA y zona de peligro. Las plantillas se guardan en la cuenta, y la opción de cargar una plantilla en «Nuevo bug» prellena los campos que la persona puede seguir editando. El contenido se muestra solo como texto plano. La maqueta de IA está deshabilitada y no almacena claves. La baja exige contraseña y frase exacta; advierte que se anonimizan los datos, revocan sesiones y borran plantillas, pero que se conservan los recursos QA relacionados.
+## Comportamiento vigente
 
-El diseñador permite combinar 18 categorías, incluidas Smoke, Regresión, Funcionales, UI, UX e Integración. Cada una tiene una casilla y un contador etiquetado de 1 a 3 pruebas, habilitado al seleccionarla y con valor inicial de una. El botón de vista previa exige descripción no vacía, al menos una categoría y cantidades enteras válidas. Cada fila es una prueba fija con Acción / Resultado esperado; la cantidad determina cuántos ejemplos distintos se muestran. El total, Excel y PDF usan la misma selección. Cambiar las entradas limpia la vista previa; abandonar la vista descarta su estado. No presentar esos ejemplos como contenido generado a partir del requisito.
+Dashboard muestra conteos reales del proyecto y no incluye Nuevo bug. Los bugs se crean desde su listado. El selector usa proyectos autorizados del servidor.
 
-Para la futura IA, diseñar propuestas editables y descartables con confirmación humana antes de crear casos reales. Esa edición y confirmación aún no existen.
+El diseñador tiene 18 categorías con cantidades de 1 a 5 e iniciales configurables por usuario en el navegador. Exige descripción, categoría y cantidades válidas. Cada caso admite edición de pasos y guardado explícito mediante API. Exporta la vista previa editada a Excel, PDF y Markdown localmente. El requisito escrito no genera contenido: mantener los avisos de ejemplos ilustrativos e IA no conectada.
 
-## Accesibilidad y adaptación
+Las evidencias permiten archivos privados de hasta 2 MiB; los casos admiten imágenes y enlaces. No describir como disponibles IA real, invitaciones, MFA, recuperación de contraseña o verificación de correo. La configuración de IA sigue deshabilitada y no almacena claves.
 
-- Usar controles nativos, etiquetas asociadas, encabezados coherentes, `fieldset` para grupos y tablas con encabezados y caption.
-- Mantener foco visible y navegación mediante teclado; no depender solo del color para comunicar estados.
-- Usar mensajes accesibles para errores y cambios de resultados.
-- En móvil, la navegación lateral se abre mediante menú; los paneles se apilan y las tablas deben permitir lectura sin cortar contenido.
-- Revisar escritorio y móvil, ambos temas, entradas largas y estados vacíos antes de entregar cambios visuales. Las pruebas automatizadas actuales no sustituyen una revisión visual ni certifican accesibilidad completa.
+## Revisión
 
-## Datos conectados
-
-El resumen usa contadores reales sin gráficas ficticias. El selector usa IDs y nombres del servidor; no contiene proyectos fijos. Los formularios guardan en PostgreSQL y actualizan los listados. Los casos permiten un paso manual opcional; las ejecuciones permiten seleccionar casos. La evidencia registra metadatos con aviso explícito de que no se sube el contenido. Los diálogos conservan foco, admiten Escape y muestran errores de guardado.
+Antes de añadir un componente, comprobar si puede resolverse con una variante existente. Documentar propósito, propiedades, estados y accesibilidad al ampliar un contrato. Revisar escritorio/móvil, ambos temas, teclado, contenido largo, carga, vacío, error y éxito. Ejecutar los cinco comandos de AGENTS.md; las pruebas automáticas no sustituyen una revisión visual ni certifican accesibilidad.
