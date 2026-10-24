@@ -75,3 +75,17 @@ pnpm --dir backend test:db
 ```
 
 El script no carga `.env`. Crea cuentas y organizaciones/proyectos de prueba, comprueba registro/login/logout, hashes, expiración, revocación, CSRF, aislamiento entre cuentas, POST/GET, pasos, referencias, transacciones y lectura desde una conexión nueva. Al terminar elimina exclusivamente sus registros, pero las secuencias pueden avanzar. No ejecutarlo contra la base de trabajo. La integración se verificó con PostgreSQL 18 temporal aislado. La conexión de trabajo se comprobó con `db:check`, solo lectura.
+
+## Playwright
+
+Instalar dependencias con `pnpm install` y el navegador con `pnpm exec playwright install chromium`. Ejecutar `pnpm test:e2e`; para un viewport: `pnpm test:e2e --project=Mobile-M`. `pnpm test:e2e:ui` abre el runner interactivo y `pnpm test:e2e:report` el informe local.
+
+La configuración inicia su propio Vite en `127.0.0.1:4174`, con puerto estricto y sin reutilizar servidores. No necesita backend ni PostgreSQL: la fixture intercepta `/api/**` y mantiene datos sintéticos por prueba. No usa sesiones reales, contraseñas, evidencias ni servicios externos. Desktop (1440×900), Mobile-M (375×812) y Mobile-L (425×900) ejecutan los mismos flujos.
+
+La suite verifica navegación y desbordamientos en ambos temas, creación/edición de casos con varios pasos y un solo modal, guardado y actualización del diseñador, descarga Markdown y ciclo de una ejecución con resultados, notas, validación de finalización y eliminación. Las aserciones revisan las cargas enviadas y el estado simulado; los tests de repositorio verifican SQL parametrizado, transacciones, rollback, referencias y autorización por separado.
+
+El mock no certifica la conectividad ni la ejecución SQL en PostgreSQL. Las pruebas unitarias usan dobles, no la base local. Los snapshots de pasos y las referencias se preservan en el repositorio transaccional. Las pruebas de navegador no sustituyen una auditoría completa de accesibilidad.
+
+Playwright conserva capturas y trazas de fallos en `test-results/`; además, las pruebas de listados y ejecuciones generan capturas para revisión visual. El informe está en `playwright-report/`. Ambas carpetas están ignoradas por Git, ESLint y Prettier. CI instala Chromium y ejecuta la suite, y conserva artefactos de fallos durante siete días.
+
+Configuración y aislamiento de red basados en la documentación oficial de [webServer](https://playwright.dev/docs/test-webserver) e [interceptación de red](https://playwright.dev/docs/network).

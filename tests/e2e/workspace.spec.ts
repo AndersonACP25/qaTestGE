@@ -1,0 +1,181 @@
+import { test, expect, navigate, noHorizontalOverflow } from "./fixture";
+
+test.beforeEach(async ({ page, workspace }) => {
+  void workspace;
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Dashboard", exact: true })).toBeVisible();
+});
+
+test("filtros de todos los listados sin scroll interno", async ({ page }, testInfo) => {
+  test.setTimeout(90000);
+  const widths =
+    testInfo.project.name === "desktop" ? [1440, 1180, 1024] : [page.viewportSize()!.width];
+  for (const width of widths) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const theme of ["light", "dark"]) {
+      await page.evaluate((value) => {
+        document.documentElement.dataset.theme = value;
+      }, theme);
+      for (const name of ["Bugs", "Casos de prueba", "Test runs", "Evidencias"]) {
+        await navigate(page, name);
+        const filters = page.locator(".listing-filters__tabs");
+        await expect(filters).toBeAttached();
+        expect(
+          await filters.evaluate((element) => ({
+            horizontal: element.scrollWidth - element.clientWidth,
+            vertical: element.scrollHeight - element.clientHeight,
+          })),
+        ).toEqual({ horizontal: 0, vertical: 0 });
+        const buttons = filters.getByRole("button");
+        if (name === "Evidencias") await expect(buttons).toHaveCount(0);
+        else await expect(filters).toBeVisible();
+        for (let index = 0; index < (await buttons.count()); index++) {
+          await buttons.nth(index).click();
+          expect(
+            await filters.evaluate((element) => ({
+              horizontal: element.scrollWidth - element.clientWidth,
+              vertical: element.scrollHeight - element.clientHeight,
+            })),
+            `${name}, ${width}px, ${theme}, filtro ${index}`,
+          ).toEqual({ horizontal: 0, vertical: 0 });
+        }
+        if (name === "Casos de prueba" && theme === "light")
+          await page.screenshot({
+            path: testInfo.outputPath(`filtros-${width}.png`),
+            fullPage: true,
+          });
+      }
+    }
+  }
+});
+
+test("Dashboard y listados sin desbordamiento en ambos temas", async ({ page }, testInfo) => {
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate((value) => {
+      document.documentElement.dataset.theme = value;
+    }, theme);
+    for (const name of [
+      "Dashboard",
+      "Bugs",
+      "Casos de prueba",
+      "Test runs",
+      "Evidencias",
+      "Tags",
+      "Configuración",
+    ]) {
+      await navigate(page, name);
+      await noHorizontalOverflow(page);
+      if (name === "Casos de prueba")
+        await page.screenshot({ path: testInfo.outputPath(`casos-${theme}.png`), fullPage: true });
+    }
+  }
+});
+
+test("crear y editar un caso conserva todos los pasos y un solo modal", async ({
+  page,
+  workspace,
+}) => {
+  await navigate(page, "Casos de prueba");
+  await page.getByRole("button", { name: "Nuevo caso de prueba", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog
+    .getByRole("textbox", { name: "Título", exact: true })
+    .fill("Caso con todos los pasos");
+  await dialog.getByRole("textbox", { name: "Acción", exact: true }).fill("Paso uno");
+  await dialog
+    .getByRole("textbox", { name: "Resultado esperado", exact: true })
+    .fill("Resultado uno");
+  await dialog.getByRole("button", { name: /Añadir paso/ }).click();
+  await dialog.getByRole("textbox", { name: "Acción", exact: true }).nth(1).fill("Paso dos");
+  await dialog
+    .getByRole("textbox", { name: "Resultado esperado", exact: true })
+    .nth(1)
+    .fill("Resultado dos");
+  await dialog.getByRole("button", { name: "Guardar", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(workspace.cases.at(-1)?.steps).toHaveLength(2);
+  await page.getByText("Caso con todos los pasos", { exact: true }).click();
+  await page.getByRole("button", { name: "Editar caso", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(1);
+  await expect(page.getByRole("textbox", { name: "Acción", exact: true })).toHaveCount(2);
+  await noHorizontalOverflow(page);
+  await page
+    .getByRole("textbox", { name: "Acción", exact: true })
+    .nth(1)
+    .fill("Segundo paso editado");
+  await page.getByRole("button", { name: "Guardar cambios", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  expect(workspace.cases.at(-1)?.steps?.map((step) => step.action)).toEqual([
+    "Paso uno",
+    "Segundo paso editado",
+  ]);
+});
+
+test("diseñador guarda y actualiza todos los pasos y descarga Markdown", async ({
+  page,
+  workspace,
+}) => {
+  await navigate(page, "Diseñar test cases");
+  await page.locator("#case-builder-description").fill("Probar registro");
+  await page.getByRole("button", { name: "Mostrar tabla de ejemplo" }).click();
+  const card = page.locator(".case-builder__case").first();
+  await card.getByRole("button", { name: /Añadir paso/ }).click();
+  await card.getByRole("textbox", { name: "Acción", exact: true }).nth(1).fill("Acción adicional");
+  await card
+    .getByRole("textbox", { name: "Resultado esperado", exact: true })
+    .nth(1)
+    .fill("Resultado adicional");
+  await card.getByRole("button", { name: "Guardar en casos de prueba" }).click();
+  await expect(card.getByRole("button", { name: /Actualizar TC-/ })).toBeVisible();
+  expect(workspace.cases.at(-1)?.steps).toHaveLength(2);
+  await card.getByRole("button", { name: /Añadir paso/ }).click();
+  await card.getByRole("textbox", { name: "Acción", exact: true }).nth(2).fill("Tercer paso");
+  await card
+    .getByRole("textbox", { name: "Resultado esperado", exact: true })
+    .nth(2)
+    .fill("Tercer resultado");
+  await card.getByRole("button", { name: /Actualizar TC-/ }).click();
+  await expect.poll(() => workspace.cases.at(-1)?.steps?.length).toBe(3);
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Exportar Markdown" }).click();
+  expect((await download).suggestedFilename()).toMatch(/\.md$/);
+  await noHorizontalOverflow(page);
+});
+
+test("Test Runs crea, registra resultados, edita, completa y elimina", async ({
+  page,
+  workspace,
+}, testInfo) => {
+  await navigate(page, "Test runs");
+  await page.getByRole("button", { name: "Nueva ejecución", exact: true }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("textbox", { name: "Título", exact: true })
+    .fill("Regresión v1.1");
+  await page.getByLabel(/TC-001/).check();
+  await page.getByRole("button", { name: "Guardar", exact: true }).click();
+  await page.getByRole("button", { name: "Regresión v1.1", exact: true }).click();
+  await page.getByRole("button", { name: "Editar ejecución", exact: true }).click();
+  await page.getByRole("combobox", { name: "Estado", exact: true }).selectOption("Completado");
+  await page.getByRole("button", { name: "Guardar ejecución", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("Registra");
+  await page.getByRole("button", { name: "Cancelar edición" }).click();
+  await page.getByRole("combobox", { name: "Resultado", exact: true }).selectOption("passed");
+  await page
+    .getByRole("textbox", { name: "Notas", exact: true })
+    .fill("Verificado en móvil y escritorio");
+  await page.getByRole("button", { name: "Guardar resultado", exact: true }).click();
+  await expect(page.getByRole("progressbar")).toHaveAttribute("value", "100");
+  await page.getByRole("button", { name: "Editar ejecución", exact: true }).click();
+  await page.getByRole("textbox", { name: "Título", exact: true }).fill("Regresión completada");
+  await page.getByRole("combobox", { name: "Estado", exact: true }).selectOption("Completado");
+  await page.getByRole("button", { name: "Guardar ejecución", exact: true }).click();
+  await expect(page.getByText(/Regresión completada · Completado/)).toBeVisible();
+  await noHorizontalOverflow(page);
+  expect(workspace.runs[0].results[0].notes).toBe("Verificado en móvil y escritorio");
+  await page.screenshot({ path: testInfo.outputPath("ejecucion-completada.png"), fullPage: true });
+  await page.getByRole("button", { name: "Eliminar ejecución", exact: true }).click();
+  await page.getByRole("button", { name: "Confirmar eliminación", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  expect(workspace.runs).toHaveLength(0);
+});

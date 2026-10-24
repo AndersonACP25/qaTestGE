@@ -147,6 +147,8 @@ Al abrir la aplicación, registra una cuenta para crear un workspace y proyecto 
 
 ## Comandos útiles
 
+La versión **1.1.0** añade CRUD de Test Runs, resultados por caso con notas y snapshots, finalización/reapertura, guardado completo y actualización de pasos del diseñador, y listados adaptados a Mobile-M/Mobile-L. Consulta [CHANGELOG.md](./CHANGELOG.md) y la [guía Playwright](./docs/TESTING.md#playwright).
+
 | Comando                      | Descripción                                                            |
 | ---------------------------- | ---------------------------------------------------------------------- |
 | `pnpm dev`                   | Inicia frontend y API                                                  |
@@ -159,6 +161,8 @@ Al abrir la aplicación, registra una cuenta para crear un workspace y proyecto 
 | `pnpm format:check`          | Comprueba el formato sin modificar archivos                            |
 | `pnpm typecheck`             | Comprueba tipos del frontend y pruebas incluidas                       |
 | `pnpm test`                  | Ejecuta pruebas unitarias y de API sin requerir PostgreSQL             |
+| `pnpm test:e2e`              | Playwright: escritorio, Mobile-M y Mobile-L con API simulada           |
+| `pnpm test:e2e:ui`           | Abre el runner interactivo de Playwright                               |
 | `pnpm build`                 | Compila frontend y backend                                             |
 | `pnpm --dir backend test:db` | Ejecuta pruebas opcionales con `TEST_DATABASE_URL` aislada             |
 
@@ -201,6 +205,8 @@ La documentación interactiva está en `/api/docs/`; el contrato OpenAPI en `/ap
 | `GET`             | `/api/test-cases/{caseId}/attachments/{attachmentId}/image` | Consultar bytes de imagen autenticada                   |
 | `DELETE`          | `/api/test-cases/{caseId}/attachments/{attachmentId}`       | Eliminar un adjunto                                     |
 | `GET`, `POST`     | `/api/test-runs`                                            | Listar y crear ejecuciones                              |
+| `PATCH`, `DELETE` | `/api/test-runs/{runId}`                                    | Editar y eliminar ejecuciones autorizadas               |
+| `PATCH`           | `/api/test-runs/{runId}/results/{resultId}`                 | Registrar estado y notas por caso                       |
 | `GET`, `POST`     | `/api/tags`                                                 | Listar y crear tags del proyecto                        |
 | `PATCH`, `DELETE` | `/api/tags/{tagId}`                                         | Editar o eliminar un tag y sus asignaciones             |
 | `GET`, `POST`     | `/api/evidence`                                             | Listar evidencias o registrar metadatos                 |
