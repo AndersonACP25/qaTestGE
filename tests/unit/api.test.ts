@@ -86,6 +86,7 @@ describe("frontend API client without network", () => {
   it("maps persisted quantities and reference arrays for the tables", () => {
     expect(
       toRun({
+        results: [],
         id: "RUN-001",
         projectId: "1",
         title: "Run",

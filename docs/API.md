@@ -7,7 +7,7 @@ SwaggerUI: `http://localhost:3000/api/docs/`. OpenAPI 3.0.3: `GET /api/openapi.j
 - Base local: `http://localhost:3000/api`. JSON de hasta `1mb`.
 - PostgreSQL `qa_test_ge`, esquema `qa`; configuración en `backend/.env` mediante `DATABASE_URL`.
 - `GET /health` comprueba conexión: 200 con `{"data":{"status":"ok","database":"postgresql"}}` o 503 con `DATABASE_UNAVAILABLE`.
-- Hay autenticación y autorización por proyecto. No hay paginación. Los casos de prueba tienen CRUD; los bugs permiten edición y cambio de estado; las evidencias permiten edición/eliminación de metadatos y subida/descarga de archivos privados de hasta 2 MiB. Las ejecuciones no tienen operaciones de edición/eliminación.
+- Hay autenticación y autorización por proyecto. No hay paginación. Los casos de prueba y ejecuciones tienen CRUD; los bugs permiten edición y cambio de estado; las evidencias permiten edición/eliminación de metadatos y subida/descarga de archivos privados de hasta 2 MiB. Las ejecuciones permiten registrar resultados por caso, completar y reabrir.
 - CORS usa `FRONTEND_ORIGIN`, o su alias `CORS_ORIGIN`, por defecto `http://localhost:5173`.
 - Los IDs bigint de proyecto y organización se envían como **strings decimales**, sin conversión a Number. Máximo: `9223372036854775807`.
 - Los recursos conservan prefijos (`BUG-001`, `TC-001`, `RUN-001`, `EVD-001`); no se recortan IDs de más de tres dígitos. `RES-001` referencia un resultado de ejecución.
@@ -29,6 +29,8 @@ SwaggerUI: `http://localhost:3000/api/docs/`. OpenAPI 3.0.3: `GET /api/openapi.j
 | GET           | `/test-cases/{caseId}/attachments/{attachmentId}/image` | Consultar una imagen autenticada                                   |
 | DELETE        | `/test-cases/{caseId}/attachments/{attachmentId}`       | Eliminar un adjunto                                                |
 | GET, POST     | `/test-runs`                                            | 200: colección / 201: ejecución con casos reales                   |
+| PATCH, DELETE | `/test-runs/{runId}`                                    | Editar ejecución / eliminar sin evidencias vinculadas              |
+| PATCH         | `/test-runs/{runId}/results/{resultId}`                 | Registrar resultado y notas; devuelve ejecución actualizada        |
 | GET, POST     | `/tags?projectId=1`                                     | Listar y crear tags dentro del proyecto                            |
 | PATCH, DELETE | `/tags/{tagId}`                                         | Actualizar o eliminar un tag; DELETE también requiere projectId    |
 | GET, POST     | `/evidence`                                             | 200: colección / 201: metadatos y vínculo opcional                 |
@@ -41,6 +43,14 @@ SwaggerUI: `http://localhost:3000/api/docs/`. OpenAPI 3.0.3: `GET /api/openapi.j
 Las colecciones usan `{"data":[...]}`; las creaciones `{"data":{...}}`. Las listas de recursos admiten `?projectId=1`; omitir el filtro devuelve únicamente recursos de los proyectos autorizados para la cuenta. Orden por ID descendente, salvo proyectos (ascendente). Para seleccionar un proyecto existente, consultar primero `/projects`. No se crean proyectos u organizaciones automáticamente.
 
 ## Autenticación y autorización
+
+### Ejecuciones en 1.1.0
+
+`PATCH /test-runs/RUN-001` requiere `{ projectId, title, owner, caseIds, status }` y admite `tagIds`. Estado: `En curso` o `Completado`. Se conservan los resultados y snapshots de los casos mantenidos y se crean snapshots para los nuevos. Se rechazan referencias a otros proyectos y la retirada de resultados con evidencias (`409 RUN_REFERENCED`). Completar exige al menos un caso y todos sus resultados registrados (`409 RUN_INCOMPLETE`). Cambiar a `En curso` permite reabrir.
+
+`PATCH /test-runs/RUN-001/results/RES-001` requiere `{ projectId, status, notes }`. Estados: `passed`, `failed`, `blocked`, `skipped`; notas de hasta 10000 caracteres. Actualiza `executedAt` y devuelve la ejecución con `results`. Los resultados incluyen ID, `caseId`, título actual del caso, estado, notas y pasos conservados en `steps`. Un `executedAt: null` significa pendiente; un Omitido registrado cuenta como ejecutado. El progreso es el porcentaje de resultados registrados, no el de aprobados. Una ejecución completada rechaza cambios de resultado (`409 RUN_COMPLETED`) hasta reabrirse.
+
+`DELETE /test-runs/RUN-001?projectId=1`, con cuerpo `{}`, devuelve 204. Elimina resultados y tags de la ejecución, conserva los casos y rechaza evidencias vinculadas a la ejecución o a sus resultados (`409 RUN_REFERENCED`). Las tres operaciones requieren sesión y CSRF; recurso no disponible devuelve 404. No requieren migraciones nuevas.
 
 | Método             | Ruta                               | Entrada / respuesta                                                                                                                                     |
 | ------------------ | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |

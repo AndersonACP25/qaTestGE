@@ -22,6 +22,9 @@ const repo = {
   deleteCaseAttachment: vi.fn<Repository["deleteCaseAttachment"]>(),
   listRuns: vi.fn<Repository["listRuns"]>(),
   createRun: vi.fn<Repository["createRun"]>(),
+  updateRun: vi.fn<Repository["updateRun"]>(),
+  deleteRun: vi.fn<Repository["deleteRun"]>(),
+  updateRunResult: vi.fn<Repository["updateRunResult"]>(),
   listEvidence: vi.fn<Repository["listEvidence"]>(),
   createEvidence: vi.fn<Repository["createEvidence"]>(),
   updateEvidence: vi.fn<Repository["updateEvidence"]>(),
@@ -36,6 +39,90 @@ const repo = {
 const app = createApp(repo, testAuth);
 const signed = () =>
   request.agent(app).set("Cookie", `qa_session=${testToken}`).set("X-CSRF-Token", testCsrf);
+it("edita y elimina ejecuciones y registra resultados con proyecto y validación", async () => {
+  const run = {
+    id: "RUN-001",
+    projectId: "1",
+    title: "Regresión",
+    owner: "QA",
+    caseIds: ["TC-001"],
+    caseCount: 1,
+    progress: 100,
+    status: "En curso" as const,
+    createdAt: "2026-01-01Z",
+    tagIds: [],
+    results: [],
+  };
+  const input = {
+    projectId: "1",
+    title: "Regresión",
+    owner: "QA",
+    caseIds: ["TC-001"],
+    status: "En curso",
+  };
+  repo.updateRun.mockResolvedValue(run);
+  expect((await signed().patch("/api/test-runs/RUN-001").send(input)).status).toBe(200);
+  expect(repo.updateRun).toHaveBeenCalledWith("1", "1", {
+    title: "Regresión",
+    owner: "QA",
+    caseIds: ["TC-001"],
+    status: "En curso",
+  });
+  expect(
+    (
+      await signed()
+        .patch("/api/test-runs/RUN-001")
+        .send({ ...input, status: "Inventado" })
+    ).status,
+  ).toBe(400);
+  expect(
+    (
+      await signed()
+        .patch("/api/test-runs/RUN-001")
+        .send({ ...input, caseIds: ["TC-001", "TC-01"] })
+    ).status,
+  ).toBe(400);
+  repo.updateRunResult.mockResolvedValue(run);
+  expect(
+    (
+      await signed()
+        .patch("/api/test-runs/RUN-001/results/RES-001")
+        .send({ projectId: "1", status: "passed", notes: "Verificado" })
+    ).status,
+  ).toBe(200);
+  expect(repo.updateRunResult).toHaveBeenCalledWith("1", "1", "1", {
+    status: "passed",
+    notes: "Verificado",
+  });
+  expect(
+    (
+      await signed()
+        .patch("/api/test-runs/RUN-001/results/RES-001")
+        .send({ projectId: "1", status: "other", notes: "" })
+    ).status,
+  ).toBe(400);
+  repo.updateRunResult.mockResolvedValue(null);
+  expect(
+    (
+      await signed()
+        .patch("/api/test-runs/RUN-001/results/RES-002")
+        .send({ projectId: "1", status: "passed", notes: "" })
+    ).status,
+  ).toBe(404);
+  repo.deleteRun.mockResolvedValue(true);
+  expect((await signed().delete("/api/test-runs/RUN-001?projectId=1").send({})).status).toBe(204);
+  expect(repo.deleteRun).toHaveBeenCalledWith("1", "1");
+  expect((await signed().delete("/api/test-runs/RUN-001").send({})).status).toBe(400);
+  expect((await request(app).patch("/api/test-runs/RUN-001").send(input)).status).toBe(401);
+  expect(
+    (
+      await request(app)
+        .patch("/api/test-runs/RUN-001")
+        .set("Cookie", `qa_session=${testToken}`)
+        .send(input)
+    ).status,
+  ).toBe(403);
+});
 const bug = {
   id: "BUG-001",
   projectId: "1",

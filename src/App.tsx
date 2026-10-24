@@ -1,3 +1,5 @@
+import TestRunDialog from "./views/TestRunDialog";
+import { version } from "../package.json";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent, SVGProps } from "react";
 import Alert, { type AlertTone } from "./Alert";
@@ -61,7 +63,7 @@ const navigation: {
   {
     section: "WORKSPACE",
     items: [
-      { id: "overview", label: "Resumen", icon: "grid" },
+      { id: "overview", label: "Dashboard", icon: "grid" },
       { id: "bugs", label: "Bugs", icon: "bug", count: undefined },
       { id: "cases", label: "Casos de prueba", icon: "check-square" },
       { id: "case-builder", label: "Diseñar test cases", icon: "sparkle" },
@@ -409,6 +411,7 @@ function App({
   const [mobileNav, setMobileNav] = useState(false);
   const [toast, setToast] = useState("");
   const [toastTone, setToastTone] = useState<AlertTone>("success");
+  const [runDetail, setRunDetail] = useState<TestRun | null>(null);
   const [detail, setDetail] = useState<object | null>(null);
   const [recordDetail, setRecordDetail] = useState<RecordDetail | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>();
@@ -506,7 +509,7 @@ function App({
   );
   const visibleEvidence = useMemo(() => filterEvidence(evidence, { search }), [evidence, search]);
   const pageTitle = {
-    overview: "Resumen",
+    overview: "Dashboard",
     bugs: "Bugs",
     cases: "Casos de prueba",
     runs: "Test runs",
@@ -605,6 +608,7 @@ function App({
     }
   }
   function editCase(testCase: TestCase) {
+    setRecordDetail(null);
     setFormError("");
     setCaseImageFiles([]);
     setEditingCase(testCase);
@@ -1052,11 +1056,23 @@ function App({
         <header className="topbar">
           <div className="breadcrumb">
             <button
-              className="mobile-menu icon-button"
+              className="workspace__menu-toggle icon-button"
               onClick={() => setMobileNav(true)}
               aria-label="Abrir menú"
+              aria-expanded={mobileNav}
             >
-              <span className="hamburger" />
+              <svg
+                className="workspace__menu-icon"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden="true"
+              >
+                <path d="M3 6h18M3 12h18M3 18h18" />
+              </svg>
             </button>
             <span>{project?.name ?? "Workspace"}</span>
             <span className="crumb-slash">/</span>
@@ -1083,10 +1099,10 @@ function App({
                   year: "numeric",
                 })}
               </div>
-              <h1>{activePage === "overview" ? `Hola, ${user.name}` : pageTitle}</h1>
+              <h1>{pageTitle}</h1>
               <p className="page-subtitle">{pageDescription(activePage)}</p>
             </div>
-            {!["case-builder", "settings", "tags"].includes(activePage) && (
+            {!["overview", "case-builder", "settings", "tags"].includes(activePage) && (
               <button
                 disabled={!projectId || loading || saving || Boolean(error)}
                 className="button button-primary"
@@ -1228,7 +1244,7 @@ function App({
                 </section>
                 <section className="workspace__panel">
                   <h2>Ejecuciones recientes</h2>
-                  <RunTable items={runs.slice(0, 5)} tags={tags} onSelect={setDetail} />
+                  <RunTable items={runs.slice(0, 5)} tags={tags} onSelect={setRunDetail} />
                   {!runs.length && (
                     <p className="workspace__notice">
                       Aún no hay ejecuciones. Crea casos y agrúpalos en una ejecución.
@@ -1238,12 +1254,12 @@ function App({
               </>
             ) : isListing ? (
               <section className="listing-card">
-                <div className="listing-toolbar">
-                  <div className="listing-tabs">
+                <div className="listing-toolbar listing-filters">
+                  <div className="listing-filters__tabs">
                     {filters.map((filter) => (
                       <button
                         key={filter}
-                        className={`filter-tab${statusFilter === filter ? " filter-tab-active" : ""}`}
+                        className={`listing-filters__tab${statusFilter === filter ? " listing-filters__tab--active" : ""}`}
                         onClick={() => setStatusFilter(filter)}
                       >
                         {filter}
@@ -1281,7 +1297,7 @@ function App({
                   />
                 )}
                 {activePage === "runs" && (
-                  <RunTable items={visibleRuns} tags={tags} onSelect={setDetail} />
+                  <RunTable items={visibleRuns} tags={tags} onSelect={setRunDetail} />
                 )}
                 {activePage === "evidence" && (
                   <EvidenceTable
@@ -1302,7 +1318,9 @@ function App({
             ) : null)
           )}
           <footer className="page-footer">
-            <span>© {new Date().getFullYear()} qaTestGE</span>
+            <span>
+              © {new Date().getFullYear()} qaTestGE · v{version}
+            </span>
             <span>
               {error
                 ? "Datos no disponibles"
@@ -1776,6 +1794,22 @@ function App({
           </form>
         </Dialog>
       )}
+      {runDetail && (
+        <TestRunDialog
+          key={runDetail.id}
+          run={runDetail}
+          cases={cases}
+          onClose={() => setRunDetail(null)}
+          onChanged={(updated) => {
+            setRunDetail(updated);
+            setRevision((current) => current + 1);
+          }}
+          onDeleted={() => {
+            setRunDetail(null);
+            setRevision((current) => current + 1);
+          }}
+        />
+      )}
       {recordDetail && (
         <RecordDetailsDialog
           detail={recordDetail}
@@ -2146,8 +2180,8 @@ function BugTable({
   compact?: boolean;
 }) {
   return (
-    <div className={`table-scroll${compact ? " table-compact" : ""}`}>
-      <table>
+    <div className={`workspace-table__scroll${compact ? " table-compact" : ""}`}>
+      <table className="workspace-table__table">
         <thead>
           <tr>
             <th>BUG ID</th>
@@ -2162,18 +2196,18 @@ function BugTable({
         <tbody>
           {bugs.map((bug) => (
             <tr key={bug.id} onClick={() => onSelect(bug)}>
-              <td>
+              <td data-label="BUG ID">
                 <span className="id-text">{bug.id}</span>
               </td>
-              <td>
+              <td data-label="TÍTULO">
                 <span className="bug-title">{bug.title}</span>
                 <span className="table-project">{bug.project}</span>
                 <TagBadges ids={bug.tagIds ?? []} tags={tags} />
               </td>
-              <td>
+              <td data-label="PRIORIDAD">
                 <Priority level={bug.priority} />
               </td>
-              <td>
+              <td data-label="ESTADO">
                 {" "}
                 <StatusControl
                   label={bug.id}
@@ -2183,14 +2217,16 @@ function BugTable({
                   onChange={(status) => onStatusChange(bug, status)}
                 />
               </td>
-              <td>
+              <td data-label="ASIGNADO">
                 <span className="assignee">
                   <Avatar initials={bug.assignee} color={bug.color} small />
                   <span>{bug.assignee}</span>
                 </span>
               </td>
-              <td className="muted-cell">{bug.updated}</td>
-              <td>
+              <td data-label="CREADO" className="muted-cell">
+                {bug.updated}
+              </td>
+              <td data-label="Acciones">
                 <button
                   className="row-more"
                   aria-label={`Exportar ${bug.id}`}
@@ -2226,8 +2262,8 @@ function CaseTable({
   updatingStatus: string;
 }) {
   return (
-    <div className="table-scroll">
-      <table>
+    <div className="workspace-table__scroll">
+      <table className="workspace-table__table">
         <thead>
           <tr>
             <th>CASO ID</th>
@@ -2241,17 +2277,17 @@ function CaseTable({
         <tbody>
           {items.map((item) => (
             <tr key={item.id} onClick={() => onSelect(item)}>
-              <td>
+              <td data-label="CASO ID">
                 <span className="id-text">{item.id}</span>
               </td>
-              <td>
+              <td data-label="NOMBRE DEL CASO">
                 <span className="bug-title">{item.title}</span>
                 <TagBadges ids={item.tagIds ?? []} tags={tags} />
               </td>
-              <td>
+              <td data-label="SUITE">
                 <span className="suite-badge">{item.suite || "—"}</span>
               </td>
-              <td>
+              <td data-label="ESTADO">
                 <StatusControl
                   label={item.id}
                   status={item.status}
@@ -2260,8 +2296,10 @@ function CaseTable({
                   onChange={(status) => onStatusChange(item, status)}
                 />
               </td>
-              <td className="muted-cell">{item.updated}</td>
-              <td>
+              <td data-label="CREADO" className="muted-cell">
+                {item.updated}
+              </td>
+              <td data-label="Acciones">
                 <button
                   className="row-more"
                   aria-label={`Exportar ${item.id}`}
@@ -2291,8 +2329,8 @@ function RunTable({
   onSelect: (item: TestRun) => void;
 }) {
   return (
-    <div className="table-scroll">
-      <table>
+    <div className="workspace-table__scroll">
+      <table className="workspace-table__table">
         <thead>
           <tr>
             <th>RUN ID</th>
@@ -2307,15 +2345,25 @@ function RunTable({
         <tbody>
           {items.map((item) => (
             <tr key={item.id} onClick={() => onSelect(item)}>
-              <td>
+              <td data-label="RUN ID">
                 <span className="id-text">{item.id}</span>
               </td>
-              <td>
-                <span className="bug-title">{item.title}</span>
+              <td data-label="NOMBRE DE EJECUCIÓN">
+                <button
+                  className="workspace-table__open"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onSelect(item);
+                  }}
+                >
+                  {item.title}
+                </button>
                 <TagBadges ids={item.tagIds ?? []} tags={tags} />
               </td>
-              <td className="muted-cell">{item.cases}</td>
-              <td>
+              <td data-label="CASOS" className="muted-cell">
+                {item.cases}
+              </td>
+              <td data-label="PROGRESO">
                 <div className="table-progress">
                   <span>
                     <i style={{ width: `${item.progress}%` }} />
@@ -2323,11 +2371,13 @@ function RunTable({
                   {item.progress}%
                 </div>
               </td>
-              <td>
+              <td data-label="ESTADO">
                 <StatusBadge status={item.status} />
               </td>
-              <td className="muted-cell">{item.owner}</td>
-              <td>
+              <td data-label="RESPONSABLE" className="muted-cell">
+                {item.owner}
+              </td>
+              <td data-label="Acciones">
                 <button className="row-more" aria-label={`Más opciones para ${item.id}`}>
                   <Icon name="dots" size={18} />
                 </button>
@@ -2350,8 +2400,8 @@ function EvidenceTable({
   onActions: (item: Evidence) => void;
 }) {
   return (
-    <div className="table-scroll">
-      <table>
+    <div className="workspace-table__scroll">
+      <table className="workspace-table__table">
         <thead>
           <tr>
             <th>NOMBRE</th>
@@ -2365,7 +2415,7 @@ function EvidenceTable({
         <tbody>
           {items.map((item) => (
             <tr key={item.id} onClick={() => onSelect(item)}>
-              <td>
+              <td data-label="NOMBRE">
                 <span className="evidence-name">
                   <span className="evidence-file">
                     <Icon name="file" size={17} />
@@ -2378,15 +2428,19 @@ function EvidenceTable({
                   </span>
                 </span>
               </td>
-              <td>
+              <td data-label="TIPO">
                 <span className="suite-badge">{item.type}</span>
               </td>
-              <td>
+              <td data-label="VINCULADO A">
                 <span className="id-text">{item.related}</span>
               </td>
-              <td className="muted-cell">{item.size}</td>
-              <td className="muted-cell">{item.date}</td>
-              <td>
+              <td data-label="TAMAÑO" className="muted-cell">
+                {item.size}
+              </td>
+              <td data-label="FECHA" className="muted-cell">
+                {item.date}
+              </td>
+              <td data-label="Acciones">
                 <button
                   type="button"
                   className="row-more"

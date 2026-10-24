@@ -6,7 +6,11 @@ import type {
   CreateTestCaseInput,
   UpdateTestCaseInput,
 } from "../models/test-case.model.js";
-import type { CreateTestRunInput } from "../models/test-run.model.js";
+import type {
+  CreateTestRunInput,
+  UpdateTestRunInput,
+  UpdateRunResultInput,
+} from "../models/test-run.model.js";
 import type {
   CreateEvidenceInput,
   EvidenceFile,
@@ -97,6 +101,23 @@ export class AuthorizedRepository implements Repository {
   async createRun(input: CreateTestRunInput) {
     await this.projectIds(input.projectId);
     return this.base.createRun(input);
+  }
+  async updateRun(id: string, projectId: string, input: UpdateTestRunInput) {
+    await this.projectIds(projectId);
+    return this.base.updateRun(id, projectId, input);
+  }
+  async deleteRun(id: string, projectId: string) {
+    await this.projectIds(projectId);
+    return this.base.deleteRun(id, projectId);
+  }
+  async updateRunResult(
+    id: string,
+    resultId: string,
+    projectId: string,
+    input: UpdateRunResultInput,
+  ) {
+    await this.projectIds(projectId);
+    return this.base.updateRunResult(id, resultId, projectId, input);
   }
   async createEvidence(input: CreateEvidenceInput) {
     await this.projectIds(input.projectId);
