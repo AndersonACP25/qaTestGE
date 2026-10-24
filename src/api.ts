@@ -97,6 +97,42 @@ export class ApiError extends Error {
     super(message);
   }
 }
+export function httpErrorMessage(status: number): string {
+  const messages: Record<number, string> = {
+    "400": "La solicitud no es válida. Revisa los datos.",
+    "401": "Inicia sesión para continuar.",
+    "403": "No tienes permiso para realizar esta operación.",
+    "404": "No se encontró el recurso solicitado.",
+    "408": "La solicitud tardó demasiado. Inténtalo de nuevo.",
+    "409": "Los datos entran en conflicto con un registro existente.",
+    "413": "El archivo o la solicitud supera el tamaño permitido.",
+    "415": "El formato enviado no está permitido.",
+    "422": "Revisa los datos antes de continuar.",
+    "429": "Demasiadas solicitudes. Espera un momento antes de reintentar.",
+    "500": "Ocurrió un error interno. Inténtalo de nuevo más tarde.",
+    "502": "No se pudo contactar con la API. Comprueba que el backend está iniciado.",
+    "503": "El servicio no está disponible. Inténtalo de nuevo más tarde.",
+    "504": "La API tardó demasiado en responder. Inténtalo de nuevo.",
+  };
+  return messages[status] ?? "No se pudo completar la operación.";
+}
+async function responseError(response: Response): Promise<ApiError> {
+  let body;
+  try {
+    body = await response.json();
+  } catch {
+    /* El proxy puede devolver texto o HTML. */
+  }
+  const error = body?.error;
+  const code = typeof error?.code === "string" ? error.code : "API_ERROR";
+  const message =
+    typeof error?.message === "string" && error.message.trim()
+      ? error.message
+      : httpErrorMessage(response.status);
+  if (response.status === 401 && code === "UNAUTHENTICATED")
+    window.dispatchEvent(new Event("qa:unauthorized"));
+  return new ApiError(message, response.status, code);
+}
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers);
   if (
@@ -119,6 +155,7 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
       "NETWORK_ERROR",
     );
   }
+  if (!response.ok) throw await responseError(response);
   if (response.status === 204) return undefined as T;
   let body;
   try {
@@ -128,15 +165,6 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
       `La API devolvió una respuesta no válida (HTTP ${response.status}). Comprueba que el backend esté iniciado y PostgreSQL disponible.`,
       response.status,
       "INVALID_RESPONSE",
-    );
-  }
-  if (!response.ok) {
-    if (response.status === 401 && body.error?.code === "UNAUTHENTICATED")
-      window.dispatchEvent(new Event("qa:unauthorized"));
-    throw new ApiError(
-      body.error?.message ?? "No se pudo completar la operación.",
-      response.status,
-      body.error?.code ?? "API_ERROR",
     );
   }
   return body.data as T;
@@ -196,16 +224,7 @@ export async function downloadEvidenceFile(id: string, projectId: string, fileNa
   } catch {
     throw new Error("No se pudo conectar con la API para descargar el archivo.");
   }
-  if (!response.ok) {
-    let message = "No se pudo descargar el archivo de evidencia.";
-    try {
-      const body = await response.json();
-      message = body.error?.message ?? message;
-    } catch {
-      throw new Error(message);
-    }
-    throw new Error(message);
-  }
+  if (!response.ok) throw await responseError(response);
   const objectUrl = URL.createObjectURL(await response.blob());
   const link = document.createElement("a");
   link.href = objectUrl;

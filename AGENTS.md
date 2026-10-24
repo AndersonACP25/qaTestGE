@@ -6,6 +6,8 @@ qaTestGE es una plataforma para gestionar bugs, casos de prueba, ejecuciones y e
 
 ## Reglas de trabajo
 
+- Captura errores asíncronos con try/catch o captura equivalente; Express 5 los propaga al middleware central. Conserva el código HTTP y devuelve mensajes seguros para 400, 401, 403, 404, 409, 413, 422, 429 y 5xx. Usa el cliente API central y el componente `Alert` para mostrar errores en frontend, sin trazas ni credenciales. Un 401 al comprobar sesión sin autenticar es esperado.
+
 - Mantén las entidades de bugs, casos de prueba, ejecuciones y evidencias relacionadas mediante identificadores y referencias explícitas.
 - Trata la IA como una capacidad opcional detrás de una interfaz de proveedor. La aplicación debe seguir siendo útil cuando la IA no esté configurada o no esté disponible.
 - La IA propone contenido; una persona debe revisar y confirmar cualquier cambio en datos del proyecto. No envíes evidencias, credenciales ni datos sensibles a un proveedor sin una decisión explícita del usuario y controles de privacidad.
@@ -14,7 +16,7 @@ qaTestGE es una plataforma para gestionar bugs, casos de prueba, ejecuciones y e
 - Valida cambios TypeScript con `pnpm typecheck`, frontend y backend con `pnpm build`, pruebas con `pnpm test`, lint con `pnpm lint` y formato con `pnpm format:check`.
 - Para cada paquete de cambios, inspecciona el estado de Git, crea una rama de trabajo dedicada, valida y crea un commit en español con formato Conventional Commits: `<tipo>(ámbito opcional): descripción`. No publiques la rama salvo que el usuario lo solicite.
 - Divide los cambios en commits pequeños y coherentes, uno por capacidad o área revisable; evita mezclar funcionalidades independientes.
-- Usa tipos claros en commits como `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `build` o `chore`.
+- Usa tipos claros en commits como `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `build` o `chore`. Ademas agrega mediante una lista desordenada los cambios implementados
 - Para el frontend, nombra clases CSS nuevas y modificadas siguiendo BEM: `bloque__elemento--modificador`. Mantén los estilos encapsulados en el bloque del componente y evita selectores globales para detalles internos.
 - Añade pruebas unitarias en `tests/unit/` con Vitest. Las pruebas deben ser deterministas y no depender de un backend, red ni servicios externos.
 - Las skills reutilizables de OpenCode viven en `.opencode/skills/<nombre>/SKILL.md`; respeta el frontmatter requerido por OpenCode y las reglas de IA de `docs/architecture.md`.
