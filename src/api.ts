@@ -248,6 +248,12 @@ export async function updateTestCase(
     }),
   );
 }
+export async function deleteBug(id: string, projectId: string) {
+  return api<void>(`/bugs/${encodeURIComponent(id)}?projectId=${encodeURIComponent(projectId)}`, {
+    method: "DELETE",
+    body: JSON.stringify({}),
+  });
+}
 export async function deleteTestCase(id: string, projectId: string) {
   return api<void>(
     `/test-cases/${encodeURIComponent(id)}?projectId=${encodeURIComponent(projectId)}`,

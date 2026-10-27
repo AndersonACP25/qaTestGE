@@ -13,6 +13,15 @@ import { HttpError } from "../http-error.js";
 export async function listBugs(request: Request, response: Response) {
   response.json({ data: await repository(request).listBugs(projectFilter(request)) });
 }
+export async function deleteBug(request: Request, response: Response) {
+  const id = parseReference(request.params.bugId, "BUG");
+  const projectId = projectFilter(request);
+  if (!id || !projectId)
+    throw new HttpError(400, "INVALID_BUG", "Se requiere un bug y proyecto válidos.");
+  if (!(await repository(request).deleteBug(id, projectId)))
+    throw new HttpError(404, "BUG_NOT_FOUND", "No se encontró el bug en el proyecto indicado.");
+  response.status(204).end();
+}
 export async function createBug(request: Request, response: Response) {
   const body: unknown = request.body;
   if (!isCreateBugInput(body)) {

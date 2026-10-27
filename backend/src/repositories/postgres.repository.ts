@@ -192,6 +192,29 @@ export class PostgresRepository implements Repository {
       return result.rows[0] ? bug(result.rows[0]) : null;
     });
   }
+  async deleteBug(id: string, projectId: string) {
+    try {
+      const result = await this.pool.query("DELETE FROM qa.bugs WHERE id=$1 AND project_id=$2", [
+        id,
+        projectId,
+      ]);
+      return result.rowCount === 1;
+    } catch (error) {
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        error.code === "23503"
+      ) {
+        throw new HttpError(
+          409,
+          "BUG_IN_USE",
+          "El bug tiene casos o evidencias vinculadas; no se puede eliminar.",
+        );
+      }
+      throw error;
+    }
+  }
   async listCases(projectId?: string) {
     const { rows } = await this.pool.query<Row>(
       `${casesSql} ${projectId ? "WHERE c.project_id=$1" : ""} ORDER BY c.id DESC`,

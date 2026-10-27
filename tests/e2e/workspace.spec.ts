@@ -28,6 +28,32 @@ test("Dashboard y listados sin desbordamiento en ambos temas", async ({ page }, 
   }
 });
 
+test("las acciones de las tablas caben sin recortar sus botones", async ({ page }, testInfo) => {
+  const widths =
+    testInfo.project.name === "desktop"
+      ? [1024, 1180, 1440]
+      : [testInfo.project.use.viewport!.width];
+  for (const width of widths) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const name of ["Dashboard", "Bugs", "Casos de prueba"]) {
+      await navigate(page, name);
+      await noHorizontalOverflow(page);
+      const actions = page.locator(".workspace-table__actions button");
+      expect(await actions.count()).toBeGreaterThan(0);
+      const clipped = await actions.evaluateAll((buttons) =>
+        buttons.some((button) => {
+          const cell = button.closest("td");
+          if (!cell) return true;
+          const rect = button.getBoundingClientRect();
+          const cellRect = cell.getBoundingClientRect();
+          return button.scrollWidth > button.clientWidth + 1 || rect.right > cellRect.right + 1;
+        }),
+      );
+      expect(clipped).toBe(false);
+    }
+  }
+});
+
 test("crear y editar un caso conserva todos los pasos y un solo modal", async ({
   page,
   workspace,

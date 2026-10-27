@@ -373,6 +373,20 @@ export const openApiDocument = {
       },
     },
     "/api/bugs/{bugId}": {
+      delete: {
+        security: [{ sessionCookie: [], csrfToken: [] }],
+        summary: "Eliminar un bug sin casos ni evidencias vinculados",
+        parameters: [
+          { in: "path", name: "bugId", required: true, schema: { type: "string" } },
+          { in: "query", name: "projectId", required: true, schema: { type: "string" } },
+        ],
+        responses: {
+          "204": { description: "Bug eliminado" },
+          "400": errorResponse("INVALID_BUG"),
+          "404": errorResponse("BUG_NOT_FOUND o PROJECT_NOT_FOUND"),
+          "409": errorResponse("BUG_IN_USE"),
+        },
+      },
       patch: {
         security: [{ sessionCookie: [], csrfToken: [] }],
         summary: "Actualizar los datos de un bug en un proyecto autorizado",
