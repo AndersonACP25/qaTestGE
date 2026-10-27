@@ -107,7 +107,17 @@ export const test = base.extend<{
             tagIds: [],
           },
         ];
-      else if (path === "/evidence" && method === "GET")
+      else if (path === "/bugs" && method === "POST") {
+        data = {
+          ...body,
+          id: "BUG-002",
+          project: "Proyecto QA",
+          status: "Abierto",
+          createdAt,
+          tagIds: [],
+        };
+        status = 201;
+      } else if (path === "/evidence" && method === "GET")
         data = [
           {
             id: "EVD-001",

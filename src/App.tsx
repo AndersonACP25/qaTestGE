@@ -407,6 +407,9 @@ function App({
   const [evidenceRelatedChanged, setEvidenceRelatedChanged] = useState(false);
   const [caseSteps, setCaseSteps] = useState([{ action: "", expectedResult: "" }]);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [assigneeUserId, setAssigneeUserId] = useState("");
+  const [teamMembers, setTeamMembers] = useState<{ id: string; name: string }[]>([]);
+  const [teamMemberError, setTeamMemberError] = useState("");
   const [editingCase, setEditingCase] = useState<TestCase | null>(null);
   const [caseImageFiles, setCaseImageFiles] = useState<File[]>([]);
   const [caseImageDragging, setCaseImageDragging] = useState(false);
@@ -427,6 +430,27 @@ function App({
   const [recordDetail, setRecordDetail] = useState<RecordDetail | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>();
   const project = projects.find((p) => p.id === projectId);
+  useEffect(() => {
+    if (!project?.organizationId) {
+      setTeamMembers([]);
+      return;
+    }
+    const abort = new AbortController();
+    setTeamMembers([]);
+    setTeamMemberError("");
+    void api<{ id: string; name: string }[]>(
+      `/teams/${encodeURIComponent(project.organizationId)}/members`,
+      { signal: abort.signal },
+    )
+      .then(setTeamMembers)
+      .catch((cause: unknown) => {
+        if (!abort.signal.aborted)
+          setTeamMemberError(
+            cause instanceof Error ? cause.message : "No se pudieron cargar los integrantes.",
+          );
+      });
+    return () => abort.abort();
+  }, [project?.organizationId]);
   const { bugs, cases, runs, evidence } = data;
   useEffect(() => () => clearTimeout(toastTimer.current), []);
   useEffect(() => {
@@ -546,6 +570,7 @@ function App({
   }
   function openModal(value: string) {
     setFormError("");
+    setAssigneeUserId("");
     setEditingBug(null);
     setEditingEvidence(null);
     setEditingCase(null);
@@ -570,12 +595,13 @@ function App({
     setModal(value);
   }
   function editBug(bug: Bug) {
+    setAssigneeUserId(bug.assigneeUserId ?? "");
     setBugForm({
       title: bug.title,
       description: bug.description ?? "",
       priority: bug.priority,
       status: bug.status,
-      assignee: bug.assignee === "—" ? "" : bug.assignee,
+      assignee: bug.assigneeUserId || bug.assignee === "—" ? "" : bug.assignee,
     });
     setEditingBug(bug);
     setSelectedTagIds(bug.tagIds ?? []);
@@ -622,6 +648,7 @@ function App({
     }
   }
   function editCase(testCase: TestCase) {
+    setAssigneeUserId(testCase.assigneeUserId ?? "");
     setRecordDetail(null);
     setFormError("");
     setCaseImageFiles([]);
@@ -701,6 +728,7 @@ function App({
           priority: bugForm.priority,
           status: bugForm.status,
           assignee: bugForm.assignee.trim() || null,
+          assigneeUserId: assigneeUserId || null,
           tagIds: selectedTagIds,
         });
         setModal("");
@@ -793,6 +821,7 @@ function App({
         preconditions: String(form.get("preconditions") ?? ""),
         steps: steps.filter((step) => step.action && step.expectedResult),
         tagIds: selectedTagIds,
+        assigneeUserId: assigneeUserId || null,
       };
       body = { projectId, ...caseInput };
     } else if (modal === "run") {
@@ -871,6 +900,7 @@ function App({
           description: bugForm.description,
           priority: bugForm.priority,
           assignee: bugForm.assignee.trim() || null,
+          assigneeUserId: assigneeUserId || null,
           tagIds: selectedTagIds,
         });
       } else if (modal === "evidence") {
@@ -1540,7 +1570,7 @@ function App({
                         </select>
                       </label>
                       <label className="workspace__field">
-                        Responsable
+                        Responsable anterior (texto)
                         <input
                           name="assignee"
                           value={bugForm.assignee}
@@ -1552,6 +1582,32 @@ function App({
                       </label>
                     </>
                   )}
+                </>
+              )}
+              {["bug", "edit-bug", "case", "edit-case"].includes(modal) && (
+                <>
+                  {teamMemberError && <Alert tone="error">{teamMemberError}</Alert>}
+                  <label className="workspace__field">
+                    Responsable QA
+                    <select
+                      value={assigneeUserId}
+                      onChange={(event) => setAssigneeUserId(event.target.value)}
+                      disabled={Boolean(teamMemberError)}
+                    >
+                      <option value="">Sin asignar</option>
+                      {assigneeUserId &&
+                        !teamMembers.some((member) => member.id === assigneeUserId) && (
+                          <option value={assigneeUserId}>
+                            Responsable inactivo o no disponible
+                          </option>
+                        )}
+                      {teamMembers.map((member) => (
+                        <option key={member.id} value={member.id}>
+                          {member.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 </>
               )}
               {(modal === "case" || modal === "edit-case") && (
@@ -1869,7 +1925,15 @@ function App({
               >
                 Cancelar
               </button>
-              <button type="submit" disabled={saving} className="button button-primary">
+              <button
+                type="submit"
+                disabled={
+                  saving ||
+                  (Boolean(teamMemberError) &&
+                    ["bug", "edit-bug", "case", "edit-case"].includes(modal))
+                }
+                className="button button-primary"
+              >
                 {saving
                   ? "Guardando…"
                   : ["edit-case", "edit-bug", "edit-evidence"].includes(modal)
@@ -2415,6 +2479,7 @@ function CaseTable({
             <th>CASO ID</th>
             <th>NOMBRE DEL CASO</th>
             <th>SUITE</th>
+            <th>RESPONSABLE</th>
             <th>ESTADO</th>
             <th>CREADO</th>
             <th>ACCIONES</th>
@@ -2433,6 +2498,7 @@ function CaseTable({
               <td data-label="SUITE">
                 <span className="suite-badge">{item.suite || "—"}</span>
               </td>
+              <td data-label="RESPONSABLE">{item.assigneeName || "Sin asignar"}</td>
               <td data-label="ESTADO">
                 <StatusControl
                   label={item.id}

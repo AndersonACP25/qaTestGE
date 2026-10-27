@@ -65,6 +65,7 @@ test("crear y editar un caso conserva todos los pasos y un solo modal", async ({
   await dialog
     .getByRole("textbox", { name: "Título", exact: true })
     .fill("Caso con todos los pasos");
+  await dialog.getByLabel("Responsable QA").selectOption("1");
   await dialog.getByRole("textbox", { name: "Acción", exact: true }).fill("Paso uno");
   await dialog
     .getByRole("textbox", { name: "Resultado esperado", exact: true })
@@ -78,9 +79,12 @@ test("crear y editar un caso conserva todos los pasos y un solo modal", async ({
   await dialog.getByRole("button", { name: "Guardar", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   expect(workspace.cases.at(-1)?.steps).toHaveLength(2);
+  expect(workspace.cases.at(-1)?.assigneeUserId).toBe("1");
   await page.getByText("Caso con todos los pasos", { exact: true }).click();
   await page.getByRole("button", { name: "Editar caso", exact: true }).click();
   await expect(page.getByRole("dialog")).toHaveCount(1);
+  await expect(page.getByLabel("Responsable QA")).toHaveValue("1");
+  await page.getByLabel("Responsable QA").selectOption("");
   await expect(page.getByRole("textbox", { name: "Acción", exact: true })).toHaveCount(2);
   await noHorizontalOverflow(page);
   await page
@@ -93,6 +97,18 @@ test("crear y editar un caso conserva todos los pasos y un solo modal", async ({
     "Paso uno",
     "Segundo paso editado",
   ]);
+  expect(workspace.cases.at(-1)?.assigneeUserId).toBeNull();
+});
+
+test("asigna un bug a un integrante del equipo", async ({ page, workspace }) => {
+  await navigate(page, "Bugs");
+  await page.getByRole("button", { name: "Nuevo bug" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Título", { exact: true }).fill("Error asignado");
+  await dialog.getByLabel("Responsable QA").selectOption("1");
+  await dialog.getByRole("button", { name: "Guardar", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(workspace.writes.find((item) => item.path === "/bugs")?.body.assigneeUserId).toBe("1");
 });
 
 test("los registros muestran Exportar y permiten escoger formato", async ({ page }) => {

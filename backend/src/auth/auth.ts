@@ -251,13 +251,23 @@ export class PostgresAuth implements AuthProvider {
     }
   }
   async removeTeamMember(userId: string, teamId: string, memberId: string) {
-    const result = await this.pool.query(
-      `DELETE FROM qa.organization_members target WHERE target.organization_id=$2 AND target.user_id=$3 AND target.role='member'
+    try {
+      const result = await this.pool.query(
+        `DELETE FROM qa.organization_members target WHERE target.organization_id=$2 AND target.user_id=$3 AND target.role='member'
        AND EXISTS (SELECT 1 FROM qa.organization_members owner WHERE owner.organization_id=$2 AND owner.user_id=$1 AND owner.role='owner')`,
-      [userId, teamId, memberId],
-    );
-    if (!result.rowCount)
-      throw new HttpError(404, "MEMBER_NOT_FOUND", "Integrante no disponible para esta cuenta.");
+        [userId, teamId, memberId],
+      );
+      if (!result.rowCount)
+        throw new HttpError(404, "MEMBER_NOT_FOUND", "Integrante no disponible para esta cuenta.");
+    } catch (error) {
+      if (typeof error === "object" && error !== null && "code" in error && error.code === "23503")
+        throw new HttpError(
+          409,
+          "MEMBER_ASSIGNED",
+          "El integrante tiene bugs o casos asignados. Reasígnalos antes de retirarlo.",
+        );
+      throw error;
+    }
   }
   async createProject(
     userId: string,

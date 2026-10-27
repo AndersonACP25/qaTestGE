@@ -9,6 +9,8 @@ export interface TestCase {
   status: TestCaseStatus;
   createdAt: string;
   preconditions: string;
+  assigneeUserId?: string | null;
+  assigneeName?: string | null;
   steps: TestStep[];
   tagIds: string[];
 }
@@ -20,6 +22,7 @@ export interface TestStep {
 export type CreateTestCaseInput = Pick<TestCase, "title" | "projectId"> & {
   suite?: string;
   preconditions?: string;
+  assigneeUserId?: string | null;
   steps?: TestStep[];
   tagIds?: string[];
 };

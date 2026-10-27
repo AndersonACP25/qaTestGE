@@ -12,6 +12,8 @@ En Proyectos, el propietario puede crear y editar proyectos de su espacio. La el
 
 En Equipos se pueden crear espacios, renombrarlos y eliminar los que no tengan proyectos ni otros integrantes. Al crear un proyecto se elige el equipo propietario. El propietario puede compartir una invitación para dar acceso a todos los proyectos de su equipo.
 
+Los bugs y casos pueden asignarse a un integrante activo del equipo del proyecto. Para retirar un integrante es necesario reasignar o quitar primero sus responsabilidades. Los nombres de responsable guardados previamente como texto en bugs se conservan.
+
 ## Stack tecnológico
 
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)
@@ -126,7 +128,7 @@ pnpm db:migrate
 pnpm db:check
 ```
 
-`db:migrate` aplica idempotentemente las migraciones `004_authentication.sql` (usuarios, membresías y sesiones), `005_bug_templates.sql` (plantillas personales), `006_optional_test_suite.sql` (Suite opcional), `007_test_case_attachments.sql` (imágenes y enlaces de casos), `008_evidence_files.sql` (archivos privados de evidencias, hasta 2 MiB) `009_tags.sql` (tags de proyecto y asociaciones con bugs, casos y ejecuciones) y `010_team_invitations.sql` (invitaciones de un solo uso). No borra ni asigna datos existentes. `db:check` comprueba la conexión y el esquema sin modificar datos.
+`db:migrate` aplica idempotentemente las migraciones `004_authentication.sql` (usuarios, membresías y sesiones), `005_bug_templates.sql` (plantillas personales), `006_optional_test_suite.sql` (Suite opcional), `007_test_case_attachments.sql` (imágenes y enlaces de casos), `008_evidence_files.sql` (archivos privados de evidencias, hasta 2 MiB), `009_tags.sql` (tags de proyecto y asociaciones con bugs, casos y ejecuciones), `010_team_invitations.sql` (invitaciones de un solo uso) y `011_qa_assignments.sql` (asignaciones de integrantes). No borra ni asigna datos existentes. `db:check` comprueba la conexión y el esquema sin modificar datos.
 
 Si partes de una base que ya tenía el esquema inicial, **no vuelvas a importar `001_schema.sql`**: configura la conexión y ejecuta `pnpm db:migrate` y `pnpm db:check`.
 
@@ -185,7 +187,7 @@ No uses `test:db` contra una base con datos de trabajo: requiere una base de pru
 5. Ejecuta `pnpm db:migrate` y luego `pnpm db:check`.
 6. Ejecuta `pnpm typecheck`, `pnpm test` y `pnpm build` antes de reiniciar la aplicación.
 
-Las migraciones 004–010 son idempotentes. La 010 añade invitaciones por código para espacios compartidos. La 004 no asigna organizaciones o proyectos existentes a nuevos usuarios; la 005 crea la tabla de plantillas por usuario; la 006 permite Suite vacía/nula sin modificar los datos existentes; la 007 añade imágenes y enlaces de casos; la 008 añade archivos privados de evidencia; la 009 agrega tags por proyecto con asociaciones para bugs, casos y ejecuciones. No hay migración automática al arrancar; futuras modificaciones deben agregarse como migraciones versionadas. Al desactivar una cuenta desde Configuración, el usuario se anonimiza y queda inactivo, se revocan las sesiones y se eliminan sus plantillas; las membresías, proyectos y registros QA se conservan.
+Las migraciones 004–011 son idempotentes. La 011 añade asignaciones verificadas para bugs y casos. La 010 añade invitaciones por código para espacios compartidos. La 004 no asigna organizaciones o proyectos existentes a nuevos usuarios; la 005 crea la tabla de plantillas por usuario; la 006 permite Suite vacía/nula sin modificar los datos existentes; la 007 añade imágenes y enlaces de casos; la 008 añade archivos privados de evidencia; la 009 agrega tags por proyecto con asociaciones para bugs, casos y ejecuciones. No hay migración automática al arrancar; futuras modificaciones deben agregarse como migraciones versionadas. Al desactivar una cuenta desde Configuración, el usuario se anonimiza y queda inactivo, se revocan las sesiones y se eliminan sus plantillas; las membresías, proyectos y registros QA se conservan.
 
 ## API y documentación
 

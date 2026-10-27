@@ -1,5 +1,7 @@
 # Arquitectura — qaTestGE v1.0
 
+La migración 011 vincula el responsable de bugs y casos con una membresía de la organización del proyecto mediante claves foráneas compuestas. El backend comprueba que el integrante esté activo y bloquea la retirada mientras conserve asignaciones. El antiguo responsable textual de bugs se mantiene para compatibilidad.
+
 La gestión de proyectos valida en PostgreSQL que quien crea, edita o elimina sea propietario de la organización. El borrado de proyectos con referencias se rechaza; no se eliminan datos QA en cascada.
 
 La Wiki del frontend documenta el flujo implementado. Las tablas de bugs, casos y ejecuciones ofrecen acciones de edición y eliminación. El borrado de bugs utiliza la autorización por proyecto y conserva la integridad referencial: PostgreSQL rechaza la operación cuando hay casos o evidencias vinculados y la API responde con un conflicto.

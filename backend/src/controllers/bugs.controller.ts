@@ -93,6 +93,9 @@ function isCreateBugInput(input: unknown): input is CreateBugInput {
     (input.assignee === undefined ||
       input.assignee === null ||
       (typeof input.assignee === "string" && input.assignee.length <= 100)) &&
+    (input.assigneeUserId === undefined ||
+      input.assigneeUserId === null ||
+      isId(input.assigneeUserId)) &&
     validTagIds(input.tagIds)
   );
 }
@@ -112,6 +115,9 @@ function isUpdateBugInput(
     (input.assignee === undefined ||
       input.assignee === null ||
       (typeof input.assignee === "string" && input.assignee.length <= 100)) &&
+    (input.assigneeUserId === undefined ||
+      input.assigneeUserId === null ||
+      isId(input.assigneeUserId)) &&
     validTagIds(input.tagIds) &&
     (input.status === undefined || isBugStatus(input.status))
   );
