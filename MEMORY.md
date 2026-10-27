@@ -21,6 +21,7 @@
 
 - La Wiki presenta el flujo disponible y aclara los límites actuales del diseñador y la IA.
 - Las tablas de bugs, casos y ejecuciones incluyen acciones directas de edición y eliminación con confirmación. Un bug con casos o evidencias vinculadas no se puede eliminar.
+- Las acciones de tablas tienen columna suficiente y botones sin cortes; la regresión E2E verifica Dashboard y listados en escritorio y móvil.
 - La gestión de proyectos y equipos y la asignación de integrantes siguen pendientes.
 
 - CI valida pull requests y pushes a `main` y `qa-env`; artefacto solo se publica desde `main`.
