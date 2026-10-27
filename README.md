@@ -4,6 +4,8 @@
 
 > **Estado actual:** frontend React conectado a una API Express y PostgreSQL. El diseñador permite editar pasos de ejemplos ilustrativos y ofrece una acción explícita para guardar cada caso seleccionado; no usa IA ni guarda la vista previa automáticamente. Los casos guardados admiten hasta 100 pasos con acción y resultado esperado, Suite opcional, imágenes y enlaces relacionados. Las evidencias almacenan el archivo en PostgreSQL y permiten descargarlo de forma autenticada (máximo 2 MiB).
 
+La sección Wiki explica el flujo disponible de proyectos, bugs, casos, ejecuciones, evidencias, tags y configuración. Las tablas de bugs, casos y ejecuciones ofrecen acciones directas para editar y eliminar. No se puede eliminar un bug con casos o evidencias vinculados.
+
 ## Stack tecnológico
 
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)

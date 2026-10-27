@@ -66,6 +66,10 @@ export class AuthorizedRepository implements Repository {
     await this.projectIds(projectId);
     return this.base.updateBug(id, projectId, input);
   }
+  async deleteBug(id: string, projectId: string) {
+    await this.projectIds(projectId);
+    return this.base.deleteBug(id, projectId);
+  }
   async createCase(input: CreateTestCaseInput) {
     await this.projectIds(input.projectId);
     return this.base.createCase(input);

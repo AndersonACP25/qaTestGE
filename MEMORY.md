@@ -17,9 +17,12 @@
 - Actualizar este archivo al terminar cada prompt de trabajo; máximo 99 líneas.
 - No usar la base de datos local para pruebas destructivas; las migraciones se ejecutan con `pnpm db:migrate`.
 
-## Estado conocido al 2026-10-23
+## Estado conocido al 2026-10-27
 
-- Rama de trabajo: `fix/ci-formato-skills`, creada desde `main` limpio para corregir el bloqueo de formato de Actions. No publicar sin solicitud.
+- La Wiki presenta el flujo disponible y aclara los límites actuales del diseñador y la IA.
+- Las tablas de bugs, casos y ejecuciones incluyen acciones directas de edición y eliminación con confirmación. Un bug con casos o evidencias vinculadas no se puede eliminar.
+- La gestión de proyectos y equipos y la asignación de integrantes siguen pendientes.
+
 - CI valida pull requests y pushes a `main` y `qa-env`; artefacto solo se publica desde `main`.
 - El job 120736496879 falló en `format:check` por 36 archivos de skills importadas. `.prettierignore` excluye `.agents/skills/` y los informes de pruebas; código, documentación y `.opencode/skills/` conservan la validación estricta. No se desactiva ningún paso del workflow.
 - Validación local del arreglo: formato global, lint, tipos, build frontend/backend y 92 pruebas pasan. La ejecución remota seguirá usando la configuración anterior hasta integrar esta rama; no se ha publicado ni reejecutado Actions.

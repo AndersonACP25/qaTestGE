@@ -18,15 +18,17 @@ export default function TestRunDialog({
   onClose,
   onChanged,
   onDeleted,
+  initialAction = "view",
 }: {
   run: TestRun;
   cases: TestCase[];
   onClose: () => void;
   onChanged: (run: TestRun) => void;
   onDeleted: () => void;
+  initialAction?: "view" | "edit" | "delete";
 }) {
-  const [editing, setEditing] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [editing, setEditing] = useState(initialAction === "edit");
+  const [confirmDelete, setConfirmDelete] = useState(initialAction === "delete");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");

@@ -34,6 +34,7 @@ export interface Repository {
   listBugs(projectId?: string): Promise<Bug[]>;
   createBug(input: CreateBugInput): Promise<Bug>;
   updateBug(id: string, projectId: string, input: UpdateBugInput): Promise<Bug | null>;
+  deleteBug(id: string, projectId: string): Promise<boolean>;
   updateBugStatus(id: string, projectId: string, status: BugStatus): Promise<Bug | null>;
   listCases(projectId?: string): Promise<TestCase[]>;
   createCase(input: CreateTestCaseInput): Promise<TestCase>;

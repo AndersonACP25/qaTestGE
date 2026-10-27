@@ -10,6 +10,7 @@ import {
   addTestCaseLink,
   api,
   createBug,
+  deleteBug,
   listTags,
   deleteEvidence,
   downloadEvidenceFile,
@@ -28,6 +29,7 @@ import {
 } from "./api";
 import type { BugTemplate, BugTemplatePriority, Project, User } from "./api";
 import AccountSettingsView from "./views/AccountSettingsView";
+import WikiView from "./views/WikiView";
 import TagsView from "./views/TagsView";
 import RecordDetailsDialog, { type RecordDetail } from "./views/RecordDetailsDialog";
 import { exportRecord, recordExportFormats } from "./utils/exportRecord";
@@ -70,6 +72,7 @@ const navigation: {
       { id: "runs", label: "Test runs", icon: "play" },
       { id: "evidence", label: "Evidencias", icon: "image" },
       { id: "tags", label: "Tags", icon: "tag" },
+      { id: "wiki", label: "Wiki", icon: "file" },
     ],
   },
   { section: "CUENTA", items: [{ id: "settings", label: "Configuración", icon: "settings" }] },
@@ -385,6 +388,9 @@ function App({
     assignee: string;
   }>({ title: "", description: "", priority: "Media", status: "Abierto", assignee: "" });
   const [editingBug, setEditingBug] = useState<Bug | null>(null);
+  const [deleteBugTarget, setDeleteBugTarget] = useState<Bug | null>(null);
+  const [deleteBugError, setDeleteBugError] = useState("");
+  const [deleteBugBusy, setDeleteBugBusy] = useState(false);
   const [editingEvidence, setEditingEvidence] = useState<Evidence | null>(null);
   const [evidenceActionTarget, setEvidenceActionTarget] = useState<Evidence | null>(null);
   const [evidenceToDelete, setEvidenceToDelete] = useState<Evidence | null>(null);
@@ -412,6 +418,7 @@ function App({
   const [toast, setToast] = useState("");
   const [toastTone, setToastTone] = useState<AlertTone>("success");
   const [runDetail, setRunDetail] = useState<TestRun | null>(null);
+  const [runAction, setRunAction] = useState<"view" | "edit" | "delete">("view");
   const [detail, setDetail] = useState<object | null>(null);
   const [recordDetail, setRecordDetail] = useState<RecordDetail | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>();
@@ -516,6 +523,7 @@ function App({
     evidence: "Evidencias",
     tags: "Tags",
     settings: "Configuración",
+    wiki: "Wiki",
     "case-builder": "Diseñar test cases",
   }[activePage];
   const notify = (message: string, tone: AlertTone = "success") => {
@@ -982,6 +990,21 @@ function App({
       setDeleteCaseBusy(false);
     }
   }
+  async function removeBug() {
+    if (!deleteBugTarget?.projectId || deleteBugBusy) return;
+    setDeleteBugBusy(true);
+    setDeleteBugError("");
+    try {
+      await deleteBug(deleteBugTarget.id, deleteBugTarget.projectId);
+      setDeleteBugTarget(null);
+      setRevision((n) => n + 1);
+      notify(`Se eliminó el bug ${deleteBugTarget.id}.`);
+    } catch (cause) {
+      setDeleteBugError(cause instanceof Error ? cause.message : "No se pudo eliminar el bug.");
+    } finally {
+      setDeleteBugBusy(false);
+    }
+  }
   const filters =
     activePage === "bugs"
       ? ["Todos", ...bugStatuses]
@@ -1102,7 +1125,7 @@ function App({
               <h1>{pageTitle}</h1>
               <p className="page-subtitle">{pageDescription(activePage)}</p>
             </div>
-            {!["overview", "case-builder", "settings", "tags"].includes(activePage) && (
+            {!["overview", "case-builder", "settings", "tags", "wiki"].includes(activePage) && (
               <button
                 disabled={!projectId || loading || saving || Boolean(error)}
                 className="button button-primary"
@@ -1185,6 +1208,8 @@ function App({
               selectedCategories={caseDesignCategories}
               onSelectedCategoriesChanged={saveDefaultCategories}
             />
+          ) : activePage === "wiki" ? (
+            <WikiView />
           ) : activePage === "case-builder" ? (
             <CaseBuilder
               defaultCounts={caseCountDefaults}
@@ -1235,6 +1260,11 @@ function App({
                     tags={tags}
                     onSelect={(bug) => setRecordDetail({ kind: "bug", record: bug })}
                     onExport={(bug) => setExportTarget({ kind: "bug", record: bug })}
+                    onEdit={editBug}
+                    onDelete={(bug) => {
+                      setDeleteBugError("");
+                      setDeleteBugTarget(bug);
+                    }}
                     onStatusChange={changeBugStatus}
                     updatingStatus={updatingStatus}
                   />
@@ -1244,7 +1274,14 @@ function App({
                 </section>
                 <section className="workspace__panel">
                   <h2>Ejecuciones recientes</h2>
-                  <RunTable items={runs.slice(0, 5)} tags={tags} onSelect={setRunDetail} />
+                  <RunTable
+                    items={runs.slice(0, 5)}
+                    tags={tags}
+                    onSelect={(run, action) => {
+                      setRunAction(action);
+                      setRunDetail(run);
+                    }}
+                  />
                   {!runs.length && (
                     <p className="workspace__notice">
                       Aún no hay ejecuciones. Crea casos y agrúpalos en una ejecución.
@@ -1282,6 +1319,11 @@ function App({
                     tags={tags}
                     onSelect={(bug) => setRecordDetail({ kind: "bug", record: bug })}
                     onExport={(bug) => setExportTarget({ kind: "bug", record: bug })}
+                    onEdit={editBug}
+                    onDelete={(bug) => {
+                      setDeleteBugError("");
+                      setDeleteBugTarget(bug);
+                    }}
                     onStatusChange={changeBugStatus}
                     updatingStatus={updatingStatus}
                   />
@@ -1292,12 +1334,24 @@ function App({
                     tags={tags}
                     onSelect={(testCase) => setRecordDetail({ kind: "case", record: testCase })}
                     onExport={(item) => setExportTarget({ kind: "case", record: item })}
+                    onEdit={editCase}
+                    onDelete={(item) => {
+                      setDeleteCaseError("");
+                      setDeleteCaseTarget(item);
+                    }}
                     onStatusChange={changeCaseStatus}
                     updatingStatus={updatingStatus}
                   />
                 )}
                 {activePage === "runs" && (
-                  <RunTable items={visibleRuns} tags={tags} onSelect={setRunDetail} />
+                  <RunTable
+                    items={visibleRuns}
+                    tags={tags}
+                    onSelect={(run, action) => {
+                      setRunAction(action);
+                      setRunDetail(run);
+                    }}
+                  />
                 )}
                 {activePage === "evidence" && (
                   <EvidenceTable
@@ -1798,6 +1852,7 @@ function App({
         <TestRunDialog
           key={runDetail.id}
           run={runDetail}
+          initialAction={runAction}
           cases={cases}
           onClose={() => setRunDetail(null)}
           onChanged={(updated) => {
@@ -2006,6 +2061,38 @@ function App({
           )}
         </Dialog>
       )}
+      {deleteBugTarget && (
+        <Dialog
+          title={`Eliminar ${deleteBugTarget.id}`}
+          onClose={() => {
+            if (!deleteBugBusy) setDeleteBugTarget(null);
+          }}
+        >
+          <p className="workspace__notice">
+            El bug se eliminará. Si tiene casos o evidencias vinculadas, primero debes revisar esas
+            relaciones.
+          </p>
+          {deleteBugError && <Alert tone="error">{deleteBugError}</Alert>}
+          <div className="workspace__actions">
+            <button
+              type="button"
+              className="workspace__secondary"
+              disabled={deleteBugBusy}
+              onClick={() => setDeleteBugTarget(null)}
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              className="workspace__danger"
+              disabled={deleteBugBusy}
+              onClick={() => void removeBug()}
+            >
+              {deleteBugBusy ? "Eliminando…" : "Eliminar bug"}
+            </button>
+          </div>
+        </Dialog>
+      )}
       {deleteCaseTarget && (
         <Dialog
           title={`Eliminar ${deleteCaseTarget.id}`}
@@ -2127,6 +2214,7 @@ function pageDescription(page: NavigationPage): string {
     evidence: "Capturas, videos y archivos vinculados a tu actividad de QA.",
     tags: "Crea tags por proyecto y clasifica bugs, casos de prueba y ejecuciones.",
     settings: "Preferencias del workspace y de tu perfil.",
+    wiki: "Aprende a utilizar las funciones disponibles de qaTestGE.",
     "case-builder": "De una idea a un plan de pruebas: explora la maqueta del futuro asistente.",
   }[page];
 }
@@ -2162,11 +2250,48 @@ function StatusControl<TStatus extends string>({
   );
 }
 
+function RowActions({
+  id,
+  onEdit,
+  onDelete,
+}: {
+  id: string;
+  onEdit?: () => void;
+  onDelete?: () => void;
+}) {
+  return (
+    <span className="workspace-table__actions" onClick={(event) => event.stopPropagation()}>
+      {onEdit && (
+        <button
+          type="button"
+          className="workspace__secondary"
+          aria-label={`Editar ${id}`}
+          onClick={onEdit}
+        >
+          Editar
+        </button>
+      )}
+      {onDelete && (
+        <button
+          type="button"
+          className="workspace__danger"
+          aria-label={`Eliminar ${id}`}
+          onClick={onDelete}
+        >
+          Eliminar
+        </button>
+      )}
+    </span>
+  );
+}
+
 function BugTable({
   bugs,
   tags,
   onSelect,
   onExport,
+  onEdit,
+  onDelete,
   onStatusChange,
   updatingStatus,
   compact = false,
@@ -2175,6 +2300,8 @@ function BugTable({
   tags: Tag[];
   onSelect: (bug: Bug) => void;
   onExport: (bug: Bug) => void;
+  onEdit?: (bug: Bug) => void;
+  onDelete?: (bug: Bug) => void;
   onStatusChange: (bug: Bug, status: BugStatus) => void;
   updatingStatus: string;
   compact?: boolean;
@@ -2190,7 +2317,7 @@ function BugTable({
             <th>ESTADO</th>
             <th>ASIGNADO</th>
             <th>CREADO</th>
-            <th />
+            <th>ACCIONES</th>
           </tr>
         </thead>
         <tbody>
@@ -2227,6 +2354,11 @@ function BugTable({
                 {bug.updated}
               </td>
               <td data-label="Acciones">
+                <RowActions
+                  id={bug.id}
+                  onEdit={onEdit ? () => onEdit(bug) : undefined}
+                  onDelete={onDelete ? () => onDelete(bug) : undefined}
+                />
                 <button
                   className="row-more"
                   aria-label={`Exportar ${bug.id}`}
@@ -2251,6 +2383,8 @@ function CaseTable({
   tags,
   onSelect,
   onExport,
+  onEdit,
+  onDelete,
   onStatusChange,
   updatingStatus,
 }: {
@@ -2258,6 +2392,8 @@ function CaseTable({
   tags: Tag[];
   onSelect: (item: TestCase) => void;
   onExport: (item: TestCase) => void;
+  onEdit: (item: TestCase) => void;
+  onDelete: (item: TestCase) => void;
   onStatusChange: (item: TestCase, status: CaseStatus) => void;
   updatingStatus: string;
 }) {
@@ -2271,7 +2407,7 @@ function CaseTable({
             <th>SUITE</th>
             <th>ESTADO</th>
             <th>CREADO</th>
-            <th />
+            <th>ACCIONES</th>
           </tr>
         </thead>
         <tbody>
@@ -2300,6 +2436,11 @@ function CaseTable({
                 {item.updated}
               </td>
               <td data-label="Acciones">
+                <RowActions
+                  id={item.id}
+                  onEdit={() => onEdit(item)}
+                  onDelete={() => onDelete(item)}
+                />
                 <button
                   className="row-more"
                   aria-label={`Exportar ${item.id}`}
@@ -2326,7 +2467,7 @@ function RunTable({
 }: {
   items: TestRun[];
   tags: Tag[];
-  onSelect: (item: TestRun) => void;
+  onSelect: (item: TestRun, action: "view" | "edit" | "delete") => void;
 }) {
   return (
     <div className="workspace-table__scroll">
@@ -2339,12 +2480,12 @@ function RunTable({
             <th>PROGRESO</th>
             <th>ESTADO</th>
             <th>RESPONSABLE</th>
-            <th />
+            <th>ACCIONES</th>
           </tr>
         </thead>
         <tbody>
           {items.map((item) => (
-            <tr key={item.id} onClick={() => onSelect(item)}>
+            <tr key={item.id} onClick={() => onSelect(item, "view")}>
               <td data-label="RUN ID">
                 <span className="id-text">{item.id}</span>
               </td>
@@ -2353,7 +2494,7 @@ function RunTable({
                   className="workspace-table__open"
                   onClick={(event) => {
                     event.stopPropagation();
-                    onSelect(item);
+                    onSelect(item, "view");
                   }}
                 >
                   {item.title}
@@ -2378,9 +2519,11 @@ function RunTable({
                 {item.owner}
               </td>
               <td data-label="Acciones">
-                <button className="row-more" aria-label={`Más opciones para ${item.id}`}>
-                  <Icon name="dots" size={18} />
-                </button>
+                <RowActions
+                  id={item.id}
+                  onEdit={() => onSelect(item, "edit")}
+                  onDelete={() => onSelect(item, "delete")}
+                />
               </td>
             </tr>
           ))}

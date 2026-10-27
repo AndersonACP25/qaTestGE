@@ -1,5 +1,7 @@
 # Arquitectura — qaTestGE v1.0
 
+La Wiki del frontend documenta el flujo implementado. Las tablas de bugs, casos y ejecuciones ofrecen acciones de edición y eliminación. El borrado de bugs utiliza la autorización por proyecto y conserva la integridad referencial: PostgreSQL rechaza la operación cuando hay casos o evidencias vinculados y la API responde con un conflicto.
+
 ## Estado del documento
 
 Este documento combina la arquitectura objetivo de la v1.0 con el estado real del repositorio. El frontend usa React, Vite y TypeScript; existe una API Express MVC en TypeScript con repositorio PostgreSQL sobre qa_test_ge. Hay cuentas locales de una persona, sesiones persistidas, autorización de los proyectos de la cuenta, plantillas personales de bugs y CRUD de casos con adjuntos privados de imágenes/enlaces. Las imágenes de casos se guardan en PostgreSQL; la carga binaria general de evidencias y la integración con proveedores de IA siguen pendientes. GitHub Actions valida cambios y publica artefactos compilados al hacer push a main; el despliegue a un proveedor aún no está configurado.

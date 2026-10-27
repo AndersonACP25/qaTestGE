@@ -3522,6 +3522,29 @@ tbody td {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
 }
+.wiki-view {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 18px;
+}
+.wiki-view__card {
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+}
+.wiki-view__card h2 {
+  margin-top: 0;
+  font-size: 1.05rem;
+}
+.wiki-view__card p {
+  line-height: 1.6;
+}
+.workspace-table__actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
 .account-settings__card {
   min-width: 0;
   padding: 22px;

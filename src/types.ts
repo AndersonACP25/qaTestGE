@@ -1,5 +1,13 @@
 export type NavigationPage =
-  "overview" | "bugs" | "cases" | "case-builder" | "runs" | "evidence" | "tags" | "settings";
+  | "overview"
+  | "bugs"
+  | "cases"
+  | "case-builder"
+  | "runs"
+  | "evidence"
+  | "tags"
+  | "settings"
+  | "wiki";
 
 export type PriorityLevel = "Crítica" | "Alta" | "Media" | "Baja";
 export type BugStatus = "Abierto" | "En progreso" | "En revisión" | "Resuelto";
