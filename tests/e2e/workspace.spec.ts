@@ -61,6 +61,7 @@ test("crear y editar un caso conserva todos los pasos y un solo modal", async ({
   await navigate(page, "Casos de prueba");
   await page.getByRole("button", { name: "Nuevo caso de prueba", exact: true }).click();
   const dialog = page.getByRole("dialog");
+  await expect(dialog.getByRole("table")).toBeVisible();
   await dialog
     .getByRole("textbox", { name: "Título", exact: true })
     .fill("Caso con todos los pasos");
@@ -92,6 +93,21 @@ test("crear y editar un caso conserva todos los pasos y un solo modal", async ({
     "Paso uno",
     "Segundo paso editado",
   ]);
+});
+
+test("los registros muestran Exportar y permiten escoger formato", async ({ page }) => {
+  for (const [section, id] of [
+    ["Bugs", "BUG-001"],
+    ["Casos de prueba", "TC-001"],
+  ]) {
+    await navigate(page, section);
+    await page.getByRole("button", { name: `Exportar ${id}` }).click();
+    const dialog = page.getByRole("dialog", { name: `Exportar ${id}` });
+    await expect(dialog.getByRole("button", { name: "Exportar como PDF" })).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Exportar como Excel" })).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Exportar como Markdown" })).toBeVisible();
+    await page.keyboard.press("Escape");
+  }
 });
 
 test("diseñador guarda y actualiza todos los pasos y descarga Markdown", async ({

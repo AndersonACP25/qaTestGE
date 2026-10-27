@@ -3552,6 +3552,36 @@ tbody td {
   max-width: 100%;
   white-space: nowrap;
 }
+.workspace-table__export {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+}
+.workspace__steps-table {
+  table-layout: fixed;
+  margin-bottom: 12px;
+}
+.workspace__steps-table th:first-child {
+  width: 48px;
+}
+.workspace__steps-table th:last-child {
+  width: 130px;
+}
+.workspace__steps-table td {
+  vertical-align: top;
+}
+.workspace__steps-table textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: inherit;
+  background: var(--panel);
+  font-family: inherit;
+  font-size: 14px;
+}
 .account-settings__navigation {
   grid-column: 1 / -1;
   display: flex;
@@ -4030,6 +4060,31 @@ tbody td {
   }
 }
 @media (max-width: 620px) {
+  .workspace__steps-table,
+  .workspace__steps-table tbody,
+  .workspace__steps-table tr,
+  .workspace__steps-table td,
+  .workspace__steps-table th {
+    display: block;
+    width: 100%;
+  }
+  .workspace__steps-table thead {
+    display: none;
+  }
+  .workspace__steps-table tbody th {
+    padding: 8px 10px;
+    text-align: left;
+  }
+  .workspace__steps-table td[data-label]::before {
+    display: block;
+    margin-bottom: 4px;
+    content: attr(data-label);
+    font-weight: 600;
+  }
+  .workspace__steps-table tr {
+    height: auto;
+    padding-bottom: 10px;
+  }
   .workspace__toolbar select {
     max-width: 190px;
   }

@@ -6,6 +6,8 @@
 
 La sección Wiki explica el flujo disponible de proyectos, bugs, casos, ejecuciones, evidencias, tags y configuración. Las tablas de bugs, casos y ejecuciones ofrecen acciones directas para editar y eliminar. No se puede eliminar un bug con casos o evidencias vinculados.
 
+Los botones de exportación de bugs y casos permiten elegir PDF, Excel o Markdown. Los pasos de casos se editan en una tabla adaptable a dispositivos móviles. Los ajustes se organizan en apartados para cuenta y seguridad, plantillas, diseño de casos e IA.
+
 ## Stack tecnológico
 
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)

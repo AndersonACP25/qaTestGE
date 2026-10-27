@@ -1558,61 +1558,75 @@ function App({
                   />
                   <fieldset className="workspace__step-editor">
                     <legend>Pasos y resultados esperados · {caseSteps.length}/100</legend>
-                    {caseSteps.map((step, index) => (
-                      <div className="workspace__step-card" key={index}>
-                        <h3>Paso {index + 1}</h3>
-                        <label className="workspace__field">
-                          Acción
-                          <textarea
-                            name="action"
-                            maxLength={10000}
-                            rows={3}
-                            value={step.action}
-                            onChange={(event) =>
-                              setCaseSteps((current) =>
-                                current.map((item, stepIndex) =>
-                                  stepIndex === index
-                                    ? { ...item, action: event.target.value }
-                                    : item,
-                                ),
-                              )
-                            }
-                          />
-                        </label>
-                        <label className="workspace__field">
-                          Resultado esperado
-                          <textarea
-                            name="expectedResult"
-                            maxLength={10000}
-                            rows={3}
-                            value={step.expectedResult}
-                            onChange={(event) =>
-                              setCaseSteps((current) =>
-                                current.map((item, stepIndex) =>
-                                  stepIndex === index
-                                    ? { ...item, expectedResult: event.target.value }
-                                    : item,
-                                ),
-                              )
-                            }
-                          />
-                        </label>
-                        <button
-                          type="button"
-                          className="workspace__secondary workspace__step-remove"
-                          disabled={caseSteps.length <= 1}
-                          onClick={() =>
-                            setCaseSteps((steps) =>
-                              steps.length <= 1
-                                ? steps
-                                : steps.filter((_item, stepIndex) => stepIndex !== index),
-                            )
-                          }
-                        >
-                          Eliminar paso
-                        </button>
-                      </div>
-                    ))}
+                    <table className="workspace__steps-table">
+                      <thead>
+                        <tr>
+                          <th scope="col">Paso</th>
+                          <th scope="col">Acción</th>
+                          <th scope="col">Resultado esperado</th>
+                          <th scope="col">Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {caseSteps.map((step, index) => (
+                          <tr key={index}>
+                            <th scope="row">{index + 1}</th>
+                            <td data-label="Acción">
+                              <textarea
+                                aria-label="Acción"
+                                name="action"
+                                maxLength={10000}
+                                rows={3}
+                                value={step.action}
+                                onChange={(event) =>
+                                  setCaseSteps((current) =>
+                                    current.map((item, stepIndex) =>
+                                      stepIndex === index
+                                        ? { ...item, action: event.target.value }
+                                        : item,
+                                    ),
+                                  )
+                                }
+                              />
+                            </td>
+                            <td data-label="Resultado esperado">
+                              <textarea
+                                aria-label="Resultado esperado"
+                                name="expectedResult"
+                                maxLength={10000}
+                                rows={3}
+                                value={step.expectedResult}
+                                onChange={(event) =>
+                                  setCaseSteps((current) =>
+                                    current.map((item, stepIndex) =>
+                                      stepIndex === index
+                                        ? { ...item, expectedResult: event.target.value }
+                                        : item,
+                                    ),
+                                  )
+                                }
+                              />
+                            </td>
+                            <td>
+                              <button
+                                type="button"
+                                className="workspace__secondary"
+                                disabled={caseSteps.length <= 1}
+                                onClick={() =>
+                                  setCaseSteps((steps) =>
+                                    steps.length <= 1
+                                      ? steps
+                                      : steps.filter((_item, stepIndex) => stepIndex !== index),
+                                  )
+                                }
+                              >
+                                Eliminar paso
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                     <button
                       type="button"
                       className="workspace__secondary"
@@ -2008,7 +2022,7 @@ function App({
       )}
       {exportTarget && (
         <Dialog
-          title={`${exportTarget.kind === "case" ? "Acciones" : "Exportar"} ${exportTarget.record.id}`}
+          title={`Exportar ${exportTarget.record.id}`}
           onClose={() => {
             if (!exportingRecord) setExportTarget(null);
           }}
@@ -2035,30 +2049,6 @@ function App({
               </button>
             ))}
           </div>
-          {exportTarget.kind === "case" && (
-            <div className="workspace__case-actions">
-              <button
-                type="button"
-                className="workspace__secondary"
-                disabled={!exportTarget.record.projectId}
-                onClick={() => editCase(exportTarget.record as TestCase)}
-              >
-                Editar caso de prueba
-              </button>
-              <button
-                type="button"
-                className="workspace__danger"
-                disabled={!exportTarget.record.projectId}
-                onClick={() => {
-                  setDeleteCaseTarget(exportTarget.record as TestCase);
-                  setDeleteCaseError("");
-                  setExportTarget(null);
-                }}
-              >
-                Eliminar caso de prueba
-              </button>
-            </div>
-          )}
         </Dialog>
       )}
       {deleteBugTarget && (
@@ -2360,14 +2350,14 @@ function BugTable({
                   onDelete={onDelete ? () => onDelete(bug) : undefined}
                 />
                 <button
-                  className="row-more"
+                  className="workspace__secondary workspace-table__export"
                   aria-label={`Exportar ${bug.id}`}
                   onClick={(event) => {
                     event.stopPropagation();
                     onExport(bug);
                   }}
                 >
-                  <Icon name="dots" size={18} />
+                  Exportar
                 </button>
               </td>
             </tr>
@@ -2442,14 +2432,14 @@ function CaseTable({
                   onDelete={() => onDelete(item)}
                 />
                 <button
-                  className="row-more"
+                  className="workspace__secondary workspace-table__export"
                   aria-label={`Exportar ${item.id}`}
                   onClick={(event) => {
                     event.stopPropagation();
                     onExport(item);
                   }}
                 >
-                  <Icon name="dots" size={18} />
+                  Exportar
                 </button>
               </td>
             </tr>
