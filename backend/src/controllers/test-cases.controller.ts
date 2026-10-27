@@ -105,6 +105,9 @@ function validCaseFields(
 ): body is Record<string, unknown> & CreateTestCaseInput {
   return (
     text(body.title, 200) &&
+    (body.assigneeUserId === undefined ||
+      body.assigneeUserId === null ||
+      isId(body.assigneeUserId)) &&
     validTagIds(body.tagIds) &&
     (body.suite === undefined ||
       body.suite === null ||

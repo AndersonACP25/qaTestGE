@@ -43,7 +43,8 @@ const bug = (r: Row) => ({
   description: r.description,
   priority: r.priority,
   status: r.status,
-  assignee: r.assignee,
+  assignee: r.assigned_name ?? r.assignee,
+  assigneeUserId: r.assignee_user_id ?? null,
   tagIds: (r.tag_ids as string[] | undefined) ?? [],
 });
 const testCase = (r: Row) => ({
@@ -52,6 +53,8 @@ const testCase = (r: Row) => ({
   suite: r.suite ?? "",
   status: r.status,
   preconditions: r.preconditions,
+  assigneeUserId: r.assignee_user_id ?? null,
+  assigneeName: r.assigned_name ?? null,
   steps: r.steps ?? [],
   tagIds: (r.tag_ids as string[] | undefined) ?? [],
 });
@@ -85,7 +88,7 @@ const caseAttachment = (r: Row) => ({
   createdAt: r.created_at.toISOString(),
 });
 
-const casesSql = `SELECT c.*, COALESCE((SELECT json_agg(json_build_object('action', s.action, 'expectedResult', s.expected_result) ORDER BY s.position)
+const casesSql = `SELECT c.*, (SELECT u.name FROM qa.users u WHERE u.id=c.assignee_user_id) AS assigned_name, COALESCE((SELECT json_agg(json_build_object('action', s.action, 'expectedResult', s.expected_result) ORDER BY s.position)
  FROM qa.test_case_steps s WHERE s.test_case_id=c.id), '[]'::json) AS steps,
  COALESCE((SELECT array_agg(tc.tag_id::text ORDER BY tc.tag_id) FROM qa.test_case_tags tc WHERE tc.test_case_id=c.id), ARRAY[]::text[]) AS tag_ids FROM qa.test_cases c`;
 const runsSql = `SELECT r.*, COALESCE((SELECT array_agg(rr.test_case_id::text ORDER BY rr.test_case_id) FROM qa.test_run_results rr WHERE rr.test_run_id=r.id), ARRAY[]::text[]) AS case_ids,
@@ -117,22 +120,24 @@ export class PostgresRepository implements Repository {
   }
   async listBugs(projectId?: string) {
     const { rows } = await this.pool.query<Row>(
-      `SELECT b.*, p.name AS project, COALESCE((SELECT array_agg(bt.tag_id::text ORDER BY bt.tag_id) FROM qa.bug_tags bt WHERE bt.bug_id=b.id), ARRAY[]::text[]) AS tag_ids FROM qa.bugs b JOIN qa.projects p ON p.id=b.project_id ${projectId ? "WHERE b.project_id=$1" : ""} ORDER BY b.id DESC`,
+      `SELECT b.*, (SELECT u.name FROM qa.users u WHERE u.id=b.assignee_user_id) AS assigned_name, p.name AS project, COALESCE((SELECT array_agg(bt.tag_id::text ORDER BY bt.tag_id) FROM qa.bug_tags bt WHERE bt.bug_id=b.id), ARRAY[]::text[]) AS tag_ids FROM qa.bugs b JOIN qa.projects p ON p.id=b.project_id ${projectId ? "WHERE b.project_id=$1" : ""} ORDER BY b.id DESC`,
       projectId ? [projectId] : [],
     );
     return rows.map(bug);
   }
   async createBug(input: CreateBugInput) {
     return this.transaction(async (client) => {
+      await this.validateAssignee(client, input.projectId, input.assigneeUserId);
       const { rows } = await client.query<Row>(
-        `WITH inserted AS (INSERT INTO qa.bugs(project_id,title,description,priority,assignee) VALUES($1,$2,$3,$4,$5) RETURNING *)
-        SELECT b.*, p.name AS project, ARRAY[]::text[] AS tag_ids FROM inserted b JOIN qa.projects p ON p.id=b.project_id`,
+        `WITH inserted AS (INSERT INTO qa.bugs(project_id,title,description,priority,assignee,assignee_user_id,assignee_organization_id) VALUES($1,$2,$3,$4,$5,$6,CASE WHEN $6::bigint IS NULL THEN NULL ELSE (SELECT organization_id FROM qa.projects WHERE id=$1) END) RETURNING *)
+        SELECT b.*, (SELECT u.name FROM qa.users u WHERE u.id=b.assignee_user_id) AS assigned_name, p.name AS project, ARRAY[]::text[] AS tag_ids FROM inserted b JOIN qa.projects p ON p.id=b.project_id`,
         [
           input.projectId,
           input.title.trim(),
           input.description?.trim() ?? "",
           input.priority,
           input.assignee ?? null,
+          input.assigneeUserId ?? null,
         ],
       );
       await this.replaceTags(
@@ -144,7 +149,7 @@ export class PostgresRepository implements Repository {
         client,
       );
       const result = await client.query<Row>(
-        `SELECT b.*, p.name AS project, COALESCE((SELECT array_agg(bt.tag_id::text ORDER BY bt.tag_id) FROM qa.bug_tags bt WHERE bt.bug_id=b.id), ARRAY[]::text[]) AS tag_ids FROM qa.bugs b JOIN qa.projects p ON p.id=b.project_id WHERE b.id=$1`,
+        `SELECT b.*, (SELECT u.name FROM qa.users u WHERE u.id=b.assignee_user_id) AS assigned_name, p.name AS project, COALESCE((SELECT array_agg(bt.tag_id::text ORDER BY bt.tag_id) FROM qa.bug_tags bt WHERE bt.bug_id=b.id), ARRAY[]::text[]) AS tag_ids FROM qa.bugs b JOIN qa.projects p ON p.id=b.project_id WHERE b.id=$1`,
         [rows[0].id],
       );
       return bug(result.rows[0]);
@@ -154,24 +159,27 @@ export class PostgresRepository implements Repository {
     const { rows } = await this.pool.query<Row>(
       `WITH updated AS (
       UPDATE qa.bugs SET status=$3 WHERE id=$1 AND project_id=$2 RETURNING *
-    ) SELECT b.*, p.name AS project FROM updated b JOIN qa.projects p ON p.id=b.project_id`,
+    ) SELECT b.*, (SELECT u.name FROM qa.users u WHERE u.id=b.assignee_user_id) AS assigned_name, p.name AS project FROM updated b JOIN qa.projects p ON p.id=b.project_id`,
       [id, projectId, status],
     );
     if (!rows[0]) return null;
     const result = await this.pool.query<Row>(
-      `SELECT b.*, p.name AS project, COALESCE((SELECT array_agg(bt.tag_id::text ORDER BY bt.tag_id) FROM qa.bug_tags bt WHERE bt.bug_id=b.id), ARRAY[]::text[]) AS tag_ids FROM qa.bugs b JOIN qa.projects p ON p.id=b.project_id WHERE b.id=$1`,
+      `SELECT b.*, (SELECT u.name FROM qa.users u WHERE u.id=b.assignee_user_id) AS assigned_name, p.name AS project, COALESCE((SELECT array_agg(bt.tag_id::text ORDER BY bt.tag_id) FROM qa.bug_tags bt WHERE bt.bug_id=b.id), ARRAY[]::text[]) AS tag_ids FROM qa.bugs b JOIN qa.projects p ON p.id=b.project_id WHERE b.id=$1`,
       [id],
     );
     return bug(result.rows[0]);
   }
   async updateBug(id: string, projectId: string, input: UpdateBugInput) {
     return this.transaction(async (client) => {
+      await this.validateAssignee(client, projectId, input.assigneeUserId);
       const { rows } = await client.query<Row>(
         `WITH updated AS (
         UPDATE qa.bugs SET title=$3,description=COALESCE($4,description),priority=$5,
-          assignee=CASE WHEN $8 THEN $6 ELSE assignee END,status=COALESCE($7,status)
+          assignee=CASE WHEN $8 THEN $6 ELSE assignee END,status=COALESCE($7,status),
+          assignee_user_id=CASE WHEN $10 THEN $9::bigint ELSE assignee_user_id END,
+          assignee_organization_id=CASE WHEN $10 THEN CASE WHEN $9::bigint IS NULL THEN NULL ELSE (SELECT organization_id FROM qa.projects WHERE id=$2) END ELSE assignee_organization_id END
         WHERE id=$1 AND project_id=$2 RETURNING *
-      ) SELECT b.*, p.name AS project FROM updated b JOIN qa.projects p ON p.id=b.project_id`,
+      ) SELECT b.*, (SELECT u.name FROM qa.users u WHERE u.id=b.assignee_user_id) AS assigned_name, p.name AS project FROM updated b JOIN qa.projects p ON p.id=b.project_id`,
         [
           id,
           projectId,
@@ -181,16 +189,41 @@ export class PostgresRepository implements Repository {
           input.assignee?.trim() || null,
           input.status ?? null,
           input.assignee !== undefined,
+          input.assigneeUserId ?? null,
+          input.assigneeUserId !== undefined,
         ],
       );
       if (!rows[0]) return null;
       await this.replaceTags("qa.bug_tags", "bug_id", id, projectId, input.tagIds, client);
       const result = await client.query<Row>(
-        `SELECT b.*, p.name AS project, COALESCE((SELECT array_agg(bt.tag_id::text ORDER BY bt.tag_id) FROM qa.bug_tags bt WHERE bt.bug_id=b.id), ARRAY[]::text[]) AS tag_ids FROM qa.bugs b JOIN qa.projects p ON p.id=b.project_id WHERE b.id=$1 AND b.project_id=$2`,
+        `SELECT b.*, (SELECT u.name FROM qa.users u WHERE u.id=b.assignee_user_id) AS assigned_name, p.name AS project, COALESCE((SELECT array_agg(bt.tag_id::text ORDER BY bt.tag_id) FROM qa.bug_tags bt WHERE bt.bug_id=b.id), ARRAY[]::text[]) AS tag_ids FROM qa.bugs b JOIN qa.projects p ON p.id=b.project_id WHERE b.id=$1 AND b.project_id=$2`,
         [id, projectId],
       );
       return result.rows[0] ? bug(result.rows[0]) : null;
     });
+  }
+  async deleteBug(id: string, projectId: string) {
+    try {
+      const result = await this.pool.query("DELETE FROM qa.bugs WHERE id=$1 AND project_id=$2", [
+        id,
+        projectId,
+      ]);
+      return result.rowCount === 1;
+    } catch (error) {
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        error.code === "23503"
+      ) {
+        throw new HttpError(
+          409,
+          "BUG_IN_USE",
+          "El bug tiene casos o evidencias vinculadas; no se puede eliminar.",
+        );
+      }
+      throw error;
+    }
   }
   async listCases(projectId?: string) {
     const { rows } = await this.pool.query<Row>(
@@ -201,13 +234,15 @@ export class PostgresRepository implements Repository {
   }
   async createCase(input: CreateTestCaseInput) {
     return this.transaction(async (client) => {
+      await this.validateAssignee(client, input.projectId, input.assigneeUserId);
       const { rows } = await client.query<Row>(
-        "INSERT INTO qa.test_cases(project_id,title,suite,preconditions) VALUES($1,$2,$3,$4) RETURNING *",
+        "INSERT INTO qa.test_cases(project_id,title,suite,preconditions,assignee_user_id,assignee_organization_id) VALUES($1,$2,$3,$4,$5,CASE WHEN $5::bigint IS NULL THEN NULL ELSE (SELECT organization_id FROM qa.projects WHERE id=$1) END) RETURNING *",
         [
           input.projectId,
           input.title.trim(),
           input.suite?.trim() || null,
           input.preconditions?.trim() ?? "",
+          input.assigneeUserId ?? null,
         ],
       );
       const id = rows[0].id;
@@ -231,14 +266,17 @@ export class PostgresRepository implements Repository {
   }
   async updateCase(id: string, projectId: string, input: UpdateTestCaseInput) {
     return this.transaction(async (client) => {
+      await this.validateAssignee(client, projectId, input.assigneeUserId);
       const { rows } = await client.query<Row>(
-        "UPDATE qa.test_cases SET title=$3,suite=$4,preconditions=$5 WHERE id=$1 AND project_id=$2 RETURNING id",
+        "UPDATE qa.test_cases SET title=$3,suite=$4,preconditions=$5,assignee_user_id=CASE WHEN $7 THEN $6::bigint ELSE assignee_user_id END,assignee_organization_id=CASE WHEN $7 THEN CASE WHEN $6::bigint IS NULL THEN NULL ELSE (SELECT organization_id FROM qa.projects WHERE id=$2) END ELSE assignee_organization_id END WHERE id=$1 AND project_id=$2 RETURNING id",
         [
           id,
           projectId,
           input.title.trim(),
           input.suite?.trim() || null,
           input.preconditions?.trim() ?? "",
+          input.assigneeUserId ?? null,
+          input.assigneeUserId !== undefined,
         ],
       );
       if (!rows[0]) return null;
@@ -721,6 +759,21 @@ export class PostgresRepository implements Repository {
       [id, projectId],
     );
     return rowCount === 1;
+  }
+  private async validateAssignee(client: PoolClient, projectId: string, userId?: string | null) {
+    if (!userId) return;
+    const result = await client.query(
+      `SELECT 1 FROM qa.projects p JOIN qa.organization_members m ON m.organization_id=p.organization_id
+       JOIN qa.users u ON u.id=m.user_id AND u.is_active
+       WHERE p.id=$1 AND m.user_id=$2 FOR SHARE OF m,u`,
+      [projectId, userId],
+    );
+    if (!result.rowCount)
+      throw new HttpError(
+        400,
+        "INVALID_ASSIGNEE",
+        "El responsable no pertenece al equipo del proyecto o está inactivo.",
+      );
   }
   private async replaceTags(
     table: "qa.bug_tags" | "qa.test_case_tags" | "qa.test_run_tags",

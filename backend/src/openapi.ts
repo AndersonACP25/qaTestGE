@@ -43,6 +43,7 @@ const inputs = {
       priority: { type: "string", enum: bugPriorities },
       description: { type: "string", maxLength: 5000 },
       assignee: { type: "string", nullable: true, maxLength: 100 },
+      assigneeUserId: { type: "string", nullable: true, pattern: "^[1-9][0-9]{0,18}$" },
       tagIds,
     },
     ["projectId", "title", "priority"],
@@ -53,6 +54,7 @@ const inputs = {
       title: text(200),
       suite: { type: "string", maxLength: 100 },
       preconditions: { type: "string", maxLength: 10000 },
+      assigneeUserId: { type: "string", nullable: true, pattern: "^[1-9][0-9]{0,18}$" },
       steps: { type: "array", maxItems: 100, items: step },
       tagIds,
     },
@@ -306,6 +308,117 @@ export const openApiDocument = {
         },
       },
     },
+    "/api/teams": {
+      get: {
+        security: [{ sessionCookie: [] }],
+        summary: "Listar espacios del usuario",
+        responses: {
+          "200": { description: "Equipos disponibles" },
+          "401": errorResponse("UNAUTHENTICATED"),
+        },
+      },
+      post: {
+        security: [{ sessionCookie: [], csrfToken: [] }],
+        summary: "Crear un equipo",
+        requestBody: {
+          required: true,
+          content: json({
+            type: "object",
+            required: ["name"],
+            properties: { name: { type: "string", maxLength: 100 } },
+          }),
+        },
+        responses: {
+          "201": { description: "Equipo creado" },
+          "400": errorResponse("INVALID_TEAM"),
+        },
+      },
+    },
+    "/api/teams/{teamId}": {
+      patch: {
+        security: [{ sessionCookie: [], csrfToken: [] }],
+        summary: "Renombrar un equipo propio",
+        parameters: [{ in: "path", name: "teamId", required: true, schema: projectId }],
+        requestBody: {
+          required: true,
+          content: json({
+            type: "object",
+            required: ["name"],
+            properties: { name: { type: "string", maxLength: 100 } },
+          }),
+        },
+        responses: {
+          "204": { description: "Equipo actualizado" },
+          "404": errorResponse("TEAM_NOT_FOUND"),
+        },
+      },
+      delete: {
+        security: [{ sessionCookie: [], csrfToken: [] }],
+        summary: "Eliminar un equipo vacío",
+        parameters: [{ in: "path", name: "teamId", required: true, schema: projectId }],
+        responses: {
+          "204": { description: "Equipo eliminado" },
+          "404": errorResponse("TEAM_NOT_FOUND"),
+          "409": errorResponse("TEAM_IN_USE"),
+        },
+      },
+    },
+    "/api/teams/{teamId}/members": {
+      get: {
+        security: [{ sessionCookie: [] }],
+        summary: "Listar integrantes del espacio",
+        parameters: [{ in: "path", name: "teamId", required: true, schema: projectId }],
+        responses: {
+          "200": { description: "Integrantes" },
+          "404": errorResponse("TEAM_NOT_FOUND"),
+        },
+      },
+    },
+    "/api/teams/{teamId}/invitations": {
+      post: {
+        security: [{ sessionCookie: [], csrfToken: [] }],
+        summary: "Generar código de invitación de un solo uso",
+        parameters: [{ in: "path", name: "teamId", required: true, schema: projectId }],
+        requestBody: { required: true, content: json({ type: "object" }) },
+        responses: {
+          "201": { description: "Código secreto y fecha de vencimiento" },
+          "404": errorResponse("TEAM_NOT_FOUND"),
+        },
+      },
+    },
+    "/api/team-invitations/accept": {
+      post: {
+        security: [{ sessionCookie: [], csrfToken: [] }],
+        summary: "Aceptar una invitación",
+        requestBody: {
+          required: true,
+          content: json({
+            type: "object",
+            required: ["code"],
+            properties: { code: { type: "string", pattern: "^[a-f0-9]{64}$" } },
+          }),
+        },
+        responses: {
+          "204": { description: "Invitación aceptada" },
+          "400": errorResponse("INVALID_INVITE"),
+          "404": errorResponse("INVITE_NOT_FOUND"),
+        },
+      },
+    },
+    "/api/teams/{teamId}/members/{memberId}": {
+      delete: {
+        security: [{ sessionCookie: [], csrfToken: [] }],
+        summary: "Retirar a un integrante",
+        parameters: [
+          { in: "path", name: "teamId", required: true, schema: projectId },
+          { in: "path", name: "memberId", required: true, schema: projectId },
+        ],
+        responses: {
+          "204": { description: "Integrante retirado" },
+          "404": errorResponse("MEMBER_NOT_FOUND"),
+        },
+      },
+    },
     "/api/projects": {
       get: {
         summary: "Listar proyectos existentes",
@@ -315,6 +428,66 @@ export const openApiDocument = {
             content: json(envelope({ type: "array", items: project })),
           },
           "503": unavailable,
+        },
+      },
+      post: {
+        security: [{ sessionCookie: [], csrfToken: [] }],
+        summary: "Crear un proyecto en el espacio propio",
+        requestBody: {
+          required: true,
+          content: json({
+            type: "object",
+            required: ["name", "description"],
+            properties: {
+              name: { type: "string", maxLength: 100 },
+              description: { type: "string", maxLength: 5000 },
+              teamId: {
+                type: "string",
+                description: "Equipo propietario (opcional para clientes anteriores)",
+              },
+            },
+          }),
+        },
+        responses: {
+          "201": { description: "Proyecto creado", content: json(envelope(project)) },
+          "400": errorResponse("INVALID_PROJECT"),
+          "403": errorResponse("WORKSPACE_REQUIRED"),
+          "409": errorResponse("CONFLICT"),
+        },
+      },
+    },
+    "/api/projects/{projectId}": {
+      patch: {
+        security: [{ sessionCookie: [], csrfToken: [] }],
+        summary: "Editar un proyecto del espacio propio",
+        parameters: [{ in: "path", name: "projectId", required: true, schema: projectId }],
+        requestBody: {
+          required: true,
+          content: json({
+            type: "object",
+            required: ["name", "description"],
+            properties: {
+              name: { type: "string", maxLength: 100 },
+              description: { type: "string", maxLength: 5000 },
+            },
+          }),
+        },
+        responses: {
+          "200": { description: "Proyecto actualizado", content: json(envelope(project)) },
+          "400": errorResponse("INVALID_PROJECT"),
+          "404": errorResponse("PROJECT_NOT_FOUND"),
+          "409": errorResponse("CONFLICT"),
+        },
+      },
+      delete: {
+        security: [{ sessionCookie: [], csrfToken: [] }],
+        summary: "Eliminar un proyecto sin registros vinculados",
+        parameters: [{ in: "path", name: "projectId", required: true, schema: projectId }],
+        responses: {
+          "204": { description: "Proyecto eliminado" },
+          "400": errorResponse("INVALID_PROJECT"),
+          "404": errorResponse("PROJECT_NOT_FOUND"),
+          "409": errorResponse("PROJECT_IN_USE"),
         },
       },
     },
@@ -373,6 +546,20 @@ export const openApiDocument = {
       },
     },
     "/api/bugs/{bugId}": {
+      delete: {
+        security: [{ sessionCookie: [], csrfToken: [] }],
+        summary: "Eliminar un bug sin casos ni evidencias vinculados",
+        parameters: [
+          { in: "path", name: "bugId", required: true, schema: { type: "string" } },
+          { in: "query", name: "projectId", required: true, schema: { type: "string" } },
+        ],
+        responses: {
+          "204": { description: "Bug eliminado" },
+          "400": errorResponse("INVALID_BUG"),
+          "404": errorResponse("BUG_NOT_FOUND o PROJECT_NOT_FOUND"),
+          "409": errorResponse("BUG_IN_USE"),
+        },
+      },
       patch: {
         security: [{ sessionCookie: [], csrfToken: [] }],
         summary: "Actualizar los datos de un bug en un proyecto autorizado",
@@ -964,6 +1151,7 @@ export const openApiDocument = {
           title: text(200),
           suite: { type: "string", maxLength: 100 },
           preconditions: { type: "string", maxLength: 10000 },
+          assigneeUserId: { type: "string", nullable: true, pattern: "^[1-9][0-9]{0,18}$" },
           steps: { type: "array", maxItems: 100, items: step },
         },
         ["projectId", "title"],
@@ -1025,6 +1213,7 @@ export const openApiDocument = {
           ...inputs.TestCaseInput.properties,
           ...common,
           status: { type: "string", enum: testCaseStatuses },
+          assigneeName: { type: "string", nullable: true },
           tagIds,
         },
         [

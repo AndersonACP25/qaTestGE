@@ -17,9 +17,18 @@
 - Actualizar este archivo al terminar cada prompt de trabajo; máximo 99 líneas.
 - No usar la base de datos local para pruebas destructivas; las migraciones se ejecutan con `pnpm db:migrate`.
 
-## Estado conocido al 2026-10-23
+## Estado conocido al 2026-10-27
 
-- Rama de trabajo: `fix/ci-formato-skills`, creada desde `main` limpio para corregir el bloqueo de formato de Actions. No publicar sin solicitud.
+- La Wiki presenta el flujo disponible y aclara los límites actuales del diseñador y la IA.
+- Las tablas de bugs, casos y ejecuciones incluyen acciones directas de edición y eliminación con confirmación. Un bug con casos o evidencias vinculadas no se puede eliminar.
+- Las acciones de tablas tienen columna suficiente y botones sin cortes; la regresión E2E verifica Dashboard y listados en escritorio y móvil.
+- El propietario puede crear, editar y eliminar proyectos vacíos desde Proyectos. Los proyectos con registros vinculados no se borran.
+- Equipos permite listar espacios y miembros, crear invitaciones de un solo uso y retirar integrantes. Aceptar una invitación concede acceso a todos los proyectos de la organización; requiere migración 010.
+- Equipos permite crear, renombrar y eliminar espacios sin proyectos ni otros integrantes. Los proyectos nuevos se crean en el equipo propietario seleccionado.
+- Bugs y casos se asignan a integrantes activos de la organización mediante migración 011. Retirar a un integrante con asignaciones está bloqueado hasta reasignarlas; se conserva el responsable textual histórico de bugs.
+- Configuración se organiza por cuenta y seguridad, plantillas, diseño de casos e IA. La configuración de IA sigue siendo una maqueta.
+- Los botones Exportar de bugs y casos abren la selección de formato; el editor de pasos utiliza una tabla adaptable en creación y edición.
+
 - CI valida pull requests y pushes a `main` y `qa-env`; artefacto solo se publica desde `main`.
 - El job 120736496879 falló en `format:check` por 36 archivos de skills importadas. `.prettierignore` excluye `.agents/skills/` y los informes de pruebas; código, documentación y `.opencode/skills/` conservan la validación estricta. No se desactiva ningún paso del workflow.
 - Validación local del arreglo: formato global, lint, tipos, build frontend/backend y 92 pruebas pasan. La ejecución remota seguirá usando la configuración anterior hasta integrar esta rama; no se ha publicado ni reejecutado Actions.

@@ -13,6 +13,7 @@ export interface Bug {
   priority: BugPriority;
   status: BugStatus;
   assignee: string | null;
+  assigneeUserId?: string | null;
   createdAt: string;
   tagIds: string[];
 }
@@ -20,6 +21,7 @@ export interface Bug {
 export type CreateBugInput = Pick<Bug, "title" | "projectId" | "priority"> & {
   description?: string;
   assignee?: string | null;
+  assigneeUserId?: string | null;
   tagIds?: string[];
 };
 

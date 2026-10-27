@@ -28,6 +28,32 @@ test("Dashboard y listados sin desbordamiento en ambos temas", async ({ page }, 
   }
 });
 
+test("las acciones de las tablas caben sin recortar sus botones", async ({ page }, testInfo) => {
+  const widths =
+    testInfo.project.name === "desktop"
+      ? [1024, 1180, 1440]
+      : [testInfo.project.use.viewport!.width];
+  for (const width of widths) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const name of ["Dashboard", "Bugs", "Casos de prueba"]) {
+      await navigate(page, name);
+      await noHorizontalOverflow(page);
+      const actions = page.locator(".workspace-table__actions button");
+      expect(await actions.count()).toBeGreaterThan(0);
+      const clipped = await actions.evaluateAll((buttons) =>
+        buttons.some((button) => {
+          const cell = button.closest("td");
+          if (!cell) return true;
+          const rect = button.getBoundingClientRect();
+          const cellRect = cell.getBoundingClientRect();
+          return button.scrollWidth > button.clientWidth + 1 || rect.right > cellRect.right + 1;
+        }),
+      );
+      expect(clipped).toBe(false);
+    }
+  }
+});
+
 test("crear y editar un caso conserva todos los pasos y un solo modal", async ({
   page,
   workspace,
@@ -35,9 +61,11 @@ test("crear y editar un caso conserva todos los pasos y un solo modal", async ({
   await navigate(page, "Casos de prueba");
   await page.getByRole("button", { name: "Nuevo caso de prueba", exact: true }).click();
   const dialog = page.getByRole("dialog");
+  await expect(dialog.getByRole("table")).toBeVisible();
   await dialog
     .getByRole("textbox", { name: "Título", exact: true })
     .fill("Caso con todos los pasos");
+  await dialog.getByLabel("Responsable QA").selectOption("1");
   await dialog.getByRole("textbox", { name: "Acción", exact: true }).fill("Paso uno");
   await dialog
     .getByRole("textbox", { name: "Resultado esperado", exact: true })
@@ -51,9 +79,12 @@ test("crear y editar un caso conserva todos los pasos y un solo modal", async ({
   await dialog.getByRole("button", { name: "Guardar", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   expect(workspace.cases.at(-1)?.steps).toHaveLength(2);
+  expect(workspace.cases.at(-1)?.assigneeUserId).toBe("1");
   await page.getByText("Caso con todos los pasos", { exact: true }).click();
   await page.getByRole("button", { name: "Editar caso", exact: true }).click();
   await expect(page.getByRole("dialog")).toHaveCount(1);
+  await expect(page.getByLabel("Responsable QA")).toHaveValue("1");
+  await page.getByLabel("Responsable QA").selectOption("");
   await expect(page.getByRole("textbox", { name: "Acción", exact: true })).toHaveCount(2);
   await noHorizontalOverflow(page);
   await page
@@ -66,6 +97,78 @@ test("crear y editar un caso conserva todos los pasos y un solo modal", async ({
     "Paso uno",
     "Segundo paso editado",
   ]);
+  expect(workspace.cases.at(-1)?.assigneeUserId).toBeNull();
+});
+
+test("asigna un bug a un integrante del equipo", async ({ page, workspace }) => {
+  await navigate(page, "Bugs");
+  await page.getByRole("button", { name: "Nuevo bug" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Título", { exact: true }).fill("Error asignado");
+  await dialog.getByLabel("Responsable QA").selectOption("1");
+  await dialog.getByRole("button", { name: "Guardar", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(workspace.writes.find((item) => item.path === "/bugs")?.body.assigneeUserId).toBe("1");
+});
+
+test("los registros muestran Exportar y permiten escoger formato", async ({ page }) => {
+  for (const [section, id] of [
+    ["Bugs", "BUG-001"],
+    ["Casos de prueba", "TC-001"],
+  ]) {
+    await navigate(page, section);
+    await page.getByRole("button", { name: `Exportar ${id}` }).click();
+    const dialog = page.getByRole("dialog", { name: `Exportar ${id}` });
+    await expect(dialog.getByRole("button", { name: "Exportar como PDF" })).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Exportar como Excel" })).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Exportar como Markdown" })).toBeVisible();
+    await page.keyboard.press("Escape");
+  }
+});
+
+test("administra proyectos con confirmación de borrado", async ({ page }) => {
+  await navigate(page, "Proyectos");
+  await page.getByLabel("Nombre", { exact: true }).fill("Proyecto móvil");
+  await page.getByLabel("Descripción", { exact: true }).fill("Pruebas de la aplicación");
+  await page.getByRole("button", { name: "Crear proyecto" }).click();
+  const project = page.locator(".projects-view__item").filter({ hasText: "Proyecto móvil" });
+  await expect(project).toBeVisible();
+  await project.getByRole("button", { name: "Editar" }).click();
+  await page.getByLabel("Nombre", { exact: true }).fill("Proyecto actualizado");
+  await page.getByRole("button", { name: "Guardar cambios" }).click();
+  const updated = page.locator(".projects-view__item").filter({ hasText: "Proyecto actualizado" });
+  await expect(updated).toBeVisible();
+  await updated.getByRole("button", { name: "Eliminar", exact: true }).click();
+  await expect(updated.getByText(/Solo se pueden eliminar/)).toBeVisible();
+  await updated.getByRole("button", { name: "Confirmar eliminación" }).click();
+  await expect(updated).toHaveCount(0);
+});
+
+test("genera y acepta invitaciones de un solo uso", async ({ page, workspace }) => {
+  await navigate(page, "Equipos");
+  await expect(page.getByText(/concede acceso a todos los proyectos/)).toBeVisible();
+  await page.getByRole("button", { name: "Generar invitación" }).click();
+  await expect(page.getByLabel("Código generado")).toHaveValue("a".repeat(64));
+  await page.getByLabel("Código de invitación").fill("a".repeat(64));
+  await page.getByRole("button", { name: "Aceptar invitación" }).click();
+  await expect(page.getByText("Te uniste al equipo.")).toBeVisible();
+  expect(workspace.writes.some((item) => item.path === "/team-invitations/accept")).toBe(true);
+});
+
+test("crea, renombra y elimina un equipo vacío", async ({ page }) => {
+  await navigate(page, "Equipos");
+  await page.getByLabel("Nombre del equipo").fill("Equipo móvil");
+  await page.getByRole("button", { name: "Crear equipo" }).click();
+  await expect(page.getByRole("combobox", { name: "Equipo", exact: true })).toHaveValue("2");
+  await page.getByRole("button", { name: "Editar equipo" }).click();
+  await page.getByLabel("Nombre del equipo").fill("Equipo web");
+  await page.getByRole("button", { name: "Guardar equipo" }).click();
+  await expect(
+    page.getByRole("combobox", { name: "Equipo", exact: true }).locator("option:checked"),
+  ).toContainText("Equipo web");
+  await page.getByRole("button", { name: "Eliminar equipo", exact: true }).click();
+  await page.getByRole("button", { name: "Confirmar eliminación de equipo" }).click();
+  await expect(page.getByRole("combobox", { name: "Equipo", exact: true })).toHaveValue("1");
 });
 
 test("diseñador guarda y actualiza todos los pasos y descarga Markdown", async ({
