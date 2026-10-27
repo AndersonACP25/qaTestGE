@@ -12,7 +12,7 @@ Este documento combina la arquitectura objetivo de la v1.0 con el estado real de
 
 - Gestionar el ciclo de vida de bugs, casos de prueba, ejecuciones y evidencias desde un mismo espacio de trabajo.
 - Mantener trazabilidad entre un bug, los casos que lo cubren, las ejecuciones y sus resultados.
-- Mantener los datos de cada cuenta aislados por proyecto, dejando la colaboración multiusuario para una etapa futura.
+- Mantener los datos aislados por organización; la membresía concede acceso a todos los proyectos de esa organización.
 - Ofrecer asistencia de IA útil sin convertirla en autoridad ni requisito para usar el producto.
 - Proteger los datos del proyecto y hacer explícito cuándo información sale a un proveedor de IA.
 
@@ -24,7 +24,7 @@ Este documento combina la arquitectura objetivo de la v1.0 con el estado real de
 - La API requiere DATABASE_URL, usa un pool pg y comprueba el esquema qa al arrancar. No existe fallback en memoria ni importación automática del SQL.
 - Los endpoints permiten listar y crear bugs, casos de prueba, ejecuciones y metadatos de evidencias. Los bugs y casos se pueden editar; los casos se pueden eliminar si no tienen referencias a ejecuciones, y sus imágenes/enlaces se administran por separado. Los metadatos de evidencias permiten editarse y eliminarse.
 - Bugs y casos de prueba permiten actualizar su estado mediante endpoints PATCH, con los valores validados por modelo y las restricciones existentes de PostgreSQL. No se requiere una tabla adicional de estados.
-- La interfaz es de cuenta individual: no ofrece gestión de equipo, invitaciones ni administración de membresías.
+- La interfaz permite al propietario generar invitaciones de un solo uso y retirar integrantes. El código se comparte manualmente, solo se almacena su hash, caduca en 24 horas y su aceptación es autenticada y transaccional. La membresía permite acceder a todos los proyectos de la organización; todavía no hay permisos por proyecto ni CRUD completo de equipos.
 - Configuración conserva las cantidades iniciales del diseñador por categoría en localStorage, separadas por usuario en el navegador; no se envían a la API ni a PostgreSQL.
 - Los archivos generales de evidencia se guardan como bytes privados en PostgreSQL, máximo 2 MiB, y se entregan como descarga autenticada con comprobación de proyecto.
 

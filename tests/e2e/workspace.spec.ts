@@ -128,6 +128,17 @@ test("administra proyectos con confirmación de borrado", async ({ page }) => {
   await expect(updated).toHaveCount(0);
 });
 
+test("genera y acepta invitaciones de un solo uso", async ({ page, workspace }) => {
+  await navigate(page, "Equipos");
+  await expect(page.getByText(/concede acceso a todos los proyectos/)).toBeVisible();
+  await page.getByRole("button", { name: "Generar invitación" }).click();
+  await expect(page.getByLabel("Código generado")).toHaveValue("a".repeat(64));
+  await page.getByLabel("Código de invitación").fill("a".repeat(64));
+  await page.getByRole("button", { name: "Aceptar invitación" }).click();
+  await expect(page.getByText("Te uniste al equipo.")).toBeVisible();
+  expect(workspace.writes.some((item) => item.path === "/team-invitations/accept")).toBe(true);
+});
+
 test("diseñador guarda y actualiza todos los pasos y descarga Markdown", async ({
   page,
   workspace,

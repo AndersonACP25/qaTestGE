@@ -306,6 +306,72 @@ export const openApiDocument = {
         },
       },
     },
+    "/api/teams": {
+      get: {
+        security: [{ sessionCookie: [] }],
+        summary: "Listar espacios del usuario",
+        responses: {
+          "200": { description: "Equipos disponibles" },
+          "401": errorResponse("UNAUTHENTICATED"),
+        },
+      },
+    },
+    "/api/teams/{teamId}/members": {
+      get: {
+        security: [{ sessionCookie: [] }],
+        summary: "Listar integrantes del espacio",
+        parameters: [{ in: "path", name: "teamId", required: true, schema: projectId }],
+        responses: {
+          "200": { description: "Integrantes" },
+          "404": errorResponse("TEAM_NOT_FOUND"),
+        },
+      },
+    },
+    "/api/teams/{teamId}/invitations": {
+      post: {
+        security: [{ sessionCookie: [], csrfToken: [] }],
+        summary: "Generar código de invitación de un solo uso",
+        parameters: [{ in: "path", name: "teamId", required: true, schema: projectId }],
+        requestBody: { required: true, content: json({ type: "object" }) },
+        responses: {
+          "201": { description: "Código secreto y fecha de vencimiento" },
+          "404": errorResponse("TEAM_NOT_FOUND"),
+        },
+      },
+    },
+    "/api/team-invitations/accept": {
+      post: {
+        security: [{ sessionCookie: [], csrfToken: [] }],
+        summary: "Aceptar una invitación",
+        requestBody: {
+          required: true,
+          content: json({
+            type: "object",
+            required: ["code"],
+            properties: { code: { type: "string", pattern: "^[a-f0-9]{64}$" } },
+          }),
+        },
+        responses: {
+          "204": { description: "Invitación aceptada" },
+          "400": errorResponse("INVALID_INVITE"),
+          "404": errorResponse("INVITE_NOT_FOUND"),
+        },
+      },
+    },
+    "/api/teams/{teamId}/members/{memberId}": {
+      delete: {
+        security: [{ sessionCookie: [], csrfToken: [] }],
+        summary: "Retirar a un integrante",
+        parameters: [
+          { in: "path", name: "teamId", required: true, schema: projectId },
+          { in: "path", name: "memberId", required: true, schema: projectId },
+        ],
+        responses: {
+          "204": { description: "Integrante retirado" },
+          "404": errorResponse("MEMBER_NOT_FOUND"),
+        },
+      },
+    },
     "/api/projects": {
       get: {
         summary: "Listar proyectos existentes",

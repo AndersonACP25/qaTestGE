@@ -31,6 +31,7 @@ import type { BugTemplate, BugTemplatePriority, Project, User } from "./api";
 import AccountSettingsView from "./views/AccountSettingsView";
 import WikiView from "./views/WikiView";
 import ProjectsView from "./views/ProjectsView";
+import TeamsView from "./views/TeamsView";
 import TagsView from "./views/TagsView";
 import RecordDetailsDialog, { type RecordDetail } from "./views/RecordDetailsDialog";
 import { exportRecord, recordExportFormats } from "./utils/exportRecord";
@@ -68,6 +69,7 @@ const navigation: {
     items: [
       { id: "overview", label: "Dashboard", icon: "grid" },
       { id: "projects", label: "Proyectos", icon: "grid" },
+      { id: "teams", label: "Equipos", icon: "grid" },
       { id: "bugs", label: "Bugs", icon: "bug", count: undefined },
       { id: "cases", label: "Casos de prueba", icon: "check-square" },
       { id: "case-builder", label: "Diseñar test cases", icon: "sparkle" },
@@ -520,6 +522,7 @@ function App({
   const pageTitle = {
     overview: "Dashboard",
     projects: "Proyectos",
+    teams: "Equipos",
     bugs: "Bugs",
     cases: "Casos de prueba",
     runs: "Test runs",
@@ -1128,9 +1131,15 @@ function App({
               <h1>{pageTitle}</h1>
               <p className="page-subtitle">{pageDescription(activePage)}</p>
             </div>
-            {!["overview", "projects", "case-builder", "settings", "tags", "wiki"].includes(
-              activePage,
-            ) && (
+            {![
+              "overview",
+              "projects",
+              "teams",
+              "case-builder",
+              "settings",
+              "tags",
+              "wiki",
+            ].includes(activePage) && (
               <button
                 disabled={!projectId || loading || saving || Boolean(error)}
                 className="button button-primary"
@@ -1203,7 +1212,9 @@ function App({
               existente.
             </p>
           )}
-          {activePage === "projects" ? (
+          {activePage === "teams" ? (
+            <TeamsView onChanged={() => setRevision((value) => value + 1)} />
+          ) : activePage === "projects" ? (
             <ProjectsView projects={projects} onChanged={() => setRevision((value) => value + 1)} />
           ) : activePage === "settings" ? (
             <AccountSettingsView
@@ -2206,6 +2217,7 @@ function pageDescription(page: NavigationPage): string {
   return {
     overview: "Aquí tienes el estado de calidad de tus proyectos.",
     projects: "Crea y administra los proyectos de tu espacio de trabajo.",
+    teams: "Administra la membresía de tus espacios de trabajo.",
     bugs: "Registra, prioriza y da seguimiento a las incidencias de tus proyectos.",
     cases: "Organiza los escenarios que mantienen tu producto bajo control.",
     runs: "Ejecuta suites de prueba y consulta sus resultados.",

@@ -56,7 +56,17 @@ export const test = base.extend<{
           user: { id: "1", name: "QA Local", email: "qa@example.test" },
           csrfToken: "test-csrf",
         };
-      else if (path === "/projects" && method === "GET") data = state.projects;
+      else if (path === "/teams" && method === "GET")
+        data = [{ id: "1", name: "Equipo QA", role: "owner" }];
+      else if (path === "/teams/1/members" && method === "GET")
+        data = [{ id: "1", name: "QA Local", role: "owner" }];
+      else if (path === "/teams/1/invitations" && method === "POST") {
+        data = { code: "a".repeat(64), expiresAt: "2030-01-01T00:00:00.000Z" };
+        status = 201;
+      } else if (path === "/team-invitations/accept" && method === "POST") {
+        await route.fulfill({ status: 204 });
+        return;
+      } else if (path === "/projects" && method === "GET") data = state.projects;
       else if (path === "/projects" && method === "POST") {
         data = { id: "2", organizationId: "1", name: body.name, description: body.description };
         state.projects.push(data as (typeof state.projects)[number]);

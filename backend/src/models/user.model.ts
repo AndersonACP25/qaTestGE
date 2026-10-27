@@ -51,6 +51,14 @@ export interface AuthProvider {
     description: string,
   ): Promise<Project>;
   deleteProject(userId: string, projectId: string): Promise<void>;
+  listTeams(userId: string): Promise<{ id: string; name: string; role: "owner" | "member" }[]>;
+  listTeamMembers(
+    userId: string,
+    teamId: string,
+  ): Promise<{ id: string; name: string; role: "owner" | "member" }[]>;
+  createTeamInvite(userId: string, teamId: string): Promise<{ code: string; expiresAt: string }>;
+  acceptTeamInvite(userId: string, code: string): Promise<void>;
+  removeTeamMember(userId: string, teamId: string, memberId: string): Promise<void>;
   updateProfile(userId: string, input: UpdateProfileInput): Promise<User>;
   changePassword(
     userId: string,

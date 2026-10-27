@@ -87,6 +87,43 @@ export function createApp(repository: Repository, auth: AuthProvider) {
     await auth.deleteProject(response.locals.user.id, request.params.projectId);
     response.status(204).end();
   });
+  app.get("/api/teams", async (_request, response) => {
+    response.json({ data: await auth.listTeams(response.locals.user.id) });
+  });
+  app.get("/api/teams/:teamId/members", async (request, response) => {
+    if (!isId(request.params.teamId))
+      throw new HttpError(400, "INVALID_TEAM", "Identificador de equipo inválido.");
+    response.json({
+      data: await auth.listTeamMembers(response.locals.user.id, request.params.teamId),
+    });
+  });
+  app.post("/api/teams/:teamId/invitations", async (request, response) => {
+    if (!isId(request.params.teamId))
+      throw new HttpError(400, "INVALID_TEAM", "Identificador de equipo inválido.");
+    response
+      .status(201)
+      .json({ data: await auth.createTeamInvite(response.locals.user.id, request.params.teamId) });
+  });
+  app.post("/api/team-invitations/accept", async (request, response) => {
+    if (
+      !isRecord(request.body) ||
+      typeof request.body.code !== "string" ||
+      !/^[a-f0-9]{64}$/.test(request.body.code)
+    )
+      throw new HttpError(400, "INVALID_INVITE", "El código de invitación no es válido.");
+    await auth.acceptTeamInvite(response.locals.user.id, request.body.code);
+    response.status(204).end();
+  });
+  app.delete("/api/teams/:teamId/members/:memberId", async (request, response) => {
+    if (!isId(request.params.teamId) || !isId(request.params.memberId))
+      throw new HttpError(400, "INVALID_TEAM", "Identificadores inválidos.");
+    await auth.removeTeamMember(
+      response.locals.user.id,
+      request.params.teamId,
+      request.params.memberId,
+    );
+    response.status(204).end();
+  });
   app.use("/api/bugs", bugsRouter);
   app.use("/api/test-cases", testCasesRouter);
   app.use("/api/test-runs", testRunsRouter);

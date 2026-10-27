@@ -190,6 +190,30 @@ it("manages project tags and validates tag inputs", async () => {
 });
 
 describe("qaTestGE API with an injected repository (no database)", () => {
+  it("requires authentication and validates team invitation codes", async () => {
+    const acceptTeamInvite = vi.fn(testAuth.acceptTeamInvite);
+    const teamApp = createApp(repo, { ...testAuth, acceptTeamInvite });
+    const user = () =>
+      request.agent(teamApp).set("Cookie", `qa_session=${testToken}`).set("X-CSRF-Token", testCsrf);
+    expect((await user().post("/api/team-invitations/accept").send({ code: "bad" })).status).toBe(
+      400,
+    );
+    expect(
+      (
+        await request(teamApp)
+          .post("/api/team-invitations/accept")
+          .send({ code: "a".repeat(64) })
+      ).status,
+    ).toBe(401);
+    expect(
+      (
+        await user()
+          .post("/api/team-invitations/accept")
+          .send({ code: "a".repeat(64) })
+      ).status,
+    ).toBe(204);
+    expect(acceptTeamInvite).toHaveBeenCalledWith("1", "a".repeat(64));
+  });
   it("validates project management requests and delegates the authenticated user", async () => {
     const createProject = vi.fn(testAuth.createProject);
     const updateProject = vi.fn(testAuth.updateProject);

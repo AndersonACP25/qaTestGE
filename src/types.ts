@@ -8,6 +8,7 @@ export type NavigationPage =
   | "tags"
   | "settings"
   | "projects"
+  | "teams"
   | "wiki";
 
 export type PriorityLevel = "Crítica" | "Alta" | "Media" | "Baja";

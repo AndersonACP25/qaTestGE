@@ -33,19 +33,19 @@ El frontend usa React, TypeScript y Vite. La API usa Node.js, Express, TypeScrip
 - Plantillas personales de bugs guardadas en PostgreSQL, administrables en Configuración y cargables al crear una incidencia.
 - Desactivación y anonimización de cuenta con contraseña actual, revocación de sesiones y conservación de proyectos y registros QA relacionados.
 - Configuración de IA visible como maqueta no funcional: no guarda claves ni conecta proveedores.
-- Una cuenta corresponde a una persona; no hay gestión de equipo, invitaciones ni administración de membresías desde la interfaz.
+- Cada cuenta corresponde a una persona. El propietario puede generar códigos de invitación de un solo uso y retirar integrantes; un integrante accede a todos los proyectos del espacio. El código se comparte manualmente y vence en 24 horas.
 - Alta, consulta, edición y eliminación de casos de prueba. Los cambios se persisten en PostgreSQL; un caso asociado a una ejecución no se puede eliminar para preservar sus referencias.
 - Casos de prueba con estados (`Pendiente`, `Aprobado`, `Fallido`), Suite opcional y hasta 100 pasos, cada uno con acción y resultado esperado.
 - Adjuntos de imágenes PNG, JPEG, GIF o WebP (máximo 2 MiB cada una y 5 por carga) y enlaces HTTP(S), almacenados o referenciados en PostgreSQL. Su consulta requiere sesión y acceso al proyecto.
 - Vista previa del diseñador editable localmente, con múltiples pasos por caso y exportación actualizada a Excel/PDF/Markdown.
-- Exportación de bugs y casos de prueba individuales a PDF, Excel o Markdown desde el menú de tres puntos, incluidos los pasos del caso.
+- Exportación de bugs y casos de prueba individuales a PDF, Excel o Markdown desde el botón Exportar, incluidos los pasos del caso.
 - Creación de ejecuciones manuales vinculadas a casos.
 - Evidencias con archivos privados de hasta 2 MiB, vínculo a recursos QA y descarga autenticada desde el mantenimiento.
 - Diseñador de casos de prueba con categorías identificadas por colores, cantidades ajustables, vista previa editable y ejemplos exportables a Excel/PDF/Markdown. El usuario puede guardar explícitamente casos individuales en el proyecto; la descripción no se analiza y no se llama a IA. Configuración permite guardar cantidades iniciales por categoría en el navegador.
 - ESLint y Prettier para validar y mantener consistentes el estilo y formato del código.
 - Temas claro y oscuro.
 
-La integración de IA es opcional y todavía no está implementada. No se ofrecen actualmente recuperación de contraseña, verificación de correo, MFA, invitaciones, permisos granulares ni auditoría.
+La integración de IA es opcional y todavía no está implementada. No se ofrecen actualmente recuperación de contraseña, verificación de correo, MFA, permisos granulares ni auditoría.
 
 ## CI/CD
 
@@ -124,7 +124,7 @@ pnpm db:migrate
 pnpm db:check
 ```
 
-`db:migrate` aplica idempotentemente las migraciones `004_authentication.sql` (usuarios, membresías y sesiones), `005_bug_templates.sql` (plantillas personales), `006_optional_test_suite.sql` (Suite opcional), `007_test_case_attachments.sql` (imágenes y enlaces de casos), `008_evidence_files.sql` (archivos privados de evidencias, hasta 2 MiB) y `009_tags.sql` (tags de proyecto y asociaciones con bugs, casos y ejecuciones). No borra ni asigna datos existentes. `db:check` comprueba la conexión y el esquema sin modificar datos.
+`db:migrate` aplica idempotentemente las migraciones `004_authentication.sql` (usuarios, membresías y sesiones), `005_bug_templates.sql` (plantillas personales), `006_optional_test_suite.sql` (Suite opcional), `007_test_case_attachments.sql` (imágenes y enlaces de casos), `008_evidence_files.sql` (archivos privados de evidencias, hasta 2 MiB) `009_tags.sql` (tags de proyecto y asociaciones con bugs, casos y ejecuciones) y `010_team_invitations.sql` (invitaciones de un solo uso). No borra ni asigna datos existentes. `db:check` comprueba la conexión y el esquema sin modificar datos.
 
 Si partes de una base que ya tenía el esquema inicial, **no vuelvas a importar `001_schema.sql`**: configura la conexión y ejecuta `pnpm db:migrate` y `pnpm db:check`.
 
@@ -183,7 +183,7 @@ No uses `test:db` contra una base con datos de trabajo: requiere una base de pru
 5. Ejecuta `pnpm db:migrate` y luego `pnpm db:check`.
 6. Ejecuta `pnpm typecheck`, `pnpm test` y `pnpm build` antes de reiniciar la aplicación.
 
-Las migraciones 004–009 son idempotentes. La 004 no asigna organizaciones o proyectos existentes a nuevos usuarios; la 005 crea la tabla de plantillas por usuario; la 006 permite Suite vacía/nula sin modificar los datos existentes; la 007 añade imágenes y enlaces de casos; la 008 añade archivos privados de evidencia; la 009 agrega tags por proyecto con asociaciones para bugs, casos y ejecuciones. No hay migración automática al arrancar; futuras modificaciones deben agregarse como migraciones versionadas. Al desactivar una cuenta desde Configuración, el usuario se anonimiza y queda inactivo, se revocan las sesiones y se eliminan sus plantillas; las membresías, proyectos y registros QA se conservan.
+Las migraciones 004–010 son idempotentes. La 010 añade invitaciones por código para espacios compartidos. La 004 no asigna organizaciones o proyectos existentes a nuevos usuarios; la 005 crea la tabla de plantillas por usuario; la 006 permite Suite vacía/nula sin modificar los datos existentes; la 007 añade imágenes y enlaces de casos; la 008 añade archivos privados de evidencia; la 009 agrega tags por proyecto con asociaciones para bugs, casos y ejecuciones. No hay migración automática al arrancar; futuras modificaciones deben agregarse como migraciones versionadas. Al desactivar una cuenta desde Configuración, el usuario se anonimiza y queda inactivo, se revocan las sesiones y se eliminan sus plantillas; las membresías, proyectos y registros QA se conservan.
 
 ## API y documentación
 
