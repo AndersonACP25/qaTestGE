@@ -7,6 +7,7 @@ export type NavigationPage =
   | "evidence"
   | "tags"
   | "settings"
+  | "projects"
   | "wiki";
 
 export type PriorityLevel = "Crítica" | "Alta" | "Media" | "Baja";

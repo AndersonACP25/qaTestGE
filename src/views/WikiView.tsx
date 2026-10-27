@@ -1,7 +1,7 @@
 const guides = [
   {
     title: "1. Selecciona un proyecto",
-    text: "El selector superior determina los datos visibles en el Dashboard y las demás secciones. Cada cuenta solo accede a los proyectos de sus organizaciones.",
+    text: "En Proyectos el propietario puede crear y editar proyectos, o eliminar los que no tengan registros vinculados. El selector superior determina los datos visibles; cada cuenta accede a los proyectos de sus organizaciones.",
   },
   {
     title: "2. Documenta casos de prueba",

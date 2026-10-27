@@ -12,6 +12,14 @@ export const test = base.extend<{
   workspace: async ({ page }, use) => {
     const createdAt = "2026-10-23T12:00:00.000Z";
     const state = {
+      projects: [
+        {
+          id: "1",
+          organizationId: "1",
+          name: "Proyecto QA con nombre largo para comprobar responsive",
+          description: "",
+        },
+      ],
       cases: [
         {
           id: "TC-001",
@@ -48,16 +56,20 @@ export const test = base.extend<{
           user: { id: "1", name: "QA Local", email: "qa@example.test" },
           csrfToken: "test-csrf",
         };
-      else if (path === "/projects")
-        data = [
-          {
-            id: "1",
-            organizationId: "1",
-            name: "Proyecto QA con nombre largo para comprobar responsive",
-            description: "",
-          },
-        ];
-      else if (path === "/bugs" && method === "GET")
+      else if (path === "/projects" && method === "GET") data = state.projects;
+      else if (path === "/projects" && method === "POST") {
+        data = { id: "2", organizationId: "1", name: body.name, description: body.description };
+        state.projects.push(data as (typeof state.projects)[number]);
+        status = 201;
+      } else if (path === "/projects/2" && method === "PATCH") {
+        const project = state.projects.find((item) => item.id === "2")!;
+        Object.assign(project, body);
+        data = project;
+      } else if (path === "/projects/2" && method === "DELETE") {
+        state.projects = state.projects.filter((item) => item.id !== "2");
+        await route.fulfill({ status: 204 });
+        return;
+      } else if (path === "/bugs" && method === "GET")
         data = [
           {
             id: "BUG-001",

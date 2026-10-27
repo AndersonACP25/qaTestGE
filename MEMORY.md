@@ -22,7 +22,8 @@
 - La Wiki presenta el flujo disponible y aclara los límites actuales del diseñador y la IA.
 - Las tablas de bugs, casos y ejecuciones incluyen acciones directas de edición y eliminación con confirmación. Un bug con casos o evidencias vinculadas no se puede eliminar.
 - Las acciones de tablas tienen columna suficiente y botones sin cortes; la regresión E2E verifica Dashboard y listados en escritorio y móvil.
-- La gestión de proyectos y equipos y la asignación de integrantes siguen pendientes.
+- El propietario puede crear, editar y eliminar proyectos vacíos desde Proyectos. Los proyectos con registros vinculados no se borran.
+- La gestión de equipos y la asignación de integrantes siguen pendientes.
 - Configuración se organiza por cuenta y seguridad, plantillas, diseño de casos e IA. La configuración de IA sigue siendo una maqueta.
 - Los botones Exportar de bugs y casos abren la selección de formato; el editor de pasos utiliza una tabla adaptable en creación y edición.
 

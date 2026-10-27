@@ -43,6 +43,14 @@ export interface AuthProvider {
   authenticate(token: string): Promise<AuthState | null>;
   logout(token: string): Promise<void>;
   projects(userId: string): Promise<Project[]>;
+  createProject(userId: string, name: string, description: string): Promise<Project>;
+  updateProject(
+    userId: string,
+    projectId: string,
+    name: string,
+    description: string,
+  ): Promise<Project>;
+  deleteProject(userId: string, projectId: string): Promise<void>;
   updateProfile(userId: string, input: UpdateProfileInput): Promise<User>;
   changePassword(
     userId: string,

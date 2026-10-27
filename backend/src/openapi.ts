@@ -317,6 +317,62 @@ export const openApiDocument = {
           "503": unavailable,
         },
       },
+      post: {
+        security: [{ sessionCookie: [], csrfToken: [] }],
+        summary: "Crear un proyecto en el espacio propio",
+        requestBody: {
+          required: true,
+          content: json({
+            type: "object",
+            required: ["name", "description"],
+            properties: {
+              name: { type: "string", maxLength: 100 },
+              description: { type: "string", maxLength: 5000 },
+            },
+          }),
+        },
+        responses: {
+          "201": { description: "Proyecto creado", content: json(envelope(project)) },
+          "400": errorResponse("INVALID_PROJECT"),
+          "403": errorResponse("WORKSPACE_REQUIRED"),
+          "409": errorResponse("CONFLICT"),
+        },
+      },
+    },
+    "/api/projects/{projectId}": {
+      patch: {
+        security: [{ sessionCookie: [], csrfToken: [] }],
+        summary: "Editar un proyecto del espacio propio",
+        parameters: [{ in: "path", name: "projectId", required: true, schema: projectId }],
+        requestBody: {
+          required: true,
+          content: json({
+            type: "object",
+            required: ["name", "description"],
+            properties: {
+              name: { type: "string", maxLength: 100 },
+              description: { type: "string", maxLength: 5000 },
+            },
+          }),
+        },
+        responses: {
+          "200": { description: "Proyecto actualizado", content: json(envelope(project)) },
+          "400": errorResponse("INVALID_PROJECT"),
+          "404": errorResponse("PROJECT_NOT_FOUND"),
+          "409": errorResponse("CONFLICT"),
+        },
+      },
+      delete: {
+        security: [{ sessionCookie: [], csrfToken: [] }],
+        summary: "Eliminar un proyecto sin registros vinculados",
+        parameters: [{ in: "path", name: "projectId", required: true, schema: projectId }],
+        responses: {
+          "204": { description: "Proyecto eliminado" },
+          "400": errorResponse("INVALID_PROJECT"),
+          "404": errorResponse("PROJECT_NOT_FOUND"),
+          "409": errorResponse("PROJECT_IN_USE"),
+        },
+      },
     },
     "/api/tags/{tagId}": {
       patch: {

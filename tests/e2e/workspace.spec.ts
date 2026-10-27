@@ -110,6 +110,24 @@ test("los registros muestran Exportar y permiten escoger formato", async ({ page
   }
 });
 
+test("administra proyectos con confirmación de borrado", async ({ page }) => {
+  await navigate(page, "Proyectos");
+  await page.getByLabel("Nombre", { exact: true }).fill("Proyecto móvil");
+  await page.getByLabel("Descripción", { exact: true }).fill("Pruebas de la aplicación");
+  await page.getByRole("button", { name: "Crear proyecto" }).click();
+  const project = page.locator(".projects-view__item").filter({ hasText: "Proyecto móvil" });
+  await expect(project).toBeVisible();
+  await project.getByRole("button", { name: "Editar" }).click();
+  await page.getByLabel("Nombre", { exact: true }).fill("Proyecto actualizado");
+  await page.getByRole("button", { name: "Guardar cambios" }).click();
+  const updated = page.locator(".projects-view__item").filter({ hasText: "Proyecto actualizado" });
+  await expect(updated).toBeVisible();
+  await updated.getByRole("button", { name: "Eliminar", exact: true }).click();
+  await expect(updated.getByText(/Solo se pueden eliminar/)).toBeVisible();
+  await updated.getByRole("button", { name: "Confirmar eliminación" }).click();
+  await expect(updated).toHaveCount(0);
+});
+
 test("diseñador guarda y actualiza todos los pasos y descarga Markdown", async ({
   page,
   workspace,

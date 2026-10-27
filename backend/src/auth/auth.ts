@@ -122,6 +122,57 @@ export class PostgresAuth implements AuthProvider {
     );
     return rows;
   }
+  async createProject(userId: string, name: string, description: string): Promise<Project> {
+    const { rows } = await this.pool.query<Project>(
+      `INSERT INTO qa.projects(organization_id,name,description)
+       SELECT m.organization_id,$2,$3 FROM qa.organization_members m
+       WHERE m.user_id=$1 AND m.role='owner' ORDER BY m.organization_id LIMIT 1
+       RETURNING id::text,organization_id::text AS "organizationId",name,description`,
+      [userId, name.trim(), description.trim()],
+    );
+    if (!rows[0])
+      throw new HttpError(
+        403,
+        "WORKSPACE_REQUIRED",
+        "No tienes un espacio propio para crear proyectos.",
+      );
+    return rows[0];
+  }
+  async updateProject(
+    userId: string,
+    projectId: string,
+    name: string,
+    description: string,
+  ): Promise<Project> {
+    const { rows } = await this.pool.query<Project>(
+      `UPDATE qa.projects p SET name=$3,description=$4 WHERE p.id=$2 AND EXISTS
+       (SELECT 1 FROM qa.organization_members m WHERE m.organization_id=p.organization_id AND m.user_id=$1 AND m.role='owner')
+       RETURNING p.id::text,p.organization_id::text AS "organizationId",p.name,p.description`,
+      [userId, projectId, name.trim(), description.trim()],
+    );
+    if (!rows[0])
+      throw new HttpError(404, "PROJECT_NOT_FOUND", "Proyecto no disponible para esta cuenta.");
+    return rows[0];
+  }
+  async deleteProject(userId: string, projectId: string): Promise<void> {
+    try {
+      const { rowCount } = await this.pool.query(
+        `DELETE FROM qa.projects p WHERE p.id=$2 AND EXISTS
+         (SELECT 1 FROM qa.organization_members m WHERE m.organization_id=p.organization_id AND m.user_id=$1 AND m.role='owner')`,
+        [userId, projectId],
+      );
+      if (!rowCount)
+        throw new HttpError(404, "PROJECT_NOT_FOUND", "Proyecto no disponible para esta cuenta.");
+    } catch (error) {
+      if (typeof error === "object" && error !== null && "code" in error && error.code === "23503")
+        throw new HttpError(
+          409,
+          "PROJECT_IN_USE",
+          "El proyecto tiene registros vinculados y no se puede eliminar.",
+        );
+      throw error;
+    }
+  }
   async updateProfile(userId: string, input: UpdateProfileInput): Promise<User> {
     try {
       const { rows } = await this.pool.query<User>(

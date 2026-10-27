@@ -8,6 +8,8 @@ La sección Wiki explica el flujo disponible de proyectos, bugs, casos, ejecucio
 
 Los botones de exportación de bugs y casos permiten elegir PDF, Excel o Markdown. Los pasos de casos se editan en una tabla adaptable a dispositivos móviles. Los ajustes se organizan en apartados para cuenta y seguridad, plantillas, diseño de casos e IA.
 
+En Proyectos, el propietario puede crear y editar proyectos de su espacio. La eliminación está permitida únicamente cuando no existen registros vinculados; los proyectos accesibles siguen limitados por membresía de organización.
+
 ## Stack tecnológico
 
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)

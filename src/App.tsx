@@ -30,6 +30,7 @@ import {
 import type { BugTemplate, BugTemplatePriority, Project, User } from "./api";
 import AccountSettingsView from "./views/AccountSettingsView";
 import WikiView from "./views/WikiView";
+import ProjectsView from "./views/ProjectsView";
 import TagsView from "./views/TagsView";
 import RecordDetailsDialog, { type RecordDetail } from "./views/RecordDetailsDialog";
 import { exportRecord, recordExportFormats } from "./utils/exportRecord";
@@ -66,6 +67,7 @@ const navigation: {
     section: "WORKSPACE",
     items: [
       { id: "overview", label: "Dashboard", icon: "grid" },
+      { id: "projects", label: "Proyectos", icon: "grid" },
       { id: "bugs", label: "Bugs", icon: "bug", count: undefined },
       { id: "cases", label: "Casos de prueba", icon: "check-square" },
       { id: "case-builder", label: "Diseñar test cases", icon: "sparkle" },
@@ -517,6 +519,7 @@ function App({
   const visibleEvidence = useMemo(() => filterEvidence(evidence, { search }), [evidence, search]);
   const pageTitle = {
     overview: "Dashboard",
+    projects: "Proyectos",
     bugs: "Bugs",
     cases: "Casos de prueba",
     runs: "Test runs",
@@ -1125,7 +1128,9 @@ function App({
               <h1>{pageTitle}</h1>
               <p className="page-subtitle">{pageDescription(activePage)}</p>
             </div>
-            {!["overview", "case-builder", "settings", "tags", "wiki"].includes(activePage) && (
+            {!["overview", "projects", "case-builder", "settings", "tags", "wiki"].includes(
+              activePage,
+            ) && (
               <button
                 disabled={!projectId || loading || saving || Boolean(error)}
                 className="button button-primary"
@@ -1192,13 +1197,15 @@ function App({
             </p>
           )}
           {error && <Alert tone="error">{error}</Alert>}
-          {!loading && !error && !projectId && (
+          {!loading && !error && !projectId && activePage !== "projects" && (
             <p className="workspace__notice">
               No tienes proyectos disponibles. El administrador debe conceder acceso a un espacio
               existente.
             </p>
           )}
-          {activePage === "settings" ? (
+          {activePage === "projects" ? (
+            <ProjectsView projects={projects} onChanged={() => setRevision((value) => value + 1)} />
+          ) : activePage === "settings" ? (
             <AccountSettingsView
               user={user}
               onUserUpdated={onUserUpdated}
@@ -2198,6 +2205,7 @@ function TagPicker({
 function pageDescription(page: NavigationPage): string {
   return {
     overview: "Aquí tienes el estado de calidad de tus proyectos.",
+    projects: "Crea y administra los proyectos de tu espacio de trabajo.",
     bugs: "Registra, prioriza y da seguimiento a las incidencias de tus proyectos.",
     cases: "Organiza los escenarios que mantienen tu producto bajo control.",
     runs: "Ejecuta suites de prueba y consulta sus resultados.",

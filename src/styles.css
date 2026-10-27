@@ -3527,6 +3527,43 @@ tbody td {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
   gap: 18px;
 }
+.projects-view {
+  display: grid;
+  gap: 18px;
+}
+.projects-view__panel {
+  min-width: 0;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+}
+.projects-view__form {
+  display: grid;
+  gap: 12px;
+}
+.projects-view__item {
+  display: grid;
+  gap: 10px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+.projects-view__item h3,
+.projects-view__item p {
+  margin: 4px 0;
+  overflow-wrap: anywhere;
+}
+.projects-view__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.projects-view__confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
 .wiki-view__card {
   padding: 22px;
   border: 1px solid var(--line);

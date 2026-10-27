@@ -11,6 +11,7 @@ import type { Repository } from "./repositories/repository.js";
 import { HttpError } from "./http-error.js";
 import type { AuthProvider } from "./models/user.model.js";
 import { authRouter, requireAuth, sameOrigin } from "./auth/routes.js";
+import { isId, isRecord, text } from "./validation.js";
 
 export function createApp(repository: Repository, auth: AuthProvider) {
   const app = express();
@@ -50,6 +51,41 @@ export function createApp(repository: Repository, auth: AuthProvider) {
   app.use("/api", requireAuth(auth, repository));
   app.get("/api/projects", async (_request, response) => {
     response.json({ data: await response.locals.repository.listProjects() });
+  });
+  function projectInput(body: unknown) {
+    if (
+      !isRecord(body) ||
+      !text(body.name, 100) ||
+      typeof body.description !== "string" ||
+      body.description.length > 5000
+    )
+      throw new HttpError(400, "INVALID_PROJECT", "Introduce un nombre y una descripción válidos.");
+    return { name: body.name, description: body.description };
+  }
+  app.post("/api/projects", async (request, response) => {
+    const input = projectInput(request.body);
+    response.status(201).json({
+      data: await auth.createProject(response.locals.user.id, input.name, input.description),
+    });
+  });
+  app.patch("/api/projects/:projectId", async (request, response) => {
+    if (!isId(request.params.projectId))
+      throw new HttpError(400, "INVALID_PROJECT", "Identificador de proyecto inválido.");
+    const input = projectInput(request.body);
+    response.json({
+      data: await auth.updateProject(
+        response.locals.user.id,
+        request.params.projectId,
+        input.name,
+        input.description,
+      ),
+    });
+  });
+  app.delete("/api/projects/:projectId", async (request, response) => {
+    if (!isId(request.params.projectId))
+      throw new HttpError(400, "INVALID_PROJECT", "Identificador de proyecto inválido.");
+    await auth.deleteProject(response.locals.user.id, request.params.projectId);
+    response.status(204).end();
   });
   app.use("/api/bugs", bugsRouter);
   app.use("/api/test-cases", testCasesRouter);
