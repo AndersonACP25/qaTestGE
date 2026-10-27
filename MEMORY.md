@@ -24,7 +24,8 @@
 - Las acciones de tablas tienen columna suficiente y botones sin cortes; la regresión E2E verifica Dashboard y listados en escritorio y móvil.
 - El propietario puede crear, editar y eliminar proyectos vacíos desde Proyectos. Los proyectos con registros vinculados no se borran.
 - Equipos permite listar espacios y miembros, crear invitaciones de un solo uso y retirar integrantes. Aceptar una invitación concede acceso a todos los proyectos de la organización; requiere migración 010.
-- Siguen pendientes el CRUD completo de equipos y la asignación de integrantes a bugs y casos.
+- Equipos permite crear, renombrar y eliminar espacios sin proyectos ni otros integrantes. Los proyectos nuevos se crean en el equipo propietario seleccionado.
+- Sigue pendiente la asignación de integrantes a bugs y casos.
 - Configuración se organiza por cuenta y seguridad, plantillas, diseño de casos e IA. La configuración de IA sigue siendo una maqueta.
 - Los botones Exportar de bugs y casos abren la selección de formato; el editor de pasos utiliza una tabla adaptable en creación y edición.
 

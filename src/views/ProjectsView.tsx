@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import Alert from "../Alert";
 import { api, type Project } from "../api";
 
@@ -16,6 +16,22 @@ export default function ProjectsView({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [teams, setTeams] = useState<{ id: string; name: string; role: "owner" | "member" }[]>([]);
+  const [teamId, setTeamId] = useState("");
+  useEffect(() => {
+    const abort = new AbortController();
+    void api<typeof teams>("/teams", { signal: abort.signal })
+      .then((items) => {
+        const owned = items.filter((item) => item.role === "owner");
+        setTeams(owned);
+        setTeamId((id) => (owned.some((item) => item.id === id) ? id : (owned[0]?.id ?? "")));
+      })
+      .catch((cause: unknown) => {
+        if (!abort.signal.aborted)
+          setError(cause instanceof Error ? cause.message : "No se pudieron cargar los equipos.");
+      });
+    return () => abort.abort();
+  }, []);
   function reset() {
     setEditing(null);
     setName("");
@@ -30,7 +46,7 @@ export default function ProjectsView({
     try {
       await api(editing ? `/projects/${encodeURIComponent(editing.id)}` : "/projects", {
         method: editing ? "PATCH" : "POST",
-        body: JSON.stringify({ name, description }),
+        body: JSON.stringify({ name, description, ...(editing ? {} : { teamId }) }),
       });
       setMessage(editing ? "Proyecto actualizado." : "Proyecto creado.");
       reset();
@@ -66,6 +82,19 @@ export default function ProjectsView({
         <h2>{editing ? `Editar ${editing.name}` : "Crear proyecto"}</h2>
         <p>Solo el propietario del espacio puede crear, editar o eliminar proyectos.</p>
         <form className="projects-view__form" onSubmit={(event) => void save(event)}>
+          {!editing && (
+            <label className="workspace__field">
+              Equipo propietario
+              <select required value={teamId} onChange={(event) => setTeamId(event.target.value)}>
+                <option value="">Selecciona un equipo</option>
+                {teams.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <label className="workspace__field">
             Nombre
             <input
@@ -84,7 +113,11 @@ export default function ProjectsView({
             />
           </label>
           <div className="projects-view__actions">
-            <button className="button button-primary" disabled={busy} type="submit">
+            <button
+              className="button button-primary"
+              disabled={busy || (!editing && !teamId)}
+              type="submit"
+            >
               {editing ? "Guardar cambios" : "Crear proyecto"}
             </button>
             {editing && (

@@ -315,6 +315,51 @@ export const openApiDocument = {
           "401": errorResponse("UNAUTHENTICATED"),
         },
       },
+      post: {
+        security: [{ sessionCookie: [], csrfToken: [] }],
+        summary: "Crear un equipo",
+        requestBody: {
+          required: true,
+          content: json({
+            type: "object",
+            required: ["name"],
+            properties: { name: { type: "string", maxLength: 100 } },
+          }),
+        },
+        responses: {
+          "201": { description: "Equipo creado" },
+          "400": errorResponse("INVALID_TEAM"),
+        },
+      },
+    },
+    "/api/teams/{teamId}": {
+      patch: {
+        security: [{ sessionCookie: [], csrfToken: [] }],
+        summary: "Renombrar un equipo propio",
+        parameters: [{ in: "path", name: "teamId", required: true, schema: projectId }],
+        requestBody: {
+          required: true,
+          content: json({
+            type: "object",
+            required: ["name"],
+            properties: { name: { type: "string", maxLength: 100 } },
+          }),
+        },
+        responses: {
+          "204": { description: "Equipo actualizado" },
+          "404": errorResponse("TEAM_NOT_FOUND"),
+        },
+      },
+      delete: {
+        security: [{ sessionCookie: [], csrfToken: [] }],
+        summary: "Eliminar un equipo vacío",
+        parameters: [{ in: "path", name: "teamId", required: true, schema: projectId }],
+        responses: {
+          "204": { description: "Equipo eliminado" },
+          "404": errorResponse("TEAM_NOT_FOUND"),
+          "409": errorResponse("TEAM_IN_USE"),
+        },
+      },
     },
     "/api/teams/{teamId}/members": {
       get: {
@@ -394,6 +439,10 @@ export const openApiDocument = {
             properties: {
               name: { type: "string", maxLength: 100 },
               description: { type: "string", maxLength: 5000 },
+              teamId: {
+                type: "string",
+                description: "Equipo propietario (opcional para clientes anteriores)",
+              },
             },
           }),
         },

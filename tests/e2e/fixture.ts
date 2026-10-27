@@ -12,6 +12,7 @@ export const test = base.extend<{
   workspace: async ({ page }, use) => {
     const createdAt = "2026-10-23T12:00:00.000Z";
     const state = {
+      teams: [{ id: "1", name: "Equipo QA", role: "owner" }],
       projects: [
         {
           id: "1",
@@ -56,9 +57,21 @@ export const test = base.extend<{
           user: { id: "1", name: "QA Local", email: "qa@example.test" },
           csrfToken: "test-csrf",
         };
-      else if (path === "/teams" && method === "GET")
-        data = [{ id: "1", name: "Equipo QA", role: "owner" }];
-      else if (path === "/teams/1/members" && method === "GET")
+      else if (path === "/teams" && method === "GET") data = state.teams;
+      else if (path === "/teams" && method === "POST") {
+        data = { id: "2", name: body.name, role: "owner" };
+        state.teams.push(data as (typeof state.teams)[number]);
+        status = 201;
+      } else if (path === "/teams/2" && method === "PATCH") {
+        const team = state.teams.find((item) => item.id === "2")!;
+        team.name = body.name;
+        await route.fulfill({ status: 204 });
+        return;
+      } else if (path === "/teams/2" && method === "DELETE") {
+        state.teams = state.teams.filter((item) => item.id !== "2");
+        await route.fulfill({ status: 204 });
+        return;
+      } else if (/^\/teams\/[12]\/members$/.test(path) && method === "GET")
         data = [{ id: "1", name: "QA Local", role: "owner" }];
       else if (path === "/teams/1/invitations" && method === "POST") {
         data = { code: "a".repeat(64), expiresAt: "2030-01-01T00:00:00.000Z" };

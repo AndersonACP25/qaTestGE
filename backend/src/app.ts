@@ -64,8 +64,15 @@ export function createApp(repository: Repository, auth: AuthProvider) {
   }
   app.post("/api/projects", async (request, response) => {
     const input = projectInput(request.body);
+    if (request.body.teamId !== undefined && !isId(request.body.teamId))
+      throw new HttpError(400, "INVALID_PROJECT", "Equipo inválido.");
     response.status(201).json({
-      data: await auth.createProject(response.locals.user.id, input.name, input.description),
+      data: await auth.createProject(
+        response.locals.user.id,
+        input.name,
+        input.description,
+        request.body.teamId,
+      ),
     });
   });
   app.patch("/api/projects/:projectId", async (request, response) => {
@@ -89,6 +96,25 @@ export function createApp(repository: Repository, auth: AuthProvider) {
   });
   app.get("/api/teams", async (_request, response) => {
     response.json({ data: await auth.listTeams(response.locals.user.id) });
+  });
+  app.post("/api/teams", async (request, response) => {
+    if (!isRecord(request.body) || !text(request.body.name, 100))
+      throw new HttpError(400, "INVALID_TEAM", "Introduce un nombre válido.");
+    response
+      .status(201)
+      .json({ data: await auth.createTeam(response.locals.user.id, request.body.name) });
+  });
+  app.patch("/api/teams/:teamId", async (request, response) => {
+    if (!isId(request.params.teamId) || !isRecord(request.body) || !text(request.body.name, 100))
+      throw new HttpError(400, "INVALID_TEAM", "Revisa el nombre y el equipo.");
+    await auth.updateTeam(response.locals.user.id, request.params.teamId, request.body.name);
+    response.status(204).end();
+  });
+  app.delete("/api/teams/:teamId", async (request, response) => {
+    if (!isId(request.params.teamId))
+      throw new HttpError(400, "INVALID_TEAM", "Identificador de equipo inválido.");
+    await auth.deleteTeam(response.locals.user.id, request.params.teamId);
+    response.status(204).end();
   });
   app.get("/api/teams/:teamId/members", async (request, response) => {
     if (!isId(request.params.teamId))

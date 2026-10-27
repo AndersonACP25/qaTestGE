@@ -190,6 +190,22 @@ it("manages project tags and validates tag inputs", async () => {
 });
 
 describe("qaTestGE API with an injected repository (no database)", () => {
+  it("validates team management and delegates with the authenticated identity", async () => {
+    const createTeam = vi.fn(testAuth.createTeam);
+    const updateTeam = vi.fn(testAuth.updateTeam);
+    const deleteTeam = vi.fn(testAuth.deleteTeam);
+    const teamApp = createApp(repo, { ...testAuth, createTeam, updateTeam, deleteTeam });
+    const user = () =>
+      request.agent(teamApp).set("Cookie", `qa_session=${testToken}`).set("X-CSRF-Token", testCsrf);
+    expect((await user().post("/api/teams").send({ name: "QA" })).status).toBe(201);
+    expect(createTeam).toHaveBeenCalledWith("1", "QA");
+    expect((await user().patch("/api/teams/2").send({ name: "Equipo" })).status).toBe(204);
+    expect(updateTeam).toHaveBeenCalledWith("1", "2", "Equipo");
+    expect((await user().delete("/api/teams/2").send({})).status).toBe(204);
+    expect(deleteTeam).toHaveBeenCalledWith("1", "2");
+    expect((await user().post("/api/teams").send({ name: " " })).status).toBe(400);
+    expect((await user().delete("/api/teams/nope").send({})).status).toBe(400);
+  });
   it("requires authentication and validates team invitation codes", async () => {
     const acceptTeamInvite = vi.fn(testAuth.acceptTeamInvite);
     const teamApp = createApp(repo, { ...testAuth, acceptTeamInvite });
@@ -232,7 +248,12 @@ describe("qaTestGE API with an injected repository (no database)", () => {
     expect(
       (await user().post("/api/projects").send({ name: "Portal", description: "QA" })).status,
     ).toBe(201);
-    expect(createProject).toHaveBeenCalledWith("1", "Portal", "QA");
+    expect(createProject).toHaveBeenCalledWith("1", "Portal", "QA", undefined);
+    expect(
+      (await user().post("/api/projects").send({ name: "Portal", description: "QA", teamId: "4" }))
+        .status,
+    ).toBe(201);
+    expect(createProject).toHaveBeenLastCalledWith("1", "Portal", "QA", "4");
     expect(
       (await user().patch("/api/projects/2").send({ name: "Portal 2", description: "" })).status,
     ).toBe(200);
@@ -248,7 +269,7 @@ describe("qaTestGE API with an injected repository (no database)", () => {
     expect(
       (await request(projectApp).post("/api/projects").send({ name: "X", description: "" })).status,
     ).toBe(401);
-    expect(createProject).toHaveBeenCalledTimes(1);
+    expect(createProject).toHaveBeenCalledTimes(2);
   });
   it("deletes bugs only within an authorized project", async () => {
     repo.deleteBug.mockResolvedValue(true);

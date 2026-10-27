@@ -16,6 +16,9 @@ export default function TeamsView({ onChanged }: { onChanged: () => void }) {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [removing, setRemoving] = useState<Member | null>(null);
+  const [teamName, setTeamName] = useState("");
+  const [editingTeam, setEditingTeam] = useState(false);
+  const [deleteTeam, setDeleteTeam] = useState(false);
   const team = teams.find((item) => item.id === selected);
   useEffect(() => {
     const abort = new AbortController();
@@ -80,6 +83,61 @@ export default function TeamsView({ onChanged }: { onChanged: () => void }) {
       {error && <Alert tone="error">{error}</Alert>}
       {message && <Alert tone="success">{message}</Alert>}
       <section className="projects-view__panel">
+        <h2>{editingTeam ? "Editar equipo" : "Crear equipo"}</h2>
+        <form
+          className="projects-view__form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void act(async () => {
+              if (editingTeam)
+                await api(`/teams/${encodeURIComponent(selected)}`, {
+                  method: "PATCH",
+                  body: JSON.stringify({ name: teamName }),
+                });
+              else {
+                const created = await api<Team>("/teams", {
+                  method: "POST",
+                  body: JSON.stringify({ name: teamName }),
+                });
+                setSelected(created.id);
+              }
+              setMessage(editingTeam ? "Equipo actualizado." : "Equipo creado.");
+              setTeamName("");
+              setEditingTeam(false);
+              refresh();
+            });
+          }}
+        >
+          <label className="workspace__field">
+            Nombre del equipo
+            <input
+              required
+              maxLength={100}
+              value={teamName}
+              onChange={(event) => setTeamName(event.target.value)}
+            />
+          </label>
+          <div className="projects-view__actions">
+            <button className="button button-primary" disabled={busy} type="submit">
+              {editingTeam ? "Guardar equipo" : "Crear equipo"}
+            </button>
+            {editingTeam && (
+              <button
+                type="button"
+                className="workspace__secondary"
+                disabled={busy}
+                onClick={() => {
+                  setEditingTeam(false);
+                  setTeamName("");
+                }}
+              >
+                Cancelar edición
+              </button>
+            )}
+          </div>
+        </form>
+      </section>
+      <section className="projects-view__panel">
         <h2>Unirse a un equipo</h2>
         <p>
           Solicita al propietario un código de un solo uso. Al aceptarlo podrás acceder a todos los
@@ -112,6 +170,9 @@ export default function TeamsView({ onChanged }: { onChanged: () => void }) {
               setSelected(event.target.value);
               setInvite(null);
               setRemoving(null);
+              setDeleteTeam(false);
+              setEditingTeam(false);
+              setTeamName("");
             }}
           >
             {teams.map((item) => (
@@ -123,6 +184,63 @@ export default function TeamsView({ onChanged }: { onChanged: () => void }) {
         </label>
         {team?.role === "owner" && (
           <>
+            <div className="projects-view__actions">
+              <button
+                type="button"
+                className="workspace__secondary"
+                disabled={busy}
+                onClick={() => {
+                  setEditingTeam(true);
+                  setTeamName(team.name);
+                }}
+              >
+                Editar equipo
+              </button>
+              <button
+                type="button"
+                className="workspace__danger"
+                disabled={busy}
+                onClick={() => setDeleteTeam(true)}
+              >
+                Eliminar equipo
+              </button>
+            </div>
+            {deleteTeam && (
+              <div>
+                <p>
+                  Solo puedes eliminar un equipo sin proyectos ni otros integrantes. Los códigos
+                  pendientes quedarán anulados.
+                </p>
+                <button
+                  type="button"
+                  className="workspace__danger"
+                  disabled={busy}
+                  onClick={() =>
+                    void act(async () => {
+                      await api(`/teams/${encodeURIComponent(selected)}`, {
+                        method: "DELETE",
+                        body: "{}",
+                      });
+                      setDeleteTeam(false);
+                      setInvite(null);
+                      setSelected("");
+                      setMessage("Equipo eliminado.");
+                      refresh();
+                    })
+                  }
+                >
+                  Confirmar eliminación de equipo
+                </button>
+                <button
+                  type="button"
+                  className="workspace__secondary"
+                  disabled={busy}
+                  onClick={() => setDeleteTeam(false)}
+                >
+                  Cancelar
+                </button>
+              </div>
+            )}
             <p>
               Compartir un código concede acceso a todos los proyectos de este espacio. Compártelo
               solo con la persona prevista.

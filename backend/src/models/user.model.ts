@@ -43,7 +43,12 @@ export interface AuthProvider {
   authenticate(token: string): Promise<AuthState | null>;
   logout(token: string): Promise<void>;
   projects(userId: string): Promise<Project[]>;
-  createProject(userId: string, name: string, description: string): Promise<Project>;
+  createProject(
+    userId: string,
+    name: string,
+    description: string,
+    teamId?: string,
+  ): Promise<Project>;
   updateProject(
     userId: string,
     projectId: string,
@@ -52,6 +57,9 @@ export interface AuthProvider {
   ): Promise<Project>;
   deleteProject(userId: string, projectId: string): Promise<void>;
   listTeams(userId: string): Promise<{ id: string; name: string; role: "owner" | "member" }[]>;
+  createTeam(userId: string, name: string): Promise<{ id: string; name: string; role: "owner" }>;
+  updateTeam(userId: string, teamId: string, name: string): Promise<void>;
+  deleteTeam(userId: string, teamId: string): Promise<void>;
   listTeamMembers(
     userId: string,
     teamId: string,

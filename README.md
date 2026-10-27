@@ -10,6 +10,8 @@ Los botones de exportación de bugs y casos permiten elegir PDF, Excel o Markdow
 
 En Proyectos, el propietario puede crear y editar proyectos de su espacio. La eliminación está permitida únicamente cuando no existen registros vinculados; los proyectos accesibles siguen limitados por membresía de organización.
 
+En Equipos se pueden crear espacios, renombrarlos y eliminar los que no tengan proyectos ni otros integrantes. Al crear un proyecto se elige el equipo propietario. El propietario puede compartir una invitación para dar acceso a todos los proyectos de su equipo.
+
 ## Stack tecnológico
 
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)

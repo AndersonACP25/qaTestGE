@@ -130,6 +130,72 @@ export class PostgresAuth implements AuthProvider {
     );
     return rows;
   }
+  async createTeam(userId: string, name: string) {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const result = await client.query<{ id: string; name: string }>(
+        "INSERT INTO qa.organizations(name) VALUES($1) RETURNING id::text,name",
+        [name.trim()],
+      );
+      await client.query(
+        "INSERT INTO qa.organization_members(organization_id,user_id,role) VALUES($1,$2,'owner')",
+        [result.rows[0].id, userId],
+      );
+      await client.query("COMMIT");
+      return { ...result.rows[0], role: "owner" as const };
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+  async updateTeam(userId: string, teamId: string, name: string) {
+    const result = await this.pool.query(
+      `UPDATE qa.organizations o SET name=$3 WHERE o.id=$2 AND EXISTS
+      (SELECT 1 FROM qa.organization_members m WHERE m.organization_id=o.id AND m.user_id=$1 AND m.role='owner')`,
+      [userId, teamId, name.trim()],
+    );
+    if (!result.rowCount)
+      throw new HttpError(404, "TEAM_NOT_FOUND", "Equipo no disponible para esta cuenta.");
+  }
+  async deleteTeam(userId: string, teamId: string) {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const team = await client.query(
+        `SELECT o.id FROM qa.organizations o WHERE o.id=$2 AND EXISTS
+        (SELECT 1 FROM qa.organization_members m WHERE m.organization_id=o.id AND m.user_id=$1 AND m.role='owner') FOR UPDATE`,
+        [userId, teamId],
+      );
+      if (!team.rowCount)
+        throw new HttpError(404, "TEAM_NOT_FOUND", "Equipo no disponible para esta cuenta.");
+      const dependencies = await client.query(
+        `SELECT 1 FROM qa.projects WHERE organization_id=$1 UNION ALL
+        SELECT 1 FROM qa.organization_members WHERE organization_id=$1 AND user_id<>$2 LIMIT 1`,
+        [teamId, userId],
+      );
+      if (dependencies.rowCount)
+        throw new HttpError(
+          409,
+          "TEAM_IN_USE",
+          "El equipo tiene proyectos u otros integrantes; no se puede eliminar.",
+        );
+      await client.query("DELETE FROM qa.team_invitations WHERE organization_id=$1", [teamId]);
+      await client.query(
+        "DELETE FROM qa.organization_members WHERE organization_id=$1 AND user_id=$2 AND role='owner'",
+        [teamId, userId],
+      );
+      await client.query("DELETE FROM qa.organizations WHERE id=$1", [teamId]);
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
   async listTeamMembers(userId: string, teamId: string) {
     const { rows } = await this.pool.query<{ id: string; name: string; role: "owner" | "member" }>(
       `SELECT u.id::text,u.name,m.role FROM qa.organization_members m JOIN qa.users u ON u.id=m.user_id
@@ -193,13 +259,18 @@ export class PostgresAuth implements AuthProvider {
     if (!result.rowCount)
       throw new HttpError(404, "MEMBER_NOT_FOUND", "Integrante no disponible para esta cuenta.");
   }
-  async createProject(userId: string, name: string, description: string): Promise<Project> {
+  async createProject(
+    userId: string,
+    name: string,
+    description: string,
+    teamId?: string,
+  ): Promise<Project> {
     const { rows } = await this.pool.query<Project>(
       `INSERT INTO qa.projects(organization_id,name,description)
        SELECT m.organization_id,$2,$3 FROM qa.organization_members m
-       WHERE m.user_id=$1 AND m.role='owner' ORDER BY m.organization_id LIMIT 1
+       WHERE m.user_id=$1 AND m.role='owner' AND ($4::bigint IS NULL OR m.organization_id=$4::bigint) ORDER BY m.organization_id LIMIT 1
        RETURNING id::text,organization_id::text AS "organizationId",name,description`,
-      [userId, name.trim(), description.trim()],
+      [userId, name.trim(), description.trim(), teamId ?? null],
     );
     if (!rows[0])
       throw new HttpError(

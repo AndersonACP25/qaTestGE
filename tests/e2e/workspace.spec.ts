@@ -139,6 +139,22 @@ test("genera y acepta invitaciones de un solo uso", async ({ page, workspace }) 
   expect(workspace.writes.some((item) => item.path === "/team-invitations/accept")).toBe(true);
 });
 
+test("crea, renombra y elimina un equipo vacío", async ({ page }) => {
+  await navigate(page, "Equipos");
+  await page.getByLabel("Nombre del equipo").fill("Equipo móvil");
+  await page.getByRole("button", { name: "Crear equipo" }).click();
+  await expect(page.getByRole("combobox", { name: "Equipo", exact: true })).toHaveValue("2");
+  await page.getByRole("button", { name: "Editar equipo" }).click();
+  await page.getByLabel("Nombre del equipo").fill("Equipo web");
+  await page.getByRole("button", { name: "Guardar equipo" }).click();
+  await expect(
+    page.getByRole("combobox", { name: "Equipo", exact: true }).locator("option:checked"),
+  ).toContainText("Equipo web");
+  await page.getByRole("button", { name: "Eliminar equipo", exact: true }).click();
+  await page.getByRole("button", { name: "Confirmar eliminación de equipo" }).click();
+  await expect(page.getByRole("combobox", { name: "Equipo", exact: true })).toHaveValue("1");
+});
+
 test("diseñador guarda y actualiza todos los pasos y descarga Markdown", async ({
   page,
   workspace,
