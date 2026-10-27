@@ -44,6 +44,8 @@ El frontend usa React, TypeScript y Vite. La API usa Node.js, Express, TypeScrip
 - Vista previa del diseñador editable localmente, con múltiples pasos por caso y exportación actualizada a Excel/PDF/Markdown.
 - Exportación de bugs y casos de prueba individuales a PDF, Excel o Markdown desde el botón Exportar, incluidos los pasos del caso.
 - Creación de ejecuciones manuales vinculadas a casos.
+- Ejecución de casos desde la fila de Test Runs, con acceso directo al primer resultado pendiente.
+- Reportes del proyecto con métricas de bugs, casos, ejecuciones y evidencias; distribuciones por estado y descarga CSV. Los indicadores reflejan los registros disponibles del proyecto seleccionado.
 - Evidencias con archivos privados de hasta 2 MiB, vínculo a recursos QA y descarga autenticada desde el mantenimiento.
 - Diseñador de casos de prueba con categorías identificadas por colores, cantidades ajustables, vista previa editable y ejemplos exportables a Excel/PDF/Markdown. El usuario puede guardar explícitamente casos individuales en el proyecto; la descripción no se analiza y no se llama a IA. Configuración permite guardar cantidades iniciales por categoría en el navegador.
 - ESLint y Prettier para validar y mantener consistentes el estilo y formato del código.

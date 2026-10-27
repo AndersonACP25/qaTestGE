@@ -3,6 +3,7 @@ import { version } from "../package.json";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent, SVGProps } from "react";
 import Alert, { type AlertTone } from "./Alert";
+import Footer from "./Footer";
 import { filterBugs, filterCases, filterEvidence, filterRuns } from "./utils/filterItems";
 import CaseBuilder from "./CaseBuilder";
 import Dialog from "./Dialog";
@@ -33,6 +34,7 @@ import WikiView from "./views/WikiView";
 import ProjectsView from "./views/ProjectsView";
 import TeamsView from "./views/TeamsView";
 import TagsView from "./views/TagsView";
+import ReportsView from "./views/ReportsView";
 import RecordDetailsDialog, { type RecordDetail } from "./views/RecordDetailsDialog";
 import { exportRecord, recordExportFormats } from "./utils/exportRecord";
 import type { ExportFormat, ExportRecord } from "./utils/exportRecord";
@@ -68,6 +70,7 @@ const navigation: {
     section: "WORKSPACE",
     items: [
       { id: "overview", label: "Dashboard", icon: "grid" },
+      { id: "reports", label: "Reportes y métricas", icon: "chart" },
       { id: "projects", label: "Proyectos", icon: "grid" },
       { id: "teams", label: "Equipos", icon: "grid" },
       { id: "bugs", label: "Bugs", icon: "bug", count: undefined },
@@ -207,6 +210,12 @@ function Icon({
     close: (
       <>
         <path d="m18 6-12 12M6 6l12 12" />
+      </>
+    ),
+    chart: (
+      <>
+        <path d="M4 19V5m0 14h16" />
+        <path d="m7 15 4-4 3 2 5-6" />
       </>
     ),
     file: (
@@ -425,7 +434,7 @@ function App({
   const [toast, setToast] = useState("");
   const [toastTone, setToastTone] = useState<AlertTone>("success");
   const [runDetail, setRunDetail] = useState<TestRun | null>(null);
-  const [runAction, setRunAction] = useState<"view" | "edit" | "delete">("view");
+  const [runAction, setRunAction] = useState<"view" | "edit" | "delete" | "execute">("view");
   const [detail, setDetail] = useState<object | null>(null);
   const [recordDetail, setRecordDetail] = useState<RecordDetail | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>();
@@ -545,6 +554,7 @@ function App({
   const visibleEvidence = useMemo(() => filterEvidence(evidence, { search }), [evidence, search]);
   const pageTitle = {
     overview: "Dashboard",
+    reports: "Reportes y métricas",
     projects: "Proyectos",
     teams: "Equipos",
     bugs: "Bugs",
@@ -1163,6 +1173,7 @@ function App({
             </div>
             {![
               "overview",
+              "reports",
               "projects",
               "teams",
               "case-builder",
@@ -1281,6 +1292,18 @@ function App({
                 )}
               </>
             )
+          ) : activePage === "reports" ? (
+            !loading &&
+            !error &&
+            projectId && (
+              <ReportsView
+                projectName={project?.name ?? "Proyecto"}
+                bugs={bugs}
+                cases={cases}
+                runs={runs}
+                evidence={evidence}
+              />
+            )
           ) : (
             !loading &&
             !error &&
@@ -1325,6 +1348,10 @@ function App({
                   <RunTable
                     items={runs.slice(0, 5)}
                     tags={tags}
+                    onExecute={(run) => {
+                      setRunAction("execute");
+                      setRunDetail(run);
+                    }}
                     onSelect={(run, action) => {
                       setRunAction(action);
                       setRunDetail(run);
@@ -1395,6 +1422,10 @@ function App({
                   <RunTable
                     items={visibleRuns}
                     tags={tags}
+                    onExecute={(run) => {
+                      setRunAction("execute");
+                      setRunDetail(run);
+                    }}
                     onSelect={(run, action) => {
                       setRunAction(action);
                       setRunDetail(run);
@@ -1419,18 +1450,16 @@ function App({
               </section>
             ) : null)
           )}
-          <footer className="page-footer">
-            <span>
-              © {new Date().getFullYear()} qaTestGE · v{version}
-            </span>
-            <span>
-              {error
+          <Footer
+            version={version}
+            status={
+              error
                 ? "Datos no disponibles"
                 : loading
                   ? "Actualizando datos…"
-                  : "Datos persistidos en PostgreSQL"}
-            </span>
-          </footer>
+                  : "Datos persistidos en PostgreSQL"
+            }
+          />
         </div>
       </main>
       {modal && (
@@ -2205,7 +2234,7 @@ function App({
       )}
       {toast && (
         <Alert
-          className="toast"
+          className="workspace-toast"
           tone={toastTone}
           onDismiss={() => {
             clearTimeout(toastTimer.current);
@@ -2280,6 +2309,7 @@ function TagPicker({
 function pageDescription(page: NavigationPage): string {
   return {
     overview: "Aquí tienes el estado de calidad de tus proyectos.",
+    reports: "Consulta indicadores, estados y resultados del proyecto seleccionado.",
     projects: "Crea y administra los proyectos de tu espacio de trabajo.",
     teams: "Administra la membresía de tus espacios de trabajo.",
     bugs: "Registra, prioriza y da seguimiento a las incidencias de tus proyectos.",
@@ -2540,10 +2570,12 @@ function RunTable({
   items,
   tags,
   onSelect,
+  onExecute,
 }: {
   items: TestRun[];
   tags: Tag[];
   onSelect: (item: TestRun, action: "view" | "edit" | "delete") => void;
+  onExecute: (item: TestRun) => void;
 }) {
   return (
     <div className="workspace-table__scroll">
@@ -2566,15 +2598,29 @@ function RunTable({
                 <span className="id-text">{item.id}</span>
               </td>
               <td data-label="NOMBRE DE EJECUCIÓN">
-                <button
-                  className="workspace-table__open"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onSelect(item, "view");
-                  }}
-                >
-                  {item.title}
-                </button>
+                <div className="run-table__entry">
+                  <button
+                    className="workspace-table__open"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onSelect(item, "view");
+                    }}
+                  >
+                    {item.title}
+                  </button>
+                  <button
+                    type="button"
+                    className="workspace__secondary run-table__execute"
+                    aria-label={`${item.status === "Completado" ? "Ver resultados de" : "Ejecutar"} ${item.title}`}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      if (item.status === "Completado") onSelect(item, "view");
+                      else onExecute(item);
+                    }}
+                  >
+                    {item.status === "Completado" ? "Ver resultados" : "Ejecutar"}
+                  </button>
+                </div>
                 <TagBadges ids={item.tagIds ?? []} tags={tags} />
               </td>
               <td data-label="CASOS" className="muted-cell">
