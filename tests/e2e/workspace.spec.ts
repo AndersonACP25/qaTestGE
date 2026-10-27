@@ -13,6 +13,7 @@ test("Dashboard y listados sin desbordamiento en ambos temas", async ({ page }, 
     }, theme);
     for (const name of [
       "Dashboard",
+      "Reportes y métricas",
       "Bugs",
       "Casos de prueba",
       "Test runs",
@@ -26,6 +27,16 @@ test("Dashboard y listados sin desbordamiento en ambos temas", async ({ page }, 
         await page.screenshot({ path: testInfo.outputPath(`casos-${theme}.png`), fullPage: true });
     }
   }
+});
+
+test("Reportes muestra métricas del proyecto y descarga el CSV", async ({ page }) => {
+  await navigate(page, "Reportes y métricas");
+  await expect(page.getByRole("heading", { name: /Resumen de Proyecto QA/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Estado de bugs" })).toBeVisible();
+  await expect(page.getByText("Bugs abiertos", { exact: true })).toBeVisible();
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Descargar CSV" }).click();
+  expect((await download).suggestedFilename()).toMatch(/^reporte-.*\.csv$/);
 });
 
 test("las acciones de las tablas caben sin recortar sus botones", async ({ page }, testInfo) => {
@@ -214,7 +225,8 @@ test("Test Runs crea, registra resultados, edita, completa y elimina", async ({
     .fill("Regresión v1.1");
   await page.getByLabel(/TC-001/).check();
   await page.getByRole("button", { name: "Guardar", exact: true }).click();
-  await page.getByRole("button", { name: "Regresión v1.1", exact: true }).click();
+  await page.getByRole("button", { name: "Ejecutar Regresión v1.1", exact: true }).click();
+  await expect(page.getByRole("combobox", { name: "Resultado", exact: true })).toBeFocused();
   await page.getByRole("button", { name: "Editar ejecución", exact: true }).click();
   await page.getByRole("combobox", { name: "Estado", exact: true }).selectOption("Completado");
   await page.getByRole("button", { name: "Guardar ejecución", exact: true }).click();

@@ -4,7 +4,7 @@ La migración 011 vincula el responsable de bugs y casos con una membresía de l
 
 La gestión de proyectos valida en PostgreSQL que quien crea, edita o elimina sea propietario de la organización. El borrado de proyectos con referencias se rechaza; no se eliminan datos QA en cascada.
 
-La Wiki del frontend documenta el flujo implementado. Las tablas de bugs, casos y ejecuciones ofrecen acciones de edición y eliminación. El borrado de bugs utiliza la autorización por proyecto y conserva la integridad referencial: PostgreSQL rechaza la operación cuando hay casos o evidencias vinculados y la API responde con un conflicto.
+La Wiki del frontend documenta el flujo implementado. Las tablas de bugs, casos y ejecuciones ofrecen acciones de edición y eliminación. Test Runs permite abrir la ejecución desde su fila y enfocar el primer resultado pendiente para registrarlo manualmente. El espacio Reportes agrega bugs, casos, ejecuciones, resultados registrados y evidencias del proyecto activo; permite exportar los indicadores y distribuciones a CSV, sin persistir información calculada. El borrado de bugs utiliza la autorización por proyecto y conserva la integridad referencial: PostgreSQL rechaza la operación cuando hay casos o evidencias vinculados y la API responde con un conflicto.
 
 ## Estado del documento
 
@@ -60,7 +60,7 @@ La interfaz consume la API mediante el proxy /api y envía la cookie de sesión 
 
 ### Interfaz web
 
-Presenta espacios de trabajo, proyectos, listas y formularios para los cuatro recursos principales. Para el diseñador de casos, el modelo contiene el catálogo fijo, el hook controlador gestiona la interacción y la vista renderiza el flujo. Debe mostrar estados de carga y error, validar formularios para facilitar el uso y no confiar en validaciones del cliente como control de seguridad.
+Presenta espacios de trabajo, proyectos, listas y formularios para los cuatro recursos principales. La vista Reportes presenta métricas agregadas y un CSV descargable construidos desde los datos que ya carga el proyecto, sin llamadas adicionales ni datos externos. El componente de pie de página es compartido entre el workspace y la pantalla de acceso; las notificaciones globales se muestran en la parte superior con ancho limitado. Para el diseñador de casos, el modelo contiene el catálogo fijo, el hook controlador gestiona la interacción y la vista renderiza el flujo. Debe mostrar estados de carga y error, validar formularios para facilitar el uso y no confiar en validaciones del cliente como control de seguridad.
 
 ### API y capa de aplicación
 

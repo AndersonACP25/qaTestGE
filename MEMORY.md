@@ -21,7 +21,7 @@
 
 - La Wiki presenta el flujo disponible y aclara los límites actuales del diseñador y la IA.
 - Las tablas de bugs, casos y ejecuciones incluyen acciones directas de edición y eliminación con confirmación. Un bug con casos o evidencias vinculadas no se puede eliminar.
-- Las acciones de tablas tienen columna suficiente y botones sin cortes; la regresión E2E verifica Dashboard y listados en escritorio y móvil.
+- Las tablas de registros usan tipografía ampliada y se validan en escritorio y móvil. Test Runs permite abrir una ejecución y enfocar el primer resultado pendiente desde su fila.
 - El propietario puede crear, editar y eliminar proyectos vacíos desde Proyectos. Los proyectos con registros vinculados no se borran.
 - Equipos permite listar espacios y miembros, crear invitaciones de un solo uso y retirar integrantes. Aceptar una invitación concede acceso a todos los proyectos de la organización; requiere migración 010.
 - Equipos permite crear, renombrar y eliminar espacios sin proyectos ni otros integrantes. Los proyectos nuevos se crean en el equipo propietario seleccionado.
@@ -30,12 +30,10 @@
 - Los botones Exportar de bugs y casos abren la selección de formato; el editor de pasos utiliza una tabla adaptable en creación y edición.
 
 - CI valida pull requests y pushes a `main` y `qa-env`; artefacto solo se publica desde `main`.
-- El job 120736496879 falló en `format:check` por 36 archivos de skills importadas. `.prettierignore` excluye `.agents/skills/` y los informes de pruebas; código, documentación y `.opencode/skills/` conservan la validación estricta. No se desactiva ningún paso del workflow.
-- Validación local del arreglo: formato global, lint, tipos, build frontend/backend y 92 pruebas pasan. La ejecución remota seguirá usando la configuración anterior hasta integrar esta rama; no se ha publicado ni reejecutado Actions.
 - Bugs, casos, evidencias y tags admiten sus CRUD implementados; evidencias pueden almacenar/descargar archivos privados con límite de 2 MiB. Adjuntos de casos admiten imágenes/enlaces; migraciones `007` y `008`.
 - Los conteos y las categorías iniciales del diseñador se guardan por usuario en localStorage.
 - Tags tienen CRUD por proyecto, nombre único por proyecto, color y asignaciones explícitas a bugs/casos/runs. Migración `009`.
-- Migraciones actuales: 004 autenticación, 005 plantillas, 006 Suite opcional, 007 adjuntos de casos, 008 archivos de evidencia y 009 tags.
+- Migraciones actuales: 004 autenticación, 005 plantillas, 006 Suite opcional, 007 adjuntos de casos, 008 archivos de evidencia, 009 tags, 010 invitaciones y 011 responsables.
 - No hay integraciones externas reales en `servicios/`; solo se define ahí el lugar de futuras integraciones.
 - Alertas reutilizables `Alert` para errores, éxitos, avisos e información; aplicadas en sesión, operaciones del workspace, ajustes, tags y diseño de casos.
 - Alertas con tokens semánticos `--feedback-*` para ambos temas, icono destacado, cierre accesible y movimiento reducido.
@@ -49,8 +47,7 @@
 - `.opencode/agents/` contiene orquestador y subagentes frontend, dominio-api, calidad y qa; son perfiles de desarrollo, no funciones del producto.
 - `docs/DESIGN.md` fija tokens, componentes reutilizables, BEM, accesibilidad y estados; sustituye referencias obsoletas al catálogo y capacidades.
 - Playwright/Chromium usa Vite aislado en 127.0.0.1:4174 y API sintética por prueba, bloqueando red externa. Proyectos desktop, Mobile-M 375 px y Mobile-L 425 px. Scripts `test:e2e`, `test:e2e:ui`, `test:e2e:report`; CI instala Chromium y conserva artefactos de fallos.
-- Validación del arreglo: tipos, lint, build y 96 pruebas Vitest/API pasan; 3 regresiones de filtros pasan en 375/425/1024/1180/1440 px y ambos temas. Las 12 E2E previas también pasan; capturas revisadas. `format:check` global falla por formato previo en 36 archivos de `.agents/skills/`; mantenerlos ajenos. Sin pruebas contra PostgreSQL local.
-- Incidencia de API resuelta: faltaban objetos de migraciones en el esquema; `pnpm db:migrate` aplicó/verificó 004–009 y `pnpm db:check` pasó. Backend usa puerto 4000 desde configuración local; `/api/health` da 200 y `/api/auth/me` sin sesión da 401 por backend y Vite. El backend valida esquema antes de escuchar.
-
-- Diagnóstico actual: 500 de Vite por backend detenido en puerto 4000; API iniciada y `/api/auth/me` responde 401 sin cookie. `db:check` pasa sin modificar datos.
 - Cliente central y descargas conservan errores HTTP con mensajes de respaldo; proxy devuelve 503 JSON cuando la API no responde. Reutilizar `Alert` en las vistas y capturas equivalentes a try/catch; regla en AGENTS.md.
+- Reportes del proyecto calculan conteos por estado, progreso promedio y aprobación solo con resultados ejecutados; permiten descargar CSV sin persistencia adicional. No se añade migración.
+- El footer reutilizable se comparte entre el workspace y la pantalla de acceso. Las notificaciones globales se muestran arriba, con ancho máximo de 360 px; alertas contextuales permanecen junto a su contenido.
+- Validación más reciente: `pnpm typecheck`, `pnpm test` (121), `pnpm lint`, `pnpm build`, `pnpm format:check` y `pnpm test:e2e` (33 en escritorio y dos tamaños móviles) pasan. Sin pruebas contra PostgreSQL local.
