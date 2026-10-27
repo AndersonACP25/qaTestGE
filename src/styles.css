@@ -3552,6 +3552,16 @@ tbody td {
   max-width: 100%;
   white-space: nowrap;
 }
+.account-settings__navigation {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.account-settings__navigation .button[aria-pressed="true"] {
+  outline: 2px solid var(--line);
+  outline-offset: 2px;
+}
 .account-settings__card {
   min-width: 0;
   padding: 22px;

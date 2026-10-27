@@ -18,6 +18,10 @@ describe("account settings view", () => {
       }),
     );
     expect(html).toContain("Información de la cuenta");
+    expect(html).toContain('aria-label="Apartados de configuración"');
+    expect(html).toContain('aria-pressed="true">Cuenta y seguridad');
+    expect(html).toContain('aria-pressed="false">Plantillas de bugs');
+    expect(html).toContain('hidden=""');
     expect(html).toContain('value="qa@example.test"');
     expect(html).toContain("Contraseña actual");
     expect(html).toContain("Confirmar nueva contraseña");

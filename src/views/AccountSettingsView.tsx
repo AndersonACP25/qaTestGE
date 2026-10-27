@@ -26,6 +26,7 @@ export default function AccountSettingsView({
   selectedCategories: string[];
   onSelectedCategoriesChanged: (categories: string[]) => void;
 }) {
+  const [section, setSection] = useState<"cuenta" | "plantillas" | "diseno" | "ia">("cuenta");
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -235,7 +236,27 @@ export default function AccountSettingsView({
 
   return (
     <div className="account-settings">
-      <section className="account-settings__card">
+      <nav className="account-settings__navigation" aria-label="Apartados de configuración">
+        {(
+          [
+            ["cuenta", "Cuenta y seguridad"],
+            ["plantillas", "Plantillas de bugs"],
+            ["diseno", "Diseño de casos"],
+            ["ia", "Inteligencia artificial"],
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            className="button"
+            aria-pressed={section === id}
+            onClick={() => setSection(id)}
+          >
+            {label}
+          </button>
+        ))}
+      </nav>
+      <section className="account-settings__card" hidden={section !== "cuenta"}>
         <div className="account-settings__heading">
           <h2>Información de la cuenta</h2>
           <p>Actualiza el nombre y correo asociados a tu usuario.</p>
@@ -275,7 +296,7 @@ export default function AccountSettingsView({
           </div>
         </form>
       </section>
-      <section className="account-settings__card">
+      <section className="account-settings__card" hidden={section !== "cuenta"}>
         <div className="account-settings__heading">
           <h2>Seguridad</h2>
           <p>
@@ -330,7 +351,10 @@ export default function AccountSettingsView({
           </div>
         </form>
       </section>
-      <section className="account-settings__card account-settings__card--wide">
+      <section
+        className="account-settings__card account-settings__card--wide"
+        hidden={section !== "plantillas"}
+      >
         <div className="account-settings__heading">
           <h2>Plantillas para bugs</h2>
           <p>
@@ -458,7 +482,7 @@ export default function AccountSettingsView({
           )}
         </div>
       </section>
-      <section className="account-settings__card">
+      <section className="account-settings__card" hidden={section !== "diseno"}>
         <div className="account-settings__heading">
           <h2>Diseño de test cases</h2>
           <p>
@@ -521,7 +545,7 @@ export default function AccountSettingsView({
           </div>
         </form>
       </section>
-      <section className="account-settings__card">
+      <section className="account-settings__card" hidden={section !== "ia"}>
         <div className="account-settings__heading">
           <h2>Conexión con IA</h2>
           <p>
@@ -551,7 +575,10 @@ export default function AccountSettingsView({
           </p>
         </div>
       </section>
-      <section className="account-settings__card account-settings__card--danger">
+      <section
+        className="account-settings__card account-settings__card--danger"
+        hidden={section !== "cuenta"}
+      >
         <div className="account-settings__heading">
           <h2>Zona de peligro · Desactivar cuenta</h2>
           <p>

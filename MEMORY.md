@@ -23,6 +23,7 @@
 - Las tablas de bugs, casos y ejecuciones incluyen acciones directas de edición y eliminación con confirmación. Un bug con casos o evidencias vinculadas no se puede eliminar.
 - Las acciones de tablas tienen columna suficiente y botones sin cortes; la regresión E2E verifica Dashboard y listados en escritorio y móvil.
 - La gestión de proyectos y equipos y la asignación de integrantes siguen pendientes.
+- Configuración se organiza por cuenta y seguridad, plantillas, diseño de casos e IA. La configuración de IA sigue siendo una maqueta.
 
 - CI valida pull requests y pushes a `main` y `qa-env`; artefacto solo se publica desde `main`.
 - El job 120736496879 falló en `format:check` por 36 archivos de skills importadas. `.prettierignore` excluye `.agents/skills/` y los informes de pruebas; código, documentación y `.opencode/skills/` conservan la validación estricta. No se desactiva ningún paso del workflow.
