@@ -31,7 +31,7 @@ pnpm db:migrate
 pnpm db:check
 ```
 
-El comando aplica en orden `004_authentication.sql`, `005_bug_templates.sql`, `006_optional_test_suite.sql`, `007_test_case_attachments.sql`, `008_evidence_files.sql` y `009_tags.sql` sobre la base configurada en backend/.env. Cada migración usa una transacción, bloqueo y registro de versión; repetirlas no duplica tablas. No vuelve a importar 001/002 ni cambia sus filas. Para pgAdmin, ejecutar los archivos en orden desde Query Tool conectado a qa_test_ge.
+El comando aplica en orden `004_authentication.sql`, `005_bug_templates.sql`, `006_optional_test_suite.sql`, `007_test_case_attachments.sql`, `008_evidence_files.sql`, `009_tags.sql`, `010_team_invitations.sql` y `011_qa_assignments.sql` sobre la base configurada en backend/.env. Cada migración usa una transacción, bloqueo y registro de versión; repetirlas no duplica tablas. No vuelve a importar 001/002 ni cambia sus filas. Para pgAdmin, ejecutar los archivos en orden desde Query Tool conectado a qa_test_ge.
 
 Tablas añadidas: qa.users (correo único normalizado y hash scrypt), qa.organization_members (usuario/organización/rol), qa.auth_sessions (hash de token, CSRF, expiración), qa.schema_migrations, qa.bug_templates (plantillas de bugs propiedad de una cuenta) y qa.test_case_attachments (adjuntos de casos). El registro crea cuenta, workspace, membresía owner y proyecto; no concede acceso a los datos previamente importados.
 
@@ -74,3 +74,7 @@ Los pasos de un resultado se guardan en `steps_snapshot` como un array JSON para
 El driver pg, los repositorios, las transacciones, projectId, las referencias verificadas y los IDs bigint como texto ya están integrados. Las migraciones 004–007 y la capa de autenticación implementan usuarios, sesiones, autorización por membresía, plantillas privadas y adjuntos de casos en la API. Las claves de proyecto siguen asegurando integridad. Desactivar una cuenta la anonimiza, revoca sus sesiones y elimina sus plantillas; conserva membresías y recursos relacionados. Pendiente: permisos granulares, auditoría y respaldos. No se configuran roles PostgreSQL, secretos ni RLS.
 
 Referencias oficiales utilizadas: [CREATE DATABASE](https://www.postgresql.org/docs/current/sql-createdatabase.html), [restricciones y claves foráneas](https://www.postgresql.org/docs/current/ddl-constraints.html) y [psql](https://www.postgresql.org/docs/current/app-psql.html).
+
+La migración 010 añade códigos de invitación de un solo uso: únicamente se guarda el hash y la fecha de expiración. Las invitaciones se aceptan con una cuenta autenticada y conceden acceso a todos los proyectos de la organización.
+
+La migración 011 añade referencias opcionales de responsable a bugs y casos. Las claves compuestas exigen que el responsable sea miembro de la organización del proyecto; el texto histórico de responsable en bugs no se elimina.

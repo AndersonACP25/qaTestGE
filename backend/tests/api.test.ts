@@ -190,6 +190,87 @@ it("manages project tags and validates tag inputs", async () => {
 });
 
 describe("qaTestGE API with an injected repository (no database)", () => {
+  it("validates team management and delegates with the authenticated identity", async () => {
+    const createTeam = vi.fn(testAuth.createTeam);
+    const updateTeam = vi.fn(testAuth.updateTeam);
+    const deleteTeam = vi.fn(testAuth.deleteTeam);
+    const teamApp = createApp(repo, { ...testAuth, createTeam, updateTeam, deleteTeam });
+    const user = () =>
+      request.agent(teamApp).set("Cookie", `qa_session=${testToken}`).set("X-CSRF-Token", testCsrf);
+    expect((await user().post("/api/teams").send({ name: "QA" })).status).toBe(201);
+    expect(createTeam).toHaveBeenCalledWith("1", "QA");
+    expect((await user().patch("/api/teams/2").send({ name: "Equipo" })).status).toBe(204);
+    expect(updateTeam).toHaveBeenCalledWith("1", "2", "Equipo");
+    expect((await user().delete("/api/teams/2").send({})).status).toBe(204);
+    expect(deleteTeam).toHaveBeenCalledWith("1", "2");
+    expect((await user().post("/api/teams").send({ name: " " })).status).toBe(400);
+    expect((await user().delete("/api/teams/nope").send({})).status).toBe(400);
+  });
+  it("requires authentication and validates team invitation codes", async () => {
+    const acceptTeamInvite = vi.fn(testAuth.acceptTeamInvite);
+    const teamApp = createApp(repo, { ...testAuth, acceptTeamInvite });
+    const user = () =>
+      request.agent(teamApp).set("Cookie", `qa_session=${testToken}`).set("X-CSRF-Token", testCsrf);
+    expect((await user().post("/api/team-invitations/accept").send({ code: "bad" })).status).toBe(
+      400,
+    );
+    expect(
+      (
+        await request(teamApp)
+          .post("/api/team-invitations/accept")
+          .send({ code: "a".repeat(64) })
+      ).status,
+    ).toBe(401);
+    expect(
+      (
+        await user()
+          .post("/api/team-invitations/accept")
+          .send({ code: "a".repeat(64) })
+      ).status,
+    ).toBe(204);
+    expect(acceptTeamInvite).toHaveBeenCalledWith("1", "a".repeat(64));
+  });
+  it("validates project management requests and delegates the authenticated user", async () => {
+    const createProject = vi.fn(testAuth.createProject);
+    const updateProject = vi.fn(testAuth.updateProject);
+    const deleteProject = vi.fn(testAuth.deleteProject);
+    const projectApp = createApp(repo, {
+      ...testAuth,
+      createProject,
+      updateProject,
+      deleteProject,
+    });
+    const user = () =>
+      request
+        .agent(projectApp)
+        .set("Cookie", `qa_session=${testToken}`)
+        .set("X-CSRF-Token", testCsrf);
+    expect(
+      (await user().post("/api/projects").send({ name: "Portal", description: "QA" })).status,
+    ).toBe(201);
+    expect(createProject).toHaveBeenCalledWith("1", "Portal", "QA", undefined);
+    expect(
+      (await user().post("/api/projects").send({ name: "Portal", description: "QA", teamId: "4" }))
+        .status,
+    ).toBe(201);
+    expect(createProject).toHaveBeenLastCalledWith("1", "Portal", "QA", "4");
+    expect(
+      (await user().patch("/api/projects/2").send({ name: "Portal 2", description: "" })).status,
+    ).toBe(200);
+    expect(updateProject).toHaveBeenCalledWith("1", "2", "Portal 2", "");
+    expect((await user().delete("/api/projects/2").send({})).status).toBe(204);
+    expect(deleteProject).toHaveBeenCalledWith("1", "2");
+    expect((await user().post("/api/projects").send({ name: " ", description: "" })).status).toBe(
+      400,
+    );
+    expect(
+      (await user().patch("/api/projects/nope").send({ name: "X", description: "" })).status,
+    ).toBe(400);
+    expect(
+      (await request(projectApp).post("/api/projects").send({ name: "X", description: "" })).status,
+    ).toBe(401);
+    expect(createProject).toHaveBeenCalledTimes(2);
+  });
   it("deletes bugs only within an authorized project", async () => {
     repo.deleteBug.mockResolvedValue(true);
     expect((await signed().delete("/api/bugs/BUG-1?projectId=1").send({})).status).toBe(204);

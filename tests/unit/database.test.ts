@@ -69,9 +69,33 @@ describe("database boundaries without network or environment files", () => {
       String(sql).includes("INSERT INTO qa.bugs"),
     );
     expect(insertCall?.[0]).not.toContain("Robert");
-    expect(insertCall?.[1]).toEqual(["1", "Robert'); DROP TABLE qa.bugs;--", "", "Alta", null]);
+    expect(insertCall?.[1]).toEqual([
+      "1",
+      "Robert'); DROP TABLE qa.bugs;--",
+      "",
+      "Alta",
+      null,
+      null,
+    ]);
     await repo.listBugs("2");
     expect(query.mock.calls.at(-1)?.[1]).toEqual(["2"]);
+  });
+  it("rejects a QA assignee who is not active in the project team", async () => {
+    const query = vi
+      .fn()
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 })
+      .mockResolvedValueOnce({});
+    const release = vi.fn();
+    const repo = new PostgresRepository({
+      connect: async () => ({ query, release }),
+    } as unknown as Pool);
+    await expect(
+      repo.createCase({ projectId: "1", title: "Caso", assigneeUserId: "3" }),
+    ).rejects.toMatchObject({ code: "INVALID_ASSIGNEE", status: 400 });
+    expect(query.mock.calls[1][1]).toEqual(["1", "3"]);
+    expect(query.mock.calls[2][0]).toBe("ROLLBACK");
+    expect(release).toHaveBeenCalled();
   });
   it("persists bug-tag associations atomically and rejects tags from another project", async () => {
     const query = vi

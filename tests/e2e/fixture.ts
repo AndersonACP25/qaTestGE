@@ -12,6 +12,15 @@ export const test = base.extend<{
   workspace: async ({ page }, use) => {
     const createdAt = "2026-10-23T12:00:00.000Z";
     const state = {
+      teams: [{ id: "1", name: "Equipo QA", role: "owner" }],
+      projects: [
+        {
+          id: "1",
+          organizationId: "1",
+          name: "Proyecto QA con nombre largo para comprobar responsive",
+          description: "",
+        },
+      ],
       cases: [
         {
           id: "TC-001",
@@ -48,16 +57,42 @@ export const test = base.extend<{
           user: { id: "1", name: "QA Local", email: "qa@example.test" },
           csrfToken: "test-csrf",
         };
-      else if (path === "/projects")
-        data = [
-          {
-            id: "1",
-            organizationId: "1",
-            name: "Proyecto QA con nombre largo para comprobar responsive",
-            description: "",
-          },
-        ];
-      else if (path === "/bugs" && method === "GET")
+      else if (path === "/teams" && method === "GET") data = state.teams;
+      else if (path === "/teams" && method === "POST") {
+        data = { id: "2", name: body.name, role: "owner" };
+        state.teams.push(data as (typeof state.teams)[number]);
+        status = 201;
+      } else if (path === "/teams/2" && method === "PATCH") {
+        const team = state.teams.find((item) => item.id === "2")!;
+        team.name = body.name;
+        await route.fulfill({ status: 204 });
+        return;
+      } else if (path === "/teams/2" && method === "DELETE") {
+        state.teams = state.teams.filter((item) => item.id !== "2");
+        await route.fulfill({ status: 204 });
+        return;
+      } else if (/^\/teams\/[12]\/members$/.test(path) && method === "GET")
+        data = [{ id: "1", name: "QA Local", role: "owner" }];
+      else if (path === "/teams/1/invitations" && method === "POST") {
+        data = { code: "a".repeat(64), expiresAt: "2030-01-01T00:00:00.000Z" };
+        status = 201;
+      } else if (path === "/team-invitations/accept" && method === "POST") {
+        await route.fulfill({ status: 204 });
+        return;
+      } else if (path === "/projects" && method === "GET") data = state.projects;
+      else if (path === "/projects" && method === "POST") {
+        data = { id: "2", organizationId: "1", name: body.name, description: body.description };
+        state.projects.push(data as (typeof state.projects)[number]);
+        status = 201;
+      } else if (path === "/projects/2" && method === "PATCH") {
+        const project = state.projects.find((item) => item.id === "2")!;
+        Object.assign(project, body);
+        data = project;
+      } else if (path === "/projects/2" && method === "DELETE") {
+        state.projects = state.projects.filter((item) => item.id !== "2");
+        await route.fulfill({ status: 204 });
+        return;
+      } else if (path === "/bugs" && method === "GET")
         data = [
           {
             id: "BUG-001",
@@ -72,7 +107,17 @@ export const test = base.extend<{
             tagIds: [],
           },
         ];
-      else if (path === "/evidence" && method === "GET")
+      else if (path === "/bugs" && method === "POST") {
+        data = {
+          ...body,
+          id: "BUG-002",
+          project: "Proyecto QA",
+          status: "Abierto",
+          createdAt,
+          tagIds: [],
+        };
+        status = 201;
+      } else if (path === "/evidence" && method === "GET")
         data = [
           {
             id: "EVD-001",

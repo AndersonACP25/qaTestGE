@@ -7,6 +7,8 @@ export type NavigationPage =
   | "evidence"
   | "tags"
   | "settings"
+  | "projects"
+  | "teams"
   | "wiki";
 
 export type PriorityLevel = "Crítica" | "Alta" | "Media" | "Baja";
@@ -25,6 +27,7 @@ export interface Bug {
   priority: PriorityLevel;
   status: BugStatus;
   assignee: string;
+  assigneeUserId?: string | null;
   color: "violet" | "blue" | "amber" | "green" | "pink" | "orange";
   updated: string;
   createdAt?: string;
@@ -39,6 +42,8 @@ export interface TestCase {
   status: CaseStatus;
   updated: string;
   preconditions?: string;
+  assigneeUserId?: string | null;
+  assigneeName?: string | null;
   steps?: { action: string; expectedResult: string }[];
   createdAt?: string;
   tagIds?: string[];

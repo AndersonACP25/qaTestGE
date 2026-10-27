@@ -30,6 +30,8 @@ import {
 import type { BugTemplate, BugTemplatePriority, Project, User } from "./api";
 import AccountSettingsView from "./views/AccountSettingsView";
 import WikiView from "./views/WikiView";
+import ProjectsView from "./views/ProjectsView";
+import TeamsView from "./views/TeamsView";
 import TagsView from "./views/TagsView";
 import RecordDetailsDialog, { type RecordDetail } from "./views/RecordDetailsDialog";
 import { exportRecord, recordExportFormats } from "./utils/exportRecord";
@@ -66,6 +68,8 @@ const navigation: {
     section: "WORKSPACE",
     items: [
       { id: "overview", label: "Dashboard", icon: "grid" },
+      { id: "projects", label: "Proyectos", icon: "grid" },
+      { id: "teams", label: "Equipos", icon: "grid" },
       { id: "bugs", label: "Bugs", icon: "bug", count: undefined },
       { id: "cases", label: "Casos de prueba", icon: "check-square" },
       { id: "case-builder", label: "Diseñar test cases", icon: "sparkle" },
@@ -403,6 +407,9 @@ function App({
   const [evidenceRelatedChanged, setEvidenceRelatedChanged] = useState(false);
   const [caseSteps, setCaseSteps] = useState([{ action: "", expectedResult: "" }]);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [assigneeUserId, setAssigneeUserId] = useState("");
+  const [teamMembers, setTeamMembers] = useState<{ id: string; name: string }[]>([]);
+  const [teamMemberError, setTeamMemberError] = useState("");
   const [editingCase, setEditingCase] = useState<TestCase | null>(null);
   const [caseImageFiles, setCaseImageFiles] = useState<File[]>([]);
   const [caseImageDragging, setCaseImageDragging] = useState(false);
@@ -423,6 +430,27 @@ function App({
   const [recordDetail, setRecordDetail] = useState<RecordDetail | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>();
   const project = projects.find((p) => p.id === projectId);
+  useEffect(() => {
+    if (!project?.organizationId) {
+      setTeamMembers([]);
+      return;
+    }
+    const abort = new AbortController();
+    setTeamMembers([]);
+    setTeamMemberError("");
+    void api<{ id: string; name: string }[]>(
+      `/teams/${encodeURIComponent(project.organizationId)}/members`,
+      { signal: abort.signal },
+    )
+      .then(setTeamMembers)
+      .catch((cause: unknown) => {
+        if (!abort.signal.aborted)
+          setTeamMemberError(
+            cause instanceof Error ? cause.message : "No se pudieron cargar los integrantes.",
+          );
+      });
+    return () => abort.abort();
+  }, [project?.organizationId]);
   const { bugs, cases, runs, evidence } = data;
   useEffect(() => () => clearTimeout(toastTimer.current), []);
   useEffect(() => {
@@ -517,6 +545,8 @@ function App({
   const visibleEvidence = useMemo(() => filterEvidence(evidence, { search }), [evidence, search]);
   const pageTitle = {
     overview: "Dashboard",
+    projects: "Proyectos",
+    teams: "Equipos",
     bugs: "Bugs",
     cases: "Casos de prueba",
     runs: "Test runs",
@@ -540,6 +570,7 @@ function App({
   }
   function openModal(value: string) {
     setFormError("");
+    setAssigneeUserId("");
     setEditingBug(null);
     setEditingEvidence(null);
     setEditingCase(null);
@@ -564,12 +595,13 @@ function App({
     setModal(value);
   }
   function editBug(bug: Bug) {
+    setAssigneeUserId(bug.assigneeUserId ?? "");
     setBugForm({
       title: bug.title,
       description: bug.description ?? "",
       priority: bug.priority,
       status: bug.status,
-      assignee: bug.assignee === "—" ? "" : bug.assignee,
+      assignee: bug.assigneeUserId || bug.assignee === "—" ? "" : bug.assignee,
     });
     setEditingBug(bug);
     setSelectedTagIds(bug.tagIds ?? []);
@@ -616,6 +648,7 @@ function App({
     }
   }
   function editCase(testCase: TestCase) {
+    setAssigneeUserId(testCase.assigneeUserId ?? "");
     setRecordDetail(null);
     setFormError("");
     setCaseImageFiles([]);
@@ -695,6 +728,7 @@ function App({
           priority: bugForm.priority,
           status: bugForm.status,
           assignee: bugForm.assignee.trim() || null,
+          assigneeUserId: assigneeUserId || null,
           tagIds: selectedTagIds,
         });
         setModal("");
@@ -787,6 +821,7 @@ function App({
         preconditions: String(form.get("preconditions") ?? ""),
         steps: steps.filter((step) => step.action && step.expectedResult),
         tagIds: selectedTagIds,
+        assigneeUserId: assigneeUserId || null,
       };
       body = { projectId, ...caseInput };
     } else if (modal === "run") {
@@ -865,6 +900,7 @@ function App({
           description: bugForm.description,
           priority: bugForm.priority,
           assignee: bugForm.assignee.trim() || null,
+          assigneeUserId: assigneeUserId || null,
           tagIds: selectedTagIds,
         });
       } else if (modal === "evidence") {
@@ -1125,7 +1161,15 @@ function App({
               <h1>{pageTitle}</h1>
               <p className="page-subtitle">{pageDescription(activePage)}</p>
             </div>
-            {!["overview", "case-builder", "settings", "tags", "wiki"].includes(activePage) && (
+            {![
+              "overview",
+              "projects",
+              "teams",
+              "case-builder",
+              "settings",
+              "tags",
+              "wiki",
+            ].includes(activePage) && (
               <button
                 disabled={!projectId || loading || saving || Boolean(error)}
                 className="button button-primary"
@@ -1192,13 +1236,17 @@ function App({
             </p>
           )}
           {error && <Alert tone="error">{error}</Alert>}
-          {!loading && !error && !projectId && (
+          {!loading && !error && !projectId && activePage !== "projects" && (
             <p className="workspace__notice">
               No tienes proyectos disponibles. El administrador debe conceder acceso a un espacio
               existente.
             </p>
           )}
-          {activePage === "settings" ? (
+          {activePage === "teams" ? (
+            <TeamsView onChanged={() => setRevision((value) => value + 1)} />
+          ) : activePage === "projects" ? (
+            <ProjectsView projects={projects} onChanged={() => setRevision((value) => value + 1)} />
+          ) : activePage === "settings" ? (
             <AccountSettingsView
               user={user}
               onUserUpdated={onUserUpdated}
@@ -1522,7 +1570,7 @@ function App({
                         </select>
                       </label>
                       <label className="workspace__field">
-                        Responsable
+                        Responsable anterior (texto)
                         <input
                           name="assignee"
                           value={bugForm.assignee}
@@ -1534,6 +1582,32 @@ function App({
                       </label>
                     </>
                   )}
+                </>
+              )}
+              {["bug", "edit-bug", "case", "edit-case"].includes(modal) && (
+                <>
+                  {teamMemberError && <Alert tone="error">{teamMemberError}</Alert>}
+                  <label className="workspace__field">
+                    Responsable QA
+                    <select
+                      value={assigneeUserId}
+                      onChange={(event) => setAssigneeUserId(event.target.value)}
+                      disabled={Boolean(teamMemberError)}
+                    >
+                      <option value="">Sin asignar</option>
+                      {assigneeUserId &&
+                        !teamMembers.some((member) => member.id === assigneeUserId) && (
+                          <option value={assigneeUserId}>
+                            Responsable inactivo o no disponible
+                          </option>
+                        )}
+                      {teamMembers.map((member) => (
+                        <option key={member.id} value={member.id}>
+                          {member.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 </>
               )}
               {(modal === "case" || modal === "edit-case") && (
@@ -1558,61 +1632,75 @@ function App({
                   />
                   <fieldset className="workspace__step-editor">
                     <legend>Pasos y resultados esperados · {caseSteps.length}/100</legend>
-                    {caseSteps.map((step, index) => (
-                      <div className="workspace__step-card" key={index}>
-                        <h3>Paso {index + 1}</h3>
-                        <label className="workspace__field">
-                          Acción
-                          <textarea
-                            name="action"
-                            maxLength={10000}
-                            rows={3}
-                            value={step.action}
-                            onChange={(event) =>
-                              setCaseSteps((current) =>
-                                current.map((item, stepIndex) =>
-                                  stepIndex === index
-                                    ? { ...item, action: event.target.value }
-                                    : item,
-                                ),
-                              )
-                            }
-                          />
-                        </label>
-                        <label className="workspace__field">
-                          Resultado esperado
-                          <textarea
-                            name="expectedResult"
-                            maxLength={10000}
-                            rows={3}
-                            value={step.expectedResult}
-                            onChange={(event) =>
-                              setCaseSteps((current) =>
-                                current.map((item, stepIndex) =>
-                                  stepIndex === index
-                                    ? { ...item, expectedResult: event.target.value }
-                                    : item,
-                                ),
-                              )
-                            }
-                          />
-                        </label>
-                        <button
-                          type="button"
-                          className="workspace__secondary workspace__step-remove"
-                          disabled={caseSteps.length <= 1}
-                          onClick={() =>
-                            setCaseSteps((steps) =>
-                              steps.length <= 1
-                                ? steps
-                                : steps.filter((_item, stepIndex) => stepIndex !== index),
-                            )
-                          }
-                        >
-                          Eliminar paso
-                        </button>
-                      </div>
-                    ))}
+                    <table className="workspace__steps-table">
+                      <thead>
+                        <tr>
+                          <th scope="col">Paso</th>
+                          <th scope="col">Acción</th>
+                          <th scope="col">Resultado esperado</th>
+                          <th scope="col">Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {caseSteps.map((step, index) => (
+                          <tr key={index}>
+                            <th scope="row">{index + 1}</th>
+                            <td data-label="Acción">
+                              <textarea
+                                aria-label="Acción"
+                                name="action"
+                                maxLength={10000}
+                                rows={3}
+                                value={step.action}
+                                onChange={(event) =>
+                                  setCaseSteps((current) =>
+                                    current.map((item, stepIndex) =>
+                                      stepIndex === index
+                                        ? { ...item, action: event.target.value }
+                                        : item,
+                                    ),
+                                  )
+                                }
+                              />
+                            </td>
+                            <td data-label="Resultado esperado">
+                              <textarea
+                                aria-label="Resultado esperado"
+                                name="expectedResult"
+                                maxLength={10000}
+                                rows={3}
+                                value={step.expectedResult}
+                                onChange={(event) =>
+                                  setCaseSteps((current) =>
+                                    current.map((item, stepIndex) =>
+                                      stepIndex === index
+                                        ? { ...item, expectedResult: event.target.value }
+                                        : item,
+                                    ),
+                                  )
+                                }
+                              />
+                            </td>
+                            <td>
+                              <button
+                                type="button"
+                                className="workspace__secondary"
+                                disabled={caseSteps.length <= 1}
+                                onClick={() =>
+                                  setCaseSteps((steps) =>
+                                    steps.length <= 1
+                                      ? steps
+                                      : steps.filter((_item, stepIndex) => stepIndex !== index),
+                                  )
+                                }
+                              >
+                                Eliminar paso
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                     <button
                       type="button"
                       className="workspace__secondary"
@@ -1837,7 +1925,15 @@ function App({
               >
                 Cancelar
               </button>
-              <button type="submit" disabled={saving} className="button button-primary">
+              <button
+                type="submit"
+                disabled={
+                  saving ||
+                  (Boolean(teamMemberError) &&
+                    ["bug", "edit-bug", "case", "edit-case"].includes(modal))
+                }
+                className="button button-primary"
+              >
                 {saving
                   ? "Guardando…"
                   : ["edit-case", "edit-bug", "edit-evidence"].includes(modal)
@@ -2008,7 +2104,7 @@ function App({
       )}
       {exportTarget && (
         <Dialog
-          title={`${exportTarget.kind === "case" ? "Acciones" : "Exportar"} ${exportTarget.record.id}`}
+          title={`Exportar ${exportTarget.record.id}`}
           onClose={() => {
             if (!exportingRecord) setExportTarget(null);
           }}
@@ -2035,30 +2131,6 @@ function App({
               </button>
             ))}
           </div>
-          {exportTarget.kind === "case" && (
-            <div className="workspace__case-actions">
-              <button
-                type="button"
-                className="workspace__secondary"
-                disabled={!exportTarget.record.projectId}
-                onClick={() => editCase(exportTarget.record as TestCase)}
-              >
-                Editar caso de prueba
-              </button>
-              <button
-                type="button"
-                className="workspace__danger"
-                disabled={!exportTarget.record.projectId}
-                onClick={() => {
-                  setDeleteCaseTarget(exportTarget.record as TestCase);
-                  setDeleteCaseError("");
-                  setExportTarget(null);
-                }}
-              >
-                Eliminar caso de prueba
-              </button>
-            </div>
-          )}
         </Dialog>
       )}
       {deleteBugTarget && (
@@ -2208,6 +2280,8 @@ function TagPicker({
 function pageDescription(page: NavigationPage): string {
   return {
     overview: "Aquí tienes el estado de calidad de tus proyectos.",
+    projects: "Crea y administra los proyectos de tu espacio de trabajo.",
+    teams: "Administra la membresía de tus espacios de trabajo.",
     bugs: "Registra, prioriza y da seguimiento a las incidencias de tus proyectos.",
     cases: "Organiza los escenarios que mantienen tu producto bajo control.",
     runs: "Ejecuta suites de prueba y consulta sus resultados.",
@@ -2360,14 +2434,14 @@ function BugTable({
                   onDelete={onDelete ? () => onDelete(bug) : undefined}
                 />
                 <button
-                  className="row-more"
+                  className="workspace__secondary workspace-table__export"
                   aria-label={`Exportar ${bug.id}`}
                   onClick={(event) => {
                     event.stopPropagation();
                     onExport(bug);
                   }}
                 >
-                  <Icon name="dots" size={18} />
+                  Exportar
                 </button>
               </td>
             </tr>
@@ -2405,6 +2479,7 @@ function CaseTable({
             <th>CASO ID</th>
             <th>NOMBRE DEL CASO</th>
             <th>SUITE</th>
+            <th>RESPONSABLE</th>
             <th>ESTADO</th>
             <th>CREADO</th>
             <th>ACCIONES</th>
@@ -2423,6 +2498,7 @@ function CaseTable({
               <td data-label="SUITE">
                 <span className="suite-badge">{item.suite || "—"}</span>
               </td>
+              <td data-label="RESPONSABLE">{item.assigneeName || "Sin asignar"}</td>
               <td data-label="ESTADO">
                 <StatusControl
                   label={item.id}
@@ -2442,14 +2518,14 @@ function CaseTable({
                   onDelete={() => onDelete(item)}
                 />
                 <button
-                  className="row-more"
+                  className="workspace__secondary workspace-table__export"
                   aria-label={`Exportar ${item.id}`}
                   onClick={(event) => {
                     event.stopPropagation();
                     onExport(item);
                   }}
                 >
-                  <Icon name="dots" size={18} />
+                  Exportar
                 </button>
               </td>
             </tr>

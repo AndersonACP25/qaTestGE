@@ -72,6 +72,7 @@ export default function RecordDetailsDialog({
               <p className="record-view__copy">
                 {testCase?.preconditions?.trim() || "Sin precondiciones."}
               </p>
+              <p>Responsable QA: {testCase?.assigneeName || "Sin asignar"}</p>
             </section>
             <section className="record-view__section">
               <div className="record-view__section-heading">

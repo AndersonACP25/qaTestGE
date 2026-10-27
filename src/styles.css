@@ -3527,6 +3527,43 @@ tbody td {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
   gap: 18px;
 }
+.projects-view {
+  display: grid;
+  gap: 18px;
+}
+.projects-view__panel {
+  min-width: 0;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+}
+.projects-view__form {
+  display: grid;
+  gap: 12px;
+}
+.projects-view__item {
+  display: grid;
+  gap: 10px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+.projects-view__item h3,
+.projects-view__item p {
+  margin: 4px 0;
+  overflow-wrap: anywhere;
+}
+.projects-view__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.projects-view__confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
 .wiki-view__card {
   padding: 22px;
   border: 1px solid var(--line);
@@ -3551,6 +3588,46 @@ tbody td {
 .workspace-table__actions button {
   max-width: 100%;
   white-space: nowrap;
+}
+.workspace-table__export {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+}
+.workspace__steps-table {
+  table-layout: fixed;
+  margin-bottom: 12px;
+}
+.workspace__steps-table th:first-child {
+  width: 48px;
+}
+.workspace__steps-table th:last-child {
+  width: 130px;
+}
+.workspace__steps-table td {
+  vertical-align: top;
+}
+.workspace__steps-table textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: inherit;
+  background: var(--panel);
+  font-family: inherit;
+  font-size: 14px;
+}
+.account-settings__navigation {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.account-settings__navigation .button[aria-pressed="true"] {
+  outline: 2px solid var(--line);
+  outline-offset: 2px;
 }
 .account-settings__card {
   min-width: 0;
@@ -4020,6 +4097,31 @@ tbody td {
   }
 }
 @media (max-width: 620px) {
+  .workspace__steps-table,
+  .workspace__steps-table tbody,
+  .workspace__steps-table tr,
+  .workspace__steps-table td,
+  .workspace__steps-table th {
+    display: block;
+    width: 100%;
+  }
+  .workspace__steps-table thead {
+    display: none;
+  }
+  .workspace__steps-table tbody th {
+    padding: 8px 10px;
+    text-align: left;
+  }
+  .workspace__steps-table td[data-label]::before {
+    display: block;
+    margin-bottom: 4px;
+    content: attr(data-label);
+    font-weight: 600;
+  }
+  .workspace__steps-table tr {
+    height: auto;
+    padding-bottom: 10px;
+  }
   .workspace__toolbar select {
     max-width: 190px;
   }
