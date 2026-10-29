@@ -16,15 +16,54 @@ afterEach(() => {
   setCsrfToken("");
 });
 describe("frontend API client without network", () => {
-  it("sends cookies and CSRF in a JSON mutation, without tokens in storage", async () => {
-    const fetch = vi
-      .fn()
-      .mockResolvedValue(
-        new Response(JSON.stringify({ data: { id: "BUG-001" } }), { status: 201 }),
+  it("no acepta 204 para lecturas o creaciones que necesitan respuesta", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(() => Promise.resolve(new Response(null, { status: 204 }))),
+    );
+    await expect(api("/projects")).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
+    await expect(api("/bugs", { method: "POST" })).rejects.toMatchObject({
+      code: "INVALID_RESPONSE",
+    });
+  });
+  it.each([null, {}, { data: "incorrecto" }, { data: [{ id: "1" }] }])(
+    "rechaza respuestas fuera de contrato: %j",
+    async (payload) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue(new Response(JSON.stringify(payload), { status: 200 })),
       );
+      await expect(api("/projects")).rejects.toMatchObject({
+        code: "INVALID_RESPONSE",
+        status: 200,
+      });
+    },
+  );
+  it("sends cookies and CSRF in a JSON mutation, without tokens in storage", async () => {
+    const fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: {
+            id: "BUG-001",
+            projectId: "1",
+            project: "QA",
+            title: "Bug",
+            description: "",
+            priority: "Alta",
+            status: "Abierto",
+            assignee: null,
+            tagIds: [],
+            createdAt: "2026-10-29T00:00:00Z",
+          },
+        }),
+        { status: 201 },
+      ),
+    );
     vi.stubGlobal("fetch", fetch);
     setCsrfToken("test-csrf");
-    expect(await api("/bugs", { method: "POST", body: JSON.stringify({ title: "Bug" }) })).toEqual({
+    expect(
+      await api("/bugs", { method: "POST", body: JSON.stringify({ title: "Bug" }) }),
+    ).toMatchObject({
       id: "BUG-001",
     });
     const [url, options] = fetch.mock.calls[0];

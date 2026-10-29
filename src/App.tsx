@@ -1110,7 +1110,7 @@ function App({
                       setDeleteBugError("");
                       setDeleteBugTarget(bug);
                     }}
-                    onStatusChange={changeBugStatus}
+                    onStatusChange={(bug, status) => void changeBugStatus(bug, status)}
                     updatingStatus={updatingStatus}
                   />
                   {!bugs.length && (
@@ -1189,7 +1189,7 @@ function App({
                       setDeleteBugError("");
                       setDeleteBugTarget(bug);
                     }}
-                    onStatusChange={changeBugStatus}
+                    onStatusChange={(bug, status) => void changeBugStatus(bug, status)}
                     updatingStatus={updatingStatus}
                   />
                 )}
@@ -1204,7 +1204,7 @@ function App({
                       setDeleteCaseError("");
                       setDeleteCaseTarget(item);
                     }}
-                    onStatusChange={changeCaseStatus}
+                    onStatusChange={(testCase, status) => void changeCaseStatus(testCase, status)}
                     updatingStatus={updatingStatus}
                   />
                 )}

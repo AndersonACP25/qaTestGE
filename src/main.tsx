@@ -1,3 +1,4 @@
+import ErrorBoundary from "./ErrorBoundary";
 import React from "react";
 import { createRoot } from "react-dom/client";
 import Session from "./Session";
@@ -11,6 +12,8 @@ if (!rootElement) {
 
 createRoot(rootElement).render(
   <React.StrictMode>
-    <Session />
+    <ErrorBoundary>
+      <Session />
+    </ErrorBoundary>
   </React.StrictMode>,
 );
