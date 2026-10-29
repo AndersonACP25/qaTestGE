@@ -4775,3 +4775,52 @@ tbody td {
     grid-template-columns: 1fr;
   }
 }
+
+.account-settings__count-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  font-size: 14px;
+}
+.account-settings__type-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.listing-filters__tab {
+  min-height: 44px;
+  padding: 12px 16px;
+  font-size: 14px;
+  color: var(--color-626678);
+}
+.listing-filters__tab--active {
+  color: var(--purple);
+}
+.listing-filters .search-field {
+  min-height: 44px;
+  width: min(100%, 320px);
+  padding: 8px 12px;
+}
+.listing-filters .search-field input {
+  font-size: 14px;
+}
+.listing-filters .search-field input::placeholder {
+  color: var(--color-626678);
+}
+.workspace-table__pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.workspace-table__pagination button {
+  min-height: 44px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+.error-boundary {
+  padding: 24px;
+  max-width: 720px;
+  margin: 0 auto;
+}

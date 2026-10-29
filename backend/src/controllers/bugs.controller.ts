@@ -1,4 +1,6 @@
-﻿import type { Request, Response } from "express";
+import { creationContext } from "../repositories/creation-request.js";
+import { listQuery } from "../repositories/list-query.js";
+import type { Request, Response } from "express";
 import {
   bugPriorities,
   bugStatuses,
@@ -11,7 +13,12 @@ import { isId, isRecord, parseReference, projectFilter, text } from "../validati
 import { HttpError } from "../http-error.js";
 
 export async function listBugs(request: Request, response: Response) {
-  response.json({ data: await repository(request).listBugs(projectFilter(request)) });
+  response.json({
+    data: await repository(request).listBugs(
+      projectFilter(request),
+      listQuery(request, ["Abierto", "En progreso", "En revisión", "Resuelto"]),
+    ),
+  });
 }
 export async function deleteBug(request: Request, response: Response) {
   const id = parseReference(request.params.bugId, "BUG");
@@ -33,7 +40,9 @@ export async function createBug(request: Request, response: Response) {
     });
     return;
   }
-  response.status(201).json({ data: await repository(request).createBug(body) });
+  response
+    .status(201)
+    .json({ data: await repository(request).createBug(body, creationContext(request, response)) });
 }
 export async function updateBugStatus(request: Request, response: Response) {
   const body: unknown = request.body;

@@ -9,6 +9,42 @@ permissions:
   contents: read
 
 jobs:
+  postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: qa_test_ge
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U ci -d qa_test_ge"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://ci:ci-only-password@localhost:5432/qa_test_ge
+      PGPASSWORD: ci-only-password
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.11.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Import isolated initial schema
+        run: psql -h localhost -U ci -d qa_test_ge -v ON_ERROR_STOP=1 -f backend/sql/001_schema.sql
+      - name: Apply and reapply additive migrations
+        env:
+          DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
+        run: |
+          pnpm db:migrate
+          pnpm db:migrate
+      - name: Verify PostgreSQL isolation and transactions
+        run: pnpm --dir backend test:db
   validate:
     runs-on: ubuntu-latest
     steps:

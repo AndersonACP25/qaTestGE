@@ -1,41 +1,27 @@
-import { createCustomCaseType, renameCustomCaseType } from "../models/customCaseTypes";
-import { useEffect, useRef, useState } from "react";
+import CaseDesignSettings from "./CaseDesignSettings";
+import type { CasePreferences } from "../models/casePreferences";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import Alert from "../Alert";
 import { api } from "../api";
 import type { BugTemplate, BugTemplateInput, BugTemplatePriority, User } from "../api";
-import { type CaseCategory, maxCaseCount } from "../models/caseDesign.model";
-import type { CaseCountDefaults } from "../models/caseCountDefaults";
 
 const priorities: BugTemplatePriority[] = ["Crítica", "Alta", "Media", "Baja"];
 const emptyTemplate: BugTemplateInput = { name: "", title: "", description: "", priority: "Media" };
 
 export default function AccountSettingsView({
-  catalog,
-  onCustomTypesChanged,
+  preferences,
+  onPreferencesChanged,
   user,
   onUserUpdated,
   onAccountDeleted,
-  caseCountDefaults,
-  onCaseCountDefaultsChanged,
-  selectedCategories,
-  onSelectedCategoriesChanged,
 }: {
-  catalog: CaseCategory[];
-  onCustomTypesChanged: (custom: CaseCategory[]) => void;
+  preferences: CasePreferences;
+  onPreferencesChanged: (next: CasePreferences) => Promise<void>;
   user: User;
   onUserUpdated: (user: User) => void;
   onAccountDeleted: () => void;
-  caseCountDefaults: CaseCountDefaults;
-  onCaseCountDefaultsChanged: (defaults: CaseCountDefaults) => void;
-  selectedCategories: string[];
-  onSelectedCategoriesChanged: (categories: string[]) => void;
 }) {
-  const [editingTypeId, setEditingTypeId] = useState("");
-  const typeNameInput = useRef<HTMLInputElement>(null);
-  const [newTypeName, setNewTypeName] = useState("");
-  const [newTypeError, setNewTypeError] = useState("");
-  const [newTypeMessage, setNewTypeMessage] = useState("");
   const [section, setSection] = useState<"cuenta" | "plantillas" | "diseno" | "ia">("cuenta");
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
@@ -59,11 +45,6 @@ export default function AccountSettingsView({
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState("");
-  const [countDefaults, setCountDefaults] = useState(caseCountDefaults);
-  const [selectedDefaults, setSelectedDefaults] = useState(selectedCategories);
-  const [countDefaultsBusy, setCountDefaultsBusy] = useState(false);
-  const [countDefaultsError, setCountDefaultsError] = useState("");
-  const [countDefaultsMessage, setCountDefaultsMessage] = useState("");
 
   useEffect(() => {
     const abort = new AbortController();
@@ -221,26 +202,6 @@ export default function AccountSettingsView({
       setDeleteError(cause instanceof Error ? cause.message : "No se pudo desactivar la cuenta.");
     } finally {
       setDeleteBusy(false);
-    }
-  }
-
-  function saveCountDefaults(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setCountDefaultsBusy(true);
-    setCountDefaultsError("");
-    setCountDefaultsMessage("");
-    try {
-      onCaseCountDefaultsChanged(countDefaults);
-      onSelectedCategoriesChanged(selectedDefaults);
-      setCountDefaultsMessage("Las preferencias de diseño se guardaron en este navegador.");
-    } catch (cause) {
-      setCountDefaultsError(
-        cause instanceof Error
-          ? cause.message
-          : "No se pudieron guardar los valores predeterminados.",
-      );
-    } finally {
-      setCountDefaultsBusy(false);
     }
   }
 
@@ -515,180 +476,7 @@ export default function AccountSettingsView({
         className="account-settings__card account-settings__card--wide"
         hidden={section !== "diseno"}
       >
-        <div className="account-settings__heading">
-          <h2>Diseño de test cases</h2>
-          <p>
-            Define qué tipos de prueba y cuántos ejemplos aparecerán seleccionados inicialmente. Los
-            valores se guardan en este navegador y puedes cambiarlos antes de mostrar la vista
-            previa.
-          </p>
-        </div>
-        <form
-          className="account-settings__new-type"
-          onSubmit={(event) => {
-            event.preventDefault();
-            setNewTypeError("");
-            setNewTypeMessage("");
-            try {
-              const created = editingTypeId
-                ? renameCustomCaseType(editingTypeId, newTypeName, catalog)
-                : createCustomCaseType(newTypeName, catalog);
-              onCustomTypesChanged([
-                ...catalog.filter(({ id }) => id.startsWith("custom:") && id !== editingTypeId),
-                created,
-              ]);
-              setCountDefaults((current) => ({
-                ...current,
-                [created.id]: current[created.id] ?? 1,
-              }));
-              setEditingTypeId("");
-              setNewTypeName("");
-              setNewTypeMessage("El tipo ya está disponible en el diseñador.");
-            } catch (cause) {
-              setNewTypeError(
-                cause instanceof Error ? cause.message : "No se pudo añadir el tipo.",
-              );
-            }
-          }}
-        >
-          <label className="workspace__field">
-            {editingTypeId ? "Nombre del tipo" : "Nombre del nuevo tipo"}
-            <input
-              ref={typeNameInput}
-              value={newTypeName}
-              onChange={(event) => setNewTypeName(event.target.value)}
-              maxLength={60}
-              required
-            />
-          </label>
-          <button className="button button-primary" type="submit">
-            {editingTypeId ? "Guardar tipo de caso" : "Añadir tipo de caso"}
-          </button>
-          {editingTypeId && (
-            <button
-              className="workspace__secondary"
-              type="button"
-              onClick={() => {
-                setEditingTypeId("");
-                setNewTypeName("");
-              }}
-            >
-              Cancelar edición de tipo
-            </button>
-          )}
-          {newTypeError && <Alert tone="error">{newTypeError}</Alert>}
-          {newTypeMessage && <Alert tone="success">{newTypeMessage}</Alert>}
-        </form>
-        <div className="account-settings__custom-types">
-          <h3>Tipos personalizados</h3>
-          <p>Editar o eliminar un tipo no modifica los casos ya guardados.</p>
-          {catalog
-            .filter(({ id }) => id.startsWith("custom:"))
-            .map((item) => (
-              <div className="account-settings__custom-type" key={item.id}>
-                <strong>{item.label}</strong>
-                <button
-                  className="workspace__secondary"
-                  type="button"
-                  aria-label={"Editar tipo " + item.label}
-                  onClick={() => {
-                    setEditingTypeId(item.id);
-                    setNewTypeName(item.label);
-                    setNewTypeError("");
-                    setNewTypeMessage("");
-                    typeNameInput.current?.focus();
-                  }}
-                >
-                  Editar
-                </button>
-                <button
-                  className="workspace__danger"
-                  type="button"
-                  aria-label={"Eliminar tipo " + item.label}
-                  onClick={() => {
-                    setNewTypeError("");
-                    setNewTypeMessage("");
-                    try {
-                      onCustomTypesChanged(
-                        catalog.filter(({ id }) => id.startsWith("custom:") && id !== item.id),
-                      );
-                      setSelectedDefaults((current) => {
-                        const next = current.filter((id) => id !== item.id);
-                        return next.length ? next : ["edge"];
-                      });
-                      setCountDefaults((current) =>
-                        Object.fromEntries(
-                          Object.entries(current).filter(([id]) => id !== item.id),
-                        ),
-                      );
-                      if (editingTypeId === item.id) {
-                        setEditingTypeId("");
-                        setNewTypeName("");
-                      }
-                      setNewTypeMessage("Tipo eliminado. Los casos guardados se conservan.");
-                    } catch {
-                      setNewTypeError("No se pudo eliminar el tipo de este navegador.");
-                    }
-                  }}
-                >
-                  Eliminar
-                </button>
-              </div>
-            ))}
-        </div>
-        <form
-          className="account-settings__form"
-          onSubmit={saveCountDefaults}
-          aria-busy={countDefaultsBusy}
-        >
-          <h3>Tipos seleccionados inicialmente</h3>
-          <p className="workspace__notice">
-            Mantén al menos un tipo seleccionado para iniciar el diseño.
-          </p>
-          <div className="account-settings__count-grid">
-            {catalog.map((category) => (
-              <div className="account-settings__count-item" key={category.id}>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={selectedDefaults.includes(category.id)}
-                    onChange={(event) =>
-                      setSelectedDefaults((current) =>
-                        event.target.checked
-                          ? [...current, category.id]
-                          : current.filter((id) => id !== category.id),
-                      )
-                    }
-                  />
-                  <span>{category.label}</span>
-                </label>
-                <select
-                  aria-label={`Valor inicial para ${category.label}`}
-                  value={countDefaults[category.id] ?? 1}
-                  onChange={(event) =>
-                    setCountDefaults((current) => ({
-                      ...current,
-                      [category.id]: Number(event.target.value),
-                    }))
-                  }
-                >
-                  {Array.from({ length: maxCaseCount }, (_, index) => (
-                    <option key={index + 1} value={index + 1}>
-                      {index + 1}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ))}
-          </div>
-          {countDefaultsError && <Alert tone="error">{countDefaultsError}</Alert>}
-          {countDefaultsMessage && <Alert tone="success">{countDefaultsMessage}</Alert>}
-          <div className="workspace__actions">
-            <button className="button button-primary" type="submit" disabled={countDefaultsBusy}>
-              {countDefaultsBusy ? "Guardando…" : "Guardar valores predeterminados"}
-            </button>
-          </div>
-        </form>
+        <CaseDesignSettings preferences={preferences} onSave={onPreferencesChanged} />
       </section>
       <section className="account-settings__card" hidden={section !== "ia"}>
         <div className="account-settings__heading">

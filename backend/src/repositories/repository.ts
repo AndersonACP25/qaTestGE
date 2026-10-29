@@ -1,3 +1,5 @@
+import type { CreationContext } from "./creation-request.js";
+import type { ListQuery } from "./list-query.js";
 import type { Bug, BugStatus, CreateBugInput, UpdateBugInput } from "../models/bug.model.js";
 import type {
   TestCase,
@@ -31,13 +33,13 @@ export interface Project {
 export interface Repository {
   health(): Promise<void>;
   listProjects(): Promise<Project[]>;
-  listBugs(projectId?: string): Promise<Bug[]>;
-  createBug(input: CreateBugInput): Promise<Bug>;
+  listBugs(projectId?: string, options?: ListQuery): Promise<Bug[]>;
+  createBug(input: CreateBugInput, context?: CreationContext): Promise<Bug>;
   updateBug(id: string, projectId: string, input: UpdateBugInput): Promise<Bug | null>;
   deleteBug(id: string, projectId: string): Promise<boolean>;
   updateBugStatus(id: string, projectId: string, status: BugStatus): Promise<Bug | null>;
-  listCases(projectId?: string): Promise<TestCase[]>;
-  createCase(input: CreateTestCaseInput): Promise<TestCase>;
+  listCases(projectId?: string, options?: ListQuery): Promise<TestCase[]>;
+  createCase(input: CreateTestCaseInput, context?: CreationContext): Promise<TestCase>;
   updateCase(id: string, projectId: string, input: UpdateTestCaseInput): Promise<TestCase | null>;
   deleteCase(id: string, projectId: string): Promise<boolean>;
   updateCaseStatus(id: string, projectId: string, status: TestCaseStatus): Promise<TestCase | null>;
@@ -49,8 +51,8 @@ export interface Repository {
   ): Promise<(TestCaseAttachment & { imageData: Buffer | null }) | null>;
   createCaseAttachment(input: CreateTestCaseAttachmentInput): Promise<TestCaseAttachment | null>;
   deleteCaseAttachment(id: string, attachmentId: string, projectId: string): Promise<boolean>;
-  listRuns(projectId?: string): Promise<TestRun[]>;
-  createRun(input: CreateTestRunInput): Promise<TestRun>;
+  listRuns(projectId?: string, options?: ListQuery): Promise<TestRun[]>;
+  createRun(input: CreateTestRunInput, context?: CreationContext): Promise<TestRun>;
   updateRun(id: string, projectId: string, input: UpdateTestRunInput): Promise<TestRun | null>;
   deleteRun(id: string, projectId: string): Promise<boolean>;
   updateRunResult(

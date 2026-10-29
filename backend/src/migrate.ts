@@ -15,6 +15,7 @@ try {
       "009_tags.sql",
       "010_team_invitations.sql",
       "011_qa_assignments.sql",
+      "012_creation_requests.sql",
     ]) {
       const sql = await readFile(new URL(`../sql/${filename}`, import.meta.url), "utf8");
       await client.query(sql);

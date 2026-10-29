@@ -43,8 +43,8 @@ export default function TableExport({ data }: { data: TableExportData }) {
           }}
         >
           <p className="workspace__notice">
-            Se exportarán {data.rows.length} registros con los filtros actuales y las columnas del
-            listado.
+            Se exportarán {data.rows.length} registros de la página visible con los filtros actuales
+            y las columnas del listado.
           </p>
           {error && <Alert tone="error">{error}</Alert>}
           <div className="workspace__export-options" aria-busy={busy}>

@@ -1,5 +1,6 @@
 // Opt-in test: explicit isolated TEST_DATABASE_URL; never loads .env.
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import request from "supertest";
 import { createPool, checkDatabase } from "../src/database.js";
 import { createApp } from "../src/app.js";
@@ -49,19 +50,82 @@ try {
     .post("/api/bugs")
     .send({ projectId, title: "Bug de prueba", priority: "Alta" });
   assert.equal(bug.status, 201);
-  const tc = await first.post("/api/test-cases").send({
+  const caseKey = randomUUID();
+  const caseInput = {
     projectId,
     title: "Caso",
     suite: "Smoke",
     steps: [{ action: "Enviar", expectedResult: "Validar" }],
-  });
+  };
+  const tc = await first.post("/api/test-cases").set("Idempotency-Key", caseKey).send(caseInput);
+  const caseReplay = await first
+    .post("/api/test-cases")
+    .set("Idempotency-Key", caseKey)
+    .send(caseInput);
+  assert.equal(caseReplay.status, 201);
+  assert.equal(caseReplay.body.data.id, tc.body.data.id);
   assert.equal(tc.status, 201);
   assert.equal(tc.body.data.steps[0].expectedResult, "Validar");
-  const run = await first
+  const runKey = randomUUID();
+  const runInput = { projectId, title: "Run", owner: "QA", caseIds: [tc.body.data.id] };
+  const run = await first.post("/api/test-runs").set("Idempotency-Key", runKey).send(runInput);
+  const runReplay = await first
     .post("/api/test-runs")
-    .send({ projectId, title: "Run", owner: "QA", caseIds: [tc.body.data.id] });
+    .set("Idempotency-Key", runKey)
+    .send(runInput);
+  assert.equal(runReplay.status, 201);
+  assert.equal(runReplay.body.data.id, run.body.data.id);
   assert.equal(run.status, 201);
   assert.equal(run.body.data.caseCount, 1);
+  // Requests committed concurrently with the same key create exactly one resource.
+  const key = randomUUID();
+  const repeatedInput = { projectId, title: "Creación idempotente", priority: "Alta" };
+  const repeated = await Promise.all([
+    first.post("/api/bugs").set("Idempotency-Key", key).send(repeatedInput),
+    first.post("/api/bugs").set("Idempotency-Key", key).send(repeatedInput),
+  ]);
+  assert.equal(repeated[0].status, 201);
+  assert.equal(repeated[1].status, 201);
+  assert.equal(repeated[0].body.data.id, repeated[1].body.data.id);
+  assert.equal(
+    (
+      await first
+        .post("/api/bugs")
+        .set("Idempotency-Key", key)
+        .send({ ...repeatedInput, title: "Otros datos" })
+    ).status,
+    409,
+  );
+  const page = await first
+    .get("/api/bugs")
+    .query({ projectId, limit: 1, offset: 0, search: "idempotente", status: "Abierto" });
+  assert.equal(page.status, 200);
+  assert.equal(page.body.data.length, 1);
+  assert.equal(
+    (await first.get("/api/bugs").query({ projectId, limit: 1, offset: 1, search: "idempotente" }))
+      .body.data.length,
+    0,
+  );
+  const resultId = run.body.data.results[0].id;
+  const concurrent = await Promise.all([
+    first
+      .patch(`/api/test-runs/${run.body.data.id}/results/${resultId}`)
+      .send({ projectId, status: "passed", notes: "Verificado" }),
+    first.patch(`/api/test-runs/${run.body.data.id}`).send({
+      projectId,
+      title: "Run concurrente",
+      owner: "QA",
+      caseIds: [tc.body.data.id],
+      status: "En curso",
+    }),
+  ]);
+  assert.ok(concurrent.every((response) => response.status === 200));
+  const persisted = (await first.get("/api/test-runs").query({ projectId })).body.data.find(
+    (item: { id: string }) => item.id === run.body.data.id,
+  );
+  assert.equal(persisted.progress, 100);
+  assert.equal(persisted.results[0].status, "passed");
+
   const invalid = await second
     .post("/api/test-runs")
     .send({ projectId: otherId, title: "Invalid", owner: "QA", caseIds: [tc.body.data.id] });
@@ -89,6 +153,31 @@ try {
     400,
   );
   assert.equal((await second.get("/api/evidence")).body.data.length, 0);
+  await pool.query(
+    "INSERT INTO qa.organization_members(organization_id,user_id,role) VALUES($1,$2,'member')",
+    [orgIds[0], userIds[1]],
+  );
+  const assigned = await first
+    .post("/api/bugs")
+    .send({ projectId, title: "Asignado", priority: "Media", assigneeUserId: userIds[1] });
+  assert.equal(assigned.status, 201);
+  assert.equal(
+    (await first.delete(`/api/teams/${orgIds[0]}/members/${userIds[1]}`).send({})).status,
+    409,
+  );
+  assert.equal(
+    (
+      await first
+        .patch(`/api/bugs/${assigned.body.data.id}`)
+        .send({ projectId, title: "Reasignado", priority: "Media", assigneeUserId: null })
+    ).status,
+    200,
+  );
+  assert.equal(
+    (await first.delete(`/api/teams/${orgIds[0]}/members/${userIds[1]}`).send({})).status,
+    204,
+  );
+  assert.equal((await second.get("/api/bugs").query({ projectId })).status, 404);
   const invalidLogin = await first
     .post("/api/auth/login")
     .send({ email: "member-a@example.test", password: "wrong password" });
@@ -114,7 +203,9 @@ try {
     const reloaded = await request(freshApp).get("/api/auth/me").set("Cookie", cookie);
     assert.equal(reloaded.status, 200);
     assert.equal(
-      (await request(freshApp).get("/api/bugs").set("Cookie", cookie)).body.data[0].id,
+      (await request(freshApp).get("/api/bugs").set("Cookie", cookie)).body.data.find(
+        (item: { id: string }) => item.id === bug.body.data.id,
+      ).id,
       bug.body.data.id,
     );
   } finally {
@@ -137,7 +228,7 @@ try {
   );
   assert.equal((await second.get("/api/auth/me")).status, 401);
   console.info(
-    "Integración correcta: registro/login/logout, hashes, sesiones persistentes y expiradas, CSRF, aislamiento, CRUD de creación y rollback.",
+    "Integración correcta: registro/login/logout, hashes, sesiones persistentes y expiradas, CSRF, aislamiento, creaciones idempotentes, filtros, concurrencia, asignaciones y rollback.",
   );
 } finally {
   const client = await pool.connect();

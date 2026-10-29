@@ -197,11 +197,9 @@ Consultar [API.md](./API.md) para el contrato implementado, [DESIGN.md](./DESIGN
 
 El diseñador admite de 1 a 5 ejemplos por categoría y exporta Markdown `.md` de la vista previa editada, con texto escapado y descarga local, sin dependencias adicionales. Los perfiles de `.opencode/agents/` coordinan el desarrollo en OpenCode y no son agentes dentro del producto.
 
-### Tipos personalizados del diseñador
+### Preferencias y tipos del diseñador
 
-Configuración permite añadir tipos con nombre único (sin distinguir mayúsculas y normalizando espacios), de 1 a 60 caracteres. Se guardan como pares de identificador y nombre en localStorage bajo una clave por usuario; se reconstruyen con identificadores explícitos y cinco escenarios editables. El catálogo combinado se pasa al diseñador y a la validación de preferencias sin mutar el catálogo base. No requiere migración, no sincroniza dispositivos y no usa IA. Guardar un ejemplo sigue requiriendo una acción explícita y conserva el tipo como Suite.
-
-Los tipos personalizados admiten edición y eliminación. La persistencia conserva ahora pares `{id, label}` y lee también la lista anterior de nombres. Renombrar conserva el ID, las cantidades y la selección inicial; los IDs nuevos evitan colisiones con tipos renombrados. Eliminar limpia las preferencias activas y persistidas, con `edge` como selección de respaldo. Los tipos incorporados no se modifican y las Suites de casos guardados no se alteran.
+CaseDesignSettings permite editar y eliminar todos los tipos, incluidos los predeterminados. Conserva IDs y preferencias al renombrar, y no altera casos guardados. useCasePreferences guarda un documento v2 con revisión, catálogo, cantidades y selección bajo un Web Lock; lee las claves anteriores y rechaza escrituras obsoletas, corrupción y cuotas. La selección tras eliminar tipos usa el primer tipo disponible. Se conserva al menos un tipo.
 
 ### Diseñador local de bugs
 
@@ -216,3 +214,13 @@ La [guía de integración de IA](AI_INTEGRATION.md) describe una implementación
 `TableExport` reutiliza el diálogo y los formatos existentes para exportar Bugs, Casos de prueba y Test runs, incluidas las tablas recientes del Dashboard. `models/tableExport.ts` transforma únicamente las filas filtradas recibidas y las columnas visibles en datos tabulares, sin descripciones, pasos ni resultados internos. Los tags se incluyen junto al título tal como aparecen en el listado. `utils/exportTable.ts` genera Excel, PDF apaisado y Markdown con las dependencias existentes y descarga local compartida con la exportación individual; no solicita datos adicionales a la API. Las celdas de Excel son texto y Markdown escapa separadores y HTML. Cada tabla mantiene sus controles y acciones de dominio; se reutiliza la capacidad de exportación sin introducir una abstracción genérica de celdas.
 
 Configuración muestra una vista preliminar de imagen de perfil con iniciales y un botón deshabilitado. No selecciona ni sube archivos, no persiste imágenes y no añade endpoints ni migraciones.
+
+### Robustez implementada
+
+[HARDENING.md](HARDENING.md) documenta contratos Zod y DTO inferidos, caché y tokens de alcance por proyecto, ErrorBoundary, persistencia con revisiones, separación de tablas/controladores/rutas, lint tipado y flags TypeScript adicionales por etapas. Los borradores leen arrays antiguos y documentos v2; Actualizar lista conserva la vista previa y evita sobrescribir cambios de otra pestaña. Las escrituras locales requieren Web Locks.
+
+La migración 012 añade qa.creation_requests. Bugs, casos y ejecuciones admiten Idempotency-Key por actor/proyecto/recurso; el advisory lock, la huella y el ID se confirman en la misma transacción del recurso. Repetir contenido distinto o un recurso eliminado devuelve 409; no se introducen reintentos automáticos. El esquema se comprueba antes de abrir el puerto.
+
+Los listados API admiten filtros y paginación opcionales con parámetros ligados, projectId obligatorio y orden estable por ID. La UI muestra páginas de 50 y exporta la página visible. Dashboard/Reportes conservan el snapshot completo; no se afirma haber reducido su volumen ni medido carga.
+
+CI dispone de PostgreSQL efímero, migraciones repetidas y verificación de aislamiento, rollback, concurrencia, idempotencia y asignaciones. requestContext genera X-Request-ID y logs JSON seguros sin cuerpos, consultas, cookies ni secretos. No se añade un proveedor externo.

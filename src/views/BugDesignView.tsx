@@ -1,9 +1,16 @@
+import { withStorageLock } from "../models/storageLock";
 import { useEffect, useState } from "react";
 import Alert from "../Alert";
 import TagPicker from "../TagPicker";
 import { api, createBug, type BugTemplate } from "../api";
 import type { Bug, Tag } from "../types";
-import { loadBugDrafts, prepareBug, saveBugDrafts, type BugDraft } from "../models/bugDesign";
+import {
+  loadBugDraftDocument,
+  saveBugDraftDocument,
+  bugDraftsKey,
+  prepareBug,
+  type BugDraft,
+} from "../models/bugDesign";
 
 export default function BugDesignView({
   userId,
@@ -20,9 +27,10 @@ export default function BugDesignView({
 }) {
   const [initial] = useState(() => {
     try {
-      return { drafts: loadBugDrafts(userId, projectId), error: "" };
+      return { ...loadBugDraftDocument(userId, projectId), error: "" };
     } catch {
       return {
+        revision: "0",
         drafts: [] as BugDraft[],
         error:
           "No se pudieron leer los borradores de este navegador. Puedes preparar y guardar un bug en el proyecto.",
@@ -30,6 +38,7 @@ export default function BugDesignView({
     }
   });
   const [drafts, setDrafts] = useState(initial.drafts);
+  const [revision, setRevision] = useState(initial.revision);
   const [source, setSource] = useState("");
   const [templateId, setTemplateId] = useState("");
   const [templates, setTemplates] = useState<BugTemplate[]>([]);
@@ -63,10 +72,44 @@ export default function BugDesignView({
     setReviewed(false);
     setMessage("");
   }
-  function persist(next: BugDraft[]) {
-    saveBugDrafts(userId, projectId, next);
-    setDrafts(next);
+  async function persist(next: BugDraft[]) {
+    const saved = await withStorageLock(bugDraftsKey(userId, projectId), () =>
+      saveBugDraftDocument(userId, projectId, next, revision),
+    );
+    setDrafts(saved.drafts);
+    setRevision(saved.revision);
   }
+  async function updateDrafts(next: BugDraft[], success: string) {
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      await persist(next);
+      setMessage(success);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No se pudieron guardar los borradores.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  function reloadDrafts() {
+    try {
+      const next = loadBugDraftDocument(userId, projectId);
+      setDrafts(next.drafts);
+      setRevision(next.revision);
+      setError("");
+    } catch {
+      setError("No se pudieron leer los borradores.");
+    }
+  }
+  useEffect(() => {
+    const changed = (event: StorageEvent) => {
+      if (event.key === bugDraftsKey(userId, projectId))
+        setError("Los borradores cambiaron en otra pestaña. Actualiza la lista antes de guardar.");
+    };
+    window.addEventListener("storage", changed);
+    return () => window.removeEventListener("storage", changed);
+  }, [userId, projectId]);
   async function publish() {
     if (!preview || !reviewed || busy || savedId) return;
     setBusy(true);
@@ -76,18 +119,21 @@ export default function BugDesignView({
       const validTags = new Set(tags.map(({ id }) => id));
       if (preview.tagIds.some((id) => !validTags.has(id)))
         throw new Error("Revisa los tags del borrador antes de guardar.");
-      const saved = await createBug({
-        projectId,
-        title: preview.title.trim(),
-        description: preview.description,
-        priority: preview.priority,
-        tagIds: preview.tagIds,
-      });
+      const saved = await createBug(
+        {
+          projectId,
+          title: preview.title.trim(),
+          description: preview.description,
+          priority: preview.priority,
+          tagIds: preview.tagIds,
+        },
+        preview.id,
+      );
       setSavedId(saved.id);
       setMessage(`Bug ${saved.id} guardado en el proyecto.`);
       onSaved(saved);
       try {
-        persist(drafts.filter(({ id }) => id !== preview.id));
+        await persist(drafts.filter(({ id }) => id !== preview.id));
       } catch {
         setError(
           "El bug se creó, pero no se pudo retirar su borrador local. Elimínalo de la lista antes de volver a usarlo.",
@@ -173,6 +219,14 @@ export default function BugDesignView({
             </button>
           </form>
           <h2>Borradores guardados</h2>
+          <button
+            className="workspace__secondary"
+            type="button"
+            disabled={busy}
+            onClick={reloadDrafts}
+          >
+            Actualizar lista de borradores
+          </button>
           <p>
             Solo en este navegador, para tu usuario y este proyecto. No guardes credenciales ni
             datos sensibles.
@@ -205,12 +259,10 @@ export default function BugDesignView({
                 disabled={busy}
                 aria-label={`Eliminar borrador ${draft.title}`}
                 onClick={() => {
-                  try {
-                    persist(drafts.filter(({ id }) => id !== draft.id));
-                    setMessage("Borrador eliminado del navegador.");
-                  } catch {
-                    setError("No se pudo eliminar el borrador local.");
-                  }
+                  void updateDrafts(
+                    drafts.filter(({ id }) => id !== draft.id),
+                    "Borrador eliminado del navegador.",
+                  );
                 }}
               >
                 Eliminar
@@ -298,14 +350,10 @@ export default function BugDesignView({
                     type="button"
                     disabled={Boolean(initial.error)}
                     onClick={() => {
-                      setError("");
-                      setMessage("");
-                      try {
-                        persist([...drafts.filter(({ id }) => id !== preview.id), preview]);
-                        setMessage("Borrador guardado en este navegador.");
-                      } catch {
-                        setError("No se pudo guardar el borrador en este navegador.");
-                      }
+                      void updateDrafts(
+                        [...drafts.filter(({ id }) => id !== preview.id), preview],
+                        "Borrador guardado en este navegador.",
+                      );
                     }}
                   >
                     Guardar borrador

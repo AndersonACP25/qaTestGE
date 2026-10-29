@@ -78,3 +78,5 @@ Referencias oficiales utilizadas: [CREATE DATABASE](https://www.postgresql.org/d
 La migración 010 añade códigos de invitación de un solo uso: únicamente se guarda el hash y la fecha de expiración. Las invitaciones se aceptan con una cuenta autenticada y conceden acceso a todos los proyectos de la organización.
 
 La migración 011 añade referencias opcionales de responsable a bugs y casos. Las claves compuestas exigen que el responsable sea miembro de la organización del proyecto; el texto histórico de responsable en bugs no se elimina.
+
+La migración 012 añade qa.creation_requests para creaciones idempotentes de bugs, casos y ejecuciones. Guarda actor, proyecto, recurso, UUID, huella e ID creado en la misma transacción. Borrar un proyecto elimina sus claves. Debe aplicarse antes de iniciar esta versión.

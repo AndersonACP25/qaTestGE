@@ -1,23 +1,18 @@
-import { categories } from "../../src/models/caseDesign.model";
+import { initialCasePreferences } from "../../src/models/casePreferences";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import AccountSettingsView from "../../src/views/AccountSettingsView";
-import { defaultCaseCountDefaults } from "../../src/models/caseCountDefaults";
 
 describe("account settings view", () => {
   it("shows editable profile fields and separate password change fields", () => {
     const html = renderToStaticMarkup(
       createElement(AccountSettingsView, {
-        catalog: categories,
-        onCustomTypesChanged: () => {},
+        preferences: initialCasePreferences(),
+        onPreferencesChanged: async () => {},
         user: { id: "1", name: "QA", email: "qa@example.test" },
         onUserUpdated: () => {},
         onAccountDeleted: () => {},
-        caseCountDefaults: defaultCaseCountDefaults,
-        onCaseCountDefaultsChanged: () => {},
-        selectedCategories: ["edge"],
-        onSelectedCategoriesChanged: () => {},
       }),
     );
     expect(html).toContain("Información de la cuenta");
