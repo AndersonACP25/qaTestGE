@@ -206,7 +206,7 @@ export default function TeamsView({ onChanged }: { onChanged: () => void }) {
               </button>
             </div>
             {deleteTeam && (
-              <div>
+              <div className="projects-view__delete-confirmation">
                 <p>
                   Solo puedes eliminar un equipo sin proyectos ni otros integrantes. Los códigos
                   pendientes quedarán anulados.

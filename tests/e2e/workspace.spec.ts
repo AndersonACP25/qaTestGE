@@ -186,7 +186,6 @@ test("diseñador guarda y actualiza todos los pasos y descarga Markdown", async 
   page,
   workspace,
 }) => {
-  await page.screenshot({ path: testInfo.outputPath("configuracion.png"), fullPage: true });
   await navigate(page, "Diseñar test cases");
   await page.locator("#case-builder-description").fill("Probar registro");
   await page.getByRole("button", { name: "Mostrar tabla de ejemplo" }).click();
@@ -278,4 +277,33 @@ test("tipos personalizados disponibles después de recargar", async ({ page }, t
   await navigate(page, "Equipos");
   await page.screenshot({ path: testInfo.outputPath("equipos.png"), fullPage: true });
   await noHorizontalOverflow(page);
+});
+
+test("exporta solo registros filtrados y muestra la maqueta de perfil", async ({
+  page,
+}, testInfo) => {
+  await expect(page.getByText("Sesión activa", { exact: true })).toHaveCount(0);
+  for (const name of ["Bugs", "Casos de prueba", "Test runs"]) {
+    await navigate(page, name);
+    if (name === "Test runs") {
+      await page.getByRole("button", { name: "Nueva ejecución", exact: true }).click();
+      const dialog = page.getByRole("dialog");
+      await dialog.getByLabel("Título", { exact: true }).fill("Ejecución exportable");
+      await dialog.getByRole("checkbox").first().check();
+      await dialog.getByRole("button", { name: "Guardar", exact: true }).click();
+      await expect(dialog).toHaveCount(0);
+    }
+    const button = page.getByRole("button", { name: /^Exportar tabla de/ });
+    await button.click();
+    const download = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Exportar como Markdown", exact: true }).click();
+    expect((await download).suggestedFilename()).toMatch(/\.md$/);
+    await page.getByRole("textbox", { name: "Buscar registros" }).fill("ninguna-coincidencia");
+    await expect(button).toBeDisabled();
+    await expect(page.locator(".workspace-table__footer")).toContainText("0 resultados");
+    await noHorizontalOverflow(page);
+  }
+  await navigate(page, "Configuración");
+  await expect(page.getByRole("button", { name: "Cambiar imagen (próximamente)" })).toBeDisabled();
+  await page.screenshot({ path: testInfo.outputPath("perfil-maqueta.png"), fullPage: true });
 });

@@ -269,6 +269,25 @@ export default function AccountSettingsView({
           <h2>Información de la cuenta</h2>
           <p>Actualiza el nombre y correo asociados a tu usuario.</p>
         </div>
+        <div className="account-settings__avatar-preview">
+          <span className="account-settings__avatar" aria-hidden="true">
+            {user.name.trim().slice(0, 2).toLocaleUpperCase("es")}
+          </span>
+          <div>
+            <h3>Imagen de perfil</h3>
+            <p id="profile-image-preview">
+              Próximamente podrás cambiar tu imagen de perfil. Esta opción es una maqueta.
+            </p>
+            <button
+              className="workspace__secondary"
+              type="button"
+              disabled
+              aria-describedby="profile-image-preview"
+            >
+              Cambiar imagen (próximamente)
+            </button>
+          </div>
+        </div>
         <form
           className="account-settings__form"
           onSubmit={(event) => void saveProfile(event)}

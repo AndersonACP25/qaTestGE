@@ -21,6 +21,9 @@ describe("account settings view", () => {
       }),
     );
     expect(html).toContain("Información de la cuenta");
+    expect(html).toContain("Imagen de perfil");
+    expect(html).toContain("Cambiar imagen (próximamente)");
+    expect(html).toContain('disabled="" aria-describedby="profile-image-preview"');
     expect(html).toContain('aria-label="Apartados de configuración"');
     expect(html).toContain('aria-pressed="true">Cuenta y seguridad');
     expect(html).toContain('aria-pressed="false">Plantillas de bugs');
