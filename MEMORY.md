@@ -17,21 +17,22 @@
 - Actualizar este archivo al terminar cada prompt de trabajo; máximo 99 líneas.
 - No usar la base de datos local para pruebas destructivas; las migraciones se ejecutan con `pnpm db:migrate`.
 
-## Estado conocido al 2026-10-27
+## Estado conocido al 2026-10-29
 
 - La Wiki presenta el flujo disponible y aclara los límites actuales del diseñador y la IA.
+- Interfaz: registros de tabla a 16 px (15 px en móvil), títulos a 16 px y contadores a 14 px; Proyectos/Equipos con títulos compactos y espaciado uniforme; Configuración con apartados de selección visible. Botones habilitados tienen hover por brillo sin sombra lateral y respetan movimiento reducido. Exportar usa verde. README orientado al usuario; detalles técnicos enlazados en docs/.
 - Las tablas de bugs, casos y ejecuciones incluyen acciones directas de edición y eliminación con confirmación. Un bug con casos o evidencias vinculadas no se puede eliminar.
 - Las tablas de registros usan tipografía ampliada y se validan en escritorio y móvil. Test Runs permite abrir una ejecución y enfocar el primer resultado pendiente desde su fila.
 - El propietario puede crear, editar y eliminar proyectos vacíos desde Proyectos. Los proyectos con registros vinculados no se borran.
 - Equipos permite listar espacios y miembros, crear invitaciones de un solo uso y retirar integrantes. Aceptar una invitación concede acceso a todos los proyectos de la organización; requiere migración 010.
 - Equipos permite crear, renombrar y eliminar espacios sin proyectos ni otros integrantes. Los proyectos nuevos se crean en el equipo propietario seleccionado.
 - Bugs y casos se asignan a integrantes activos de la organización mediante migración 011. Retirar a un integrante con asignaciones está bloqueado hasta reasignarlas; se conserva el responsable textual histórico de bugs.
-- Configuración se organiza por cuenta y seguridad, plantillas, diseño de casos e IA. La configuración de IA sigue siendo una maqueta.
-- Los botones Exportar de bugs y casos abren la selección de formato; el editor de pasos utiliza una tabla adaptable en creación y edición.
+- Configuración se organiza por cuenta y seguridad, plantillas, diseño de casos e IA. Imagen de perfil e IA son maquetas sin carga de archivos ni credenciales. Se retiró «Sesión activa» del lateral.
+- Exportación individual de bugs/casos y TableExport compartido para filas filtradas de bugs/casos/runs y recientes del Dashboard: Excel/PDF/Markdown locales. Exporta las columnas externas y tags, sin detalle interno; mantiene acciones de dominio por tabla. Editor de pasos adaptable.
 
 - CI valida pull requests y pushes a `main` y `qa-env`; artefacto solo se publica desde `main`.
 - Bugs, casos, evidencias y tags admiten sus CRUD implementados; evidencias pueden almacenar/descargar archivos privados con límite de 2 MiB. Adjuntos de casos admiten imágenes/enlaces; migraciones `007` y `008`.
-- Los conteos y las categorías iniciales del diseñador se guardan por usuario en localStorage.
+- Los conteos, las categorías iniciales y los tipos personalizados del diseñador se guardan por usuario en localStorage. Configuración permite añadir tipos únicos (1–60 caracteres), con cinco escenarios editables; se pasan como catálogo al diseñador, sin migraciones ni IA.
 - Tags tienen CRUD por proyecto, nombre único por proyecto, color y asignaciones explícitas a bugs/casos/runs. Migración `009`.
 - Migraciones actuales: 004 autenticación, 005 plantillas, 006 Suite opcional, 007 adjuntos de casos, 008 archivos de evidencia, 009 tags, 010 invitaciones y 011 responsables.
 - No hay integraciones externas reales en `servicios/`; solo se define ahí el lugar de futuras integraciones.
@@ -50,4 +51,4 @@
 - Cliente central y descargas conservan errores HTTP con mensajes de respaldo; proxy devuelve 503 JSON cuando la API no responde. Reutilizar `Alert` en las vistas y capturas equivalentes a try/catch; regla en AGENTS.md.
 - Reportes del proyecto calculan conteos por estado, progreso promedio y aprobación solo con resultados ejecutados; permiten descargar CSV sin persistencia adicional. No se añade migración.
 - El footer reutilizable se comparte entre el workspace y la pantalla de acceso. Las notificaciones globales se muestran arriba, con ancho máximo de 360 px; alertas contextuales permanecen junto a su contenido.
-- Validación más reciente: `pnpm typecheck`, `pnpm test` (121), `pnpm lint`, `pnpm build`, `pnpm format:check` y `pnpm test:e2e` (33 en escritorio y dos tamaños móviles) pasan. Sin pruebas contra PostgreSQL local.
+- Validación vigente: pnpm typecheck, lint, build, format:check y test (128) pasan; Playwright pasa 39 pruebas en escritorio, 375 px y 425 px. Capturas revisadas de tablas, Equipos y perfil. Sin pruebas contra PostgreSQL local.

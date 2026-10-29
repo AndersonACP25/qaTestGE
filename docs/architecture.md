@@ -200,3 +200,9 @@ El diseñador admite de 1 a 5 ejemplos por categoría y exporta Markdown `.md` d
 ### Tipos personalizados del diseñador
 
 Configuración permite añadir tipos con nombre único (sin distinguir mayúsculas y normalizando espacios), de 1 a 60 caracteres. Se guardan como nombres en localStorage bajo una clave por usuario; se reconstruyen con identificadores explícitos y cinco escenarios editables. El catálogo combinado se pasa al diseñador y a la validación de preferencias sin mutar el catálogo base. No requiere migración, no sincroniza dispositivos y no usa IA. Guardar un ejemplo sigue requiriendo una acción explícita y conserva el tipo como Suite.
+
+### Exportación de listados y maqueta de perfil
+
+`TableExport` reutiliza el diálogo y los formatos existentes para exportar Bugs, Casos de prueba y Test runs, incluidas las tablas recientes del Dashboard. `models/tableExport.ts` transforma únicamente las filas filtradas recibidas y las columnas visibles en datos tabulares, sin descripciones, pasos ni resultados internos. Los tags se incluyen junto al título tal como aparecen en el listado. `utils/exportTable.ts` genera Excel, PDF apaisado y Markdown con las dependencias existentes y descarga local compartida con la exportación individual; no solicita datos adicionales a la API. Las celdas de Excel son texto y Markdown escapa separadores y HTML. Cada tabla mantiene sus controles y acciones de dominio; se reutiliza la capacidad de exportación sin introducir una abstracción genérica de celdas.
+
+Configuración muestra una vista preliminar de imagen de perfil con iniciales y un botón deshabilitado. No selecciona ni sube archivos, no persiste imágenes y no añade endpoints ni migraciones.
