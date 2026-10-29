@@ -1,3 +1,4 @@
+import { useCasePreferences } from "./controllers/useCasePreferences";
 import { Icon, Avatar } from "./components/RecordPrimitives";
 import { BugTable, CaseTable, RunTable, EvidenceTable } from "./views/WorkspaceTables";
 import CaseAttachmentsPanel from "./views/CaseAttachmentsPanel";
@@ -5,8 +6,6 @@ import TagPicker from "./TagPicker";
 import BugDesignView from "./views/BugDesignView";
 import TableExport from "./TableExport";
 import { bugTableExport, caseTableExport, runTableExport } from "./models/tableExport";
-import { categories } from "./models/caseDesign.model";
-import { loadCustomCaseTypes, saveCustomCaseTypes } from "./models/customCaseTypes";
 import TestRunDialog from "./views/TestRunDialog";
 import { version } from "../package.json";
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -58,13 +57,6 @@ import type {
   Tag,
 } from "./types";
 import { bugStatuses, caseStatuses } from "./types";
-import {
-  loadCaseCountDefaults,
-  loadSelectedCategories,
-  saveCaseCountDefaults,
-  saveSelectedCategories,
-  type CaseCountDefaults,
-} from "./models/caseCountDefaults";
 
 const navigation: {
   section: string;
@@ -118,14 +110,16 @@ function App({
   const [revision, setRevision] = useState(0);
   const [saving, setSaving] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState("");
-  const [customCaseTypes, setCustomCaseTypes] = useState(() => loadCustomCaseTypes(user.id));
-  const caseCatalog = [...categories, ...customCaseTypes];
-  const [caseCountDefaults, setCaseCountDefaults] = useState<CaseCountDefaults>(() =>
-    loadCaseCountDefaults(user.id, undefined, caseCatalog),
-  );
-  const [caseDesignCategories, setCaseDesignCategories] = useState<string[]>(() =>
-    loadSelectedCategories(user.id, undefined, caseCatalog),
-  );
+  const {
+    preferences,
+    save: savePreferences,
+    error: preferencesError,
+  } = useCasePreferences(user.id);
+  const {
+    catalog: caseCatalog,
+    counts: caseCountDefaults,
+    selected: caseDesignCategories,
+  } = preferences;
   const [modal, setModal] = useState("");
   const [bugTemplates, setBugTemplates] = useState<BugTemplate[]>([]);
   const [bugTemplatesLoading, setBugTemplatesLoading] = useState(false);
@@ -708,14 +702,6 @@ function App({
       setExportingRecord(false);
     }
   }
-  function saveDefaultCounts(defaults: CaseCountDefaults) {
-    saveCaseCountDefaults(user.id, defaults, undefined, caseCatalog);
-    setCaseCountDefaults(defaults);
-  }
-  function saveDefaultCategories(selected: string[]) {
-    saveSelectedCategories(user.id, selected, undefined, caseCatalog);
-    setCaseDesignCategories(selected);
-  }
   async function changeBugStatus(bug: Bug, status: BugStatus) {
     if (!bug.projectId || updatingStatus) return;
     setUpdatingStatus(bug.id);
@@ -986,6 +972,7 @@ function App({
             </p>
           )}
           {error && <Alert tone="error">{error}</Alert>}
+          {preferencesError && <Alert tone="error">{preferencesError}</Alert>}
           {!loading && !error && !projectId && activePage !== "projects" && (
             <p className="workspace__notice">
               No tienes proyectos disponibles. El administrador debe conceder acceso a un espacio
@@ -1001,26 +988,8 @@ function App({
               user={user}
               onUserUpdated={onUserUpdated}
               onAccountDeleted={onAccountDeleted}
-              catalog={caseCatalog}
-              onCustomTypesChanged={(custom) => {
-                const nextCatalog = [...categories, ...custom];
-                const validIds = new Set(nextCatalog.map(({ id }) => id));
-                const selected = caseDesignCategories.filter((id) => validIds.has(id));
-                const nextSelected = selected.length ? selected : ["edge"];
-                const nextCounts = Object.fromEntries(
-                  nextCatalog.map(({ id }) => [id, caseCountDefaults[id] ?? 1]),
-                );
-                saveCaseCountDefaults(user.id, nextCounts, undefined, nextCatalog);
-                saveSelectedCategories(user.id, nextSelected, undefined, nextCatalog);
-                saveCustomCaseTypes(user.id, custom);
-                setCustomCaseTypes(custom);
-                setCaseDesignCategories(nextSelected);
-                setCaseCountDefaults(nextCounts);
-              }}
-              caseCountDefaults={caseCountDefaults}
-              onCaseCountDefaultsChanged={saveDefaultCounts}
-              selectedCategories={caseDesignCategories}
-              onSelectedCategoriesChanged={saveDefaultCategories}
+              preferences={preferences}
+              onPreferencesChanged={savePreferences}
             />
           ) : activePage === "wiki" ? (
             <WikiView />
