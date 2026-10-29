@@ -1,3 +1,4 @@
+import { formatCount } from "../utils/pluralization";
 import { useMemo } from "react";
 import type { Bug, Evidence, TestCase, TestRun } from "../types";
 import { calculateReportMetrics } from "../models/reportMetrics";
@@ -75,7 +76,9 @@ export default function ReportsView({
     <section className="reports" aria-labelledby="reports-title">
       <div className="reports__heading">
         <div>
-          <h2 id="reports-title">Resumen de {projectName}</h2>
+          <h2 className="typography__section" id="reports-title">
+            Resumen de {projectName}
+          </h2>
           <p>
             Indicadores calculados con los registros actuales del proyecto. Los casos omitidos no
             cuentan para la tasa de aprobación.
@@ -95,12 +98,12 @@ export default function ReportsView({
           {
             label: "Bugs abiertos",
             value: metrics.openBugs,
-            detail: `${metrics.resolvedBugs} resueltos`,
+            detail: formatCount(metrics.resolvedBugs, "resuelto", "resueltos"),
           },
           {
             label: "Casos de prueba",
             value: cases.length,
-            detail: `${metrics.casesByStatus.Pendiente} pendientes`,
+            detail: formatCount(metrics.casesByStatus.Pendiente, "pendiente", "pendientes"),
           },
           {
             label: "Ejecuciones completadas",
@@ -126,7 +129,9 @@ export default function ReportsView({
         <article className="reports__quality-card">
           <span>Tasa de aprobación</span>
           <strong>{metrics.approvalRate}%</strong>
-          <small>{metrics.recordedResults} resultados registrados</small>
+          <small>
+            {formatCount(metrics.recordedResults, "resultado registrado", "resultados registrados")}
+          </small>
         </article>
       </div>
 
@@ -139,7 +144,7 @@ export default function ReportsView({
           const total = rows.reduce((sum, row) => sum + row.count, 0);
           return (
             <section className="reports__distribution" key={title} aria-label={title}>
-              <h3>{title}</h3>
+              <h3 className="typography__heading">{title}</h3>
               {rows.map(({ label, count, tone }) => (
                 <div className="reports__bar-row" key={label}>
                   <div className="reports__bar-label">

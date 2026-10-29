@@ -8,6 +8,7 @@
     "dev": "pnpm --parallel --stream --filter qatestge --filter @qatestge/api run dev:workspace",
     "db:check": "pnpm --dir backend db:check",
     "db:migrate": "pnpm --dir backend db:migrate",
+    "db:setup": "pnpm --dir backend db:setup",
     "dev:all": "pnpm dev",
     "dev:frontend": "vite",
     "dev:workspace": "vite",

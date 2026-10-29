@@ -62,7 +62,7 @@ export default function CaseDesignSettings({
   return (
     <>
       <div className="account-settings__heading">
-        <h2>Diseño de test cases</h2>
+        <h2 className="typography__section">Diseño de test cases</h2>
         <p>
           Configura los tipos y cantidades iniciales. Puedes editar o eliminar cualquier tipo,
           incluidos los predeterminados. Los cambios se guardan para tu usuario en este navegador y
@@ -120,7 +120,7 @@ export default function CaseDesignSettings({
           );
         }}
       >
-        <h3>Tipos seleccionados inicialmente</h3>
+        <h3 className="typography__heading">Tipos seleccionados inicialmente</h3>
         <p className="workspace__notice">
           Conserva al menos un tipo. Usa Editar o Eliminar junto a cada nombre.
         </p>

@@ -189,7 +189,7 @@ export default function TestRunDialog({
                 </div>
               </div>
             )}
-            <h3>Resultados por caso</h3>
+            <h3 className="typography__heading">Resultados por caso</h3>
             {initialAction === "execute" && run.status !== "Completado" && (
               <Alert tone="info">
                 Registra el resultado de cada caso pendiente y guárdalo para actualizar el progreso.

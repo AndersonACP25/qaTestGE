@@ -62,7 +62,7 @@ Pruebas unitarias deterministas en `tests/unit/`, con Vitest y sin backend, red 
 
 ## SQL y PostgreSQL
 
-Las pruebas Vitest no necesitan PostgreSQL. Para verificar el esquema manualmente en una base local de prueba, seguir [`backend/sql/README.md`](../backend/sql/README.md) e importar `003_verify.sql` después del esquema. Para probar la API, aplicar las migraciones 004–007 (o `pnpm db:migrate`) antes de `test:db`. Comprueba referencias entre proyectos, prioridades, posiciones únicas y destinos de evidencias; revierte sus filas al finalizar. Se requiere un servidor PostgreSQL; no se afirma persistencia de la aplicación por importar esos archivos.
+Las pruebas Vitest no necesitan PostgreSQL. Para integración real usa exclusivamente una instancia efímera y `TEST_DATABASE_URL` explícita según [`backend/sql/README.md`](../backend/sql/README.md). Prepara la base vacía con `pnpm db:setup`; repite el comando y `pnpm db:migrate` para verificar idempotencia antes de `test:db`. CI también prueba actualizar desde el esquema 001 con migraciones 004–012. Nunca uses la base personal: la integración crea y elimina datos. `003_verify.sql` es una comprobación manual del modelo inicial, no sustituye los escenarios de autenticación, aislamiento y concurrencia de la API.
 
 Los scripts SQL iniciales se verificaron con PostgreSQL 18 en una instancia temporal aislada: creación de la base, esquema, seed y comprobaciones de integridad. La API ya usa un repositorio PostgreSQL; el esquema sigue importándose manualmente.
 

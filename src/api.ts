@@ -1,4 +1,5 @@
 import type { ApiBug, ApiCase, ApiRun, ApiEvidence } from "./contracts/apiContracts";
+import { formatCount } from "./utils/pluralization";
 import { parseApiData, parseApiEnvelope } from "./contracts/apiContracts";
 import type { CreateBugInput, UpdateBugInput } from "../backend/src/models/bug.model";
 import type { CreateTestCaseInput } from "../backend/src/models/test-case.model";
@@ -325,7 +326,7 @@ export const toBug = (b: ApiBug): Bug => ({
 export const toCase = (c: ApiCase): TestCase => ({ ...c, updated: date(c.createdAt) });
 export const toRun = (r: ApiRun): TestRun => ({
   ...r,
-  cases: `${r.caseCount} ${r.caseCount === 1 ? "caso" : "casos"}`,
+  cases: formatCount(r.caseCount, "caso", "casos"),
 });
 export async function updateTestRun(id: string, projectId: string, input: UpdateTestRunInput) {
   return toRun(

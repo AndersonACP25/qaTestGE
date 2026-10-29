@@ -81,7 +81,7 @@ export default function TagsView({
   return (
     <section className="tags-view">
       <form className="tags-view__form" onSubmit={(event) => void save(event)}>
-        <h2>{editing ? "Editar tag" : "Crear tag"}</h2>
+        <h2 className="typography__section">{editing ? "Editar tag" : "Crear tag"}</h2>
         <label className="tags-view__field">
           Nombre
           <input
@@ -116,7 +116,7 @@ export default function TagsView({
         </div>
       </form>
       <section className="tags-view__list" aria-label="Tags del proyecto">
-        <h2>
+        <h2 className="typography__section">
           Tags del proyecto <span>{tags.length}</span>
         </h2>
         {!tags.length ? (
