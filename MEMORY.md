@@ -20,9 +20,9 @@
 ## Estado conocido al 2026-10-29
 
 - La Wiki presenta el flujo disponible y aclara los límites actuales del diseñador y la IA.
-- Revisión en docs/CODE_REVIEW.md: reproducidos cliente API sin validación del JSON y respuesta tardía de Diseñar bugs que mezcla el listado entre proyectos. Pendientes de corregir; autorización backend no fue eludida.
-- Mejoras propuestas, no implementadas: persistencia local consistente, lint tipado/hooks, PostgreSQL efímero en CI, DTO/filas SQL explícitos y modularización de App. AGENTS.md no se modificó.
-- Diseñar bugs combina texto y plantillas personales localmente, permite prioridad/tags y varios borradores por usuario/proyecto en localStorage. Crear exige revisión explícita; no hay IA ni nuevo estado de dominio. Reutiliza TagPicker y createBug.
+- Revisión aplicada en docs/HARDENING.md: contratos Zod/DTO inferidos, ErrorBoundary, caché y tokens por proyecto; regresiones de respuestas inválidas y tardías corregidas.
+- Lint tipado de promesas/hooks, globals por entorno, flags TypeScript adicionales en tsconfig.boundaries.json, filas SQL específicas y extracción de tablas/primitivas/adjuntos/controladores/rutas. AGENTS.md incorpora las reglas del informe.
+- Diseñar bugs combina texto y plantillas personales localmente, permite prioridad/tags y borradores versionados por usuario/proyecto con revisión y Web Locks. Actualizar lista conserva la vista previa; corrupción/conflictos no se sobrescriben. Crear exige revisión y usa Idempotency-Key. No hay IA ni nuevo estado Borrador de dominio.
 - docs/AI_INTEGRATION.md orienta la conexión futura: proveedor bajo servicios/, endpoint autenticado, consentimiento, secretos del servidor y salidas estructuradas. No hay proveedor externo real.
 - Interfaz: registros de tabla a 16 px (15 px en móvil), títulos a 16 px y contadores a 14 px; Proyectos/Equipos con títulos compactos y espaciado uniforme; Configuración con apartados de selección visible. Botones habilitados tienen hover por brillo sin sombra lateral y respetan movimiento reducido. Exportar usa verde. README orientado al usuario; detalles técnicos enlazados en docs/.
 - Las tablas de bugs, casos y ejecuciones incluyen acciones directas de edición y eliminación con confirmación. Un bug con casos o evidencias vinculadas no se puede eliminar.
@@ -34,11 +34,11 @@
 - Configuración se organiza por cuenta y seguridad, plantillas, diseño de casos e IA. Imagen de perfil e IA son maquetas sin carga de archivos ni credenciales. Se retiró «Sesión activa» del lateral.
 - Exportación individual de bugs/casos y TableExport compartido para filas filtradas de bugs/casos/runs y recientes del Dashboard: Excel/PDF/Markdown locales. Exporta las columnas externas y tags, sin detalle interno; mantiene acciones de dominio por tabla. Editor de pasos adaptable.
 
-- CI valida pull requests y pushes a `main` y `qa-env`; artefacto solo se publica desde `main`.
+- CI valida PR/push a main y qa-env; artefacto solo desde main. Job PostgreSQL efímero importa esquema inicial, repite migraciones y verifica aislamiento, concurrencia, asignaciones e idempotencia.
 - Bugs, casos, evidencias y tags admiten sus CRUD implementados; evidencias pueden almacenar/descargar archivos privados con límite de 2 MiB. Adjuntos de casos admiten imágenes/enlaces; migraciones `007` y `008`.
-- Los conteos, las categorías iniciales y los tipos personalizados del diseñador se guardan por usuario en localStorage. Los tipos conservan ID al editarse y se pueden eliminar sin alterar casos; la persistencia lee nombres antiguos y pares ID/nombre. Configuración permite añadir, renombrar y eliminar tipos personalizados únicos (1–60 caracteres), con ID estable y cinco escenarios editables; se pasan como catálogo al diseñador, sin migraciones ni IA.
+- Preferencias del diseñador: documento v2 por usuario, migración de tres claves anteriores, revisión y Web Lock por escritura. Tipos incluidos y personalizados editables/eliminables desde su fila, ID estable, mínimo uno y máximo 100, nombres únicos de 1–60 caracteres. No modifica casos existentes.
 - Tags tienen CRUD por proyecto, nombre único por proyecto, color y asignaciones explícitas a bugs/casos/runs. Migración `009`.
-- Migraciones actuales: 004 autenticación, 005 plantillas, 006 Suite opcional, 007 adjuntos de casos, 008 archivos de evidencia, 009 tags, 010 invitaciones y 011 responsables.
+- Migraciones actuales: 004 autenticación, 005 plantillas, 006 Suite opcional, 007 adjuntos, 008 evidencias, 009 tags, 010 invitaciones, 011 responsables y 012 claves de creación por actor/proyecto/recurso con hash e ID, transaccionales. Aplicar db:migrate antes de iniciar esta versión.
 - No hay integraciones externas reales en `servicios/`; solo se define ahí el lugar de futuras integraciones.
 - Alertas reutilizables `Alert` para errores, éxitos, avisos e información; aplicadas en sesión, operaciones del workspace, ajustes, tags y diseño de casos.
 - Alertas con tokens semánticos `--feedback-*` para ambos temas, icono destacado, cierre accesible y movimiento reducido.
@@ -55,4 +55,6 @@
 - Cliente central y descargas conservan errores HTTP con mensajes de respaldo; proxy devuelve 503 JSON cuando la API no responde. Reutilizar `Alert` en las vistas y capturas equivalentes a try/catch; regla en AGENTS.md.
 - Reportes del proyecto calculan conteos por estado, progreso promedio y aprobación solo con resultados ejecutados; permiten descargar CSV sin persistencia adicional. No se añade migración.
 - El footer reutilizable se comparte entre el workspace y la pantalla de acceso. Las notificaciones globales se muestran arriba, con ancho máximo de 360 px; alertas contextuales permanecen junto a su contenido.
-- Validación vigente: pnpm typecheck, lint, build, format:check y test (132) pasan; Playwright pasa 45 pruebas en escritorio, 375 px y 425 px; capturas del diseñador de bugs revisadas. Restaurar borradores conserva los tags y exige retirar explícitamente los no disponibles. Sin pruebas contra PostgreSQL local.
+- Validación vigente en curso de cierre: 144 unitarias/endpoints y regresión E2E de 57 casos. PostgreSQL real temporal en puerto distinto validó migraciones repetibles, rollback, aislamiento, asignaciones, concurrencia y creaciones idempotentes de bugs/casos/runs; instancia cerrada y retirada sin tocar la BD personal.
+
+- Tablas: filtros/búsqueda a 14 px, páginas visibles de 50 y exportación de la página; API admite limit/offset/search/status parametrizados con projectId. Dashboard/Reportes aún calculan el snapshot completo. X-Request-ID y logs JSON no incluyen cuerpos, cookies, consultas ni secretos.

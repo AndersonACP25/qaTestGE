@@ -20,9 +20,11 @@ Organiza el trabajo de calidad de tu equipo en un solo lugar: registra bugs, pre
 - **Dashboard y reportes:** consultar el estado del proyecto y descargar el reporte en CSV.
 - **Proyectos y equipos:** crear espacios de colaboración y aceptar códigos de invitación de un solo uso. Los integrantes acceden a todos los proyectos de su equipo.
 
+Los listados muestran hasta 50 filas por página; usa Anterior y Siguiente para recorrer los resultados filtrados.
+
 La eliminación de registros puede bloquearse cuando existen relaciones que deben conservarse, como casos usados en ejecuciones o recursos con evidencias.
 
-En **Bugs**, **Casos de prueba** y **Test runs**, el botón verde **Exportar tabla** descarga los registros que coinciden con tus filtros, con las columnas del listado, en Excel, PDF o Markdown. Los botones **Exportar** de cada fila de bugs y casos descargan el detalle de ese registro. También puedes exportar las tablas de registros recientes del Dashboard.
+En **Bugs**, **Casos de prueba** y **Test runs**, el botón verde **Exportar tabla** descarga los registros de la página visible que coinciden con tus filtros, con las columnas del listado, en Excel, PDF o Markdown. Los botones **Exportar** de cada fila de bugs y casos descargan el detalle de ese registro. También puedes exportar las tablas de registros recientes del Dashboard.
 
 ## Diseña tus casos
 
@@ -36,9 +38,9 @@ El diseñador no analiza tu descripción ni genera contenido con IA. Revisa siem
 
 En **Diseñar bugs**, describe el problema y elige una plantilla personal si la necesitas. **Preparar bug** combina ese texto con la plantilla para crear una vista previa local editable; no analiza el problema con IA ni inventa hechos. Revisa título, descripción y prioridad, asigna tags del proyecto y confirma **Guardar bug en el proyecto**.
 
-Puedes conservar varios borradores con **Guardar borrador**, abrirlos o eliminarlos. Se guardan únicamente en este navegador por usuario y proyecto; no son bugs del proyecto y no se sincronizan. Evita incluir credenciales o datos sensibles. Al crear el bug se retira su borrador local.
+Puedes conservar varios borradores con **Guardar borrador**, abrirlos o eliminarlos. Se guardan únicamente en este navegador por usuario y proyecto; no son bugs del proyecto y no se sincronizan entre dispositivos. Si otra pestaña cambia la lista, usa **Actualizar lista de borradores** antes de guardar para evitar sobrescribirla. Evita incluir credenciales o datos sensibles. Al crear el bug se retira su borrador local.
 
-En **Configuración → Diseño de casos** también puedes editar o eliminar los tipos personalizados. Renombrarlos conserva sus preferencias; eliminarlos no modifica casos ya guardados. Los tipos incluidos en la aplicación se conservan.
+En **Configuración → Diseño de casos**, cada tipo tiene botones **Editar** y **Eliminar**, incluidos los predeterminados. Renombrarlos conserva sus preferencias; eliminarlos no modifica casos ya guardados. Conserva al menos un tipo.
 
 Si administras la instalación y quieres conectar un proveedor de IA, consulta la [guía de integración gradual](docs/AI_INTEGRATION.md). La integración real aún no está implementada.
 
@@ -56,4 +58,4 @@ La conexión con IA es una maqueta: no guarda claves ni envía información a pr
 
 ## Instalación y documentación técnica
 
-Para ejecutar tu propia instancia, consulta la [guía de desarrollo](docs/DEVELOPMENT.md). Encontrarás los detalles técnicos en [Arquitectura](docs/architecture.md), [API](docs/API.md), [Pruebas](docs/TESTING.md) y [Seguridad](SECURITY.md). Para colaborar con el proyecto, consulta [CONTRIBUTING.md](CONTRIBUTING.md).
+Para ejecutar tu propia instancia, consulta la [guía de desarrollo](docs/DEVELOPMENT.md). Al actualizar una instalación existente, aplica `pnpm db:migrate` antes de iniciar la API; esta versión incorpora la migración 012 para evitar creaciones duplicadas. Encontrarás los detalles técnicos en [Arquitectura](docs/architecture.md), [API](docs/API.md), [Pruebas](docs/TESTING.md) y [Seguridad](SECURITY.md). Para colaborar con el proyecto, consulta [CONTRIBUTING.md](CONTRIBUTING.md).

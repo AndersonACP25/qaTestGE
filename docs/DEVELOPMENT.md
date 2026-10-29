@@ -76,3 +76,9 @@ Los datos de la API ya no se pierden al reiniciar: viven en qa_test_ge. La aplic
 `pnpm format:check` valida el código, la documentación y las skills propias de `.opencode/skills/`. `.prettierignore` excluye las skills importadas de `.agents/skills/` para conservar su formato original, además de compilados, dependencias e informes generados de pruebas. No desactivar el paso de formato ni añadir `continue-on-error` para resolver errores de estilo: los archivos mantenidos por el proyecto deben seguir pasando Prettier.
 
 `.github/workflows/ci.yml` ejecuta `pnpm install --frozen-lockfile`, `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm test` y `pnpm build` en pull requests y pushes a `main`. En pushes a `main`, guarda `dist/` y `backend/dist/` como artefacto de Actions durante 14 días. No configura un despliegue a infraestructura: falta definir proveedor y destino.
+
+## Verificaciones de robustez
+
+Aplica pnpm db:migrate antes de iniciar esta versión: la migración 012 añade idempotencia. No reimportes el esquema inicial sobre una base existente. typecheck incluye tsconfig.boundaries.json; lint usa información de tipos y reglas de hooks.
+
+CI importa 001_schema.sql en PostgreSQL desechable, aplica las migraciones dos veces y ejecuta pnpm --dir backend test:db con TEST_DATABASE_URL exclusivo. Este script crea y elimina datos: nunca apuntarlo a la base personal o productiva. La validación local equivalente utiliza otro clúster/puerto, sin cargar backend/.env. Las credenciales del servicio de CI son desechables de prueba.

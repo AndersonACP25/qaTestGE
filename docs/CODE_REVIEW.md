@@ -1,6 +1,6 @@
 # Revisión de robustez — 29 de octubre de 2026
 
-Revisión del frontend, API, persistencia, pruebas y CI en `feat/ajustes-interfaz-tipos-casos`. Es una evaluación y un plan de mejoras: las recomendaciones no se han aplicado a la aplicación ni a AGENTS.md. No se usaron credenciales, servicios externos de datos ni PostgreSQL local.
+Revisión original del frontend, API, persistencia, pruebas y CI. Las medidas aplicadas y sus límites actuales están en [HARDENING.md](HARDENING.md); AGENTS.md ya incorpora las reglas. Los hallazgos siguientes describen el estado previo para conservar la trazabilidad. Las reproducciones originales no usaron la base personal.
 
 ## Hallazgos prioritarios
 
@@ -65,7 +65,7 @@ Documentación oficial consultada: [lint tipado](https://typescript-eslint.io/ge
 
 ## Reglas propuestas para AGENTS.md
 
-Estas reglas complementan las existentes; todavía no se han añadido:
+Estas reglas ya se incorporaron a AGENTS.md; se conserva aquí su motivación:
 
 1. **Contratos externos:** tratar JSON de API, almacenamiento local y proveedores como `unknown`; validar estructura y límites antes de usarlo. Una aserción `as T` no cuenta como validación. Mantener DTO, validación y OpenAPI alineados.
 2. **Alcance asíncrono:** toda operación captura usuario y proyecto; una respuesta tardía no puede modificar el estado de otro alcance. Probar cambios de proyecto durante lecturas y escrituras.
@@ -86,4 +86,4 @@ Estas reglas complementan las existentes; todavía no se han añadido:
 
 ## Alcance de la verificación
 
-Se realizó inspección de código y dos reproducciones aisladas: respuestas inválidas del cliente y respuesta tardía de creación entre proyectos. Los archivos temporales usados para reproducirlas se retiraron; conviene convertirlos en regresiones permanentes al corregir los fallos. No se repitió la suite completa, no se midió rendimiento con carga y no se ejecutaron pruebas contra PostgreSQL. La revisión no concluye que la seguridad o la concurrencia del resto del sistema estén exhaustivamente verificadas.
+Se realizó inspección de código y dos reproducciones aisladas: respuestas inválidas del cliente y respuesta tardía de creación entre proyectos. Los archivos temporales originales se retiraron; sus regresiones permanentes están ahora en tests/e2e/hardening.spec.ts. No se repitió la suite completa, no se midió rendimiento con carga y no se ejecutaron pruebas contra PostgreSQL. La revisión no concluye que la seguridad o la concurrencia del resto del sistema estén exhaustivamente verificadas.
