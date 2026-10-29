@@ -1,7 +1,10 @@
-import { useCasePreferences } from "./controllers/useCasePreferences";
+import { useProjectData } from "./controllers/useProjectData";
+import TableFooter from "./components/TableFooter";
 import { Icon, Avatar } from "./components/RecordPrimitives";
 import { BugTable, CaseTable, RunTable, EvidenceTable } from "./views/WorkspaceTables";
 import CaseAttachmentsPanel from "./views/CaseAttachmentsPanel";
+import { useCasePreferences } from "./controllers/useCasePreferences";
+import { useOperationScope } from "./controllers/useOperationScope";
 import TagPicker from "./TagPicker";
 import BugDesignView from "./views/BugDesignView";
 import TableExport from "./TableExport";
@@ -19,12 +22,12 @@ import {
   addTestCaseLink,
   api,
   createBug,
+  createTestCase,
   deleteBug,
   listTags,
   deleteEvidence,
   downloadEvidenceFile,
   deleteTestCase,
-  loadProject,
   saveBugStatus,
   saveCaseStatus,
   updateBug,
@@ -44,12 +47,11 @@ import RecordDetailsDialog, { type RecordDetail } from "./views/RecordDetailsDia
 import { exportRecord, recordExportFormats } from "./utils/exportRecord";
 import type { ExportFormat, ExportRecord } from "./utils/exportRecord";
 import type { CreateTestCaseInput } from "../backend/src/models/test-case.model";
-type WorkspaceData = Awaited<ReturnType<typeof loadProject>>;
 import type {
   Bug,
   Evidence,
-  IconName,
   NavigationPage,
+  IconName,
   BugStatus,
   CaseStatus,
   TestCase,
@@ -102,12 +104,15 @@ function App({
   const [activePage, setActivePage] = useState<NavigationPage>("overview");
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectId, setProjectId] = useState("");
+  const captureScope = useOperationScope(user.id, projectId);
   const [tags, setTags] = useState<Tag[]>([]);
   const [tagError, setTagError] = useState("");
-  const [data, setData] = useState<WorkspaceData>({ bugs: [], cases: [], runs: [], evidence: [] });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
+  const { data, setData, loading, error, setLoading, setError } = useProjectData(
+    projectId,
+    revision,
+  );
+  const creationKey = useRef(crypto.randomUUID());
   const [saving, setSaving] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState("");
   const {
@@ -160,6 +165,7 @@ function App({
   const [deleteCaseBusy, setDeleteCaseBusy] = useState(false);
   const [exportingRecord, setExportingRecord] = useState(false);
   const [formError, setFormError] = useState("");
+  const [tablePage, setTablePage] = useState(1);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("Todos");
   const [mobileNav, setMobileNav] = useState(false);
@@ -212,7 +218,7 @@ function App({
         }
       });
     return () => abort.abort();
-  }, [revision]);
+  }, [revision, setError, setLoading]);
   useEffect(() => {
     if (modal !== "bug") return;
     const abort = new AbortController();
@@ -234,25 +240,6 @@ function App({
     return () => abort.abort();
   }, [modal]);
   useEffect(() => {
-    if (!projectId) return;
-    const abort = new AbortController();
-    setLoading(true);
-    setError("");
-    setData({ bugs: [], cases: [], runs: [], evidence: [] });
-    void loadProject(projectId, abort.signal)
-      .then((items) => {
-        if (!abort.signal.aborted) setData(items);
-      })
-      .catch((cause: unknown) => {
-        if (!abort.signal.aborted)
-          setError(cause instanceof Error ? cause.message : "No se pudieron cargar los datos.");
-      })
-      .finally(() => {
-        if (!abort.signal.aborted) setLoading(false);
-      });
-    return () => abort.abort();
-  }, [projectId, revision]);
-  useEffect(() => {
     if (!projectId) {
       setTags([]);
       return;
@@ -271,19 +258,34 @@ function App({
       });
     return () => abort.abort();
   }, [projectId, revision]);
-  const visibleBugs = useMemo(
+  const filteredBugs = useMemo(
     () => filterBugs(bugs, { search, statusFilter }),
     [bugs, search, statusFilter],
   );
-  const visibleCases = useMemo(
+  const filteredCases = useMemo(
     () => filterCases(cases, { search, statusFilter }),
     [cases, search, statusFilter],
   );
-  const visibleRuns = useMemo(
+  const filteredRuns = useMemo(
     () => filterRuns(runs, { search, statusFilter }),
     [runs, search, statusFilter],
   );
-  const visibleEvidence = useMemo(() => filterEvidence(evidence, { search }), [evidence, search]);
+  const filteredEvidence = useMemo(() => filterEvidence(evidence, { search }), [evidence, search]);
+  const matchedTotal =
+    activePage === "bugs"
+      ? filteredBugs.length
+      : activePage === "cases"
+        ? filteredCases.length
+        : activePage === "runs"
+          ? filteredRuns.length
+          : filteredEvidence.length;
+  const currentTablePage = Math.min(tablePage, Math.max(1, Math.ceil(matchedTotal / 50)));
+  const slicePage = <T,>(items: T[]) =>
+    items.slice((currentTablePage - 1) * 50, currentTablePage * 50);
+  const visibleBugs = slicePage(filteredBugs),
+    visibleCases = slicePage(filteredCases),
+    visibleRuns = slicePage(filteredRuns),
+    visibleEvidence = slicePage(filteredEvidence);
   const pageTitle = {
     overview: "Dashboard",
     reports: "Reportes y métricas",
@@ -307,11 +309,13 @@ function App({
   };
   function navigate(page: NavigationPage) {
     setActivePage(page);
+    setTablePage(1);
     setSearch("");
     setStatusFilter("Todos");
     setMobileNav(false);
   }
   function openModal(value: string) {
+    creationKey.current = crypto.randomUUID();
     setFormError("");
     setAssigneeUserId("");
     setEditingBug(null);
@@ -371,15 +375,18 @@ function App({
     if (!evidenceToDelete || saving) return;
     setSaving(true);
     setFormError("");
+    const isCurrent = captureScope();
     try {
       await deleteEvidence(evidenceToDelete.id, projectId);
+      if (!isCurrent()) return;
       setEvidenceToDelete(null);
       setRevision((current) => current + 1);
       notify("Evidencia eliminada.");
     } catch (cause) {
+      if (!isCurrent()) return;
       setFormError(cause instanceof Error ? cause.message : "No se pudo eliminar la evidencia.");
     } finally {
-      setSaving(false);
+      if (isCurrent()) setSaving(false);
     }
   }
   async function downloadEvidence(item: Evidence) {
@@ -458,6 +465,7 @@ function App({
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!projectId || saving) return;
+    const isCurrent = captureScope();
     const form = new FormData(event.currentTarget);
     const title = String(form.get("title") ?? "").trim();
     if (modal === "edit-bug") {
@@ -474,15 +482,17 @@ function App({
           assigneeUserId: assigneeUserId || null,
           tagIds: selectedTagIds,
         });
+        if (!isCurrent()) return;
         setModal("");
         setEditingBug(null);
         setRevision((current) => current + 1);
         setActivePage("bugs");
         notify("Bug actualizado.");
       } catch (cause) {
+        if (!isCurrent()) return;
         setFormError(cause instanceof Error ? cause.message : "No se pudo actualizar el bug.");
       } finally {
-        setSaving(false);
+        if (isCurrent()) setSaving(false);
       }
       return;
     }
@@ -497,15 +507,17 @@ function App({
       setFormError("");
       try {
         await uploadEvidenceFile(editingEvidence.id, projectId, file);
+        if (!isCurrent()) return;
         setModal("");
         setEditingEvidence(null);
         setRevision((current) => current + 1);
         setActivePage("evidence");
         notify("Archivo de evidencia guardado.");
       } catch (cause) {
+        if (!isCurrent()) return;
         setFormError(cause instanceof Error ? cause.message : "No se pudo subir el archivo.");
       } finally {
-        setSaving(false);
+        if (isCurrent()) setSaving(false);
       }
       return;
     }
@@ -524,17 +536,19 @@ function App({
           sizeBytes: evidenceForm.sizeBytes,
           ...(evidenceRelatedChanged ? { related: evidenceForm.related || null } : {}),
         });
+        if (!isCurrent()) return;
         setModal("");
         setEditingEvidence(null);
         setRevision((current) => current + 1);
         setActivePage("evidence");
         notify("Metadatos de evidencia actualizados.");
       } catch (cause) {
+        if (!isCurrent()) return;
         setFormError(
           cause instanceof Error ? cause.message : "No se pudieron actualizar los metadatos.",
         );
       } finally {
-        setSaving(false);
+        if (isCurrent()) setSaving(false);
       }
       return;
     }
@@ -596,7 +610,9 @@ function App({
         const savedCase =
           modal === "edit-case" && editingCase
             ? await updateTestCase(editingCase.id, projectId, caseInput)
-            : await api<TestCase>(path, { method: "POST", body: JSON.stringify(body) });
+            : await createTestCase({ ...caseInput, projectId }, creationKey.current);
+        if (!isCurrent()) return;
+        if (!isCurrent()) return;
         const links = String(form.get("attachmentLinks") ?? "")
           .split(/\r?\n/)
           .map((item) => item.trim())
@@ -604,6 +620,7 @@ function App({
         try {
           for (const file of caseImageFiles)
             await uploadTestCaseImage(savedCase.id, projectId, file);
+          if (!isCurrent()) return;
           for (const link of links) {
             let name = link;
             try {
@@ -614,6 +631,7 @@ function App({
             await addTestCaseLink(savedCase.id, projectId, name, link);
           }
         } catch (cause) {
+          if (!isCurrent()) return;
           setModal("");
           setEditingCase(null);
           setCaseImageFiles([]);
@@ -646,6 +664,7 @@ function App({
           assigneeUserId: assigneeUserId || null,
           tagIds: selectedTagIds,
         });
+        if (!isCurrent()) return;
       } else if (modal === "evidence") {
         const file = form.get("file");
         if (!(file instanceof File)) throw new Error("Selecciona un archivo de evidencia.");
@@ -655,8 +674,14 @@ function App({
           file,
           typeof body.related === "string" ? body.related : null,
         );
+        if (!isCurrent()) return;
       } else {
-        await api(path, { method: "POST", body: JSON.stringify(body) });
+        await api(path, {
+          method: "POST",
+          body: JSON.stringify(body),
+          headers: { "Idempotency-Key": creationKey.current },
+        });
+        if (!isCurrent()) return;
       }
       setModal("");
       setRevision((n) => n + 1);
@@ -677,9 +702,10 @@ function App({
             : "Registro guardado en PostgreSQL.",
       );
     } catch (cause) {
+      if (!isCurrent()) return;
       setFormError(cause instanceof Error ? cause.message : "No se pudo guardar.");
     } finally {
-      setSaving(false);
+      if (isCurrent()) setSaving(false);
     }
   }
   async function exportSelectedRecord(format: ExportFormat) {
@@ -705,14 +731,17 @@ function App({
   async function changeBugStatus(bug: Bug, status: BugStatus) {
     if (!bug.projectId || updatingStatus) return;
     setUpdatingStatus(bug.id);
+    const isCurrent = captureScope();
     try {
       const updated = await saveBugStatus(bug.id, bug.projectId, status);
+      if (!isCurrent()) return;
       setData((current) => ({
         ...current,
         bugs: current.bugs.map((item) => (item.id === updated.id ? updated : item)),
       }));
       notify(`Estado de ${bug.id} actualizado.`);
     } catch (cause) {
+      if (!isCurrent()) return;
       notify(
         cause instanceof Error
           ? `No se pudo actualizar ${bug.id}: ${cause.message}`
@@ -720,20 +749,23 @@ function App({
         "error",
       );
     } finally {
-      setUpdatingStatus("");
+      if (isCurrent()) setUpdatingStatus("");
     }
   }
   async function changeCaseStatus(testCase: TestCase, status: CaseStatus) {
     if (!testCase.projectId || updatingStatus) return;
     setUpdatingStatus(testCase.id);
+    const isCurrent = captureScope();
     try {
       const updated = await saveCaseStatus(testCase.id, testCase.projectId, status);
+      if (!isCurrent()) return;
       setData((current) => ({
         ...current,
         cases: current.cases.map((item) => (item.id === updated.id ? updated : item)),
       }));
       notify(`Estado de ${testCase.id} actualizado.`);
     } catch (cause) {
+      if (!isCurrent()) return;
       notify(
         cause instanceof Error
           ? `No se pudo actualizar ${testCase.id}: ${cause.message}`
@@ -741,39 +773,45 @@ function App({
         "error",
       );
     } finally {
-      setUpdatingStatus("");
+      if (isCurrent()) setUpdatingStatus("");
     }
   }
   async function removeCase() {
     if (!deleteCaseTarget?.projectId || deleteCaseBusy) return;
     setDeleteCaseBusy(true);
     setDeleteCaseError("");
+    const isCurrent = captureScope();
     try {
       await deleteTestCase(deleteCaseTarget.id, deleteCaseTarget.projectId);
+      if (!isCurrent()) return;
       setDeleteCaseTarget(null);
       setExportTarget(null);
       setDetail(null);
       setRevision((n) => n + 1);
       notify(`Se eliminó el caso ${deleteCaseTarget.id}.`);
     } catch (cause) {
+      if (!isCurrent()) return;
       setDeleteCaseError(cause instanceof Error ? cause.message : "No se pudo eliminar el caso.");
     } finally {
-      setDeleteCaseBusy(false);
+      if (isCurrent()) setDeleteCaseBusy(false);
     }
   }
   async function removeBug() {
     if (!deleteBugTarget?.projectId || deleteBugBusy) return;
     setDeleteBugBusy(true);
     setDeleteBugError("");
+    const isCurrent = captureScope();
     try {
       await deleteBug(deleteBugTarget.id, deleteBugTarget.projectId);
+      if (!isCurrent()) return;
       setDeleteBugTarget(null);
       setRevision((n) => n + 1);
       notify(`Se eliminó el bug ${deleteBugTarget.id}.`);
     } catch (cause) {
+      if (!isCurrent()) return;
       setDeleteBugError(cause instanceof Error ? cause.message : "No se pudo eliminar el bug.");
     } finally {
-      setDeleteBugBusy(false);
+      if (isCurrent()) setDeleteBugBusy(false);
     }
   }
   const filters =
@@ -785,14 +823,8 @@ function App({
           ? ["Todos", "En curso", "Completado"]
           : [];
   const isListing = ["bugs", "cases", "runs", "evidence"].includes(activePage);
-  const total =
-    activePage === "bugs"
-      ? visibleBugs.length
-      : activePage === "cases"
-        ? visibleCases.length
-        : activePage === "runs"
-          ? visibleRuns.length
-          : visibleEvidence.length;
+  const isRenderCurrent = captureScope();
+  const total = matchedTotal;
   return (
     <div className="app-shell workspace">
       <aside className={`sidebar${mobileNav ? " sidebar-open" : ""}`}>
@@ -942,6 +974,15 @@ function App({
                   setData({ bugs: [], cases: [], runs: [], evidence: [] });
                   setLoading(true);
                   setProjectId(event.target.value);
+                  setModal("");
+                  setRunDetail(null);
+                  setRecordDetail(null);
+                  setDeleteBugTarget(null);
+                  setDeleteCaseTarget(null);
+                  setSaving(false);
+                  setUpdatingStatus("");
+                  setDeleteBugBusy(false);
+                  setDeleteCaseBusy(false);
                 }}
               >
                 <option value="" disabled>
@@ -1003,13 +1044,18 @@ function App({
                 projectId={projectId}
                 tags={tags}
                 tagError={tagError}
-                onSaved={(bug) =>
-                  setData((current) => ({ ...current, bugs: [bug, ...current.bugs] }))
-                }
+                onSaved={((isCurrent) => (bug) => {
+                  if (isCurrent())
+                    setData((current) => ({
+                      ...current,
+                      bugs: [bug, ...current.bugs.filter((item) => item.id !== bug.id)],
+                    }));
+                })(captureScope())}
               />
             )
           ) : activePage === "case-builder" ? (
             <CaseBuilder
+              key={`${user.id}:${projectId}`}
               catalog={caseCatalog}
               defaultCounts={caseCountDefaults}
               defaultSelectedCategories={caseDesignCategories}
@@ -1118,7 +1164,10 @@ function App({
                       <button
                         key={filter}
                         className={`listing-filters__tab${statusFilter === filter ? " listing-filters__tab--active" : ""}`}
-                        onClick={() => setStatusFilter(filter)}
+                        onClick={() => {
+                          setStatusFilter(filter);
+                          setTablePage(1);
+                        }}
                       >
                         {filter}
                       </button>
@@ -1129,7 +1178,10 @@ function App({
                     <input
                       aria-label="Buscar registros"
                       value={search}
-                      onChange={(event) => setSearch(event.target.value)}
+                      onChange={(event) => {
+                        setSearch(event.target.value);
+                        setTablePage(1);
+                      }}
                       placeholder={`Buscar ${pageTitle.toLowerCase()}…`}
                     />
                   </label>
@@ -1173,7 +1225,7 @@ function App({
                       setDeleteCaseError("");
                       setDeleteCaseTarget(item);
                     }}
-                    onStatusChange={(testCase, status) => void changeCaseStatus(testCase, status)}
+                    onStatusChange={(item, status) => void changeCaseStatus(item, status)}
                     updatingStatus={updatingStatus}
                   />
                 )}
@@ -1203,9 +1255,12 @@ function App({
                     No hay registros que coincidan con los filtros.
                   </p>
                 )}
-                <div className="workspace-table__footer">
-                  <span>{total} resultados · datos del proyecto</span>
-                </div>
+                <TableFooter
+                  total={total}
+                  page={currentTablePage}
+                  pageSize={50}
+                  onPage={setTablePage}
+                />
               </section>
             ) : null)
           )}
@@ -1740,10 +1795,12 @@ function App({
           cases={cases}
           onClose={() => setRunDetail(null)}
           onChanged={(updated) => {
+            if (!isRenderCurrent()) return;
             setRunDetail(updated);
             setRevision((current) => current + 1);
           }}
           onDeleted={() => {
+            if (!isRenderCurrent()) return;
             setRunDetail(null);
             setRevision((current) => current + 1);
           }}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { FormEvent } from "react";
 import {
   categories,
@@ -26,6 +26,7 @@ export function useCaseDesignController(
   defaultSelected: string[] = ["edge"],
   catalog: CaseCategory[] = categories,
 ) {
+  const requestKeys = useRef<Record<string, string>>({});
   const [text, setText] = useState("");
   const [selected, setSelected] = useState<string[]>(defaultSelected);
   const [counts, setCounts] = useState<Record<string, number>>({});
@@ -154,7 +155,10 @@ export function useCaseDesignController(
       const existing = savedCases[key];
       const saved = existing
         ? await updateTestCase(existing.id, projectId, { ...input, tagIds: existing.tagIds ?? [] })
-        : await createTestCase(input);
+        : await createTestCase(
+            input,
+            requestKeys.current[key] ?? (requestKeys.current[key] = crypto.randomUUID()),
+          );
       setSavedCases((current) => ({ ...current, [key]: saved }));
     } catch (cause) {
       setSaveCaseError(cause instanceof Error ? cause.message : "No se pudo guardar el caso.");
