@@ -1,30 +1,26 @@
+import CaseDesignSettings from "./CaseDesignSettings";
+import type { CasePreferences } from "../models/casePreferences";
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import Alert from "../Alert";
 import { api } from "../api";
 import type { BugTemplate, BugTemplateInput, BugTemplatePriority, User } from "../api";
-import { categories, maxCaseCount } from "../models/caseDesign.model";
-import type { CaseCountDefaults } from "../models/caseCountDefaults";
 
 const priorities: BugTemplatePriority[] = ["Crítica", "Alta", "Media", "Baja"];
 const emptyTemplate: BugTemplateInput = { name: "", title: "", description: "", priority: "Media" };
 
 export default function AccountSettingsView({
+  preferences,
+  onPreferencesChanged,
   user,
   onUserUpdated,
   onAccountDeleted,
-  caseCountDefaults,
-  onCaseCountDefaultsChanged,
-  selectedCategories,
-  onSelectedCategoriesChanged,
 }: {
+  preferences: CasePreferences;
+  onPreferencesChanged: (next: CasePreferences) => Promise<void>;
   user: User;
   onUserUpdated: (user: User) => void;
   onAccountDeleted: () => void;
-  caseCountDefaults: CaseCountDefaults;
-  onCaseCountDefaultsChanged: (defaults: CaseCountDefaults) => void;
-  selectedCategories: string[];
-  onSelectedCategoriesChanged: (categories: string[]) => void;
 }) {
   const [section, setSection] = useState<"cuenta" | "plantillas" | "diseno" | "ia">("cuenta");
   const [name, setName] = useState(user.name);
@@ -49,11 +45,6 @@ export default function AccountSettingsView({
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState("");
-  const [countDefaults, setCountDefaults] = useState(caseCountDefaults);
-  const [selectedDefaults, setSelectedDefaults] = useState(selectedCategories);
-  const [countDefaultsBusy, setCountDefaultsBusy] = useState(false);
-  const [countDefaultsError, setCountDefaultsError] = useState("");
-  const [countDefaultsMessage, setCountDefaultsMessage] = useState("");
 
   useEffect(() => {
     const abort = new AbortController();
@@ -214,26 +205,6 @@ export default function AccountSettingsView({
     }
   }
 
-  function saveCountDefaults(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setCountDefaultsBusy(true);
-    setCountDefaultsError("");
-    setCountDefaultsMessage("");
-    try {
-      onCaseCountDefaultsChanged(countDefaults);
-      onSelectedCategoriesChanged(selectedDefaults);
-      setCountDefaultsMessage("Las preferencias de diseño se guardaron en este navegador.");
-    } catch (cause) {
-      setCountDefaultsError(
-        cause instanceof Error
-          ? cause.message
-          : "No se pudieron guardar los valores predeterminados.",
-      );
-    } finally {
-      setCountDefaultsBusy(false);
-    }
-  }
-
   return (
     <div className="account-settings">
       <nav className="account-settings__navigation" aria-label="Apartados de configuración">
@@ -248,7 +219,7 @@ export default function AccountSettingsView({
           <button
             key={id}
             type="button"
-            className="button"
+            className="account-settings__tab"
             aria-pressed={section === id}
             onClick={() => setSection(id)}
           >
@@ -258,8 +229,27 @@ export default function AccountSettingsView({
       </nav>
       <section className="account-settings__card" hidden={section !== "cuenta"}>
         <div className="account-settings__heading">
-          <h2>Información de la cuenta</h2>
+          <h2 className="typography__section">Información de la cuenta</h2>
           <p>Actualiza el nombre y correo asociados a tu usuario.</p>
+        </div>
+        <div className="account-settings__avatar-preview">
+          <span className="account-settings__avatar" aria-hidden="true">
+            {user.name.trim().slice(0, 2).toLocaleUpperCase("es")}
+          </span>
+          <div>
+            <h3 className="typography__heading">Imagen de perfil</h3>
+            <p id="profile-image-preview">
+              Próximamente podrás cambiar tu imagen de perfil. Esta opción es una maqueta.
+            </p>
+            <button
+              className="workspace__secondary"
+              type="button"
+              disabled
+              aria-describedby="profile-image-preview"
+            >
+              Cambiar imagen (próximamente)
+            </button>
+          </div>
         </div>
         <form
           className="account-settings__form"
@@ -298,7 +288,7 @@ export default function AccountSettingsView({
       </section>
       <section className="account-settings__card" hidden={section !== "cuenta"}>
         <div className="account-settings__heading">
-          <h2>Seguridad</h2>
+          <h2 className="typography__section">Seguridad</h2>
           <p>
             Elige una contraseña nueva de al menos 12 caracteres. Las demás sesiones se revocarán.
           </p>
@@ -356,7 +346,7 @@ export default function AccountSettingsView({
         hidden={section !== "plantillas"}
       >
         <div className="account-settings__heading">
-          <h2>Plantillas para bugs</h2>
+          <h2 className="typography__section">Plantillas para bugs</h2>
           <p>
             Crea formatos personales inspirados en GitHub Issue Templates. El contenido se guarda
             como texto y nunca se interpreta como HTML.
@@ -482,72 +472,15 @@ export default function AccountSettingsView({
           )}
         </div>
       </section>
-      <section className="account-settings__card" hidden={section !== "diseno"}>
-        <div className="account-settings__heading">
-          <h2>Diseño de test cases</h2>
-          <p>
-            Define qué tipos de prueba y cuántos ejemplos aparecerán seleccionados inicialmente. Los
-            valores se guardan en este navegador y puedes cambiarlos antes de mostrar la vista
-            previa.
-          </p>
-        </div>
-        <form
-          className="account-settings__form"
-          onSubmit={saveCountDefaults}
-          aria-busy={countDefaultsBusy}
-        >
-          <h3>Tipos seleccionados inicialmente</h3>
-          <p className="workspace__notice">
-            Mantén al menos un tipo seleccionado para iniciar el diseño.
-          </p>
-          <div className="account-settings__count-grid">
-            {categories.map((category) => (
-              <div className="account-settings__count-item" key={category.id}>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={selectedDefaults.includes(category.id)}
-                    onChange={(event) =>
-                      setSelectedDefaults((current) =>
-                        event.target.checked
-                          ? [...current, category.id]
-                          : current.filter((id) => id !== category.id),
-                      )
-                    }
-                  />
-                  <span>{category.label}</span>
-                </label>
-                <select
-                  aria-label={`Valor inicial para ${category.label}`}
-                  value={countDefaults[category.id] ?? 1}
-                  onChange={(event) =>
-                    setCountDefaults((current) => ({
-                      ...current,
-                      [category.id]: Number(event.target.value),
-                    }))
-                  }
-                >
-                  {Array.from({ length: maxCaseCount }, (_, index) => (
-                    <option key={index + 1} value={index + 1}>
-                      {index + 1}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ))}
-          </div>
-          {countDefaultsError && <Alert tone="error">{countDefaultsError}</Alert>}
-          {countDefaultsMessage && <Alert tone="success">{countDefaultsMessage}</Alert>}
-          <div className="workspace__actions">
-            <button className="button button-primary" type="submit" disabled={countDefaultsBusy}>
-              {countDefaultsBusy ? "Guardando…" : "Guardar valores predeterminados"}
-            </button>
-          </div>
-        </form>
+      <section
+        className="account-settings__card account-settings__card--wide"
+        hidden={section !== "diseno"}
+      >
+        <CaseDesignSettings preferences={preferences} onSave={onPreferencesChanged} />
       </section>
       <section className="account-settings__card" hidden={section !== "ia"}>
         <div className="account-settings__heading">
-          <h2>Conexión con IA</h2>
+          <h2 className="typography__section">Conexión con IA</h2>
           <p>
             Vista preliminar de una futura configuración de proveedores. Esta sección es solo una
             maqueta.
@@ -580,7 +513,7 @@ export default function AccountSettingsView({
         hidden={section !== "cuenta"}
       >
         <div className="account-settings__heading">
-          <h2>Zona de peligro · Desactivar cuenta</h2>
+          <h2 className="typography__section">Zona de peligro · Desactivar cuenta</h2>
           <p>
             Tu acceso se desactivará y tu nombre, correo y contraseña se anonimizarán. Se revocarán
             todas las sesiones y se eliminarán tus plantillas. Los proyectos, membresías y registros

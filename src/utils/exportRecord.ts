@@ -1,3 +1,4 @@
+import { download } from "./download";
 import type { Bug, TestCase } from "../types";
 
 export const recordExportFormats = ["pdf", "xlsx", "md"] as const;
@@ -125,15 +126,4 @@ function safeFilename(value: string) {
       .replace(/[^a-z0-9-]+/g, "-")
       .replace(/^-|-$/g, "") || "qatestge-registro"
   );
-}
-
-function download(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.append(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import Alert from "./Alert";
 import App from "./App";
+import Footer from "./Footer";
 import { api, ApiError, setCsrfToken } from "./api";
 import type { User, SessionState } from "./api";
 
@@ -143,7 +144,7 @@ export default function Session() {
     return (
       <>
         {error && (
-          <Alert tone="error" className="session__error-banner" onDismiss={() => setError("")}>
+          <Alert tone="error" className="workspace-toast" onDismiss={() => setError("")}>
             {error}
           </Alert>
         )}
@@ -266,7 +267,7 @@ export default function Session() {
             : "Acceso con tu correo y contraseña. La sesión permanece activa al recargar y se revoca al salir."}
         </p>
       </section>
-      <p className="session__footer">qaTestGE · Calidad en cada entrega</p>
+      <Footer status="Calidad en cada entrega" compact />
     </main>
   );
 }

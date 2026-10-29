@@ -1,8 +1,20 @@
+import { useProjectData } from "./controllers/useProjectData";
+import TableFooter from "./components/TableFooter";
+import { Icon, Avatar } from "./components/RecordPrimitives";
+import { BugTable, CaseTable, RunTable, EvidenceTable } from "./views/WorkspaceTables";
+import CaseAttachmentsPanel from "./views/CaseAttachmentsPanel";
+import { useCasePreferences } from "./controllers/useCasePreferences";
+import { useOperationScope } from "./controllers/useOperationScope";
+import TagPicker from "./TagPicker";
+import BugDesignView from "./views/BugDesignView";
+import TableExport from "./TableExport";
+import { bugTableExport, caseTableExport, runTableExport } from "./models/tableExport";
 import TestRunDialog from "./views/TestRunDialog";
 import { version } from "../package.json";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import type { FormEvent, SVGProps } from "react";
+import type { FormEvent } from "react";
 import Alert, { type AlertTone } from "./Alert";
+import Footer from "./Footer";
 import { filterBugs, filterCases, filterEvidence, filterRuns } from "./utils/filterItems";
 import CaseBuilder from "./CaseBuilder";
 import Dialog from "./Dialog";
@@ -10,17 +22,14 @@ import {
   addTestCaseLink,
   api,
   createBug,
+  createTestCase,
   deleteBug,
   listTags,
   deleteEvidence,
   downloadEvidenceFile,
   deleteTestCase,
-  deleteTestCaseAttachment,
-  listTestCaseAttachments,
-  loadProject,
   saveBugStatus,
   saveCaseStatus,
-  testCaseImageUrl,
   updateBug,
   updateEvidence,
   updateTestCase,
@@ -33,32 +42,23 @@ import WikiView from "./views/WikiView";
 import ProjectsView from "./views/ProjectsView";
 import TeamsView from "./views/TeamsView";
 import TagsView from "./views/TagsView";
+import ReportsView from "./views/ReportsView";
 import RecordDetailsDialog, { type RecordDetail } from "./views/RecordDetailsDialog";
 import { exportRecord, recordExportFormats } from "./utils/exportRecord";
 import type { ExportFormat, ExportRecord } from "./utils/exportRecord";
 import type { CreateTestCaseInput } from "../backend/src/models/test-case.model";
-type WorkspaceData = Awaited<ReturnType<typeof loadProject>>;
 import type {
   Bug,
   Evidence,
-  IconName,
   NavigationPage,
-  PriorityLevel,
+  IconName,
   BugStatus,
   CaseStatus,
   TestCase,
-  TestCaseAttachment,
   TestRun,
   Tag,
 } from "./types";
 import { bugStatuses, caseStatuses } from "./types";
-import {
-  loadCaseCountDefaults,
-  loadSelectedCategories,
-  saveCaseCountDefaults,
-  saveSelectedCategories,
-  type CaseCountDefaults,
-} from "./models/caseCountDefaults";
 
 const navigation: {
   section: string;
@@ -68,10 +68,12 @@ const navigation: {
     section: "WORKSPACE",
     items: [
       { id: "overview", label: "Dashboard", icon: "grid" },
+      { id: "reports", label: "Reportes y métricas", icon: "chart" },
       { id: "projects", label: "Proyectos", icon: "grid" },
       { id: "teams", label: "Equipos", icon: "grid" },
       { id: "bugs", label: "Bugs", icon: "bug", count: undefined },
       { id: "cases", label: "Casos de prueba", icon: "check-square" },
+      { id: "bug-builder", label: "Diseñar bugs", icon: "sparkle" },
       { id: "case-builder", label: "Diseñar test cases", icon: "sparkle" },
       { id: "runs", label: "Test runs", icon: "play" },
       { id: "evidence", label: "Evidencias", icon: "image" },
@@ -82,271 +84,8 @@ const navigation: {
   { section: "CUENTA", items: [{ id: "settings", label: "Configuración", icon: "settings" }] },
 ];
 
-function Icon({
-  name,
-  size = 18,
-  ...props
-}: { name: IconName; size?: number } & SVGProps<SVGSVGElement>) {
-  const common: SVGProps<SVGSVGElement> = {
-    width: size,
-    height: size,
-    viewBox: "0 0 24 24",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: 1.7,
-    strokeLinecap: "round",
-    strokeLinejoin: "round",
-    ...props,
-  };
-  const shapes = {
-    grid: (
-      <>
-        <rect x="3.5" y="3.5" width="7" height="7" rx="1.5" />
-        <rect x="13.5" y="3.5" width="7" height="7" rx="1.5" />
-        <rect x="3.5" y="13.5" width="7" height="7" rx="1.5" />
-        <rect x="13.5" y="13.5" width="7" height="7" rx="1.5" />
-      </>
-    ),
-    bug: (
-      <>
-        <path d="M8 9h8v7a4 4 0 0 1-8 0V9Z" />
-        <path d="M10 6a2 2 0 0 1 4 0M12 13v3M5 12h3m8 0h3M6 6l2 2m10-2-2 2M6 18l2-2m10 2-2-2" />
-      </>
-    ),
-    "check-square": (
-      <>
-        <rect x="3.5" y="3.5" width="17" height="17" rx="3" />
-        <path d="m8 12 2.5 2.5L16.5 9" />
-      </>
-    ),
-    play: (
-      <>
-        <circle cx="12" cy="12" r="9" />
-        <path d="m10 8 6 4-6 4V8Z" />
-      </>
-    ),
-    image: (
-      <>
-        <rect x="3" y="4" width="18" height="16" rx="2.5" />
-        <circle cx="8.5" cy="9" r="1.5" />
-        <path d="m21 15-5-5L5 20" />
-      </>
-    ),
-    settings: (
-      <>
-        <circle cx="12" cy="12" r="3" />
-        <path
-          d="m19.4 15 .1.1a1.7 1.7 0 0 1-2.4 2.4l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 0 1-3.4 0v-.2a1.7 1.7 0 0 0-2.9-1.2l-.1.1a1.7 1.7 0 0 1-2.4-2.4l.1-.1A1.7 1.7 0 0 0 4.2 12H4a1.7 1.7 0 0 1 0-3.4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a1.7 1.7 0 0 1 2.4-2.4l.1.1a1.7 1.7 0 0 0 2.9-1.2V2a1.7 1.7 0 0 1 3.4 0v.2a1.7 1.7 0 0 0 2.9 1.2l.1-.1a1.7 1.7 0 0 1 2.4 2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 0 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2 2.9Z"
-          transform="translate(1 1) scale(.91)"
-        />
-      </>
-    ),
-    search: (
-      <>
-        <circle cx="10.8" cy="10.8" r="6.8" />
-        <path d="m16 16 4.5 4.5" />
-      </>
-    ),
-    plus: (
-      <>
-        <path d="M12 5v14M5 12h14" />
-      </>
-    ),
-    bell: (
-      <>
-        <path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" />
-      </>
-    ),
-    chevron: <path d="m8 10 4 4 4-4" />,
-    arrow: (
-      <>
-        <path d="M5 12h14M13 6l6 6-6 6" />
-      </>
-    ),
-    dots: (
-      <>
-        <circle cx="5" cy="12" r="1" />
-        <circle cx="12" cy="12" r="1" />
-        <circle cx="19" cy="12" r="1" />
-      </>
-    ),
-    calendar: (
-      <>
-        <rect x="3" y="5" width="18" height="16" rx="2" />
-        <path d="M16 3v4M8 3v4M3 10h18" />
-      </>
-    ),
-    download: (
-      <>
-        <path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v4h16v-4" />
-      </>
-    ),
-    filter: (
-      <>
-        <path d="M4 7h16M7 12h10m-7 5h4" />
-      </>
-    ),
-    clock: (
-      <>
-        <circle cx="12" cy="12" r="9" />
-        <path d="M12 7v5l3 2" />
-      </>
-    ),
-    sparkle: (
-      <>
-        <path d="m12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z" />
-        <path d="m19 16 .8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8L19 16Z" />
-      </>
-    ),
-    tag: (
-      <>
-        <path d="M20 13 13 20 3 10V4h6l11 9Z" />
-        <circle cx="7.5" cy="7.5" r="1" />
-      </>
-    ),
-    close: (
-      <>
-        <path d="m18 6-12 12M6 6l12 12" />
-      </>
-    ),
-    file: (
-      <>
-        <path d="M13 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10Z" />
-        <path d="M13 3v7h7M8 14h8m-8 4h8" />
-      </>
-    ),
-  };
-  return (
-    <svg {...common} aria-hidden="true">
-      {shapes[name] || shapes.file}
-    </svg>
-  );
-}
-
-function Avatar({
-  initials,
-  color = "blue",
-  small = false,
-}: {
-  initials: string;
-  color?: Bug["color"];
-  small?: boolean;
-}) {
-  return (
-    <span className={`avatar avatar-${color}${small ? " avatar-small" : ""}`}>{initials}</span>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const key = status.toLowerCase().replaceAll(" ", "-");
-  return (
-    <span className={`status status-${key}`}>
-      <i />
-      {status}
-    </span>
-  );
-}
-
-function Priority({ level }: { level: PriorityLevel }) {
-  return (
-    <span className={`priority priority-${level.toLowerCase()}`}>
-      <span />
-      {level}
-    </span>
-  );
-}
-
 function isTestCaseRecord(value: object): value is TestCase {
   return "steps" in value && "suite" in value && "id" in value;
-}
-
-function CaseAttachmentsPanel({ testCase }: { testCase: TestCase }) {
-  const [attachments, setAttachments] = useState<TestCaseAttachment[]>([]);
-  const [loadingAttachments, setLoadingAttachments] = useState(true);
-  const [attachmentError, setAttachmentError] = useState("");
-  const [deletingAttachment, setDeletingAttachment] = useState("");
-  const [revision, setRevision] = useState(0);
-  useEffect(() => {
-    if (!testCase.projectId) {
-      setAttachmentError("No se puede consultar adjuntos sin el proyecto asociado.");
-      setLoadingAttachments(false);
-      return;
-    }
-    const abort = new AbortController();
-    setLoadingAttachments(true);
-    setAttachmentError("");
-    void listTestCaseAttachments(testCase.id, testCase.projectId)
-      .then((items) => {
-        if (!abort.signal.aborted) setAttachments(items);
-      })
-      .catch((cause: unknown) => {
-        if (!abort.signal.aborted)
-          setAttachmentError(
-            cause instanceof Error ? cause.message : "No se pudieron cargar los adjuntos.",
-          );
-      })
-      .finally(() => {
-        if (!abort.signal.aborted) setLoadingAttachments(false);
-      });
-    return () => abort.abort();
-  }, [testCase.id, testCase.projectId, revision]);
-  async function removeAttachment(attachment: TestCaseAttachment) {
-    if (!testCase.projectId || deletingAttachment) return;
-    setDeletingAttachment(attachment.id);
-    setAttachmentError("");
-    try {
-      await deleteTestCaseAttachment(testCase.id, attachment.id, testCase.projectId);
-      setRevision((current) => current + 1);
-    } catch (cause) {
-      setAttachmentError(
-        cause instanceof Error ? cause.message : "No se pudo eliminar el adjunto.",
-      );
-    } finally {
-      setDeletingAttachment("");
-    }
-  }
-  return (
-    <section className="workspace__attachments" aria-label="Adjuntos del caso">
-      <h3>Imágenes y enlaces</h3>
-      {loadingAttachments && <p className="workspace__notice">Cargando adjuntos…</p>}
-      {attachmentError && <Alert tone="error">{attachmentError}</Alert>}
-      {!loadingAttachments && !attachmentError && !attachments.length && (
-        <p className="workspace__notice">
-          Este caso todavía no tiene imágenes ni enlaces adjuntos.
-        </p>
-      )}
-      {attachments.map((attachment) => (
-        <div className="workspace__attachment" key={attachment.id}>
-          {attachment.kind === "image" ? (
-            <a
-              href={testCaseImageUrl(testCase.id, attachment.id, attachment.projectId)}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <img
-                src={testCaseImageUrl(testCase.id, attachment.id, attachment.projectId)}
-                alt={attachment.name}
-              />
-              <span>{attachment.name}</span>
-            </a>
-          ) : (
-            <a href={attachment.url ?? undefined} target="_blank" rel="noopener noreferrer">
-              {attachment.name}
-              <span>{attachment.url}</span>
-            </a>
-          )}
-          <button
-            type="button"
-            className="workspace__secondary"
-            disabled={Boolean(deletingAttachment)}
-            onClick={() => void removeAttachment(attachment)}
-          >
-            {deletingAttachment === attachment.id ? "Eliminando…" : "Eliminar"}
-          </button>
-        </div>
-      ))}
-    </section>
-  );
 }
 
 function App({
@@ -365,20 +104,27 @@ function App({
   const [activePage, setActivePage] = useState<NavigationPage>("overview");
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectId, setProjectId] = useState("");
+  const captureScope = useOperationScope(user.id, projectId);
   const [tags, setTags] = useState<Tag[]>([]);
   const [tagError, setTagError] = useState("");
-  const [data, setData] = useState<WorkspaceData>({ bugs: [], cases: [], runs: [], evidence: [] });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
+  const { data, setData, loading, error, setLoading, setError } = useProjectData(
+    projectId,
+    revision,
+  );
+  const creationKey = useRef(crypto.randomUUID());
   const [saving, setSaving] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState("");
-  const [caseCountDefaults, setCaseCountDefaults] = useState<CaseCountDefaults>(() =>
-    loadCaseCountDefaults(user.id),
-  );
-  const [caseDesignCategories, setCaseDesignCategories] = useState<string[]>(() =>
-    loadSelectedCategories(user.id),
-  );
+  const {
+    preferences,
+    save: savePreferences,
+    error: preferencesError,
+  } = useCasePreferences(user.id);
+  const {
+    catalog: caseCatalog,
+    counts: caseCountDefaults,
+    selected: caseDesignCategories,
+  } = preferences;
   const [modal, setModal] = useState("");
   const [bugTemplates, setBugTemplates] = useState<BugTemplate[]>([]);
   const [bugTemplatesLoading, setBugTemplatesLoading] = useState(false);
@@ -419,13 +165,14 @@ function App({
   const [deleteCaseBusy, setDeleteCaseBusy] = useState(false);
   const [exportingRecord, setExportingRecord] = useState(false);
   const [formError, setFormError] = useState("");
+  const [tablePage, setTablePage] = useState(1);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("Todos");
   const [mobileNav, setMobileNav] = useState(false);
   const [toast, setToast] = useState("");
   const [toastTone, setToastTone] = useState<AlertTone>("success");
   const [runDetail, setRunDetail] = useState<TestRun | null>(null);
-  const [runAction, setRunAction] = useState<"view" | "edit" | "delete">("view");
+  const [runAction, setRunAction] = useState<"view" | "edit" | "delete" | "execute">("view");
   const [detail, setDetail] = useState<object | null>(null);
   const [recordDetail, setRecordDetail] = useState<RecordDetail | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>();
@@ -471,7 +218,7 @@ function App({
         }
       });
     return () => abort.abort();
-  }, [revision]);
+  }, [revision, setError, setLoading]);
   useEffect(() => {
     if (modal !== "bug") return;
     const abort = new AbortController();
@@ -493,25 +240,6 @@ function App({
     return () => abort.abort();
   }, [modal]);
   useEffect(() => {
-    if (!projectId) return;
-    const abort = new AbortController();
-    setLoading(true);
-    setError("");
-    setData({ bugs: [], cases: [], runs: [], evidence: [] });
-    void loadProject(projectId, abort.signal)
-      .then((items) => {
-        if (!abort.signal.aborted) setData(items);
-      })
-      .catch((cause: unknown) => {
-        if (!abort.signal.aborted)
-          setError(cause instanceof Error ? cause.message : "No se pudieron cargar los datos.");
-      })
-      .finally(() => {
-        if (!abort.signal.aborted) setLoading(false);
-      });
-    return () => abort.abort();
-  }, [projectId, revision]);
-  useEffect(() => {
     if (!projectId) {
       setTags([]);
       return;
@@ -530,21 +258,37 @@ function App({
       });
     return () => abort.abort();
   }, [projectId, revision]);
-  const visibleBugs = useMemo(
+  const filteredBugs = useMemo(
     () => filterBugs(bugs, { search, statusFilter }),
     [bugs, search, statusFilter],
   );
-  const visibleCases = useMemo(
+  const filteredCases = useMemo(
     () => filterCases(cases, { search, statusFilter }),
     [cases, search, statusFilter],
   );
-  const visibleRuns = useMemo(
+  const filteredRuns = useMemo(
     () => filterRuns(runs, { search, statusFilter }),
     [runs, search, statusFilter],
   );
-  const visibleEvidence = useMemo(() => filterEvidence(evidence, { search }), [evidence, search]);
+  const filteredEvidence = useMemo(() => filterEvidence(evidence, { search }), [evidence, search]);
+  const matchedTotal =
+    activePage === "bugs"
+      ? filteredBugs.length
+      : activePage === "cases"
+        ? filteredCases.length
+        : activePage === "runs"
+          ? filteredRuns.length
+          : filteredEvidence.length;
+  const currentTablePage = Math.min(tablePage, Math.max(1, Math.ceil(matchedTotal / 50)));
+  const slicePage = <T,>(items: T[]) =>
+    items.slice((currentTablePage - 1) * 50, currentTablePage * 50);
+  const visibleBugs = slicePage(filteredBugs),
+    visibleCases = slicePage(filteredCases),
+    visibleRuns = slicePage(filteredRuns),
+    visibleEvidence = slicePage(filteredEvidence);
   const pageTitle = {
     overview: "Dashboard",
+    reports: "Reportes y métricas",
     projects: "Proyectos",
     teams: "Equipos",
     bugs: "Bugs",
@@ -554,6 +298,7 @@ function App({
     tags: "Tags",
     settings: "Configuración",
     wiki: "Wiki",
+    "bug-builder": "Diseñar bugs",
     "case-builder": "Diseñar test cases",
   }[activePage];
   const notify = (message: string, tone: AlertTone = "success") => {
@@ -564,11 +309,13 @@ function App({
   };
   function navigate(page: NavigationPage) {
     setActivePage(page);
+    setTablePage(1);
     setSearch("");
     setStatusFilter("Todos");
     setMobileNav(false);
   }
   function openModal(value: string) {
+    creationKey.current = crypto.randomUUID();
     setFormError("");
     setAssigneeUserId("");
     setEditingBug(null);
@@ -628,15 +375,18 @@ function App({
     if (!evidenceToDelete || saving) return;
     setSaving(true);
     setFormError("");
+    const isCurrent = captureScope();
     try {
       await deleteEvidence(evidenceToDelete.id, projectId);
+      if (!isCurrent()) return;
       setEvidenceToDelete(null);
       setRevision((current) => current + 1);
       notify("Evidencia eliminada.");
     } catch (cause) {
+      if (!isCurrent()) return;
       setFormError(cause instanceof Error ? cause.message : "No se pudo eliminar la evidencia.");
     } finally {
-      setSaving(false);
+      if (isCurrent()) setSaving(false);
     }
   }
   async function downloadEvidence(item: Evidence) {
@@ -715,6 +465,7 @@ function App({
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!projectId || saving) return;
+    const isCurrent = captureScope();
     const form = new FormData(event.currentTarget);
     const title = String(form.get("title") ?? "").trim();
     if (modal === "edit-bug") {
@@ -731,15 +482,17 @@ function App({
           assigneeUserId: assigneeUserId || null,
           tagIds: selectedTagIds,
         });
+        if (!isCurrent()) return;
         setModal("");
         setEditingBug(null);
         setRevision((current) => current + 1);
         setActivePage("bugs");
         notify("Bug actualizado.");
       } catch (cause) {
+        if (!isCurrent()) return;
         setFormError(cause instanceof Error ? cause.message : "No se pudo actualizar el bug.");
       } finally {
-        setSaving(false);
+        if (isCurrent()) setSaving(false);
       }
       return;
     }
@@ -754,15 +507,17 @@ function App({
       setFormError("");
       try {
         await uploadEvidenceFile(editingEvidence.id, projectId, file);
+        if (!isCurrent()) return;
         setModal("");
         setEditingEvidence(null);
         setRevision((current) => current + 1);
         setActivePage("evidence");
         notify("Archivo de evidencia guardado.");
       } catch (cause) {
+        if (!isCurrent()) return;
         setFormError(cause instanceof Error ? cause.message : "No se pudo subir el archivo.");
       } finally {
-        setSaving(false);
+        if (isCurrent()) setSaving(false);
       }
       return;
     }
@@ -781,17 +536,19 @@ function App({
           sizeBytes: evidenceForm.sizeBytes,
           ...(evidenceRelatedChanged ? { related: evidenceForm.related || null } : {}),
         });
+        if (!isCurrent()) return;
         setModal("");
         setEditingEvidence(null);
         setRevision((current) => current + 1);
         setActivePage("evidence");
         notify("Metadatos de evidencia actualizados.");
       } catch (cause) {
+        if (!isCurrent()) return;
         setFormError(
           cause instanceof Error ? cause.message : "No se pudieron actualizar los metadatos.",
         );
       } finally {
-        setSaving(false);
+        if (isCurrent()) setSaving(false);
       }
       return;
     }
@@ -853,7 +610,9 @@ function App({
         const savedCase =
           modal === "edit-case" && editingCase
             ? await updateTestCase(editingCase.id, projectId, caseInput)
-            : await api<TestCase>(path, { method: "POST", body: JSON.stringify(body) });
+            : await createTestCase({ ...caseInput, projectId }, creationKey.current);
+        if (!isCurrent()) return;
+        if (!isCurrent()) return;
         const links = String(form.get("attachmentLinks") ?? "")
           .split(/\r?\n/)
           .map((item) => item.trim())
@@ -861,6 +620,7 @@ function App({
         try {
           for (const file of caseImageFiles)
             await uploadTestCaseImage(savedCase.id, projectId, file);
+          if (!isCurrent()) return;
           for (const link of links) {
             let name = link;
             try {
@@ -871,6 +631,7 @@ function App({
             await addTestCaseLink(savedCase.id, projectId, name, link);
           }
         } catch (cause) {
+          if (!isCurrent()) return;
           setModal("");
           setEditingCase(null);
           setCaseImageFiles([]);
@@ -903,6 +664,7 @@ function App({
           assigneeUserId: assigneeUserId || null,
           tagIds: selectedTagIds,
         });
+        if (!isCurrent()) return;
       } else if (modal === "evidence") {
         const file = form.get("file");
         if (!(file instanceof File)) throw new Error("Selecciona un archivo de evidencia.");
@@ -912,8 +674,14 @@ function App({
           file,
           typeof body.related === "string" ? body.related : null,
         );
+        if (!isCurrent()) return;
       } else {
-        await api(path, { method: "POST", body: JSON.stringify(body) });
+        await api(path, {
+          method: "POST",
+          body: JSON.stringify(body),
+          headers: { "Idempotency-Key": creationKey.current },
+        });
+        if (!isCurrent()) return;
       }
       setModal("");
       setRevision((n) => n + 1);
@@ -934,9 +702,10 @@ function App({
             : "Registro guardado en PostgreSQL.",
       );
     } catch (cause) {
+      if (!isCurrent()) return;
       setFormError(cause instanceof Error ? cause.message : "No se pudo guardar.");
     } finally {
-      setSaving(false);
+      if (isCurrent()) setSaving(false);
     }
   }
   async function exportSelectedRecord(format: ExportFormat) {
@@ -959,25 +728,20 @@ function App({
       setExportingRecord(false);
     }
   }
-  function saveDefaultCounts(defaults: CaseCountDefaults) {
-    saveCaseCountDefaults(user.id, defaults);
-    setCaseCountDefaults(defaults);
-  }
-  function saveDefaultCategories(selected: string[]) {
-    saveSelectedCategories(user.id, selected);
-    setCaseDesignCategories(selected);
-  }
   async function changeBugStatus(bug: Bug, status: BugStatus) {
     if (!bug.projectId || updatingStatus) return;
     setUpdatingStatus(bug.id);
+    const isCurrent = captureScope();
     try {
       const updated = await saveBugStatus(bug.id, bug.projectId, status);
+      if (!isCurrent()) return;
       setData((current) => ({
         ...current,
         bugs: current.bugs.map((item) => (item.id === updated.id ? updated : item)),
       }));
       notify(`Estado de ${bug.id} actualizado.`);
     } catch (cause) {
+      if (!isCurrent()) return;
       notify(
         cause instanceof Error
           ? `No se pudo actualizar ${bug.id}: ${cause.message}`
@@ -985,20 +749,23 @@ function App({
         "error",
       );
     } finally {
-      setUpdatingStatus("");
+      if (isCurrent()) setUpdatingStatus("");
     }
   }
   async function changeCaseStatus(testCase: TestCase, status: CaseStatus) {
     if (!testCase.projectId || updatingStatus) return;
     setUpdatingStatus(testCase.id);
+    const isCurrent = captureScope();
     try {
       const updated = await saveCaseStatus(testCase.id, testCase.projectId, status);
+      if (!isCurrent()) return;
       setData((current) => ({
         ...current,
         cases: current.cases.map((item) => (item.id === updated.id ? updated : item)),
       }));
       notify(`Estado de ${testCase.id} actualizado.`);
     } catch (cause) {
+      if (!isCurrent()) return;
       notify(
         cause instanceof Error
           ? `No se pudo actualizar ${testCase.id}: ${cause.message}`
@@ -1006,39 +773,45 @@ function App({
         "error",
       );
     } finally {
-      setUpdatingStatus("");
+      if (isCurrent()) setUpdatingStatus("");
     }
   }
   async function removeCase() {
     if (!deleteCaseTarget?.projectId || deleteCaseBusy) return;
     setDeleteCaseBusy(true);
     setDeleteCaseError("");
+    const isCurrent = captureScope();
     try {
       await deleteTestCase(deleteCaseTarget.id, deleteCaseTarget.projectId);
+      if (!isCurrent()) return;
       setDeleteCaseTarget(null);
       setExportTarget(null);
       setDetail(null);
       setRevision((n) => n + 1);
       notify(`Se eliminó el caso ${deleteCaseTarget.id}.`);
     } catch (cause) {
+      if (!isCurrent()) return;
       setDeleteCaseError(cause instanceof Error ? cause.message : "No se pudo eliminar el caso.");
     } finally {
-      setDeleteCaseBusy(false);
+      if (isCurrent()) setDeleteCaseBusy(false);
     }
   }
   async function removeBug() {
     if (!deleteBugTarget?.projectId || deleteBugBusy) return;
     setDeleteBugBusy(true);
     setDeleteBugError("");
+    const isCurrent = captureScope();
     try {
       await deleteBug(deleteBugTarget.id, deleteBugTarget.projectId);
+      if (!isCurrent()) return;
       setDeleteBugTarget(null);
       setRevision((n) => n + 1);
       notify(`Se eliminó el bug ${deleteBugTarget.id}.`);
     } catch (cause) {
+      if (!isCurrent()) return;
       setDeleteBugError(cause instanceof Error ? cause.message : "No se pudo eliminar el bug.");
     } finally {
-      setDeleteBugBusy(false);
+      if (isCurrent()) setDeleteBugBusy(false);
     }
   }
   const filters =
@@ -1050,14 +823,8 @@ function App({
           ? ["Todos", "En curso", "Completado"]
           : [];
   const isListing = ["bugs", "cases", "runs", "evidence"].includes(activePage);
-  const total =
-    activePage === "bugs"
-      ? visibleBugs.length
-      : activePage === "cases"
-        ? visibleCases.length
-        : activePage === "runs"
-          ? visibleRuns.length
-          : visibleEvidence.length;
+  const isRenderCurrent = captureScope();
+  const total = matchedTotal;
   return (
     <div className="app-shell workspace">
       <aside className={`sidebar${mobileNav ? " sidebar-open" : ""}`}>
@@ -1101,11 +868,15 @@ function App({
           SwaggerUI · API ↗
         </a>
         <div className="sidebar-bottom">
-          <div className="workspace__identity">
+          <button
+            type="button"
+            className="workspace__profile"
+            onClick={() => navigate("settings")}
+            aria-label={`Abrir configuración de ${user.name}`}
+          >
             <Avatar initials={user.name.slice(0, 2).toUpperCase()} color="orange" />
             <strong>{user.name}</strong>
-            <small>Sesión activa</small>
-          </div>
+          </button>
         </div>
       </aside>
       {mobileNav && (
@@ -1158,14 +929,16 @@ function App({
                   year: "numeric",
                 })}
               </div>
-              <h1>{pageTitle}</h1>
+              <h1 className="typography__title">{pageTitle}</h1>
               <p className="page-subtitle">{pageDescription(activePage)}</p>
             </div>
             {![
               "overview",
+              "reports",
               "projects",
               "teams",
               "case-builder",
+              "bug-builder",
               "settings",
               "tags",
               "wiki",
@@ -1206,6 +979,15 @@ function App({
                   setData({ bugs: [], cases: [], runs: [], evidence: [] });
                   setLoading(true);
                   setProjectId(event.target.value);
+                  setModal("");
+                  setRunDetail(null);
+                  setRecordDetail(null);
+                  setDeleteBugTarget(null);
+                  setDeleteCaseTarget(null);
+                  setSaving(false);
+                  setUpdatingStatus("");
+                  setDeleteBugBusy(false);
+                  setDeleteCaseBusy(false);
                 }}
               >
                 <option value="" disabled>
@@ -1236,6 +1018,7 @@ function App({
             </p>
           )}
           {error && <Alert tone="error">{error}</Alert>}
+          {preferencesError && <Alert tone="error">{preferencesError}</Alert>}
           {!loading && !error && !projectId && activePage !== "projects" && (
             <p className="workspace__notice">
               No tienes proyectos disponibles. El administrador debe conceder acceso a un espacio
@@ -1251,15 +1034,34 @@ function App({
               user={user}
               onUserUpdated={onUserUpdated}
               onAccountDeleted={onAccountDeleted}
-              caseCountDefaults={caseCountDefaults}
-              onCaseCountDefaultsChanged={saveDefaultCounts}
-              selectedCategories={caseDesignCategories}
-              onSelectedCategoriesChanged={saveDefaultCategories}
+              preferences={preferences}
+              onPreferencesChanged={savePreferences}
             />
           ) : activePage === "wiki" ? (
             <WikiView />
+          ) : activePage === "bug-builder" ? (
+            !loading &&
+            !error &&
+            projectId && (
+              <BugDesignView
+                key={`${user.id}:${projectId}`}
+                userId={user.id}
+                projectId={projectId}
+                tags={tags}
+                tagError={tagError}
+                onSaved={((isCurrent) => (bug) => {
+                  if (isCurrent())
+                    setData((current) => ({
+                      ...current,
+                      bugs: [bug, ...current.bugs.filter((item) => item.id !== bug.id)],
+                    }));
+                })(captureScope())}
+              />
+            )
           ) : activePage === "case-builder" ? (
             <CaseBuilder
+              key={`${user.id}:${projectId}`}
+              catalog={caseCatalog}
               defaultCounts={caseCountDefaults}
               defaultSelectedCategories={caseDesignCategories}
               projectId={projectId}
@@ -1280,6 +1082,18 @@ function App({
                   />
                 )}
               </>
+            )
+          ) : activePage === "reports" ? (
+            !loading &&
+            !error &&
+            projectId && (
+              <ReportsView
+                projectName={project?.name ?? "Proyecto"}
+                bugs={bugs}
+                cases={cases}
+                runs={runs}
+                evidence={evidence}
+              />
             )
           ) : (
             !loading &&
@@ -1302,7 +1116,10 @@ function App({
                   ))}
                 </div>
                 <section className="workspace__panel">
-                  <h2>Bugs recientes</h2>
+                  <div className="workspace-table__heading">
+                    <h2 className="typography__section">Bugs recientes</h2>
+                    <TableExport data={bugTableExport(bugs.slice(0, 5), tags)} />
+                  </div>
                   <BugTable
                     bugs={bugs.slice(0, 5)}
                     tags={tags}
@@ -1313,7 +1130,7 @@ function App({
                       setDeleteBugError("");
                       setDeleteBugTarget(bug);
                     }}
-                    onStatusChange={changeBugStatus}
+                    onStatusChange={(bug, status) => void changeBugStatus(bug, status)}
                     updatingStatus={updatingStatus}
                   />
                   {!bugs.length && (
@@ -1321,10 +1138,17 @@ function App({
                   )}
                 </section>
                 <section className="workspace__panel">
-                  <h2>Ejecuciones recientes</h2>
+                  <div className="workspace-table__heading">
+                    <h2 className="typography__section">Ejecuciones recientes</h2>
+                    <TableExport data={runTableExport(runs.slice(0, 5), tags)} />
+                  </div>
                   <RunTable
                     items={runs.slice(0, 5)}
                     tags={tags}
+                    onExecute={(run) => {
+                      setRunAction("execute");
+                      setRunDetail(run);
+                    }}
                     onSelect={(run, action) => {
                       setRunAction(action);
                       setRunDetail(run);
@@ -1345,7 +1169,10 @@ function App({
                       <button
                         key={filter}
                         className={`listing-filters__tab${statusFilter === filter ? " listing-filters__tab--active" : ""}`}
-                        onClick={() => setStatusFilter(filter)}
+                        onClick={() => {
+                          setStatusFilter(filter);
+                          setTablePage(1);
+                        }}
                       >
                         {filter}
                       </button>
@@ -1356,11 +1183,27 @@ function App({
                     <input
                       aria-label="Buscar registros"
                       value={search}
-                      onChange={(event) => setSearch(event.target.value)}
+                      onChange={(event) => {
+                        setSearch(event.target.value);
+                        setTablePage(1);
+                      }}
                       placeholder={`Buscar ${pageTitle.toLowerCase()}…`}
                     />
                   </label>
                 </div>
+                {activePage !== "evidence" && (
+                  <div className="workspace-table__toolbar">
+                    <TableExport
+                      data={
+                        activePage === "bugs"
+                          ? bugTableExport(visibleBugs, tags)
+                          : activePage === "cases"
+                            ? caseTableExport(visibleCases, tags)
+                            : runTableExport(visibleRuns, tags)
+                      }
+                    />
+                  </div>
+                )}
                 {activePage === "bugs" && (
                   <BugTable
                     bugs={visibleBugs}
@@ -1372,7 +1215,7 @@ function App({
                       setDeleteBugError("");
                       setDeleteBugTarget(bug);
                     }}
-                    onStatusChange={changeBugStatus}
+                    onStatusChange={(bug, status) => void changeBugStatus(bug, status)}
                     updatingStatus={updatingStatus}
                   />
                 )}
@@ -1387,7 +1230,7 @@ function App({
                       setDeleteCaseError("");
                       setDeleteCaseTarget(item);
                     }}
-                    onStatusChange={changeCaseStatus}
+                    onStatusChange={(item, status) => void changeCaseStatus(item, status)}
                     updatingStatus={updatingStatus}
                   />
                 )}
@@ -1395,6 +1238,10 @@ function App({
                   <RunTable
                     items={visibleRuns}
                     tags={tags}
+                    onExecute={(run) => {
+                      setRunAction("execute");
+                      setRunDetail(run);
+                    }}
                     onSelect={(run, action) => {
                       setRunAction(action);
                       setRunDetail(run);
@@ -1413,24 +1260,25 @@ function App({
                     No hay registros que coincidan con los filtros.
                   </p>
                 )}
-                <div className="table-footer">
-                  <span>{total} resultados · datos del proyecto</span>
-                </div>
+                <TableFooter
+                  total={total}
+                  page={currentTablePage}
+                  pageSize={50}
+                  onPage={setTablePage}
+                />
               </section>
             ) : null)
           )}
-          <footer className="page-footer">
-            <span>
-              © {new Date().getFullYear()} qaTestGE · v{version}
-            </span>
-            <span>
-              {error
+          <Footer
+            version={version}
+            status={
+              error
                 ? "Datos no disponibles"
                 : loading
                   ? "Actualizando datos…"
-                  : "Datos persistidos en PostgreSQL"}
-            </span>
-          </footer>
+                  : "Datos persistidos en PostgreSQL"
+            }
+          />
         </div>
       </main>
       {modal && (
@@ -1952,10 +1800,12 @@ function App({
           cases={cases}
           onClose={() => setRunDetail(null)}
           onChanged={(updated) => {
+            if (!isRenderCurrent()) return;
             setRunDetail(updated);
             setRevision((current) => current + 1);
           }}
           onDeleted={() => {
+            if (!isRenderCurrent()) return;
             setRunDetail(null);
             setRevision((current) => current + 1);
           }}
@@ -2205,7 +2055,7 @@ function App({
       )}
       {toast && (
         <Alert
-          className="toast"
+          className="workspace-toast"
           tone={toastTone}
           onDismiss={() => {
             clearTimeout(toastTimer.current);
@@ -2219,67 +2069,10 @@ function App({
   );
 }
 
-function TagBadges({ ids, tags }: { ids: string[]; tags: Tag[] }) {
-  const assigned = tags.filter((tag) => ids.includes(tag.id));
-  if (!assigned.length) return null;
-  return (
-    <span className="tags-view__badges" aria-label="Tags asignados">
-      {assigned.map((tag) => (
-        <span className="tags-view__badge" key={tag.id}>
-          <span className="tags-view__swatch" style={{ backgroundColor: tag.color }} />
-          {tag.name}
-        </span>
-      ))}
-    </span>
-  );
-}
-
-function TagPicker({
-  tags,
-  error,
-  selectedIds,
-  onChange,
-}: {
-  tags: Tag[];
-  error: string;
-  selectedIds: string[];
-  onChange: (ids: string[]) => void;
-}) {
-  return (
-    <fieldset className="workspace__fieldset">
-      <legend>Tags</legend>
-      {error ? (
-        <Alert tone="error">{error}</Alert>
-      ) : tags.length ? (
-        tags.map((tag) => (
-          <label className="workspace__check" key={tag.id}>
-            <input
-              type="checkbox"
-              name="tagIds"
-              value={tag.id}
-              checked={selectedIds.includes(tag.id)}
-              onChange={(event) =>
-                onChange(
-                  event.target.checked
-                    ? [...selectedIds, tag.id]
-                    : selectedIds.filter((id) => id !== tag.id),
-                )
-              }
-            />
-            <span className="tags-view__swatch" style={{ backgroundColor: tag.color }} />
-            {tag.name}
-          </label>
-        ))
-      ) : (
-        <p>No hay tags. Puedes crearlos desde la sección Tags.</p>
-      )}
-    </fieldset>
-  );
-}
-
 function pageDescription(page: NavigationPage): string {
   return {
     overview: "Aquí tienes el estado de calidad de tus proyectos.",
+    reports: "Consulta indicadores, estados y resultados del proyecto seleccionado.",
     projects: "Crea y administra los proyectos de tu espacio de trabajo.",
     teams: "Administra la membresía de tus espacios de trabajo.",
     bugs: "Registra, prioriza y da seguimiento a las incidencias de tus proyectos.",
@@ -2289,395 +2082,9 @@ function pageDescription(page: NavigationPage): string {
     tags: "Crea tags por proyecto y clasifica bugs, casos de prueba y ejecuciones.",
     settings: "Preferencias del workspace y de tu perfil.",
     wiki: "Aprende a utilizar las funciones disponibles de qaTestGE.",
+    "bug-builder": "Convierte tu descripción en un borrador de bug y revísalo antes de guardar.",
     "case-builder": "De una idea a un plan de pruebas: explora la maqueta del futuro asistente.",
   }[page];
-}
-
-function StatusControl<TStatus extends string>({
-  status,
-  statuses,
-  disabled,
-  label,
-  onChange,
-}: {
-  status: TStatus;
-  statuses: readonly TStatus[];
-  disabled: boolean;
-  label: string;
-  onChange: (status: TStatus) => void;
-}) {
-  return (
-    <select
-      className={`workspace__status-select workspace__status-select--${status.toLowerCase().replaceAll(" ", "-")}`}
-      aria-label={`Cambiar estado de ${label}`}
-      value={status}
-      disabled={disabled}
-      onClick={(event) => event.stopPropagation()}
-      onChange={(event) => onChange(event.target.value as TStatus)}
-    >
-      {statuses.map((value) => (
-        <option key={value} value={value}>
-          {value}
-        </option>
-      ))}
-    </select>
-  );
-}
-
-function RowActions({
-  id,
-  onEdit,
-  onDelete,
-}: {
-  id: string;
-  onEdit?: () => void;
-  onDelete?: () => void;
-}) {
-  return (
-    <span className="workspace-table__actions" onClick={(event) => event.stopPropagation()}>
-      {onEdit && (
-        <button
-          type="button"
-          className="workspace__secondary"
-          aria-label={`Editar ${id}`}
-          onClick={onEdit}
-        >
-          Editar
-        </button>
-      )}
-      {onDelete && (
-        <button
-          type="button"
-          className="workspace__danger"
-          aria-label={`Eliminar ${id}`}
-          onClick={onDelete}
-        >
-          Eliminar
-        </button>
-      )}
-    </span>
-  );
-}
-
-function BugTable({
-  bugs,
-  tags,
-  onSelect,
-  onExport,
-  onEdit,
-  onDelete,
-  onStatusChange,
-  updatingStatus,
-  compact = false,
-}: {
-  bugs: Bug[];
-  tags: Tag[];
-  onSelect: (bug: Bug) => void;
-  onExport: (bug: Bug) => void;
-  onEdit?: (bug: Bug) => void;
-  onDelete?: (bug: Bug) => void;
-  onStatusChange: (bug: Bug, status: BugStatus) => void;
-  updatingStatus: string;
-  compact?: boolean;
-}) {
-  return (
-    <div className={`workspace-table__scroll${compact ? " table-compact" : ""}`}>
-      <table className="workspace-table__table">
-        <thead>
-          <tr>
-            <th>BUG ID</th>
-            <th>TÍTULO</th>
-            <th>PRIORIDAD</th>
-            <th>ESTADO</th>
-            <th>ASIGNADO</th>
-            <th>CREADO</th>
-            <th>ACCIONES</th>
-          </tr>
-        </thead>
-        <tbody>
-          {bugs.map((bug) => (
-            <tr key={bug.id} onClick={() => onSelect(bug)}>
-              <td data-label="BUG ID">
-                <span className="id-text">{bug.id}</span>
-              </td>
-              <td data-label="TÍTULO">
-                <span className="bug-title">{bug.title}</span>
-                <span className="table-project">{bug.project}</span>
-                <TagBadges ids={bug.tagIds ?? []} tags={tags} />
-              </td>
-              <td data-label="PRIORIDAD">
-                <Priority level={bug.priority} />
-              </td>
-              <td data-label="ESTADO">
-                {" "}
-                <StatusControl
-                  label={bug.id}
-                  status={bug.status}
-                  statuses={bugStatuses}
-                  disabled={Boolean(updatingStatus)}
-                  onChange={(status) => onStatusChange(bug, status)}
-                />
-              </td>
-              <td data-label="ASIGNADO">
-                <span className="assignee">
-                  <Avatar initials={bug.assignee} color={bug.color} small />
-                  <span>{bug.assignee}</span>
-                </span>
-              </td>
-              <td data-label="CREADO" className="muted-cell">
-                {bug.updated}
-              </td>
-              <td data-label="Acciones">
-                <RowActions
-                  id={bug.id}
-                  onEdit={onEdit ? () => onEdit(bug) : undefined}
-                  onDelete={onDelete ? () => onDelete(bug) : undefined}
-                />
-                <button
-                  className="workspace__secondary workspace-table__export"
-                  aria-label={`Exportar ${bug.id}`}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onExport(bug);
-                  }}
-                >
-                  Exportar
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function CaseTable({
-  items,
-  tags,
-  onSelect,
-  onExport,
-  onEdit,
-  onDelete,
-  onStatusChange,
-  updatingStatus,
-}: {
-  items: TestCase[];
-  tags: Tag[];
-  onSelect: (item: TestCase) => void;
-  onExport: (item: TestCase) => void;
-  onEdit: (item: TestCase) => void;
-  onDelete: (item: TestCase) => void;
-  onStatusChange: (item: TestCase, status: CaseStatus) => void;
-  updatingStatus: string;
-}) {
-  return (
-    <div className="workspace-table__scroll">
-      <table className="workspace-table__table">
-        <thead>
-          <tr>
-            <th>CASO ID</th>
-            <th>NOMBRE DEL CASO</th>
-            <th>SUITE</th>
-            <th>RESPONSABLE</th>
-            <th>ESTADO</th>
-            <th>CREADO</th>
-            <th>ACCIONES</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item) => (
-            <tr key={item.id} onClick={() => onSelect(item)}>
-              <td data-label="CASO ID">
-                <span className="id-text">{item.id}</span>
-              </td>
-              <td data-label="NOMBRE DEL CASO">
-                <span className="bug-title">{item.title}</span>
-                <TagBadges ids={item.tagIds ?? []} tags={tags} />
-              </td>
-              <td data-label="SUITE">
-                <span className="suite-badge">{item.suite || "—"}</span>
-              </td>
-              <td data-label="RESPONSABLE">{item.assigneeName || "Sin asignar"}</td>
-              <td data-label="ESTADO">
-                <StatusControl
-                  label={item.id}
-                  status={item.status}
-                  statuses={caseStatuses}
-                  disabled={Boolean(updatingStatus)}
-                  onChange={(status) => onStatusChange(item, status)}
-                />
-              </td>
-              <td data-label="CREADO" className="muted-cell">
-                {item.updated}
-              </td>
-              <td data-label="Acciones">
-                <RowActions
-                  id={item.id}
-                  onEdit={() => onEdit(item)}
-                  onDelete={() => onDelete(item)}
-                />
-                <button
-                  className="workspace__secondary workspace-table__export"
-                  aria-label={`Exportar ${item.id}`}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onExport(item);
-                  }}
-                >
-                  Exportar
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function RunTable({
-  items,
-  tags,
-  onSelect,
-}: {
-  items: TestRun[];
-  tags: Tag[];
-  onSelect: (item: TestRun, action: "view" | "edit" | "delete") => void;
-}) {
-  return (
-    <div className="workspace-table__scroll">
-      <table className="workspace-table__table">
-        <thead>
-          <tr>
-            <th>RUN ID</th>
-            <th>NOMBRE DE EJECUCIÓN</th>
-            <th>CASOS</th>
-            <th>PROGRESO</th>
-            <th>ESTADO</th>
-            <th>RESPONSABLE</th>
-            <th>ACCIONES</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item) => (
-            <tr key={item.id} onClick={() => onSelect(item, "view")}>
-              <td data-label="RUN ID">
-                <span className="id-text">{item.id}</span>
-              </td>
-              <td data-label="NOMBRE DE EJECUCIÓN">
-                <button
-                  className="workspace-table__open"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onSelect(item, "view");
-                  }}
-                >
-                  {item.title}
-                </button>
-                <TagBadges ids={item.tagIds ?? []} tags={tags} />
-              </td>
-              <td data-label="CASOS" className="muted-cell">
-                {item.cases}
-              </td>
-              <td data-label="PROGRESO">
-                <div className="table-progress">
-                  <span>
-                    <i style={{ width: `${item.progress}%` }} />
-                  </span>
-                  {item.progress}%
-                </div>
-              </td>
-              <td data-label="ESTADO">
-                <StatusBadge status={item.status} />
-              </td>
-              <td data-label="RESPONSABLE" className="muted-cell">
-                {item.owner}
-              </td>
-              <td data-label="Acciones">
-                <RowActions
-                  id={item.id}
-                  onEdit={() => onSelect(item, "edit")}
-                  onDelete={() => onSelect(item, "delete")}
-                />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function EvidenceTable({
-  items,
-  onSelect,
-  onActions,
-}: {
-  items: Evidence[];
-  onSelect: (item: Evidence) => void;
-  onActions: (item: Evidence) => void;
-}) {
-  return (
-    <div className="workspace-table__scroll">
-      <table className="workspace-table__table">
-        <thead>
-          <tr>
-            <th>NOMBRE</th>
-            <th>TIPO</th>
-            <th>VINCULADO A</th>
-            <th>TAMAÑO</th>
-            <th>FECHA</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item) => (
-            <tr key={item.id} onClick={() => onSelect(item)}>
-              <td data-label="NOMBRE">
-                <span className="evidence-name">
-                  <span className="evidence-file">
-                    <Icon name="file" size={17} />
-                  </span>
-                  <span>
-                    <span className="bug-title">{item.name}</span>
-                    <span className="table-project">
-                      {item.hasFile ? "Archivo disponible" : "Solo metadatos"}
-                    </span>
-                  </span>
-                </span>
-              </td>
-              <td data-label="TIPO">
-                <span className="suite-badge">{item.type}</span>
-              </td>
-              <td data-label="VINCULADO A">
-                <span className="id-text">{item.related}</span>
-              </td>
-              <td data-label="TAMAÑO" className="muted-cell">
-                {item.size}
-              </td>
-              <td data-label="FECHA" className="muted-cell">
-                {item.date}
-              </td>
-              <td data-label="Acciones">
-                <button
-                  type="button"
-                  className="row-more"
-                  aria-label={`Más opciones para ${item.name}`}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onActions(item);
-                  }}
-                >
-                  <Icon name="dots" size={18} />
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
 }
 
 export default App;

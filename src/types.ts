@@ -1,7 +1,9 @@
 export type NavigationPage =
   | "overview"
+  | "reports"
   | "bugs"
   | "cases"
+  | "bug-builder"
   | "case-builder"
   | "runs"
   | "evidence"
@@ -114,4 +116,5 @@ export type IconName =
   | "sparkle"
   | "tag"
   | "close"
+  | "chart"
   | "file";

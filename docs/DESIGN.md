@@ -22,6 +22,25 @@ Reutilizar tokens; no crear un hexadecimal distinto por componente. Los tokens `
 
 La marca usa `public/favicon.svg`. El tema inicial respeta el sistema; una elección explícita se guarda en `qatestge-theme` cuando localStorage está disponible.
 
+## Tipografía y textos con cantidades
+
+`src/typography.css` centraliza tamaños en rem y clases BEM reutilizables. Los bloques existentes consumen los mismos tokens, sin sobrescribirlos con píxeles menores en móvil.
+
+| Rol               | Token / clase                            | Tamaño base        |
+| ----------------- | ---------------------------------------- | ------------------ |
+| Título de página  | `--font-title` / `typography__title`     | 24–28 px adaptable |
+| Sección           | `--font-section` / `typography__section` | 20 px              |
+| Subtítulo         | `--font-heading` / `typography__heading` | 18 px              |
+| Contenido         | `--font-body` / `typography__body`       | 16 px              |
+| Acción / entrada  | `--font-control` / `typography__control` | 16 px              |
+| Ayuda / metadatos | `--font-caption` / `typography__caption` | 14 px mínimo       |
+
+Los botones de creación comparten el tamaño de control y un alto mínimo de 44 px. Mantener saltos de línea, zoom y lectura con texto ampliado; no resolver desbordamientos reduciendo la fuente. No aplicar estos tamaños a iconos decorativos ni contadores gráficos de gran tamaño. Nuevos encabezados usan clases semánticas y el bloque del componente controla sus márgenes.
+
+Toda frase ligada a una cantidad usa `formatCount(cantidad, "resultado registrado", "resultados registrados")`; para verbos usa `pluralize(cantidad, "Se exportará", "Se exportarán")`. Las formas son explícitas para permitir acentos y plurales irregulares. `Intl.PluralRules("es")` elige la forma; 0 usa plural. `product/pluralization` bloquea interpolaciones conocidas con texto fijo tanto en JSX como en plantillas. Es un guardián de vocabulario, no un analizador gramatical completo: extenderlo al introducir nuevos sustantivos y probar 0, 1 y varios en contexto. Los títulos de colecciones pueden ser plurales sin contador.
+
+El nombre/avatar del usuario es un botón accesible que abre Configuración y cierra el menú móvil.
+
 ## Componentes y contratos
 
 | Necesidad   | Reutilizar                              | Reglas                                                                                                  |
@@ -50,7 +69,7 @@ Dashboard muestra conteos reales del proyecto y no incluye Nuevo bug. Los bugs s
 
 El diseñador tiene 18 categorías con cantidades de 1 a 5 e iniciales configurables por usuario en el navegador. Exige descripción, categoría y cantidades válidas. Cada caso admite edición de pasos y guardado explícito mediante API. Exporta la vista previa editada a Excel, PDF y Markdown localmente. El requisito escrito no genera contenido: mantener los avisos de ejemplos ilustrativos e IA no conectada.
 
-Las evidencias permiten archivos privados de hasta 2 MiB; los casos admiten imágenes y enlaces. No describir como disponibles IA real, invitaciones, MFA, recuperación de contraseña o verificación de correo. La configuración de IA sigue deshabilitada y no almacena claves.
+Las evidencias permiten archivos privados de hasta 2 MiB; los casos admiten imágenes y enlaces. Hay invitaciones por código de un solo uso. No describir como disponibles IA real, invitaciones por correo, MFA, recuperación de contraseña o verificación de correo. La configuración de IA sigue deshabilitada y no almacena claves.
 
 ## Revisión
 

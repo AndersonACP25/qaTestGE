@@ -173,3 +173,11 @@ Formato: `{"error":{"code":"INVALID_REFERENCE","message":"..."}}`.
 | 500  | `INTERNAL_ERROR`                                                                                                                                                                                                                                                                                                                                                                                                |
 
 La API no devuelve SQL, parámetros, credenciales ni errores internos del driver. El arranque falla si no existe una conexión válida y el esquema importado; no hay fallback en memoria. `pnpm db:check` comprueba la configuración sin modificar datos.
+
+## Contratos de robustez
+
+POST de bugs, casos y ejecuciones acepta Idempotency-Key (UUID) opcional. Conservar cuenta, proyecto, clave y cuerpo recupera el mismo recurso sin duplicarlo. Datos diferentes producen REQUEST_KEY_CONFLICT (409); una creación eliminada produce CREATED_RESOURCE_REMOVED (409). No hay reintentos automáticos. Requiere migración 012.
+
+GET de esas colecciones admite limit (1–100; 50 al activar opciones), offset (0–1000000), search (hasta 200; literal) y status del dominio. Usar estas opciones exige projectId. data sigue siendo un array con orden por ID descendente; sin opciones se conserva la colección completa. INVALID_PAGINATION, INVALID_FILTER y PROJECT_REQUIRED son errores 400. La UI muestra páginas de 50 y exporta la visible.
+
+X-Request-ID permite correlacionar logs sin datos sensibles. INVALID_RESPONSE es el error local del cliente cuando el JSON o un 204 incumple el contrato esperado.

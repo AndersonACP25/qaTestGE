@@ -1,4 +1,4 @@
-import { categories, validCaseCount } from "./caseDesign.model";
+import { categories, validCaseCount, type CaseCategory } from "./caseDesign.model";
 
 export type CaseCountDefaults = Record<string, number>;
 
@@ -17,6 +17,7 @@ function selectedPreferenceKey(userId: string) {
 export function loadCaseCountDefaults(
   userId: string,
   storage?: Pick<Storage, "getItem">,
+  catalog: CaseCategory[] = categories,
 ): CaseCountDefaults {
   let source = storage;
   if (!source && typeof window !== "undefined") {
@@ -47,7 +48,7 @@ export function loadCaseCountDefaults(
 
   const values = stored as Record<string, unknown>;
   return Object.fromEntries(
-    categories.map(({ id }) => [
+    catalog.map(({ id }) => [
       id,
       typeof values[id] === "number" && validCaseCount(values[id]) ? values[id] : 1,
     ]),
@@ -58,10 +59,11 @@ export function saveCaseCountDefaults(
   userId: string,
   defaults: CaseCountDefaults,
   storage?: Pick<Storage, "setItem">,
+  catalog: CaseCategory[] = categories,
 ) {
   const normalized = Object.fromEntries(
-    categories.map(({ id }) => {
-      const value = defaults[id];
+    catalog.map(({ id }) => {
+      const value = defaults[id] ?? 1;
       if (!validCaseCount(value)) throw new RangeError(`Cantidad inicial inválida para ${id}.`);
       return [id, value];
     }),
@@ -74,6 +76,7 @@ export function saveCaseCountDefaults(
 export function loadSelectedCategories(
   userId: string,
   storage?: Pick<Storage, "getItem">,
+  catalog: CaseCategory[] = categories,
 ): string[] {
   let target = storage;
   if (!target && typeof window !== "undefined") {
@@ -89,7 +92,7 @@ export function loadSelectedCategories(
     if (!Array.isArray(stored)) return [...defaultSelectedCategories];
     const valid = stored.filter(
       (id): id is string =>
-        typeof id === "string" && categories.some((category) => category.id === id),
+        typeof id === "string" && catalog.some((category) => category.id === id),
     );
     const unique = [...new Set(valid)];
     return unique.length ? unique : [...defaultSelectedCategories];
@@ -102,8 +105,9 @@ export function saveSelectedCategories(
   userId: string,
   selected: string[],
   storage?: Pick<Storage, "setItem">,
+  catalog: CaseCategory[] = categories,
 ) {
-  const knownIds = new Set(categories.map(({ id }) => id));
+  const knownIds = new Set(catalog.map(({ id }) => id));
   const normalized = [...new Set(selected)];
   if (!normalized.length || normalized.some((id) => !knownIds.has(id))) {
     throw new RangeError("Selecciona al menos un tipo de prueba válido.");

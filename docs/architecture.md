@@ -4,7 +4,7 @@ La migración 011 vincula el responsable de bugs y casos con una membresía de l
 
 La gestión de proyectos valida en PostgreSQL que quien crea, edita o elimina sea propietario de la organización. El borrado de proyectos con referencias se rechaza; no se eliminan datos QA en cascada.
 
-La Wiki del frontend documenta el flujo implementado. Las tablas de bugs, casos y ejecuciones ofrecen acciones de edición y eliminación. El borrado de bugs utiliza la autorización por proyecto y conserva la integridad referencial: PostgreSQL rechaza la operación cuando hay casos o evidencias vinculados y la API responde con un conflicto.
+La Wiki del frontend documenta el flujo implementado. Las tablas de bugs, casos y ejecuciones ofrecen acciones de edición y eliminación. Test Runs permite abrir la ejecución desde su fila y enfocar el primer resultado pendiente para registrarlo manualmente. El espacio Reportes agrega bugs, casos, ejecuciones, resultados registrados y evidencias del proyecto activo; permite exportar los indicadores y distribuciones a CSV, sin persistir información calculada. El borrado de bugs utiliza la autorización por proyecto y conserva la integridad referencial: PostgreSQL rechaza la operación cuando hay casos o evidencias vinculados y la API responde con un conflicto.
 
 ## Estado del documento
 
@@ -60,7 +60,7 @@ La interfaz consume la API mediante el proxy /api y envía la cookie de sesión 
 
 ### Interfaz web
 
-Presenta espacios de trabajo, proyectos, listas y formularios para los cuatro recursos principales. Para el diseñador de casos, el modelo contiene el catálogo fijo, el hook controlador gestiona la interacción y la vista renderiza el flujo. Debe mostrar estados de carga y error, validar formularios para facilitar el uso y no confiar en validaciones del cliente como control de seguridad.
+Presenta espacios de trabajo, proyectos, listas y formularios para los cuatro recursos principales. La vista Reportes presenta métricas agregadas y un CSV descargable construidos desde los datos que ya carga el proyecto, sin llamadas adicionales ni datos externos. El componente de pie de página es compartido entre el workspace y la pantalla de acceso; las notificaciones globales se muestran en la parte superior con ancho limitado. Para el diseñador de casos, el modelo contiene el catálogo fijo, el hook controlador gestiona la interacción y la vista renderiza el flujo. Debe mostrar estados de carga y error, validar formularios para facilitar el uso y no confiar en validaciones del cliente como control de seguridad.
 
 ### API y capa de aplicación
 
@@ -76,7 +76,7 @@ La API usa `PostgresRepository` mediante una interfaz inyectada en `createApp`. 
 
 PostgreSQL conserva los datos tras reiniciar. Los proyectos/organizaciones existentes se descubren en GET /api/projects; no se crean automáticamente. projectId es obligatorio en las creaciones. Los IDs bigint se mantienen como strings; los IDs públicos de recursos conservan prefijos BUG, TC, RUN, EVD y RES. La base verifica existencia y pertenencia al mismo proyecto mediante claves compuestas. Las ejecuciones reciben caseIds en vez de caseCount, conservan un snapshot de los pasos y calculan cantidad/progreso a partir de resultados. La respuesta de evidencia usa un array related para conservar todos los vínculos existentes.
 
-backend/sql/ sigue siendo la base de importación manual; las migraciones posteriores son aditivas. La 004 agrega usuarios, membresías y sesiones; la 005 crea plantillas personales en qa.bug_templates; la 006 permite Suite opcional; la 007 agrega adjuntos privados de casos; la 008 agrega almacenamiento privado de archivos de evidencia; la 009 añade tags por proyecto y asociaciones explícitas a bugs, casos y ejecuciones. `db:migrate` las aplica de forma idempotente y `db:check` valida las tablas requeridas sin escrituras. La baja de cuenta conserva membresías y recursos: la fila de usuario queda inactiva y anonimizada, se revocan sesiones y se eliminan las plantillas. Falta permisos granulares, auditoría y respaldos. El repositorio autorizado añade control de acceso y las claves foráneas mantienen integridad. El frontend consulta estos recursos, realiza CRUD de casos y adjunta imágenes/enlaces.
+`pnpm db:setup` instala 001 y las migraciones desde un catálogo común en backend/src/migrations.ts; requiere una base qa_test_ge creada previamente. No carga seed ni reimporta un esquema existente. El historial SQL se conserva y las actualizaciones usan `pnpm db:migrate`. La 004 agrega usuarios, membresías y sesiones; la 005 crea plantillas personales en qa.bug_templates; la 006 permite Suite opcional; la 007 agrega adjuntos privados de casos; la 008 agrega almacenamiento privado de archivos de evidencia; la 009 añade tags por proyecto y asociaciones explícitas a bugs, casos y ejecuciones. `db:migrate` las aplica de forma idempotente y `db:check` valida las tablas requeridas sin escrituras. La baja de cuenta conserva membresías y recursos: la fila de usuario queda inactiva y anonimizada, se revocan sesiones y se eliminan las plantillas. Falta permisos granulares, auditoría y respaldos. El repositorio autorizado añade control de acceso y las claves foráneas mantienen integridad. El frontend consulta estos recursos, realiza CRUD de casos y adjunta imágenes/enlaces.
 
 Los tags tienen nombre único (sin distinción de mayúsculas) y color hexadecimal dentro de cada proyecto. Los recursos exponen `tagIds`; la API valida que todas las etiquetas asignadas pertenezcan al mismo proyecto. El CRUD de tags se limita al proyecto autorizado y borrar un tag elimina sus asociaciones, no los registros QA.
 
@@ -196,3 +196,35 @@ El portal enlaza `/api/docs/`. En un despliegue separado se requiere reenviar `/
 Consultar [API.md](./API.md) para el contrato implementado, [DESIGN.md](./DESIGN.md) para la interfaz, [RULES.md](./RULES.md) para convenciones y [DEVELOPMENT.md](./DEVELOPMENT.md) para comandos y entorno. [CONTRIBUTING.md](../CONTRIBUTING.md) describe el flujo de contribución y [SECURITY.md](../SECURITY.md) los límites de seguridad actuales.
 
 El diseñador admite de 1 a 5 ejemplos por categoría y exporta Markdown `.md` de la vista previa editada, con texto escapado y descarga local, sin dependencias adicionales. Los perfiles de `.opencode/agents/` coordinan el desarrollo en OpenCode y no son agentes dentro del producto.
+
+### Preferencias y tipos del diseñador
+
+CaseDesignSettings permite editar y eliminar todos los tipos, incluidos los predeterminados. Conserva IDs y preferencias al renombrar, y no altera casos guardados. useCasePreferences guarda un documento v2 con revisión, catálogo, cantidades y selección bajo un Web Lock; lee las claves anteriores y rechaza escrituras obsoletas, corrupción y cuotas. La selección tras eliminar tipos usa el primer tipo disponible. Se conserva al menos un tipo.
+
+### Diseñador local de bugs
+
+`BugDesignView` prepara título, descripción y prioridad a partir del texto y una plantilla personal cargada mediante el cliente central. Es una composición determinista, sin análisis semántico ni proveedor de IA. Reutiliza `TagPicker` con tags del proyecto. La creación exige revisar y marcar confirmación; llama a `createBug` una vez y bloquea una segunda creación de la misma vista previa tras el éxito. Los errores conservan el contenido editable.
+
+`models/bugDesign.ts` mantiene borradores explícitos en localStorage bajo clave por usuario y proyecto; valida la forma del contenido al recuperarlo. No añade un estado Borrador al dominio ni una migración. Cada borrador conserva su propio ID y puede abrirse, actualizarse o eliminarse. Tras publicar se intenta retirar el borrador local; un fallo de limpieza se comunica sin volver a crear el bug. No hay sincronización entre navegadores, subida de archivos ni envío externo. El componente se monta con clave usuario/proyecto para aislar el estado. La preparación rechaza descripciones combinadas mayores a 5000 caracteres sin recortarlas silenciosamente.
+
+La [guía de integración de IA](AI_INTEGRATION.md) describe una implementación futura bajo `servicios/`, con endpoint autenticado, consentimiento, salida estructurada, cuotas y revisión humana. No hay proveedor real implementado.
+
+### Exportación de listados y maqueta de perfil
+
+`TableExport` reutiliza el diálogo y los formatos existentes para exportar Bugs, Casos de prueba y Test runs, incluidas las tablas recientes del Dashboard. `models/tableExport.ts` transforma únicamente las filas filtradas recibidas y las columnas visibles en datos tabulares, sin descripciones, pasos ni resultados internos. Los tags se incluyen junto al título tal como aparecen en el listado. `utils/exportTable.ts` genera Excel, PDF apaisado y Markdown con las dependencias existentes y descarga local compartida con la exportación individual; no solicita datos adicionales a la API. Las celdas de Excel son texto y Markdown escapa separadores y HTML. Cada tabla mantiene sus controles y acciones de dominio; se reutiliza la capacidad de exportación sin introducir una abstracción genérica de celdas.
+
+Configuración muestra una vista preliminar de imagen de perfil con iniciales y un botón deshabilitado. No selecciona ni sube archivos, no persiste imágenes y no añade endpoints ni migraciones.
+
+### Robustez implementada
+
+[HARDENING.md](HARDENING.md) documenta contratos Zod y DTO inferidos, caché y tokens de alcance por proyecto, ErrorBoundary, persistencia con revisiones, separación de tablas/controladores/rutas, lint tipado y flags TypeScript adicionales por etapas. Los borradores leen arrays antiguos y documentos v2; Actualizar lista conserva la vista previa y evita sobrescribir cambios de otra pestaña. Las escrituras locales requieren Web Locks.
+
+La migración 012 añade qa.creation_requests. Bugs, casos y ejecuciones admiten Idempotency-Key por actor/proyecto/recurso; el advisory lock, la huella y el ID se confirman en la misma transacción del recurso. Repetir contenido distinto o un recurso eliminado devuelve 409; no se introducen reintentos automáticos. El esquema se comprueba antes de abrir el puerto.
+
+Los listados API admiten filtros y paginación opcionales con parámetros ligados, projectId obligatorio y orden estable por ID. La UI muestra páginas de 50 y exporta la página visible. Dashboard/Reportes conservan el snapshot completo; no se afirma haber reducido su volumen ni medido carga.
+
+CI dispone de PostgreSQL efímero, migraciones repetidas y verificación de aislamiento, rollback, concurrencia, idempotencia y asignaciones. requestContext genera X-Request-ID y logs JSON seguros sin cuerpos, consultas, cookies ni secretos. No se añade un proveedor externo.
+
+## Preparación y consistencia del release
+
+La tipografía se centraliza en src/typography.css con tokens rem y clases por rol. Las frases con cantidades usan formatCount/pluralize y un guardián ESLint de vocabulario. El perfil del lateral abre Configuración con navegación interna, conservando la sesión. Los perfiles de desarrollo comparten MEMORY.md y los criterios de docs/RELEASE.md; no son agentes dentro del producto.

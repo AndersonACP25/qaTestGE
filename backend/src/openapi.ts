@@ -1043,6 +1043,45 @@ export const openApiDocument = {
             tags: [path],
             parameters: [
               { in: "query", name: "projectId", required: path === "tags", schema: projectId },
+              ...(["bugs", "test-cases", "test-runs"].includes(path)
+                ? [
+                    {
+                      in: "query",
+                      name: "limit",
+                      required: false,
+                      description:
+                        "Requiere projectId. Activa paginación; por defecto 50, máximo 100.",
+                      schema: { type: "integer", minimum: 1, maximum: 100, default: 50 },
+                    },
+                    {
+                      in: "query",
+                      name: "offset",
+                      required: false,
+                      schema: { type: "integer", minimum: 0, maximum: 1000000, default: 0 },
+                    },
+                    {
+                      in: "query",
+                      name: "search",
+                      required: false,
+                      description: "Búsqueda literal en campos del listado, máximo 200 caracteres.",
+                      schema: { type: "string", maxLength: 200 },
+                    },
+                    {
+                      in: "query",
+                      name: "status",
+                      required: false,
+                      schema: {
+                        type: "string",
+                        enum:
+                          path === "bugs"
+                            ? bugStatuses
+                            : path === "test-cases"
+                              ? testCaseStatuses
+                              : ["En curso", "Completado"],
+                      },
+                    },
+                  ]
+                : []),
             ],
             responses: {
               "200": {
@@ -1057,6 +1096,18 @@ export const openApiDocument = {
             security: [{ sessionCookie: [], csrfToken: [] }],
             summary: `Crear ${path}`,
             tags: [path],
+            parameters: ["bugs", "test-cases", "test-runs"].includes(path)
+              ? [
+                  {
+                    in: "header",
+                    name: "Idempotency-Key",
+                    required: false,
+                    description:
+                      "UUID estable por creación, usuario y proyecto. Repetir la misma solicitud devuelve el mismo recurso; cambiar datos o repetir una creación eliminada devuelve 409. No activa reintentos automáticos.",
+                    schema: { type: "string", format: "uuid" },
+                  },
+                ]
+              : [],
             requestBody: { required: true, content: json(ref(`${schema}Input`)) },
             responses: {
               "201": { description: "Recurso persistido", content: json(envelope(ref(schema))) },
@@ -1066,7 +1117,7 @@ export const openApiDocument = {
               "401": errorResponse("UNAUTHENTICATED"),
               "403": errorResponse("INVALID_CSRF o INVALID_ORIGIN"),
               "404": errorResponse("PROJECT_NOT_FOUND"),
-              "409": errorResponse("CONFLICT: vínculo duplicado."),
+              "409": errorResponse("CONFLICT, REQUEST_KEY_CONFLICT o CREATED_RESOURCE_REMOVED."),
               "413": errorResponse("PAYLOAD_TOO_LARGE: cuerpo superior a 1 MB."),
               "500": errorResponse("INTERNAL_ERROR: error interno."),
               "503": unavailable,

@@ -25,7 +25,7 @@ export default function TestRunDialog({
   onClose: () => void;
   onChanged: (run: TestRun) => void;
   onDeleted: () => void;
-  initialAction?: "view" | "edit" | "delete";
+  initialAction?: "view" | "edit" | "delete" | "execute";
 }) {
   const [editing, setEditing] = useState(initialAction === "edit");
   const [confirmDelete, setConfirmDelete] = useState(initialAction === "delete");
@@ -33,6 +33,15 @@ export default function TestRunDialog({
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const content = useRef<HTMLDivElement>(null);
+  const pendingControl = useRef<HTMLSelectElement>(null);
+  const pendingResultId = run.results?.find((result) => !result.executedAt)?.id;
+  useEffect(() => {
+    if (initialAction !== "execute" || run.status === "Completado") return;
+    const control = pendingControl.current;
+    if (!control) return;
+    control.closest(".test-run__result")?.scrollIntoView({ block: "center" });
+    control.focus({ preventScroll: true });
+  }, [initialAction, run.id, run.status]);
   useEffect(() => {
     if (error || message)
       content.current?.closest<HTMLElement>('[role="dialog"]')?.scrollTo({ top: 0 });
@@ -180,7 +189,12 @@ export default function TestRunDialog({
                 </div>
               </div>
             )}
-            <h3>Resultados por caso</h3>
+            <h3 className="typography__heading">Resultados por caso</h3>
+            {initialAction === "execute" && run.status !== "Completado" && (
+              <Alert tone="info">
+                Registra el resultado de cada caso pendiente y guárdalo para actualizar el progreso.
+              </Alert>
+            )}
             {!run.results?.length && (
               <p>Aún no hay casos. Edita la ejecución para seleccionarlos.</p>
             )}
@@ -228,7 +242,15 @@ export default function TestRunDialog({
                   <legend>Registrar resultado de {result.caseId}</legend>
                   <label className="workspace__field">
                     Resultado
-                    <select name="status" defaultValue={result.status}>
+                    <select
+                      ref={
+                        initialAction === "execute" && result.id === pendingResultId
+                          ? pendingControl
+                          : undefined
+                      }
+                      name="status"
+                      defaultValue={result.status}
+                    >
                       {Object.entries(labels).map(([value, label]) => (
                         <option key={value} value={value}>
                           {label}

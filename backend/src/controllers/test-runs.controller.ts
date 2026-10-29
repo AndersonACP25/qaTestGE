@@ -1,4 +1,6 @@
-﻿import type { Request, Response } from "express";
+import { creationContext } from "../repositories/creation-request.js";
+import { listQuery } from "../repositories/list-query.js";
+import type { Request, Response } from "express";
 import { repository } from "../repositories/repository.js";
 import { isId, isRecord, parseReference, projectFilter, text } from "../validation.js";
 import {
@@ -11,7 +13,12 @@ import {
 import { HttpError } from "../http-error.js";
 
 export async function listTestRuns(request: Request, response: Response) {
-  response.json({ data: await repository(request).listRuns(projectFilter(request)) });
+  response.json({
+    data: await repository(request).listRuns(
+      projectFilter(request),
+      listQuery(request, ["En curso", "Completado"]),
+    ),
+  });
 }
 export async function createTestRun(request: Request, response: Response) {
   const body: unknown = request.body;
@@ -25,7 +32,9 @@ export async function createTestRun(request: Request, response: Response) {
     });
     return;
   }
-  response.status(201).json({ data: await repository(request).createRun(body) });
+  response
+    .status(201)
+    .json({ data: await repository(request).createRun(body, creationContext(request, response)) });
 }
 function valid(body: unknown): body is CreateTestRunInput {
   if (

@@ -83,7 +83,7 @@ export default function TeamsView({ onChanged }: { onChanged: () => void }) {
       {error && <Alert tone="error">{error}</Alert>}
       {message && <Alert tone="success">{message}</Alert>}
       <section className="projects-view__panel">
-        <h2>{editingTeam ? "Editar equipo" : "Crear equipo"}</h2>
+        <h2 className="typography__section">{editingTeam ? "Editar equipo" : "Crear equipo"}</h2>
         <form
           className="projects-view__form"
           onSubmit={(event) => {
@@ -138,7 +138,7 @@ export default function TeamsView({ onChanged }: { onChanged: () => void }) {
         </form>
       </section>
       <section className="projects-view__panel">
-        <h2>Unirse a un equipo</h2>
+        <h2 className="typography__section">Unirse a un equipo</h2>
         <p>
           Solicita al propietario un código de un solo uso. Al aceptarlo podrás acceder a todos los
           proyectos de ese espacio.
@@ -161,7 +161,7 @@ export default function TeamsView({ onChanged }: { onChanged: () => void }) {
         </form>
       </section>
       <section className="projects-view__panel">
-        <h2>Mis equipos</h2>
+        <h2 className="typography__section">Mis equipos</h2>
         <label className="workspace__field">
           Equipo
           <select
@@ -206,7 +206,7 @@ export default function TeamsView({ onChanged }: { onChanged: () => void }) {
               </button>
             </div>
             {deleteTeam && (
-              <div>
+              <div className="projects-view__delete-confirmation">
                 <p>
                   Solo puedes eliminar un equipo sin proyectos ni otros integrantes. Los códigos
                   pendientes quedarán anulados.
@@ -275,7 +275,7 @@ export default function TeamsView({ onChanged }: { onChanged: () => void }) {
             )}
           </>
         )}
-        <h3>Integrantes</h3>
+        <h3 className="typography__heading">Integrantes</h3>
         {members.map((member) => (
           <article className="projects-view__item" key={member.id}>
             <div>

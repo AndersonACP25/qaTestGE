@@ -1,3 +1,5 @@
+import type { CreationContext } from "../repositories/creation-request.js";
+import type { ListQuery } from "../repositories/list-query.js";
 import type { Repository, Project } from "../repositories/repository.js";
 import type { BugStatus, CreateBugInput, UpdateBugInput } from "../models/bug.model.js";
 import type {
@@ -23,6 +25,7 @@ export class AuthorizedRepository implements Repository {
   constructor(
     private readonly base: Repository,
     private readonly projects: () => Promise<Project[]>,
+    private readonly actorId?: string,
   ) {}
   health() {
     return this.base.health();
@@ -42,21 +45,30 @@ export class AuthorizedRepository implements Repository {
   ): Promise<T[]> {
     return (await Promise.all((await this.projectIds(projectId)).map(read))).flat();
   }
-  listBugs(id?: string) {
-    return this.list(id, (projectId) => this.base.listBugs(projectId));
+  listBugs(id?: string, options?: ListQuery) {
+    return this.list(id, (projectId) =>
+      options ? this.base.listBugs(projectId, options) : this.base.listBugs(projectId),
+    );
   }
-  listCases(id?: string) {
-    return this.list(id, (projectId) => this.base.listCases(projectId));
+  listCases(id?: string, options?: ListQuery) {
+    return this.list(id, (projectId) =>
+      options ? this.base.listCases(projectId, options) : this.base.listCases(projectId),
+    );
   }
-  listRuns(id?: string) {
-    return this.list(id, (projectId) => this.base.listRuns(projectId));
+  listRuns(id?: string, options?: ListQuery) {
+    return this.list(id, (projectId) =>
+      options ? this.base.listRuns(projectId, options) : this.base.listRuns(projectId),
+    );
   }
   listEvidence(id?: string) {
     return this.list(id, (projectId) => this.base.listEvidence(projectId));
   }
-  async createBug(input: CreateBugInput) {
+  async createBug(input: CreateBugInput, context?: CreationContext) {
     await this.projectIds(input.projectId);
-    return this.base.createBug(input);
+    if (context && !this.actorId) throw new HttpError(401, "UNAUTHENTICATED", "Inicia sesión.");
+    return context
+      ? this.base.createBug(input, { ...context, actorId: this.actorId! })
+      : this.base.createBug(input);
   }
   async updateBugStatus(id: string, projectId: string, status: BugStatus) {
     await this.projectIds(projectId);
@@ -70,9 +82,12 @@ export class AuthorizedRepository implements Repository {
     await this.projectIds(projectId);
     return this.base.deleteBug(id, projectId);
   }
-  async createCase(input: CreateTestCaseInput) {
+  async createCase(input: CreateTestCaseInput, context?: CreationContext) {
     await this.projectIds(input.projectId);
-    return this.base.createCase(input);
+    if (context && !this.actorId) throw new HttpError(401, "UNAUTHENTICATED", "Inicia sesión.");
+    return context
+      ? this.base.createCase(input, { ...context, actorId: this.actorId! })
+      : this.base.createCase(input);
   }
   async updateCase(id: string, projectId: string, input: UpdateTestCaseInput) {
     await this.projectIds(projectId);
@@ -102,9 +117,12 @@ export class AuthorizedRepository implements Repository {
     await this.projectIds(projectId);
     return this.base.deleteCaseAttachment(id, attachmentId, projectId);
   }
-  async createRun(input: CreateTestRunInput) {
+  async createRun(input: CreateTestRunInput, context?: CreationContext) {
     await this.projectIds(input.projectId);
-    return this.base.createRun(input);
+    if (context && !this.actorId) throw new HttpError(401, "UNAUTHENTICATED", "Inicia sesión.");
+    return context
+      ? this.base.createRun(input, { ...context, actorId: this.actorId! })
+      : this.base.createRun(input);
   }
   async updateRun(id: string, projectId: string, input: UpdateTestRunInput) {
     await this.projectIds(projectId);

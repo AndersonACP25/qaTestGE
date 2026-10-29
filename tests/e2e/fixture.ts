@@ -109,6 +109,8 @@ export const test = base.extend<{
         ];
       else if (path === "/bugs" && method === "POST") {
         data = {
+          assignee: null,
+          description: "",
           ...body,
           id: "BUG-002",
           project: "Proyecto QA",
@@ -133,6 +135,8 @@ export const test = base.extend<{
       else if (path === "/test-cases" && method === "GET") data = state.cases;
       else if (path === "/test-cases" && method === "POST") {
         data = {
+          suite: "",
+          preconditions: "",
           ...body,
           id: `TC-${String(state.cases.length + 1).padStart(3, "0")}`,
           status: "Pendiente",

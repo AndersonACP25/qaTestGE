@@ -18,6 +18,8 @@ describe("workspace branding", () => {
     expect(html).not.toContain("Almacenamiento");
     expect(html).not.toContain("Demo local");
     expect(html).toContain("Equipos");
+    expect(html).toContain("Reportes y métricas");
+    expect(html).toContain("app-footer");
     expect(html).toContain("IA no conectada");
   });
 });

@@ -1,6 +1,12 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { maxCaseCount, selectCaseExamples, validCaseCount } from "../models/caseDesign.model";
+import {
+  categories,
+  type CaseCategory,
+  maxCaseCount,
+  selectCaseExamples,
+  validCaseCount,
+} from "../models/caseDesign.model";
 import { defaultCaseCountDefaults, type CaseCountDefaults } from "../models/caseCountDefaults";
 import { createTestCase, updateTestCase } from "../api";
 import { designedCaseInput } from "../models/designedCaseInput";
@@ -18,7 +24,9 @@ export function useCaseDesignController(
   defaultCounts: CaseCountDefaults = defaultCaseCountDefaults,
   projectId = "",
   defaultSelected: string[] = ["edge"],
+  catalog: CaseCategory[] = categories,
 ) {
+  const requestKeys = useRef<Record<string, string>>({});
   const [text, setText] = useState("");
   const [selected, setSelected] = useState<string[]>(defaultSelected);
   const [counts, setCounts] = useState<Record<string, number>>({});
@@ -32,9 +40,9 @@ export function useCaseDesignController(
   const [savedCases, setSavedCases] = useState<Record<string, TestCase>>({});
   const [saveCaseError, setSaveCaseError] = useState("");
   const effectiveCounts = Object.fromEntries(
-    Object.entries(defaultCounts).map(([id, value]) => [id, counts[id] ?? value]),
+    catalog.map(({ id }) => [id, counts[id] ?? defaultCounts[id] ?? 1]),
   );
-  const selectedCategories = selectCaseExamples(selected, effectiveCounts);
+  const selectedCategories = selectCaseExamples(selected, effectiveCounts, catalog);
   const countsValid = selected.every((id) => validCaseCount(effectiveCounts[id] ?? 1));
   const total = selectedCategories.reduce((sum, category) => sum + category.steps.length, 0);
   const previewCases: CaseDesignPreviewCase[] = selectedCategories.flatMap((category) =>
@@ -147,7 +155,10 @@ export function useCaseDesignController(
       const existing = savedCases[key];
       const saved = existing
         ? await updateTestCase(existing.id, projectId, { ...input, tagIds: existing.tagIds ?? [] })
-        : await createTestCase(input);
+        : await createTestCase(
+            input,
+            requestKeys.current[key] ?? (requestKeys.current[key] = crypto.randomUUID()),
+          );
       setSavedCases((current) => ({ ...current, [key]: saved }));
     } catch (cause) {
       setSaveCaseError(cause instanceof Error ? cause.message : "No se pudo guardar el caso.");
@@ -157,6 +168,7 @@ export function useCaseDesignController(
   }
 
   return {
+    categories: catalog,
     text,
     selected,
     counts,

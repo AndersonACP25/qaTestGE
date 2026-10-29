@@ -6,4 +6,4 @@ Lee @AGENTS.md y @.opencode/memory.md antes de modificar archivos. Inspecciona e
 
 Implementa el siguiente cambio: `$ARGUMENTS`
 
-Realiza cambios quirúrgicos y completos. Para el frontend, usa clases CSS con metodología BEM (`bloque__elemento--modificador`). No agregues backend ni persistencia si no se solicitan. Ejecuta `pnpm build` al cambiar código y reporta claramente el resultado. No crees commits a menos que se solicite; si se solicita, usa Conventional Commits.
+Realiza cambios acotados y completos. Para el frontend usa BEM, los tokens de src/typography.css y formatCount/pluralize para contadores. No agregues backend ni persistencia fuera del alcance. Ejecuta las cinco validaciones de AGENTS.md y Playwright si cambian flujos de interfaz; SQL/relaciones requieren además PostgreSQL efímero. El agente principal actualiza MEMORY.md y crea los commits coherentes exigidos por AGENTS.md; los subagentes no crean commits. No publiques sin solicitud.

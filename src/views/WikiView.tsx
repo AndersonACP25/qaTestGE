@@ -9,7 +9,7 @@ const guides = [
   },
   {
     title: "3. Registra bugs",
-    text: "En Bugs documenta la incidencia, su prioridad y descripción. Puedes asignarla a un integrante activo del equipo, editarla y cambiar su estado. Los responsables históricos escritos como texto se conservan.",
+    text: "En Bugs documenta la incidencia, su prioridad y descripción. Diseñar bugs prepara una vista previa local a partir del texto y una plantilla; permite tags, borradores en este navegador y creación tras revisión. No utiliza IA. Puedes asignarla a un integrante activo del equipo, editarla y cambiar su estado. Los responsables históricos escritos como texto se conservan.",
   },
   {
     title: "4. Ejecuta pruebas",
@@ -34,7 +34,7 @@ export default function WikiView() {
     <div className="wiki-view">
       {guides.map((guide) => (
         <section className="wiki-view__card" key={guide.title}>
-          <h2>{guide.title}</h2>
+          <h2 className="typography__section">{guide.title}</h2>
           <p>{guide.text}</p>
         </section>
       ))}

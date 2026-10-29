@@ -8,7 +8,7 @@ export function databaseFailureHint(error: unknown): string {
   if (["28P01", "28000"].includes(code))
     return "PostgreSQL rechazó la autenticación; revisa las credenciales locales de DATABASE_URL.";
   if (code === "3F000")
-    return "No existe el esquema qa; en una base nueva, importa backend/sql/001_schema.sql una sola vez y luego ejecuta pnpm db:migrate.";
+    return "No existe el esquema qa; en una base nueva, ejecuta pnpm db:setup una sola vez para instalar el esquema y las migraciones.";
   if (["42P01", "42703"].includes(code))
     return "Falta una tabla o columna requerida; verifica el esquema existente y ejecuta pnpm db:migrate. No reimportes 001_schema.sql sobre una base inicializada.";
   if (/^\w{5}$/.test(code))
@@ -42,6 +42,7 @@ export async function checkDatabase(pool: pg.Pool): Promise<void> {
     LEFT JOIN qa.bug_test_cases bc ON bc.bug_id = b.id
     LEFT JOIN qa.evidence e ON e.project_id = p.id
     LEFT JOIN qa.evidence_links el ON el.evidence_id = e.id LIMIT 0`);
+  await pool.query("SELECT user_id,project_id,request_key FROM qa.creation_requests LIMIT 0");
   await pool.query("SELECT 1");
   await pool.query(
     "SELECT u.id,s.token_hash,m.user_id FROM qa.users u LEFT JOIN qa.auth_sessions s ON s.user_id=u.id LEFT JOIN qa.organization_members m ON m.user_id=u.id LIMIT 0",

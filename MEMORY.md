@@ -17,25 +17,28 @@
 - Actualizar este archivo al terminar cada prompt de trabajo; máximo 99 líneas.
 - No usar la base de datos local para pruebas destructivas; las migraciones se ejecutan con `pnpm db:migrate`.
 
-## Estado conocido al 2026-10-27
+## Estado conocido al 2026-10-29
 
 - La Wiki presenta el flujo disponible y aclara los límites actuales del diseñador y la IA.
+- Revisión aplicada en docs/HARDENING.md: contratos Zod/DTO inferidos, ErrorBoundary, caché y tokens por proyecto; regresiones de respuestas inválidas y tardías corregidas.
+- Lint tipado de promesas/hooks, globals por entorno, flags TypeScript adicionales en tsconfig.boundaries.json, filas SQL específicas y extracción de tablas/primitivas/adjuntos/controladores/rutas. AGENTS.md incorpora las reglas del informe.
+- Diseñar bugs combina texto y plantillas personales localmente, permite prioridad/tags y borradores versionados por usuario/proyecto con revisión y Web Locks. Actualizar lista conserva la vista previa; corrupción/conflictos no se sobrescriben. Crear exige revisión y usa Idempotency-Key. No hay IA ni nuevo estado Borrador de dominio.
+- docs/AI_INTEGRATION.md orienta la conexión futura: proveedor bajo servicios/, endpoint autenticado, consentimiento, secretos del servidor y salidas estructuradas. No hay proveedor externo real.
+- Interfaz: registros de tabla a 16 px (15 px en móvil), títulos a 16 px y contadores a 14 px; Proyectos/Equipos con títulos compactos y espaciado uniforme; Configuración con apartados de selección visible. Botones habilitados tienen hover por brillo sin sombra lateral y respetan movimiento reducido. Exportar usa verde. README orientado al usuario; detalles técnicos enlazados en docs/.
 - Las tablas de bugs, casos y ejecuciones incluyen acciones directas de edición y eliminación con confirmación. Un bug con casos o evidencias vinculadas no se puede eliminar.
-- Las acciones de tablas tienen columna suficiente y botones sin cortes; la regresión E2E verifica Dashboard y listados en escritorio y móvil.
+- Las tablas de registros usan tipografía ampliada y se validan en escritorio y móvil. Test Runs permite abrir una ejecución y enfocar el primer resultado pendiente desde su fila.
 - El propietario puede crear, editar y eliminar proyectos vacíos desde Proyectos. Los proyectos con registros vinculados no se borran.
 - Equipos permite listar espacios y miembros, crear invitaciones de un solo uso y retirar integrantes. Aceptar una invitación concede acceso a todos los proyectos de la organización; requiere migración 010.
 - Equipos permite crear, renombrar y eliminar espacios sin proyectos ni otros integrantes. Los proyectos nuevos se crean en el equipo propietario seleccionado.
 - Bugs y casos se asignan a integrantes activos de la organización mediante migración 011. Retirar a un integrante con asignaciones está bloqueado hasta reasignarlas; se conserva el responsable textual histórico de bugs.
-- Configuración se organiza por cuenta y seguridad, plantillas, diseño de casos e IA. La configuración de IA sigue siendo una maqueta.
-- Los botones Exportar de bugs y casos abren la selección de formato; el editor de pasos utiliza una tabla adaptable en creación y edición.
+- Configuración se organiza por cuenta y seguridad, plantillas, diseño de casos e IA. Imagen de perfil e IA son maquetas sin carga de archivos ni credenciales. Se retiró «Sesión activa» del lateral.
+- Exportación individual de bugs/casos y TableExport compartido para filas filtradas de bugs/casos/runs y recientes del Dashboard: Excel/PDF/Markdown locales. Exporta las columnas externas y tags, sin detalle interno; mantiene acciones de dominio por tabla. Editor de pasos adaptable.
 
-- CI valida pull requests y pushes a `main` y `qa-env`; artefacto solo se publica desde `main`.
-- El job 120736496879 falló en `format:check` por 36 archivos de skills importadas. `.prettierignore` excluye `.agents/skills/` y los informes de pruebas; código, documentación y `.opencode/skills/` conservan la validación estricta. No se desactiva ningún paso del workflow.
-- Validación local del arreglo: formato global, lint, tipos, build frontend/backend y 92 pruebas pasan. La ejecución remota seguirá usando la configuración anterior hasta integrar esta rama; no se ha publicado ni reejecutado Actions.
+- CI valida PR/push a main y qa-env; artefacto solo desde main. Job PostgreSQL efímero importa esquema inicial, repite migraciones y verifica aislamiento, concurrencia, asignaciones e idempotencia.
 - Bugs, casos, evidencias y tags admiten sus CRUD implementados; evidencias pueden almacenar/descargar archivos privados con límite de 2 MiB. Adjuntos de casos admiten imágenes/enlaces; migraciones `007` y `008`.
-- Los conteos y las categorías iniciales del diseñador se guardan por usuario en localStorage.
+- Preferencias del diseñador: documento v2 por usuario, migración de tres claves anteriores, revisión y Web Lock por escritura. Tipos incluidos y personalizados editables/eliminables desde su fila, ID estable, mínimo uno y máximo 100, nombres únicos de 1–60 caracteres. No modifica casos existentes.
 - Tags tienen CRUD por proyecto, nombre único por proyecto, color y asignaciones explícitas a bugs/casos/runs. Migración `009`.
-- Migraciones actuales: 004 autenticación, 005 plantillas, 006 Suite opcional, 007 adjuntos de casos, 008 archivos de evidencia y 009 tags.
+- Migraciones actuales: 004 autenticación, 005 plantillas, 006 Suite opcional, 007 adjuntos, 008 evidencias, 009 tags, 010 invitaciones, 011 responsables y 012 claves de creación por actor/proyecto/recurso con hash e ID, transaccionales. Aplicar db:migrate antes de iniciar esta versión.
 - No hay integraciones externas reales en `servicios/`; solo se define ahí el lugar de futuras integraciones.
 - Alertas reutilizables `Alert` para errores, éxitos, avisos e información; aplicadas en sesión, operaciones del workspace, ajustes, tags y diseño de casos.
 - Alertas con tokens semánticos `--feedback-*` para ambos temas, icono destacado, cierre accesible y movimiento reducido.
@@ -47,10 +50,14 @@
 - Test Runs permite crear, consultar, editar y eliminar; resultados por caso con notas y snapshots, progreso por `executed_at` y finalización/reapertura. Se exige al menos un caso y todos los resultados registrados para completar.
 - Edición, resultados y borrado de runs se serializan en transacciones con bloqueo de la ejecución; conservar resultados/snapshots de casos mantenidos y rechazar retirada/borrado con evidencias vinculadas. No requiere migración nueva.
 - `.opencode/agents/` contiene orquestador y subagentes frontend, dominio-api, calidad y qa; son perfiles de desarrollo, no funciones del producto.
+- Los cinco perfiles se revisaron para contratos, concurrencia, tipografía, pluralización e instalación/release. Calidad revisa criterios de entrega y QA flujos; no hacen falta roles adicionales. `.opencode/memory.md` solo referencia esta memoria, sin duplicar estado.
 - `docs/DESIGN.md` fija tokens, componentes reutilizables, BEM, accesibilidad y estados; sustituye referencias obsoletas al catálogo y capacidades.
 - Playwright/Chromium usa Vite aislado en 127.0.0.1:4174 y API sintética por prueba, bloqueando red externa. Proyectos desktop, Mobile-M 375 px y Mobile-L 425 px. Scripts `test:e2e`, `test:e2e:ui`, `test:e2e:report`; CI instala Chromium y conserva artefactos de fallos.
-- Validación del arreglo: tipos, lint, build y 96 pruebas Vitest/API pasan; 3 regresiones de filtros pasan en 375/425/1024/1180/1440 px y ambos temas. Las 12 E2E previas también pasan; capturas revisadas. `format:check` global falla por formato previo en 36 archivos de `.agents/skills/`; mantenerlos ajenos. Sin pruebas contra PostgreSQL local.
-- Incidencia de API resuelta: faltaban objetos de migraciones en el esquema; `pnpm db:migrate` aplicó/verificó 004–009 y `pnpm db:check` pasó. Backend usa puerto 4000 desde configuración local; `/api/health` da 200 y `/api/auth/me` sin sesión da 401 por backend y Vite. El backend valida esquema antes de escuchar.
-
-- Diagnóstico actual: 500 de Vite por backend detenido en puerto 4000; API iniciada y `/api/auth/me` responde 401 sin cookie. `db:check` pasa sin modificar datos.
 - Cliente central y descargas conservan errores HTTP con mensajes de respaldo; proxy devuelve 503 JSON cuando la API no responde. Reutilizar `Alert` en las vistas y capturas equivalentes a try/catch; regla en AGENTS.md.
+- Reportes del proyecto calculan conteos por estado, progreso promedio y aprobación solo con resultados ejecutados; permiten descargar CSV sin persistencia adicional. No se añade migración.
+- El footer reutilizable se comparte entre el workspace y la pantalla de acceso. Las notificaciones globales se muestran arriba, con ancho máximo de 360 px; alertas contextuales permanecen junto a su contenido.
+- Validación vigente: typecheck, lint, formato y build correctos; 162 unitarias/endpoints y 66 E2E aprobadas. PostgreSQL temporal validó instalación vacía, repetición, actualización desde 001, conservación de filas y la integración de autenticación, aislamiento, idempotencia y concurrencia; instancia cerrada y retirada sin tocar la BD personal.
+
+- Tablas: filtros/búsqueda a 14 px, páginas visibles de 50 y exportación de la página; API admite limit/offset/search/status parametrizados con projectId. Dashboard/Reportes aún calculan el snapshot completo. X-Request-ID y logs JSON no incluyen cuerpos, cookies, consultas ni secretos.
+- Preparación del release en docs/RELEASE.md; no se cambió la versión ni se publicó. README breve de presentación/stack/clonado; flujos completos en docs/USER_GUIDE.md. `pnpm db:setup` instala 001 y migraciones 004–012 desde backend/src/migrations.ts sobre una base creada previamente; no incluye seed ni reescribe SQL histórico. `db:migrate` comparte catálogo para actualizar.
+- Pluralización española central en src/utils/pluralization.ts (frases y verbos completos), guardián ESLint product/pluralization con vocabulario ampliable y pruebas 0/1/varios. Tipografía en src/typography.css: títulos 24–28, secciones 20, subtítulos 18, acciones 16 y ayuda 14 px, tokens rem y clases BEM. El botón de nombre/avatar abre Configuración y cierra el menú móvil.

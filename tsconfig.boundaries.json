@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true
+  },
+  "include": [
+    "src/contracts/**/*.ts",
+    "src/models/storageLock.ts",
+    "src/controllers/useOperationScope.ts"
+  ]
+}

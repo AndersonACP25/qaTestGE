@@ -1,21 +1,13 @@
+import type { ApiBug, ApiCase, ApiRun, ApiEvidence } from "./contracts/apiContracts";
+import { formatCount } from "./utils/pluralization";
+import { parseApiData, parseApiEnvelope } from "./contracts/apiContracts";
+import type { CreateBugInput, UpdateBugInput } from "../backend/src/models/bug.model";
+import type { CreateTestCaseInput } from "../backend/src/models/test-case.model";
 import type {
-  Bug as ApiBug,
-  CreateBugInput,
-  UpdateBugInput,
-} from "../backend/src/models/bug.model";
-import type {
-  CreateTestCaseInput,
-  TestCase as ApiCase,
-} from "../backend/src/models/test-case.model";
-import type {
-  TestRun as ApiRun,
   UpdateTestRunInput,
   UpdateRunResultInput,
 } from "../backend/src/models/test-run.model";
-import type {
-  Evidence as ApiEvidence,
-  UpdateEvidenceInput,
-} from "../backend/src/models/evidence.model";
+import type { UpdateEvidenceInput } from "../backend/src/models/evidence.model";
 import type {
   Bug,
   BugStatus,
@@ -160,7 +152,18 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
     );
   }
   if (!response.ok) throw await responseError(response);
-  if (response.status === 204) return undefined as T;
+  if (response.status === 204) {
+    const method = (options.method ?? "GET").toUpperCase();
+    const pathname = path.split("?")[0];
+    const valid =
+      method === "DELETE" ||
+      (method === "PATCH" &&
+        (pathname === "/auth/password" || /^\/teams\/[^/]+$/.test(pathname))) ||
+      (method === "POST" && ["/auth/logout", "/team-invitations/accept"].includes(pathname));
+    if (!valid)
+      throw new ApiError("La API no devolvió los datos esperados.", 204, "INVALID_RESPONSE");
+    return undefined as T;
+  }
   let body;
   try {
     body = await response.json();
@@ -171,13 +174,34 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
       "INVALID_RESPONSE",
     );
   }
-  return body.data as T;
+  try {
+    // The only generic assertion is at this validated HTTP boundary.
+    return parseApiData(path, (options.method ?? "GET").toUpperCase(), parseApiEnvelope(body)) as T;
+  } catch {
+    throw new ApiError(
+      "La API devolvió datos con un formato inesperado. Inténtalo de nuevo.",
+      response.status,
+      "INVALID_RESPONSE",
+    );
+  }
 }
-export async function createTestCase(input: CreateTestCaseInput) {
-  return toCase(await api<ApiCase>("/test-cases", { method: "POST", body: JSON.stringify(input) }));
+export async function createTestCase(input: CreateTestCaseInput, requestKey?: string) {
+  return toCase(
+    await api<ApiCase>("/test-cases", {
+      method: "POST",
+      body: JSON.stringify(input),
+      headers: requestKey ? { "Idempotency-Key": requestKey } : undefined,
+    }),
+  );
 }
-export async function createBug(input: CreateBugInput) {
-  return toBug(await api<ApiBug>("/bugs", { method: "POST", body: JSON.stringify(input) }));
+export async function createBug(input: CreateBugInput, requestKey?: string) {
+  return toBug(
+    await api<ApiBug>("/bugs", {
+      method: "POST",
+      body: JSON.stringify(input),
+      headers: requestKey ? { "Idempotency-Key": requestKey } : undefined,
+    }),
+  );
 }
 export async function updateBug(id: string, projectId: string, input: UpdateBugInput) {
   return toBug(
@@ -302,7 +326,7 @@ export const toBug = (b: ApiBug): Bug => ({
 export const toCase = (c: ApiCase): TestCase => ({ ...c, updated: date(c.createdAt) });
 export const toRun = (r: ApiRun): TestRun => ({
   ...r,
-  cases: `${r.caseCount} ${r.caseCount === 1 ? "caso" : "casos"}`,
+  cases: formatCount(r.caseCount, "caso", "casos"),
 });
 export async function updateTestRun(id: string, projectId: string, input: UpdateTestRunInput) {
   return toRun(

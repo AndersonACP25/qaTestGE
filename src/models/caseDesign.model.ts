@@ -294,8 +294,12 @@ export function validCaseCount(value: number): boolean {
   return Number.isInteger(value) && value >= 1 && value <= maxCaseCount;
 }
 
-export function selectCaseExamples(selected: readonly string[], counts: Record<string, number>) {
-  return categories
+export function selectCaseExamples(
+  selected: readonly string[],
+  counts: Record<string, number>,
+  catalog: CaseCategory[] = categories,
+) {
+  return catalog
     .filter((item) => selected.includes(item.id))
     .map((item) => ({
       ...item,
