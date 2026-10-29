@@ -20,6 +20,8 @@
 ## Estado conocido al 2026-10-29
 
 - La Wiki presenta el flujo disponible y aclara los límites actuales del diseñador y la IA.
+- Diseñar bugs combina texto y plantillas personales localmente, permite prioridad/tags y varios borradores por usuario/proyecto en localStorage. Crear exige revisión explícita; no hay IA ni nuevo estado de dominio. Reutiliza TagPicker y createBug.
+- docs/AI_INTEGRATION.md orienta la conexión futura: proveedor bajo servicios/, endpoint autenticado, consentimiento, secretos del servidor y salidas estructuradas. No hay proveedor externo real.
 - Interfaz: registros de tabla a 16 px (15 px en móvil), títulos a 16 px y contadores a 14 px; Proyectos/Equipos con títulos compactos y espaciado uniforme; Configuración con apartados de selección visible. Botones habilitados tienen hover por brillo sin sombra lateral y respetan movimiento reducido. Exportar usa verde. README orientado al usuario; detalles técnicos enlazados en docs/.
 - Las tablas de bugs, casos y ejecuciones incluyen acciones directas de edición y eliminación con confirmación. Un bug con casos o evidencias vinculadas no se puede eliminar.
 - Las tablas de registros usan tipografía ampliada y se validan en escritorio y móvil. Test Runs permite abrir una ejecución y enfocar el primer resultado pendiente desde su fila.
@@ -32,7 +34,7 @@
 
 - CI valida pull requests y pushes a `main` y `qa-env`; artefacto solo se publica desde `main`.
 - Bugs, casos, evidencias y tags admiten sus CRUD implementados; evidencias pueden almacenar/descargar archivos privados con límite de 2 MiB. Adjuntos de casos admiten imágenes/enlaces; migraciones `007` y `008`.
-- Los conteos, las categorías iniciales y los tipos personalizados del diseñador se guardan por usuario en localStorage. Configuración permite añadir tipos únicos (1–60 caracteres), con cinco escenarios editables; se pasan como catálogo al diseñador, sin migraciones ni IA.
+- Los conteos, las categorías iniciales y los tipos personalizados del diseñador se guardan por usuario en localStorage. Los tipos conservan ID al editarse y se pueden eliminar sin alterar casos; la persistencia lee nombres antiguos y pares ID/nombre. Configuración permite añadir, renombrar y eliminar tipos personalizados únicos (1–60 caracteres), con ID estable y cinco escenarios editables; se pasan como catálogo al diseñador, sin migraciones ni IA.
 - Tags tienen CRUD por proyecto, nombre único por proyecto, color y asignaciones explícitas a bugs/casos/runs. Migración `009`.
 - Migraciones actuales: 004 autenticación, 005 plantillas, 006 Suite opcional, 007 adjuntos de casos, 008 archivos de evidencia, 009 tags, 010 invitaciones y 011 responsables.
 - No hay integraciones externas reales en `servicios/`; solo se define ahí el lugar de futuras integraciones.
@@ -51,4 +53,4 @@
 - Cliente central y descargas conservan errores HTTP con mensajes de respaldo; proxy devuelve 503 JSON cuando la API no responde. Reutilizar `Alert` en las vistas y capturas equivalentes a try/catch; regla en AGENTS.md.
 - Reportes del proyecto calculan conteos por estado, progreso promedio y aprobación solo con resultados ejecutados; permiten descargar CSV sin persistencia adicional. No se añade migración.
 - El footer reutilizable se comparte entre el workspace y la pantalla de acceso. Las notificaciones globales se muestran arriba, con ancho máximo de 360 px; alertas contextuales permanecen junto a su contenido.
-- Validación vigente: pnpm typecheck, lint, build, format:check y test (128) pasan; Playwright pasa 39 pruebas en escritorio, 375 px y 425 px. Capturas revisadas de tablas, Equipos y perfil. Sin pruebas contra PostgreSQL local.
+- Validación vigente: pnpm typecheck, lint, build, format:check y test (132) pasan; Playwright pasa 45 pruebas en escritorio, 375 px y 425 px; capturas del diseñador de bugs revisadas. Restaurar borradores conserva los tags y exige retirar explícitamente los no disponibles. Sin pruebas contra PostgreSQL local.

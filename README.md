@@ -32,6 +32,16 @@ En **Configuración → Diseño de casos** puedes añadir tipos personalizados y
 
 El diseñador no analiza tu descripción ni genera contenido con IA. Revisa siempre los ejemplos antes de guardarlos.
 
+## Diseña tus bugs
+
+En **Diseñar bugs**, describe el problema y elige una plantilla personal si la necesitas. **Preparar bug** combina ese texto con la plantilla para crear una vista previa local editable; no analiza el problema con IA ni inventa hechos. Revisa título, descripción y prioridad, asigna tags del proyecto y confirma **Guardar bug en el proyecto**.
+
+Puedes conservar varios borradores con **Guardar borrador**, abrirlos o eliminarlos. Se guardan únicamente en este navegador por usuario y proyecto; no son bugs del proyecto y no se sincronizan. Evita incluir credenciales o datos sensibles. Al crear el bug se retira su borrador local.
+
+En **Configuración → Diseño de casos** también puedes editar o eliminar los tipos personalizados. Renombrarlos conserva sus preferencias; eliminarlos no modifica casos ya guardados. Los tipos incluidos en la aplicación se conservan.
+
+Si administras la instalación y quieres conectar un proveedor de IA, consulta la [guía de integración gradual](docs/AI_INTEGRATION.md). La integración real aún no está implementada.
+
 ## Personaliza tu cuenta
 
 En **Configuración** puedes actualizar tu nombre y correo, cambiar tu contraseña y crear plantillas personales de bugs. También puedes cambiar el tema de la interfaz.

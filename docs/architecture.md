@@ -199,7 +199,17 @@ El diseñador admite de 1 a 5 ejemplos por categoría y exporta Markdown `.md` d
 
 ### Tipos personalizados del diseñador
 
-Configuración permite añadir tipos con nombre único (sin distinguir mayúsculas y normalizando espacios), de 1 a 60 caracteres. Se guardan como nombres en localStorage bajo una clave por usuario; se reconstruyen con identificadores explícitos y cinco escenarios editables. El catálogo combinado se pasa al diseñador y a la validación de preferencias sin mutar el catálogo base. No requiere migración, no sincroniza dispositivos y no usa IA. Guardar un ejemplo sigue requiriendo una acción explícita y conserva el tipo como Suite.
+Configuración permite añadir tipos con nombre único (sin distinguir mayúsculas y normalizando espacios), de 1 a 60 caracteres. Se guardan como pares de identificador y nombre en localStorage bajo una clave por usuario; se reconstruyen con identificadores explícitos y cinco escenarios editables. El catálogo combinado se pasa al diseñador y a la validación de preferencias sin mutar el catálogo base. No requiere migración, no sincroniza dispositivos y no usa IA. Guardar un ejemplo sigue requiriendo una acción explícita y conserva el tipo como Suite.
+
+Los tipos personalizados admiten edición y eliminación. La persistencia conserva ahora pares `{id, label}` y lee también la lista anterior de nombres. Renombrar conserva el ID, las cantidades y la selección inicial; los IDs nuevos evitan colisiones con tipos renombrados. Eliminar limpia las preferencias activas y persistidas, con `edge` como selección de respaldo. Los tipos incorporados no se modifican y las Suites de casos guardados no se alteran.
+
+### Diseñador local de bugs
+
+`BugDesignView` prepara título, descripción y prioridad a partir del texto y una plantilla personal cargada mediante el cliente central. Es una composición determinista, sin análisis semántico ni proveedor de IA. Reutiliza `TagPicker` con tags del proyecto. La creación exige revisar y marcar confirmación; llama a `createBug` una vez y bloquea una segunda creación de la misma vista previa tras el éxito. Los errores conservan el contenido editable.
+
+`models/bugDesign.ts` mantiene borradores explícitos en localStorage bajo clave por usuario y proyecto; valida la forma del contenido al recuperarlo. No añade un estado Borrador al dominio ni una migración. Cada borrador conserva su propio ID y puede abrirse, actualizarse o eliminarse. Tras publicar se intenta retirar el borrador local; un fallo de limpieza se comunica sin volver a crear el bug. No hay sincronización entre navegadores, subida de archivos ni envío externo. El componente se monta con clave usuario/proyecto para aislar el estado. La preparación rechaza descripciones combinadas mayores a 5000 caracteres sin recortarlas silenciosamente.
+
+La [guía de integración de IA](AI_INTEGRATION.md) describe una implementación futura bajo `servicios/`, con endpoint autenticado, consentimiento, salida estructurada, cuotas y revisión humana. No hay proveedor real implementado.
 
 ### Exportación de listados y maqueta de perfil
 
