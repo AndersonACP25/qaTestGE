@@ -31,7 +31,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     test: {
-      include: ["tests/**/*.test.ts", "backend/tests/**/*.test.ts"],
+      include: ["tests/**/*.test.{ts,js}", "backend/tests/**/*.test.ts"],
     },
   };
 });

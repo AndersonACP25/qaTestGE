@@ -1,4 +1,5 @@
 import hooks from "eslint-plugin-react-hooks";
+import pluralization from "./eslint-rules/pluralization.js";
 import js from "@eslint/js";
 import globals from "globals";
 import tseslint from "typescript-eslint";
@@ -31,8 +32,12 @@ export default tseslint.config(
   {
     files: ["src/**/*.{ts,tsx}"],
     languageOptions: { globals: globals.browser },
-    plugins: { "react-hooks": hooks },
-    rules: { "react-hooks/rules-of-hooks": "error", "react-hooks/exhaustive-deps": "error" },
+    plugins: { "react-hooks": hooks, product: { rules: { pluralization } } },
+    rules: {
+      "react-hooks/rules-of-hooks": "error",
+      "react-hooks/exhaustive-deps": "error",
+      "product/pluralization": "error",
+    },
   },
   { files: ["backend/**/*.{ts,js}", "*.{js,ts}"], languageOptions: { globals: globals.node } },
   {

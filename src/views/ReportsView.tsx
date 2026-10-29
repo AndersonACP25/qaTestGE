@@ -1,3 +1,4 @@
+import { formatCount } from "../utils/pluralization";
 import { useMemo } from "react";
 import type { Bug, Evidence, TestCase, TestRun } from "../types";
 import { calculateReportMetrics } from "../models/reportMetrics";
@@ -95,12 +96,12 @@ export default function ReportsView({
           {
             label: "Bugs abiertos",
             value: metrics.openBugs,
-            detail: `${metrics.resolvedBugs} resueltos`,
+            detail: formatCount(metrics.resolvedBugs, "resuelto", "resueltos"),
           },
           {
             label: "Casos de prueba",
             value: cases.length,
-            detail: `${metrics.casesByStatus.Pendiente} pendientes`,
+            detail: formatCount(metrics.casesByStatus.Pendiente, "pendiente", "pendientes"),
           },
           {
             label: "Ejecuciones completadas",
@@ -126,7 +127,9 @@ export default function ReportsView({
         <article className="reports__quality-card">
           <span>Tasa de aprobación</span>
           <strong>{metrics.approvalRate}%</strong>
-          <small>{metrics.recordedResults} resultados registrados</small>
+          <small>
+            {formatCount(metrics.recordedResults, "resultado registrado", "resultados registrados")}
+          </small>
         </article>
       </div>
 

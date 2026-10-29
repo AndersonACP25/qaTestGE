@@ -1,4 +1,5 @@
 import Dialog from "../Dialog";
+import { formatCount } from "../utils/pluralization";
 import type { ReactNode } from "react";
 import type { Bug, TestCase } from "../types";
 
@@ -77,9 +78,7 @@ export default function RecordDetailsDialog({
             <section className="record-view__section">
               <div className="record-view__section-heading">
                 <h4>Pasos y resultados esperados</h4>
-                <span>
-                  {steps.length} {steps.length === 1 ? "paso" : "pasos"}
-                </span>
+                <span>{formatCount(steps.length, "paso", "pasos")}</span>
               </div>
               {steps.length ? (
                 <ol className="record-view__steps">

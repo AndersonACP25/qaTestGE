@@ -1,4 +1,5 @@
 import type { CaseDesignController } from "../controllers/useCaseDesignController";
+import { formatCount } from "../utils/pluralization";
 import Alert from "../Alert";
 
 export default function CaseDesignView({
@@ -62,7 +63,7 @@ export default function CaseDesignView({
           />
           <div className="case-builder__input-footer">
             <small id="case-builder-help">Usa información ficticia, sin datos sensibles.</small>
-            <span>{text.length} caracteres</span>
+            <span>{formatCount(text.length, "carácter", "caracteres")}</span>
           </div>
           <button
             className="case-builder__example"
@@ -151,7 +152,7 @@ export default function CaseDesignView({
               <h2 id="case-builder-results">Pasos y resultados esperados</h2>
               <p>
                 {preview
-                  ? `${total} casos de ejemplo · guardado manual`
+                  ? `${formatCount(total, "caso de ejemplo", "casos de ejemplo")} · guardado manual`
                   : "Tu vista previa aparecerá aquí."}
               </p>
             </div>
