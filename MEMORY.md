@@ -20,6 +20,8 @@
 ## Estado conocido al 2026-10-29
 
 - La Wiki presenta el flujo disponible y aclara los límites actuales del diseñador y la IA.
+- Revisión en docs/CODE_REVIEW.md: reproducidos cliente API sin validación del JSON y respuesta tardía de Diseñar bugs que mezcla el listado entre proyectos. Pendientes de corregir; autorización backend no fue eludida.
+- Mejoras propuestas, no implementadas: persistencia local consistente, lint tipado/hooks, PostgreSQL efímero en CI, DTO/filas SQL explícitos y modularización de App. AGENTS.md no se modificó.
 - Diseñar bugs combina texto y plantillas personales localmente, permite prioridad/tags y varios borradores por usuario/proyecto en localStorage. Crear exige revisión explícita; no hay IA ni nuevo estado de dominio. Reutiliza TagPicker y createBug.
 - docs/AI_INTEGRATION.md orienta la conexión futura: proveedor bajo servicios/, endpoint autenticado, consentimiento, secretos del servidor y salidas estructuradas. No hay proveedor externo real.
 - Interfaz: registros de tabla a 16 px (15 px en móvil), títulos a 16 px y contadores a 14 px; Proyectos/Equipos con títulos compactos y espaciado uniforme; Configuración con apartados de selección visible. Botones habilitados tienen hover por brillo sin sombra lateral y respetan movimiento reducido. Exportar usa verde. README orientado al usuario; detalles técnicos enlazados en docs/.
