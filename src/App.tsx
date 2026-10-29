@@ -1,3 +1,5 @@
+import TableExport from "./TableExport";
+import { bugTableExport, caseTableExport, runTableExport } from "./models/tableExport";
 import { categories } from "./models/caseDesign.model";
 import { loadCustomCaseTypes, saveCustomCaseTypes } from "./models/customCaseTypes";
 import TestRunDialog from "./views/TestRunDialog";
@@ -1118,7 +1120,6 @@ function App({
           <div className="workspace__identity">
             <Avatar initials={user.name.slice(0, 2).toUpperCase()} color="orange" />
             <strong>{user.name}</strong>
-            <small>Sesión activa</small>
           </div>
         </div>
       </aside>
@@ -1335,7 +1336,10 @@ function App({
                   ))}
                 </div>
                 <section className="workspace__panel">
-                  <h2>Bugs recientes</h2>
+                  <div className="workspace-table__heading">
+                    <h2>Bugs recientes</h2>
+                    <TableExport data={bugTableExport(bugs.slice(0, 5), tags)} />
+                  </div>
                   <BugTable
                     bugs={bugs.slice(0, 5)}
                     tags={tags}
@@ -1354,7 +1358,10 @@ function App({
                   )}
                 </section>
                 <section className="workspace__panel">
-                  <h2>Ejecuciones recientes</h2>
+                  <div className="workspace-table__heading">
+                    <h2>Ejecuciones recientes</h2>
+                    <TableExport data={runTableExport(runs.slice(0, 5), tags)} />
+                  </div>
                   <RunTable
                     items={runs.slice(0, 5)}
                     tags={tags}
@@ -1398,6 +1405,19 @@ function App({
                     />
                   </label>
                 </div>
+                {activePage !== "evidence" && (
+                  <div className="workspace-table__toolbar">
+                    <TableExport
+                      data={
+                        activePage === "bugs"
+                          ? bugTableExport(visibleBugs, tags)
+                          : activePage === "cases"
+                            ? caseTableExport(visibleCases, tags)
+                            : runTableExport(visibleRuns, tags)
+                      }
+                    />
+                  </div>
+                )}
                 {activePage === "bugs" && (
                   <BugTable
                     bugs={visibleBugs}
@@ -1454,7 +1474,7 @@ function App({
                     No hay registros que coincidan con los filtros.
                   </p>
                 )}
-                <div className="table-footer">
+                <div className="workspace-table__footer">
                   <span>{total} resultados · datos del proyecto</span>
                 </div>
               </section>
