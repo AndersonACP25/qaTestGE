@@ -1,3 +1,9 @@
+import TagPicker from "./TagPicker";
+import BugDesignView from "./views/BugDesignView";
+import TableExport from "./TableExport";
+import { bugTableExport, caseTableExport, runTableExport } from "./models/tableExport";
+import { categories } from "./models/caseDesign.model";
+import { loadCustomCaseTypes, saveCustomCaseTypes } from "./models/customCaseTypes";
 import TestRunDialog from "./views/TestRunDialog";
 import { version } from "../package.json";
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -75,6 +81,7 @@ const navigation: {
       { id: "teams", label: "Equipos", icon: "grid" },
       { id: "bugs", label: "Bugs", icon: "bug", count: undefined },
       { id: "cases", label: "Casos de prueba", icon: "check-square" },
+      { id: "bug-builder", label: "Diseñar bugs", icon: "sparkle" },
       { id: "case-builder", label: "Diseñar test cases", icon: "sparkle" },
       { id: "runs", label: "Test runs", icon: "play" },
       { id: "evidence", label: "Evidencias", icon: "image" },
@@ -382,11 +389,13 @@ function App({
   const [revision, setRevision] = useState(0);
   const [saving, setSaving] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState("");
+  const [customCaseTypes, setCustomCaseTypes] = useState(() => loadCustomCaseTypes(user.id));
+  const caseCatalog = [...categories, ...customCaseTypes];
   const [caseCountDefaults, setCaseCountDefaults] = useState<CaseCountDefaults>(() =>
-    loadCaseCountDefaults(user.id),
+    loadCaseCountDefaults(user.id, undefined, caseCatalog),
   );
   const [caseDesignCategories, setCaseDesignCategories] = useState<string[]>(() =>
-    loadSelectedCategories(user.id),
+    loadSelectedCategories(user.id, undefined, caseCatalog),
   );
   const [modal, setModal] = useState("");
   const [bugTemplates, setBugTemplates] = useState<BugTemplate[]>([]);
@@ -564,6 +573,7 @@ function App({
     tags: "Tags",
     settings: "Configuración",
     wiki: "Wiki",
+    "bug-builder": "Diseñar bugs",
     "case-builder": "Diseñar test cases",
   }[activePage];
   const notify = (message: string, tone: AlertTone = "success") => {
@@ -970,11 +980,11 @@ function App({
     }
   }
   function saveDefaultCounts(defaults: CaseCountDefaults) {
-    saveCaseCountDefaults(user.id, defaults);
+    saveCaseCountDefaults(user.id, defaults, undefined, caseCatalog);
     setCaseCountDefaults(defaults);
   }
   function saveDefaultCategories(selected: string[]) {
-    saveSelectedCategories(user.id, selected);
+    saveSelectedCategories(user.id, selected, undefined, caseCatalog);
     setCaseDesignCategories(selected);
   }
   async function changeBugStatus(bug: Bug, status: BugStatus) {
@@ -1114,7 +1124,6 @@ function App({
           <div className="workspace__identity">
             <Avatar initials={user.name.slice(0, 2).toUpperCase()} color="orange" />
             <strong>{user.name}</strong>
-            <small>Sesión activa</small>
           </div>
         </div>
       </aside>
@@ -1177,6 +1186,7 @@ function App({
               "projects",
               "teams",
               "case-builder",
+              "bug-builder",
               "settings",
               "tags",
               "wiki",
@@ -1262,6 +1272,22 @@ function App({
               user={user}
               onUserUpdated={onUserUpdated}
               onAccountDeleted={onAccountDeleted}
+              catalog={caseCatalog}
+              onCustomTypesChanged={(custom) => {
+                const nextCatalog = [...categories, ...custom];
+                const validIds = new Set(nextCatalog.map(({ id }) => id));
+                const selected = caseDesignCategories.filter((id) => validIds.has(id));
+                const nextSelected = selected.length ? selected : ["edge"];
+                const nextCounts = Object.fromEntries(
+                  nextCatalog.map(({ id }) => [id, caseCountDefaults[id] ?? 1]),
+                );
+                saveCaseCountDefaults(user.id, nextCounts, undefined, nextCatalog);
+                saveSelectedCategories(user.id, nextSelected, undefined, nextCatalog);
+                saveCustomCaseTypes(user.id, custom);
+                setCustomCaseTypes(custom);
+                setCaseDesignCategories(nextSelected);
+                setCaseCountDefaults(nextCounts);
+              }}
               caseCountDefaults={caseCountDefaults}
               onCaseCountDefaultsChanged={saveDefaultCounts}
               selectedCategories={caseDesignCategories}
@@ -1269,8 +1295,24 @@ function App({
             />
           ) : activePage === "wiki" ? (
             <WikiView />
+          ) : activePage === "bug-builder" ? (
+            !loading &&
+            !error &&
+            projectId && (
+              <BugDesignView
+                key={`${user.id}:${projectId}`}
+                userId={user.id}
+                projectId={projectId}
+                tags={tags}
+                tagError={tagError}
+                onSaved={(bug) =>
+                  setData((current) => ({ ...current, bugs: [bug, ...current.bugs] }))
+                }
+              />
+            )
           ) : activePage === "case-builder" ? (
             <CaseBuilder
+              catalog={caseCatalog}
               defaultCounts={caseCountDefaults}
               defaultSelectedCategories={caseDesignCategories}
               projectId={projectId}
@@ -1325,7 +1367,10 @@ function App({
                   ))}
                 </div>
                 <section className="workspace__panel">
-                  <h2>Bugs recientes</h2>
+                  <div className="workspace-table__heading">
+                    <h2>Bugs recientes</h2>
+                    <TableExport data={bugTableExport(bugs.slice(0, 5), tags)} />
+                  </div>
                   <BugTable
                     bugs={bugs.slice(0, 5)}
                     tags={tags}
@@ -1344,7 +1389,10 @@ function App({
                   )}
                 </section>
                 <section className="workspace__panel">
-                  <h2>Ejecuciones recientes</h2>
+                  <div className="workspace-table__heading">
+                    <h2>Ejecuciones recientes</h2>
+                    <TableExport data={runTableExport(runs.slice(0, 5), tags)} />
+                  </div>
                   <RunTable
                     items={runs.slice(0, 5)}
                     tags={tags}
@@ -1388,6 +1436,19 @@ function App({
                     />
                   </label>
                 </div>
+                {activePage !== "evidence" && (
+                  <div className="workspace-table__toolbar">
+                    <TableExport
+                      data={
+                        activePage === "bugs"
+                          ? bugTableExport(visibleBugs, tags)
+                          : activePage === "cases"
+                            ? caseTableExport(visibleCases, tags)
+                            : runTableExport(visibleRuns, tags)
+                      }
+                    />
+                  </div>
+                )}
                 {activePage === "bugs" && (
                   <BugTable
                     bugs={visibleBugs}
@@ -1444,7 +1505,7 @@ function App({
                     No hay registros que coincidan con los filtros.
                   </p>
                 )}
-                <div className="table-footer">
+                <div className="workspace-table__footer">
                   <span>{total} resultados · datos del proyecto</span>
                 </div>
               </section>
@@ -2263,49 +2324,6 @@ function TagBadges({ ids, tags }: { ids: string[]; tags: Tag[] }) {
   );
 }
 
-function TagPicker({
-  tags,
-  error,
-  selectedIds,
-  onChange,
-}: {
-  tags: Tag[];
-  error: string;
-  selectedIds: string[];
-  onChange: (ids: string[]) => void;
-}) {
-  return (
-    <fieldset className="workspace__fieldset">
-      <legend>Tags</legend>
-      {error ? (
-        <Alert tone="error">{error}</Alert>
-      ) : tags.length ? (
-        tags.map((tag) => (
-          <label className="workspace__check" key={tag.id}>
-            <input
-              type="checkbox"
-              name="tagIds"
-              value={tag.id}
-              checked={selectedIds.includes(tag.id)}
-              onChange={(event) =>
-                onChange(
-                  event.target.checked
-                    ? [...selectedIds, tag.id]
-                    : selectedIds.filter((id) => id !== tag.id),
-                )
-              }
-            />
-            <span className="tags-view__swatch" style={{ backgroundColor: tag.color }} />
-            {tag.name}
-          </label>
-        ))
-      ) : (
-        <p>No hay tags. Puedes crearlos desde la sección Tags.</p>
-      )}
-    </fieldset>
-  );
-}
-
 function pageDescription(page: NavigationPage): string {
   return {
     overview: "Aquí tienes el estado de calidad de tus proyectos.",
@@ -2319,6 +2337,7 @@ function pageDescription(page: NavigationPage): string {
     tags: "Crea tags por proyecto y clasifica bugs, casos de prueba y ejecuciones.",
     settings: "Preferencias del workspace y de tu perfil.",
     wiki: "Aprende a utilizar las funciones disponibles de qaTestGE.",
+    "bug-builder": "Convierte tu descripción en un borrador de bug y revísalo antes de guardar.",
     "case-builder": "De una idea a un plan de pruebas: explora la maqueta del futuro asistente.",
   }[page];
 }

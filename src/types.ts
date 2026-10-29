@@ -3,6 +3,7 @@ export type NavigationPage =
   | "reports"
   | "bugs"
   | "cases"
+  | "bug-builder"
   | "case-builder"
   | "runs"
   | "evidence"

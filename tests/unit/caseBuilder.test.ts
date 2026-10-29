@@ -66,6 +66,7 @@ describe("case builder mockup", () => {
 
   it("renders multiple editable action/result steps for each designed test case", () => {
     const controller: CaseDesignController = {
+      categories,
       text: "Validar acceso",
       selected: ["api"],
       counts: {},

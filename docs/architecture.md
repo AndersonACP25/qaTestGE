@@ -196,3 +196,23 @@ El portal enlaza `/api/docs/`. En un despliegue separado se requiere reenviar `/
 Consultar [API.md](./API.md) para el contrato implementado, [DESIGN.md](./DESIGN.md) para la interfaz, [RULES.md](./RULES.md) para convenciones y [DEVELOPMENT.md](./DEVELOPMENT.md) para comandos y entorno. [CONTRIBUTING.md](../CONTRIBUTING.md) describe el flujo de contribución y [SECURITY.md](../SECURITY.md) los límites de seguridad actuales.
 
 El diseñador admite de 1 a 5 ejemplos por categoría y exporta Markdown `.md` de la vista previa editada, con texto escapado y descarga local, sin dependencias adicionales. Los perfiles de `.opencode/agents/` coordinan el desarrollo en OpenCode y no son agentes dentro del producto.
+
+### Tipos personalizados del diseñador
+
+Configuración permite añadir tipos con nombre único (sin distinguir mayúsculas y normalizando espacios), de 1 a 60 caracteres. Se guardan como pares de identificador y nombre en localStorage bajo una clave por usuario; se reconstruyen con identificadores explícitos y cinco escenarios editables. El catálogo combinado se pasa al diseñador y a la validación de preferencias sin mutar el catálogo base. No requiere migración, no sincroniza dispositivos y no usa IA. Guardar un ejemplo sigue requiriendo una acción explícita y conserva el tipo como Suite.
+
+Los tipos personalizados admiten edición y eliminación. La persistencia conserva ahora pares `{id, label}` y lee también la lista anterior de nombres. Renombrar conserva el ID, las cantidades y la selección inicial; los IDs nuevos evitan colisiones con tipos renombrados. Eliminar limpia las preferencias activas y persistidas, con `edge` como selección de respaldo. Los tipos incorporados no se modifican y las Suites de casos guardados no se alteran.
+
+### Diseñador local de bugs
+
+`BugDesignView` prepara título, descripción y prioridad a partir del texto y una plantilla personal cargada mediante el cliente central. Es una composición determinista, sin análisis semántico ni proveedor de IA. Reutiliza `TagPicker` con tags del proyecto. La creación exige revisar y marcar confirmación; llama a `createBug` una vez y bloquea una segunda creación de la misma vista previa tras el éxito. Los errores conservan el contenido editable.
+
+`models/bugDesign.ts` mantiene borradores explícitos en localStorage bajo clave por usuario y proyecto; valida la forma del contenido al recuperarlo. No añade un estado Borrador al dominio ni una migración. Cada borrador conserva su propio ID y puede abrirse, actualizarse o eliminarse. Tras publicar se intenta retirar el borrador local; un fallo de limpieza se comunica sin volver a crear el bug. No hay sincronización entre navegadores, subida de archivos ni envío externo. El componente se monta con clave usuario/proyecto para aislar el estado. La preparación rechaza descripciones combinadas mayores a 5000 caracteres sin recortarlas silenciosamente.
+
+La [guía de integración de IA](AI_INTEGRATION.md) describe una implementación futura bajo `servicios/`, con endpoint autenticado, consentimiento, salida estructurada, cuotas y revisión humana. No hay proveedor real implementado.
+
+### Exportación de listados y maqueta de perfil
+
+`TableExport` reutiliza el diálogo y los formatos existentes para exportar Bugs, Casos de prueba y Test runs, incluidas las tablas recientes del Dashboard. `models/tableExport.ts` transforma únicamente las filas filtradas recibidas y las columnas visibles en datos tabulares, sin descripciones, pasos ni resultados internos. Los tags se incluyen junto al título tal como aparecen en el listado. `utils/exportTable.ts` genera Excel, PDF apaisado y Markdown con las dependencias existentes y descarga local compartida con la exportación individual; no solicita datos adicionales a la API. Las celdas de Excel son texto y Markdown escapa separadores y HTML. Cada tabla mantiene sus controles y acciones de dominio; se reutiliza la capacidad de exportación sin introducir una abstracción genérica de celdas.
+
+Configuración muestra una vista preliminar de imagen de perfil con iniciales y un botón deshabilitado. No selecciona ni sube archivos, no persiste imágenes y no añade endpoints ni migraciones.
