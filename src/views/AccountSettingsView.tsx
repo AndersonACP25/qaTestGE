@@ -1,5 +1,5 @@
-import { createCustomCaseType } from "../models/customCaseTypes";
-import { useEffect, useState } from "react";
+import { createCustomCaseType, renameCustomCaseType } from "../models/customCaseTypes";
+import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import Alert from "../Alert";
 import { api } from "../api";
@@ -31,6 +31,8 @@ export default function AccountSettingsView({
   selectedCategories: string[];
   onSelectedCategoriesChanged: (categories: string[]) => void;
 }) {
+  const [editingTypeId, setEditingTypeId] = useState("");
+  const typeNameInput = useRef<HTMLInputElement>(null);
   const [newTypeName, setNewTypeName] = useState("");
   const [newTypeError, setNewTypeError] = useState("");
   const [newTypeMessage, setNewTypeMessage] = useState("");
@@ -528,12 +530,18 @@ export default function AccountSettingsView({
             setNewTypeError("");
             setNewTypeMessage("");
             try {
-              const created = createCustomCaseType(newTypeName, catalog);
+              const created = editingTypeId
+                ? renameCustomCaseType(editingTypeId, newTypeName, catalog)
+                : createCustomCaseType(newTypeName, catalog);
               onCustomTypesChanged([
-                ...catalog.filter(({ id }) => id.startsWith("custom:")),
+                ...catalog.filter(({ id }) => id.startsWith("custom:") && id !== editingTypeId),
                 created,
               ]);
-              setCountDefaults((current) => ({ ...current, [created.id]: 1 }));
+              setCountDefaults((current) => ({
+                ...current,
+                [created.id]: current[created.id] ?? 1,
+              }));
+              setEditingTypeId("");
               setNewTypeName("");
               setNewTypeMessage("El tipo ya está disponible en el diseñador.");
             } catch (cause) {
@@ -544,8 +552,9 @@ export default function AccountSettingsView({
           }}
         >
           <label className="workspace__field">
-            Nombre del nuevo tipo
+            {editingTypeId ? "Nombre del tipo" : "Nombre del nuevo tipo"}
             <input
+              ref={typeNameInput}
               value={newTypeName}
               onChange={(event) => setNewTypeName(event.target.value)}
               maxLength={60}
@@ -553,11 +562,80 @@ export default function AccountSettingsView({
             />
           </label>
           <button className="button button-primary" type="submit">
-            Añadir tipo de caso
+            {editingTypeId ? "Guardar tipo de caso" : "Añadir tipo de caso"}
           </button>
+          {editingTypeId && (
+            <button
+              className="workspace__secondary"
+              type="button"
+              onClick={() => {
+                setEditingTypeId("");
+                setNewTypeName("");
+              }}
+            >
+              Cancelar edición de tipo
+            </button>
+          )}
           {newTypeError && <Alert tone="error">{newTypeError}</Alert>}
           {newTypeMessage && <Alert tone="success">{newTypeMessage}</Alert>}
         </form>
+        <div className="account-settings__custom-types">
+          <h3>Tipos personalizados</h3>
+          <p>Editar o eliminar un tipo no modifica los casos ya guardados.</p>
+          {catalog
+            .filter(({ id }) => id.startsWith("custom:"))
+            .map((item) => (
+              <div className="account-settings__custom-type" key={item.id}>
+                <strong>{item.label}</strong>
+                <button
+                  className="workspace__secondary"
+                  type="button"
+                  aria-label={"Editar tipo " + item.label}
+                  onClick={() => {
+                    setEditingTypeId(item.id);
+                    setNewTypeName(item.label);
+                    setNewTypeError("");
+                    setNewTypeMessage("");
+                    typeNameInput.current?.focus();
+                  }}
+                >
+                  Editar
+                </button>
+                <button
+                  className="workspace__danger"
+                  type="button"
+                  aria-label={"Eliminar tipo " + item.label}
+                  onClick={() => {
+                    setNewTypeError("");
+                    setNewTypeMessage("");
+                    try {
+                      onCustomTypesChanged(
+                        catalog.filter(({ id }) => id.startsWith("custom:") && id !== item.id),
+                      );
+                      setSelectedDefaults((current) => {
+                        const next = current.filter((id) => id !== item.id);
+                        return next.length ? next : ["edge"];
+                      });
+                      setCountDefaults((current) =>
+                        Object.fromEntries(
+                          Object.entries(current).filter(([id]) => id !== item.id),
+                        ),
+                      );
+                      if (editingTypeId === item.id) {
+                        setEditingTypeId("");
+                        setNewTypeName("");
+                      }
+                      setNewTypeMessage("Tipo eliminado. Los casos guardados se conservan.");
+                    } catch {
+                      setNewTypeError("No se pudo eliminar el tipo de este navegador.");
+                    }
+                  }}
+                >
+                  Eliminar
+                </button>
+              </div>
+            ))}
+        </div>
         <form
           className="account-settings__form"
           onSubmit={saveCountDefaults}

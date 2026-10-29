@@ -1269,8 +1269,19 @@ function App({
               onAccountDeleted={onAccountDeleted}
               catalog={caseCatalog}
               onCustomTypesChanged={(custom) => {
+                const nextCatalog = [...categories, ...custom];
+                const validIds = new Set(nextCatalog.map(({ id }) => id));
+                const selected = caseDesignCategories.filter((id) => validIds.has(id));
+                const nextSelected = selected.length ? selected : ["edge"];
+                const nextCounts = Object.fromEntries(
+                  nextCatalog.map(({ id }) => [id, caseCountDefaults[id] ?? 1]),
+                );
+                saveCaseCountDefaults(user.id, nextCounts, undefined, nextCatalog);
+                saveSelectedCategories(user.id, nextSelected, undefined, nextCatalog);
                 saveCustomCaseTypes(user.id, custom);
                 setCustomCaseTypes(custom);
+                setCaseDesignCategories(nextSelected);
+                setCaseCountDefaults(nextCounts);
               }}
               caseCountDefaults={caseCountDefaults}
               onCaseCountDefaultsChanged={saveDefaultCounts}

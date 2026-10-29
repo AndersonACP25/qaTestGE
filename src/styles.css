@@ -4699,3 +4699,22 @@ tbody td {
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+.account-settings__new-type .button {
+  font-size: 14px;
+}
+.account-settings__custom-types {
+  margin-bottom: 24px;
+}
+.account-settings__custom-type {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.account-settings__custom-type strong {
+  flex: 1 1 180px;
+  overflow-wrap: anywhere;
+}

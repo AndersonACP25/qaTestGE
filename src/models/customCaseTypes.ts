@@ -4,8 +4,12 @@ export function createCustomCaseType(label: string, catalog: CaseCategory[]): Ca
   if (!name || name.length > 60) throw new Error("Escribe un nombre de entre 1 y 60 caracteres.");
   if (catalog.some((item) => item.label.toLocaleLowerCase("es") === name.toLocaleLowerCase("es")))
     throw new Error("Ya existe un tipo con ese nombre.");
+  const baseId = "custom:" + name.toLocaleLowerCase("es");
+  let id = baseId;
+  let suffix = 2;
+  while (catalog.some((item) => item.id === id)) id = `${baseId}:${suffix++}`;
   return {
-    id: "custom:" + name.toLocaleLowerCase("es"),
+    id,
     label: name,
     description: "Tipo personalizado: adapta los pasos antes de guardar.",
     color: "#7c3aed",
@@ -25,10 +29,22 @@ export function loadCustomCaseTypes(
     );
     if (!Array.isArray(stored)) return [];
     const result: CaseCategory[] = [];
-    for (const label of stored) {
+    for (const entry of stored) {
+      const label = typeof entry === "string" ? entry : entry?.label;
       if (typeof label !== "string") continue;
       try {
-        result.push(createCustomCaseType(label, [...categories, ...result]));
+        const created = createCustomCaseType(label, [...categories, ...result]);
+        if (typeof entry === "object" && entry !== null) {
+          if (
+            typeof entry.id !== "string" ||
+            !entry.id.startsWith("custom:") ||
+            entry.id.length > 100 ||
+            result.some((item) => item.id === entry.id)
+          )
+            continue;
+          created.id = entry.id;
+        }
+        result.push(created);
       } catch {
         /* Ignore invalid entries. */
       }
@@ -45,6 +61,18 @@ export function saveCustomCaseTypes(
 ) {
   (storage ?? window.localStorage).setItem(
     "qatestge-custom-case-types-v1:" + userId,
-    JSON.stringify(custom.map((item) => item.label)),
+    JSON.stringify(custom.map(({ id, label }) => ({ id, label }))),
   );
+}
+
+export function renameCustomCaseType(id: string, label: string, catalog: CaseCategory[]) {
+  if (!id.startsWith("custom:") || !catalog.some((item) => item.id === id))
+    throw new Error("Solo puedes editar tipos personalizados existentes.");
+  return {
+    ...createCustomCaseType(
+      label,
+      catalog.filter((item) => item.id !== id),
+    ),
+    id,
+  };
 }

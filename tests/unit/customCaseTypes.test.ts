@@ -4,6 +4,7 @@ import {
   createCustomCaseType,
   loadCustomCaseTypes,
   saveCustomCaseTypes,
+  renameCustomCaseType,
 } from "../../src/models/customCaseTypes";
 import {
   loadCaseCountDefaults,
@@ -12,6 +13,23 @@ import {
   saveSelectedCategories,
 } from "../../src/models/caseCountDefaults";
 describe("tipos personalizados", () => {
+  it("conserva el identificador al editar, evita colisiones y lee el formato anterior", () => {
+    const original = createCustomCaseType("Contratos", categories);
+    const renamed = renameCustomCaseType(original.id, "Servicios", [...categories, original]);
+    expect(renamed.id).toBe(original.id);
+    expect(renamed.label).toBe("Servicios");
+    expect(createCustomCaseType("Contratos", [...categories, renamed]).id).not.toBe(original.id);
+    expect(() => renameCustomCaseType("smoke", "Nuevo", categories)).toThrow();
+    expect(() => renameCustomCaseType(original.id, "Smoke", [...categories, original])).toThrow();
+    expect(loadCustomCaseTypes("u", { getItem: () => '["Anterior"]' })[0].label).toBe("Anterior");
+    let stored = "";
+    saveCustomCaseTypes("u", [renamed], {
+      setItem: (_key, value) => {
+        stored = value;
+      },
+    });
+    expect(loadCustomCaseTypes("u", { getItem: () => stored })[0]).toEqual(renamed);
+  });
   it("rechaza nombres vac?os, largos y duplicados normalizados", () => {
     for (const label of [" ", "a".repeat(61), "  SMOKE "])
       expect(() => createCustomCaseType(label, categories)).toThrow();
