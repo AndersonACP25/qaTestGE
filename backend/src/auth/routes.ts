@@ -69,8 +69,10 @@ export function requireAuth(auth: AuthProvider, base: Repository): RequestHandle
     )
       throw new HttpError(403, "INVALID_CSRF", "Recarga la página para renovar la sesión.");
     response.setHeader("Cache-Control", "no-store");
-    response.locals.repository = new AuthorizedRepository(base, () =>
-      auth.projects(session.user.id),
+    response.locals.repository = new AuthorizedRepository(
+      base,
+      () => auth.projects(session.user.id),
+      session.user.id,
     );
     response.locals.user = session.user;
     next();

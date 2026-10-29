@@ -1,4 +1,17 @@
-import type { Pool, PoolClient, QueryResultRow } from "pg";
+import { previousCreation, rememberCreation, requireCreatedRow } from "./creation-request.js";
+import type { CreationContext } from "./creation-request.js";
+import { listSql } from "./list-query.js";
+import type { ListQuery } from "./list-query.js";
+import type {
+  BaseRow,
+  BugRow,
+  CaseRow,
+  RunRow,
+  EvidenceRow,
+  AttachmentRow,
+  TagRow,
+} from "./postgres.rows.js";
+import type { Pool, PoolClient } from "pg";
 import type { Repository } from "./repository.js";
 import type { BugStatus, CreateBugInput, UpdateBugInput } from "../models/bug.model.js";
 import type {
@@ -12,7 +25,6 @@ import type {
   CreateTestRunInput,
   UpdateTestRunInput,
   UpdateRunResultInput,
-  TestRunResult,
 } from "../models/test-run.model.js";
 import type { CreateTagInput, Tag, UpdateTagInput } from "../models/tag.model.js";
 import type {
@@ -24,19 +36,12 @@ import { HttpError } from "../http-error.js";
 import { parseReference, resourceId } from "../validation.js";
 export type DatabasePool = Pool;
 
-interface Row extends QueryResultRow {
-  id: string;
-  project_id: string;
-  created_at: Date;
-  title: string;
-}
-
-const common = (r: Row, prefix: string) => ({
+const common = (r: BaseRow, prefix: string) => ({
   id: resourceId(prefix, r.id),
   projectId: r.project_id,
   createdAt: r.created_at.toISOString(),
 });
-const bug = (r: Row) => ({
+const bug = (r: BugRow) => ({
   ...common(r, "BUG"),
   title: r.title,
   project: r.project,
@@ -45,9 +50,9 @@ const bug = (r: Row) => ({
   status: r.status,
   assignee: r.assigned_name ?? r.assignee,
   assigneeUserId: r.assignee_user_id ?? null,
-  tagIds: (r.tag_ids as string[] | undefined) ?? [],
+  tagIds: r.tag_ids ?? [],
 });
-const testCase = (r: Row) => ({
+const testCase = (r: CaseRow) => ({
   ...common(r, "TC"),
   title: r.title,
   suite: r.suite ?? "",
@@ -58,18 +63,18 @@ const testCase = (r: Row) => ({
   steps: r.steps ?? [],
   tagIds: (r.tag_ids as string[] | undefined) ?? [],
 });
-const run = (r: Row) => ({
+const run = (r: RunRow) => ({
   ...common(r, "RUN"),
   title: r.title,
   owner: r.owner,
   status: r.status,
-  caseIds: (r.case_ids as string[]).map((id) => resourceId("TC", id)),
+  caseIds: r.case_ids.map((id) => resourceId("TC", id)),
   caseCount: r.case_ids.length,
   progress: r.progress,
   tagIds: (r.tag_ids as string[] | undefined) ?? [],
-  results: (r.results as TestRunResult[] | undefined) ?? [],
+  results: r.results ?? [],
 });
-const evidence = (r: Row) => ({
+const evidence = (r: EvidenceRow) => ({
   ...common(r, "EVD"),
   name: r.name,
   type: r.type,
@@ -77,7 +82,7 @@ const evidence = (r: Row) => ({
   hasFile: Boolean(r.has_file),
   related: r.related ?? [],
 });
-const caseAttachment = (r: Row) => ({
+const caseAttachment = (r: AttachmentRow) => ({
   id: resourceId("TCA", r.id),
   projectId: r.project_id,
   testCaseId: resourceId("TC", r.test_case_id),
@@ -113,22 +118,37 @@ export class PostgresRepository implements Repository {
     await this.pool.query("SELECT 1");
   }
   async listProjects() {
-    const { rows } = await this.pool.query(
+    const { rows } = await this.pool.query<import("./repository.js").Project>(
       'SELECT id::text, organization_id::text AS "organizationId", name, description FROM qa.projects ORDER BY id',
     );
     return rows;
   }
-  async listBugs(projectId?: string) {
-    const { rows } = await this.pool.query<Row>(
-      `SELECT b.*, (SELECT u.name FROM qa.users u WHERE u.id=b.assignee_user_id) AS assigned_name, p.name AS project, COALESCE((SELECT array_agg(bt.tag_id::text ORDER BY bt.tag_id) FROM qa.bug_tags bt WHERE bt.bug_id=b.id), ARRAY[]::text[]) AS tag_ids FROM qa.bugs b JOIN qa.projects p ON p.id=b.project_id ${projectId ? "WHERE b.project_id=$1" : ""} ORDER BY b.id DESC`,
-      projectId ? [projectId] : [],
+  async listBugs(projectId?: string, options?: ListQuery) {
+    const query = listSql("b", projectId, options, [
+      "b.title",
+      "b.id::text",
+      "p.name",
+      "b.priority",
+      "b.status",
+    ]);
+    const { rows } = await this.pool.query<BugRow>(
+      `SELECT b.*, (SELECT u.name FROM qa.users u WHERE u.id=b.assignee_user_id) AS assigned_name, p.name AS project, COALESCE((SELECT array_agg(bt.tag_id::text ORDER BY bt.tag_id) FROM qa.bug_tags bt WHERE bt.bug_id=b.id), ARRAY[]::text[]) AS tag_ids FROM qa.bugs b JOIN qa.projects p ON p.id=b.project_id ${query.sql}`,
+      query.values,
     );
     return rows.map(bug);
   }
-  async createBug(input: CreateBugInput) {
+  async createBug(input: CreateBugInput, context?: CreationContext) {
     return this.transaction(async (client) => {
+      const previous = await previousCreation(client, "bug", input.projectId, input, context);
+      if (previous) {
+        const result = await client.query<BugRow>(
+          `SELECT b.*,p.name AS project,(SELECT u.name FROM qa.users u WHERE u.id=b.assignee_user_id) AS assigned_name,COALESCE((SELECT array_agg(bt.tag_id::text ORDER BY bt.tag_id) FROM qa.bug_tags bt WHERE bt.bug_id=b.id),ARRAY[]::text[]) AS tag_ids FROM qa.bugs b JOIN qa.projects p ON p.id=b.project_id WHERE b.id=$1 AND b.project_id=$2`,
+          [previous, input.projectId],
+        );
+        return bug(requireCreatedRow(result.rows[0]));
+      }
       await this.validateAssignee(client, input.projectId, input.assigneeUserId);
-      const { rows } = await client.query<Row>(
+      const { rows } = await client.query<BugRow>(
         `WITH inserted AS (INSERT INTO qa.bugs(project_id,title,description,priority,assignee,assignee_user_id,assignee_organization_id) VALUES($1,$2,$3,$4,$5,$6,CASE WHEN $6::bigint IS NULL THEN NULL ELSE (SELECT organization_id FROM qa.projects WHERE id=$1) END) RETURNING *)
         SELECT b.*, (SELECT u.name FROM qa.users u WHERE u.id=b.assignee_user_id) AS assigned_name, p.name AS project, ARRAY[]::text[] AS tag_ids FROM inserted b JOIN qa.projects p ON p.id=b.project_id`,
         [
@@ -148,22 +168,23 @@ export class PostgresRepository implements Repository {
         input.tagIds,
         client,
       );
-      const result = await client.query<Row>(
+      const result = await client.query<BugRow>(
         `SELECT b.*, (SELECT u.name FROM qa.users u WHERE u.id=b.assignee_user_id) AS assigned_name, p.name AS project, COALESCE((SELECT array_agg(bt.tag_id::text ORDER BY bt.tag_id) FROM qa.bug_tags bt WHERE bt.bug_id=b.id), ARRAY[]::text[]) AS tag_ids FROM qa.bugs b JOIN qa.projects p ON p.id=b.project_id WHERE b.id=$1`,
         [rows[0].id],
       );
+      await rememberCreation(client, "bug", input.projectId, rows[0].id, input, context);
       return bug(result.rows[0]);
     });
   }
   async updateBugStatus(id: string, projectId: string, status: BugStatus) {
-    const { rows } = await this.pool.query<Row>(
+    const { rows } = await this.pool.query<BugRow>(
       `WITH updated AS (
       UPDATE qa.bugs SET status=$3 WHERE id=$1 AND project_id=$2 RETURNING *
     ) SELECT b.*, (SELECT u.name FROM qa.users u WHERE u.id=b.assignee_user_id) AS assigned_name, p.name AS project FROM updated b JOIN qa.projects p ON p.id=b.project_id`,
       [id, projectId, status],
     );
     if (!rows[0]) return null;
-    const result = await this.pool.query<Row>(
+    const result = await this.pool.query<BugRow>(
       `SELECT b.*, (SELECT u.name FROM qa.users u WHERE u.id=b.assignee_user_id) AS assigned_name, p.name AS project, COALESCE((SELECT array_agg(bt.tag_id::text ORDER BY bt.tag_id) FROM qa.bug_tags bt WHERE bt.bug_id=b.id), ARRAY[]::text[]) AS tag_ids FROM qa.bugs b JOIN qa.projects p ON p.id=b.project_id WHERE b.id=$1`,
       [id],
     );
@@ -172,7 +193,7 @@ export class PostgresRepository implements Repository {
   async updateBug(id: string, projectId: string, input: UpdateBugInput) {
     return this.transaction(async (client) => {
       await this.validateAssignee(client, projectId, input.assigneeUserId);
-      const { rows } = await client.query<Row>(
+      const { rows } = await client.query<BugRow>(
         `WITH updated AS (
         UPDATE qa.bugs SET title=$3,description=COALESCE($4,description),priority=$5,
           assignee=CASE WHEN $8 THEN $6 ELSE assignee END,status=COALESCE($7,status),
@@ -195,7 +216,7 @@ export class PostgresRepository implements Repository {
       );
       if (!rows[0]) return null;
       await this.replaceTags("qa.bug_tags", "bug_id", id, projectId, input.tagIds, client);
-      const result = await client.query<Row>(
+      const result = await client.query<BugRow>(
         `SELECT b.*, (SELECT u.name FROM qa.users u WHERE u.id=b.assignee_user_id) AS assigned_name, p.name AS project, COALESCE((SELECT array_agg(bt.tag_id::text ORDER BY bt.tag_id) FROM qa.bug_tags bt WHERE bt.bug_id=b.id), ARRAY[]::text[]) AS tag_ids FROM qa.bugs b JOIN qa.projects p ON p.id=b.project_id WHERE b.id=$1 AND b.project_id=$2`,
         [id, projectId],
       );
@@ -225,17 +246,28 @@ export class PostgresRepository implements Repository {
       throw error;
     }
   }
-  async listCases(projectId?: string) {
-    const { rows } = await this.pool.query<Row>(
-      `${casesSql} ${projectId ? "WHERE c.project_id=$1" : ""} ORDER BY c.id DESC`,
-      projectId ? [projectId] : [],
-    );
+  async listCases(projectId?: string, options?: ListQuery) {
+    const query = listSql("c", projectId, options, [
+      "c.title",
+      "c.id::text",
+      "COALESCE(c.suite,'')",
+      "c.status",
+    ]);
+    const { rows } = await this.pool.query<CaseRow>(`${casesSql} ${query.sql}`, query.values);
     return rows.map(testCase);
   }
-  async createCase(input: CreateTestCaseInput) {
+  async createCase(input: CreateTestCaseInput, context?: CreationContext) {
     return this.transaction(async (client) => {
+      const previous = await previousCreation(client, "case", input.projectId, input, context);
+      if (previous) {
+        const result = await client.query<CaseRow>(
+          `${casesSql} WHERE c.id=$1 AND c.project_id=$2`,
+          [previous, input.projectId],
+        );
+        return testCase(requireCreatedRow(result.rows[0]));
+      }
       await this.validateAssignee(client, input.projectId, input.assigneeUserId);
-      const { rows } = await client.query<Row>(
+      const { rows } = await client.query<CaseRow>(
         "INSERT INTO qa.test_cases(project_id,title,suite,preconditions,assignee_user_id,assignee_organization_id) VALUES($1,$2,$3,$4,$5,CASE WHEN $5::bigint IS NULL THEN NULL ELSE (SELECT organization_id FROM qa.projects WHERE id=$1) END) RETURNING *",
         [
           input.projectId,
@@ -260,14 +292,15 @@ export class PostgresRepository implements Repository {
           [input.projectId, id, index + 1, step.action.trim(), step.expectedResult.trim()],
         );
       }
-      const result = await client.query<Row>(`${casesSql} WHERE c.id=$1`, [id]);
+      const result = await client.query<CaseRow>(`${casesSql} WHERE c.id=$1`, [id]);
+      await rememberCreation(client, "case", input.projectId, id, input, context);
       return testCase(result.rows[0]);
     });
   }
   async updateCase(id: string, projectId: string, input: UpdateTestCaseInput) {
     return this.transaction(async (client) => {
       await this.validateAssignee(client, projectId, input.assigneeUserId);
-      const { rows } = await client.query<Row>(
+      const { rows } = await client.query<CaseRow>(
         "UPDATE qa.test_cases SET title=$3,suite=$4,preconditions=$5,assignee_user_id=CASE WHEN $7 THEN $6::bigint ELSE assignee_user_id END,assignee_organization_id=CASE WHEN $7 THEN CASE WHEN $6::bigint IS NULL THEN NULL ELSE (SELECT organization_id FROM qa.projects WHERE id=$2) END ELSE assignee_organization_id END WHERE id=$1 AND project_id=$2 RETURNING id",
         [
           id,
@@ -298,7 +331,7 @@ export class PostgresRepository implements Repository {
           [projectId, id, index + 1, step.action.trim(), step.expectedResult.trim()],
         );
       }
-      const result = await client.query<Row>(`${casesSql} WHERE c.id=$1 AND c.project_id=$2`, [
+      const result = await client.query<CaseRow>(`${casesSql} WHERE c.id=$1 AND c.project_id=$2`, [
         id,
         projectId,
       ]);
@@ -339,7 +372,7 @@ export class PostgresRepository implements Repository {
     }
   }
   async updateCaseStatus(id: string, projectId: string, status: TestCaseStatus) {
-    const { rows } = await this.pool.query<Row>(
+    const { rows } = await this.pool.query<CaseRow>(
       `WITH updated AS (
       UPDATE qa.test_cases SET status=$3 WHERE id=$1 AND project_id=$2 RETURNING *
     ) SELECT c.*, COALESCE((SELECT json_agg(json_build_object('action', s.action, 'expectedResult', s.expected_result) ORDER BY s.position)
@@ -350,14 +383,14 @@ export class PostgresRepository implements Repository {
     return rows[0] ? testCase(rows[0]) : null;
   }
   async listCaseAttachments(id: string, projectId: string) {
-    const { rows } = await this.pool.query<Row>(
+    const { rows } = await this.pool.query<AttachmentRow>(
       "SELECT id::text, project_id, test_case_id::text, kind, name, external_url, content_type, created_at FROM qa.test_case_attachments WHERE test_case_id=$1 AND project_id=$2 ORDER BY id",
       [id, projectId],
     );
     return rows.map(caseAttachment);
   }
   async getCaseAttachment(id: string, attachmentId: string, projectId: string) {
-    const { rows } = await this.pool.query<Row>(
+    const { rows } = await this.pool.query<AttachmentRow>(
       "SELECT id::text, project_id, test_case_id::text, kind, name, external_url, content_type, image_bytes, created_at FROM qa.test_case_attachments WHERE test_case_id=$1 AND id=$2 AND project_id=$3",
       [id, attachmentId, projectId],
     );
@@ -380,7 +413,7 @@ export class PostgresRepository implements Repository {
             input.imageData,
           ]
         : [input.projectId, input.testCaseId, input.kind, input.name.trim(), input.url, null, null];
-    const { rows } = await this.pool.query<Row>(
+    const { rows } = await this.pool.query<AttachmentRow>(
       `INSERT INTO qa.test_case_attachments(project_id,test_case_id,kind,name,external_url,content_type,image_bytes)
       SELECT $1,c.id,$3,$4,$5,$6,$7 FROM qa.test_cases c WHERE c.id=$2 AND c.project_id=$1
       RETURNING id::text, project_id, test_case_id::text, kind, name, external_url, content_type, created_at`,
@@ -395,16 +428,27 @@ export class PostgresRepository implements Repository {
     );
     return rowCount === 1;
   }
-  async listRuns(projectId?: string) {
-    const { rows } = await this.pool.query<Row>(
-      `${runsSql} ${projectId ? "WHERE r.project_id=$1" : ""} ORDER BY r.id DESC`,
-      projectId ? [projectId] : [],
-    );
+  async listRuns(projectId?: string, options?: ListQuery) {
+    const query = listSql("r", projectId, options, [
+      "r.title",
+      "r.id::text",
+      "r.owner",
+      "r.status",
+    ]);
+    const { rows } = await this.pool.query<RunRow>(`${runsSql} ${query.sql}`, query.values);
     return rows.map(run);
   }
-  async createRun(input: CreateTestRunInput) {
+  async createRun(input: CreateTestRunInput, context?: CreationContext) {
     return this.transaction(async (client) => {
-      const { rows } = await client.query<Row>(
+      const previous = await previousCreation(client, "run", input.projectId, input, context);
+      if (previous) {
+        const result = await client.query<RunRow>(`${runsSql} WHERE r.id=$1 AND r.project_id=$2`, [
+          previous,
+          input.projectId,
+        ]);
+        return run(requireCreatedRow(result.rows[0]));
+      }
+      const { rows } = await client.query<RunRow>(
         "INSERT INTO qa.test_runs(project_id,title,owner) VALUES($1,$2,$3) RETURNING *",
         [input.projectId, input.title.trim(), input.owner.trim()],
       );
@@ -431,7 +475,8 @@ export class PostgresRepository implements Repository {
           "INVALID_REFERENCE",
           "Los casos deben existir y pertenecer al proyecto de la ejecución.",
         );
-      const result = await client.query<Row>(`${runsSql} WHERE r.id=$1`, [id]);
+      const result = await client.query<RunRow>(`${runsSql} WHERE r.id=$1`, [id]);
+      await rememberCreation(client, "run", input.projectId, id, input, context);
       return run(result.rows[0]);
     });
   }
@@ -494,7 +539,7 @@ export class PostgresRepository implements Repository {
           input.tagIds,
           client,
         );
-      const result = await client.query<Row>(`${runsSql} WHERE r.id=$1 AND r.project_id=$2`, [
+      const result = await client.query<RunRow>(`${runsSql} WHERE r.id=$1 AND r.project_id=$2`, [
         id,
         projectId,
       ]);
@@ -524,7 +569,7 @@ export class PostgresRepository implements Repository {
         [id, resultId, projectId, input.status, input.notes],
       );
       if (!updated.rowCount) return null;
-      const result = await client.query<Row>(`${runsSql} WHERE r.id=$1 AND r.project_id=$2`, [
+      const result = await client.query<RunRow>(`${runsSql} WHERE r.id=$1 AND r.project_id=$2`, [
         id,
         projectId,
       ]);
@@ -561,7 +606,7 @@ export class PostgresRepository implements Repository {
     });
   }
   async listEvidence(projectId?: string) {
-    const { rows } = await this.pool.query<Row>(
+    const { rows } = await this.pool.query<EvidenceRow>(
       `${evidenceSql} ${projectId ? "WHERE e.project_id=$1" : ""} ORDER BY e.id DESC`,
       projectId ? [projectId] : [],
     );
@@ -569,7 +614,7 @@ export class PostgresRepository implements Repository {
   }
   async createEvidence(input: CreateEvidenceInput) {
     return this.transaction(async (client) => {
-      const { rows } = await client.query<Row>(
+      const { rows } = await client.query<EvidenceRow>(
         "INSERT INTO qa.evidence(project_id,name,type,size_bytes) VALUES($1,$2,$3,$4) RETURNING *",
         [input.projectId, input.name.trim(), input.type, input.sizeBytes],
       );
@@ -592,7 +637,7 @@ export class PostgresRepository implements Repository {
           [input.projectId, id, targetId],
         );
       }
-      const result = await client.query<Row>(`${evidenceSql} WHERE e.id=$1`, [id]);
+      const result = await client.query<EvidenceRow>(`${evidenceSql} WHERE e.id=$1`, [id]);
       return evidence(result.rows[0]);
     });
   }
@@ -626,10 +671,10 @@ export class PostgresRepository implements Repository {
           );
         }
       }
-      const result = await client.query<Row>(`${evidenceSql} WHERE e.id=$1 AND e.project_id=$2`, [
-        id,
-        projectId,
-      ]);
+      const result = await client.query<EvidenceRow>(
+        `${evidenceSql} WHERE e.id=$1 AND e.project_id=$2`,
+        [id, projectId],
+      );
       return evidence(result.rows[0]);
     });
   }
@@ -655,7 +700,7 @@ export class PostgresRepository implements Repository {
     return this.transaction(async (client) => {
       let evidenceId = id;
       if (evidenceId) {
-        const { rows } = await client.query<Row>(
+        const { rows } = await client.query<EvidenceRow>(
           "UPDATE qa.evidence SET name=$3,type=$4,size_bytes=$5,media_type=$6,file_bytes=$7 WHERE id=$1 AND project_id=$2 RETURNING id",
           [
             evidenceId,
@@ -669,7 +714,7 @@ export class PostgresRepository implements Repository {
         );
         if (!rows[0]) return null;
       } else {
-        const { rows } = await client.query<Row>(
+        const { rows } = await client.query<EvidenceRow>(
           "INSERT INTO qa.evidence(project_id,name,type,size_bytes,media_type,file_bytes) VALUES($1,$2,$3,$4,$5,$6) RETURNING id",
           [
             projectId,
@@ -699,15 +744,15 @@ export class PostgresRepository implements Repository {
           [projectId, evidenceId, targetId],
         );
       }
-      const result = await client.query<Row>(`${evidenceSql} WHERE e.id=$1 AND e.project_id=$2`, [
-        evidenceId,
-        projectId,
-      ]);
+      const result = await client.query<EvidenceRow>(
+        `${evidenceSql} WHERE e.id=$1 AND e.project_id=$2`,
+        [evidenceId, projectId],
+      );
       return result.rows[0] ? evidence(result.rows[0]) : null;
     });
   }
   async getEvidenceFile(id: string, projectId: string) {
-    const { rows } = await this.pool.query<Row>(
+    const { rows } = await this.pool.query<EvidenceRow>(
       "SELECT name, media_type, file_bytes, size_bytes FROM qa.evidence WHERE id=$1 AND project_id=$2 AND file_bytes IS NOT NULL",
       [id, projectId],
     );
@@ -716,12 +761,12 @@ export class PostgresRepository implements Repository {
     return {
       name: row.name,
       mediaType: row.media_type,
-      fileData: row.file_bytes as Buffer,
+      fileData: row.file_bytes,
       sizeBytes: Number(row.size_bytes),
     };
   }
   async listTags(projectId: string): Promise<Tag[]> {
-    const { rows } = await this.pool.query(
+    const { rows } = await this.pool.query<TagRow>(
       "SELECT id::text, project_id::text, name, color, created_at FROM qa.tags WHERE project_id=$1 ORDER BY lower(name), id",
       [projectId],
     );
@@ -729,7 +774,7 @@ export class PostgresRepository implements Repository {
   }
   async createTag(input: CreateTagInput): Promise<Tag> {
     try {
-      const { rows } = await this.pool.query(
+      const { rows } = await this.pool.query<TagRow>(
         "INSERT INTO qa.tags(project_id,name,color) VALUES($1,$2,$3) RETURNING id::text, project_id::text, name, color, created_at",
         [input.projectId, input.name.trim(), input.color],
       );
@@ -742,7 +787,7 @@ export class PostgresRepository implements Repository {
   }
   async updateTag(id: string, projectId: string, input: UpdateTagInput): Promise<Tag | null> {
     try {
-      const { rows } = await this.pool.query(
+      const { rows } = await this.pool.query<TagRow>(
         "UPDATE qa.tags SET name=$3,color=$4 WHERE id=$1 AND project_id=$2 RETURNING id::text, project_id::text, name, color, created_at",
         [id, projectId, input.name.trim(), input.color],
       );
@@ -754,7 +799,7 @@ export class PostgresRepository implements Repository {
     }
   }
   async deleteTag(id: string, projectId: string): Promise<boolean> {
-    const { rowCount } = await this.pool.query(
+    const { rowCount } = await this.pool.query<TagRow>(
       "DELETE FROM qa.tags WHERE id=$1 AND project_id=$2",
       [id, projectId],
     );
@@ -813,13 +858,13 @@ export class PostgresRepository implements Repository {
   }
 }
 
-function tag(row: QueryResultRow): Tag {
+function tag(row: TagRow): Tag {
   return {
     id: String(row.id),
     projectId: String(row.project_id),
-    name: row.name as string,
-    color: row.color as string,
-    createdAt: (row.created_at as Date).toISOString(),
+    name: row.name,
+    color: row.color,
+    createdAt: row.created_at.toISOString(),
   };
 }
 

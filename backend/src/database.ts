@@ -42,6 +42,7 @@ export async function checkDatabase(pool: pg.Pool): Promise<void> {
     LEFT JOIN qa.bug_test_cases bc ON bc.bug_id = b.id
     LEFT JOIN qa.evidence e ON e.project_id = p.id
     LEFT JOIN qa.evidence_links el ON el.evidence_id = e.id LIMIT 0`);
+  await pool.query("SELECT user_id,project_id,request_key FROM qa.creation_requests LIMIT 0");
   await pool.query("SELECT 1");
   await pool.query(
     "SELECT u.id,s.token_hash,m.user_id FROM qa.users u LEFT JOIN qa.auth_sessions s ON s.user_id=u.id LEFT JOIN qa.organization_members m ON m.user_id=u.id LIMIT 0",

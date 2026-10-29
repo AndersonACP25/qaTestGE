@@ -15,10 +15,10 @@ try {
   const server = app.listen(port, () => {
     console.info(`qaTestGE API disponible en http://localhost:${port} · PostgreSQL conectado`);
   });
-  server.on("error", async () => {
+  server.on("error", () => {
     console.error("No se pudo iniciar la API. Revisa PORT y los procesos activos.");
-    await pool.end();
     process.exitCode = 1;
+    void pool.end().catch(() => console.error("No se pudo cerrar el pool de la API."));
   });
   let stopping = false;
   const stop = () => {
@@ -30,9 +30,13 @@ try {
     }, 10000);
     timer.unref();
     server.close(() => {
-      void pool.end().finally(() => {
-        clearTimeout(timer);
-      });
+      void pool.end().then(
+        () => clearTimeout(timer),
+        () => {
+          clearTimeout(timer);
+          process.exitCode = 1;
+        },
+      );
     });
   };
   process.on("SIGINT", stop);

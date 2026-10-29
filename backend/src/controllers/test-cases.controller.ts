@@ -1,4 +1,6 @@
-﻿import type { Request, Response } from "express";
+import { creationContext } from "../repositories/creation-request.js";
+import { listQuery } from "../repositories/list-query.js";
+import type { Request, Response } from "express";
 import { repository } from "../repositories/repository.js";
 import { isId, isRecord, parseReference, projectFilter, text } from "../validation.js";
 import {
@@ -9,7 +11,12 @@ import {
 import { HttpError } from "../http-error.js";
 
 export async function listTestCases(request: Request, response: Response) {
-  response.json({ data: await repository(request).listCases(projectFilter(request)) });
+  response.json({
+    data: await repository(request).listCases(
+      projectFilter(request),
+      listQuery(request, ["Pendiente", "Aprobado", "Fallido"]),
+    ),
+  });
 }
 export async function createTestCase(request: Request, response: Response) {
   const body: unknown = request.body;
@@ -22,7 +29,9 @@ export async function createTestCase(request: Request, response: Response) {
     });
     return;
   }
-  response.status(201).json({ data: await repository(request).createCase(body) });
+  response
+    .status(201)
+    .json({ data: await repository(request).createCase(body, creationContext(request, response)) });
 }
 export async function updateTestCase(request: Request, response: Response) {
   const body: unknown = request.body;
