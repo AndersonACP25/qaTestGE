@@ -1,3 +1,5 @@
+import { categories } from "./models/caseDesign.model";
+import { loadCustomCaseTypes, saveCustomCaseTypes } from "./models/customCaseTypes";
 import TestRunDialog from "./views/TestRunDialog";
 import { version } from "../package.json";
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -382,11 +384,13 @@ function App({
   const [revision, setRevision] = useState(0);
   const [saving, setSaving] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState("");
+  const [customCaseTypes, setCustomCaseTypes] = useState(() => loadCustomCaseTypes(user.id));
+  const caseCatalog = [...categories, ...customCaseTypes];
   const [caseCountDefaults, setCaseCountDefaults] = useState<CaseCountDefaults>(() =>
-    loadCaseCountDefaults(user.id),
+    loadCaseCountDefaults(user.id, undefined, caseCatalog),
   );
   const [caseDesignCategories, setCaseDesignCategories] = useState<string[]>(() =>
-    loadSelectedCategories(user.id),
+    loadSelectedCategories(user.id, undefined, caseCatalog),
   );
   const [modal, setModal] = useState("");
   const [bugTemplates, setBugTemplates] = useState<BugTemplate[]>([]);
@@ -970,11 +974,11 @@ function App({
     }
   }
   function saveDefaultCounts(defaults: CaseCountDefaults) {
-    saveCaseCountDefaults(user.id, defaults);
+    saveCaseCountDefaults(user.id, defaults, undefined, caseCatalog);
     setCaseCountDefaults(defaults);
   }
   function saveDefaultCategories(selected: string[]) {
-    saveSelectedCategories(user.id, selected);
+    saveSelectedCategories(user.id, selected, undefined, caseCatalog);
     setCaseDesignCategories(selected);
   }
   async function changeBugStatus(bug: Bug, status: BugStatus) {
@@ -1262,6 +1266,11 @@ function App({
               user={user}
               onUserUpdated={onUserUpdated}
               onAccountDeleted={onAccountDeleted}
+              catalog={caseCatalog}
+              onCustomTypesChanged={(custom) => {
+                saveCustomCaseTypes(user.id, custom);
+                setCustomCaseTypes(custom);
+              }}
               caseCountDefaults={caseCountDefaults}
               onCaseCountDefaultsChanged={saveDefaultCounts}
               selectedCategories={caseDesignCategories}
@@ -1271,6 +1280,7 @@ function App({
             <WikiView />
           ) : activePage === "case-builder" ? (
             <CaseBuilder
+              catalog={caseCatalog}
               defaultCounts={caseCountDefaults}
               defaultSelectedCategories={caseDesignCategories}
               projectId={projectId}

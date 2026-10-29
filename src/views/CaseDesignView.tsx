@@ -1,8 +1,8 @@
-import { categories } from "../models/caseDesign.model";
 import type { CaseDesignController } from "../controllers/useCaseDesignController";
 import Alert from "../Alert";
 
 export default function CaseDesignView({
+  categories,
   text,
   selected,
   counts,

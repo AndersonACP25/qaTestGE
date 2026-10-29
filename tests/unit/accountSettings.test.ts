@@ -1,3 +1,4 @@
+import { categories } from "../../src/models/caseDesign.model";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -8,6 +9,8 @@ describe("account settings view", () => {
   it("shows editable profile fields and separate password change fields", () => {
     const html = renderToStaticMarkup(
       createElement(AccountSettingsView, {
+        catalog: categories,
+        onCustomTypesChanged: () => {},
         user: { id: "1", name: "QA", email: "qa@example.test" },
         onUserUpdated: () => {},
         onAccountDeleted: () => {},

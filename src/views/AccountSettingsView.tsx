@@ -1,15 +1,18 @@
+import { createCustomCaseType } from "../models/customCaseTypes";
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import Alert from "../Alert";
 import { api } from "../api";
 import type { BugTemplate, BugTemplateInput, BugTemplatePriority, User } from "../api";
-import { categories, maxCaseCount } from "../models/caseDesign.model";
+import { type CaseCategory, maxCaseCount } from "../models/caseDesign.model";
 import type { CaseCountDefaults } from "../models/caseCountDefaults";
 
 const priorities: BugTemplatePriority[] = ["Crítica", "Alta", "Media", "Baja"];
 const emptyTemplate: BugTemplateInput = { name: "", title: "", description: "", priority: "Media" };
 
 export default function AccountSettingsView({
+  catalog,
+  onCustomTypesChanged,
   user,
   onUserUpdated,
   onAccountDeleted,
@@ -18,6 +21,8 @@ export default function AccountSettingsView({
   selectedCategories,
   onSelectedCategoriesChanged,
 }: {
+  catalog: CaseCategory[];
+  onCustomTypesChanged: (custom: CaseCategory[]) => void;
   user: User;
   onUserUpdated: (user: User) => void;
   onAccountDeleted: () => void;
@@ -26,6 +31,9 @@ export default function AccountSettingsView({
   selectedCategories: string[];
   onSelectedCategoriesChanged: (categories: string[]) => void;
 }) {
+  const [newTypeName, setNewTypeName] = useState("");
+  const [newTypeError, setNewTypeError] = useState("");
+  const [newTypeMessage, setNewTypeMessage] = useState("");
   const [section, setSection] = useState<"cuenta" | "plantillas" | "diseno" | "ia">("cuenta");
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
@@ -248,7 +256,7 @@ export default function AccountSettingsView({
           <button
             key={id}
             type="button"
-            className="button"
+            className="account-settings__tab"
             aria-pressed={section === id}
             onClick={() => setSection(id)}
           >
@@ -482,7 +490,10 @@ export default function AccountSettingsView({
           )}
         </div>
       </section>
-      <section className="account-settings__card" hidden={section !== "diseno"}>
+      <section
+        className="account-settings__card account-settings__card--wide"
+        hidden={section !== "diseno"}
+      >
         <div className="account-settings__heading">
           <h2>Diseño de test cases</h2>
           <p>
@@ -491,6 +502,43 @@ export default function AccountSettingsView({
             previa.
           </p>
         </div>
+        <form
+          className="account-settings__new-type"
+          onSubmit={(event) => {
+            event.preventDefault();
+            setNewTypeError("");
+            setNewTypeMessage("");
+            try {
+              const created = createCustomCaseType(newTypeName, catalog);
+              onCustomTypesChanged([
+                ...catalog.filter(({ id }) => id.startsWith("custom:")),
+                created,
+              ]);
+              setCountDefaults((current) => ({ ...current, [created.id]: 1 }));
+              setNewTypeName("");
+              setNewTypeMessage("El tipo ya está disponible en el diseñador.");
+            } catch (cause) {
+              setNewTypeError(
+                cause instanceof Error ? cause.message : "No se pudo añadir el tipo.",
+              );
+            }
+          }}
+        >
+          <label className="workspace__field">
+            Nombre del nuevo tipo
+            <input
+              value={newTypeName}
+              onChange={(event) => setNewTypeName(event.target.value)}
+              maxLength={60}
+              required
+            />
+          </label>
+          <button className="button button-primary" type="submit">
+            Añadir tipo de caso
+          </button>
+          {newTypeError && <Alert tone="error">{newTypeError}</Alert>}
+          {newTypeMessage && <Alert tone="success">{newTypeMessage}</Alert>}
+        </form>
         <form
           className="account-settings__form"
           onSubmit={saveCountDefaults}
@@ -501,7 +549,7 @@ export default function AccountSettingsView({
             Mantén al menos un tipo seleccionado para iniciar el diseño.
           </p>
           <div className="account-settings__count-grid">
-            {categories.map((category) => (
+            {catalog.map((category) => (
               <div className="account-settings__count-item" key={category.id}>
                 <label>
                   <input

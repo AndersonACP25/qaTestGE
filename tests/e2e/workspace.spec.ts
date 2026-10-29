@@ -186,6 +186,7 @@ test("diseñador guarda y actualiza todos los pasos y descarga Markdown", async 
   page,
   workspace,
 }) => {
+  await page.screenshot({ path: testInfo.outputPath("configuracion.png"), fullPage: true });
   await navigate(page, "Diseñar test cases");
   await page.locator("#case-builder-description").fill("Probar registro");
   await page.getByRole("button", { name: "Mostrar tabla de ejemplo" }).click();
@@ -250,4 +251,31 @@ test("Test Runs crea, registra resultados, edita, completa y elimina", async ({
   await page.getByRole("button", { name: "Confirmar eliminación", exact: true }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   expect(workspace.runs).toHaveLength(0);
+});
+
+test("tipos personalizados disponibles después de recargar", async ({ page }, testInfo) => {
+  await navigate(page, "Configuración");
+  await page.getByRole("button", { name: "Diseño de casos", exact: true }).click();
+  await page.getByLabel("Nombre del nuevo tipo").fill("Contratos externos");
+  await page.getByRole("button", { name: "Añadir tipo de caso" }).click();
+  await expect(
+    page.getByText("El tipo ya está disponible en el diseñador.", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("checkbox", { name: "Contratos externos", exact: true }).check();
+  await page.getByLabel("Valor inicial para Contratos externos").selectOption("3");
+  await page.getByRole("button", { name: "Guardar valores predeterminados" }).click();
+  await page.reload();
+  await navigate(page, "Configuración");
+  await page.getByRole("button", { name: "Diseño de casos", exact: true }).click();
+  await expect(
+    page.getByRole("checkbox", { name: "Contratos externos", exact: true }),
+  ).toBeChecked();
+  await expect(page.getByLabel("Valor inicial para Contratos externos")).toHaveValue("3");
+  await page.screenshot({ path: testInfo.outputPath("configuracion.png"), fullPage: true });
+  await navigate(page, "Diseñar test cases");
+  await expect(page.getByRole("checkbox", { name: /^Contratos externos/ })).toBeChecked();
+  await expect(page.getByLabel("Cantidad de pruebas: Contratos externos")).toHaveValue("3");
+  await navigate(page, "Equipos");
+  await page.screenshot({ path: testInfo.outputPath("equipos.png"), fullPage: true });
+  await noHorizontalOverflow(page);
 });

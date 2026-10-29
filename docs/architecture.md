@@ -196,3 +196,7 @@ El portal enlaza `/api/docs/`. En un despliegue separado se requiere reenviar `/
 Consultar [API.md](./API.md) para el contrato implementado, [DESIGN.md](./DESIGN.md) para la interfaz, [RULES.md](./RULES.md) para convenciones y [DEVELOPMENT.md](./DEVELOPMENT.md) para comandos y entorno. [CONTRIBUTING.md](../CONTRIBUTING.md) describe el flujo de contribución y [SECURITY.md](../SECURITY.md) los límites de seguridad actuales.
 
 El diseñador admite de 1 a 5 ejemplos por categoría y exporta Markdown `.md` de la vista previa editada, con texto escapado y descarga local, sin dependencias adicionales. Los perfiles de `.opencode/agents/` coordinan el desarrollo en OpenCode y no son agentes dentro del producto.
+
+### Tipos personalizados del diseñador
+
+Configuración permite añadir tipos con nombre único (sin distinguir mayúsculas y normalizando espacios), de 1 a 60 caracteres. Se guardan como nombres en localStorage bajo una clave por usuario; se reconstruyen con identificadores explícitos y cinco escenarios editables. El catálogo combinado se pasa al diseñador y a la validación de preferencias sin mutar el catálogo base. No requiere migración, no sincroniza dispositivos y no usa IA. Guardar un ejemplo sigue requiriendo una acción explícita y conserva el tipo como Suite.
