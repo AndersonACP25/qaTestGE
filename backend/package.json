@@ -8,6 +8,7 @@
     "dev:workspace": "tsx watch src/server.ts",
     "db:check": "tsx src/check-database.ts",
     "db:migrate": "tsx src/migrate.ts",
+    "db:setup": "tsx src/migrate.ts --initialize",
     "test:db": "tsx scripts/verify-postgres.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js"

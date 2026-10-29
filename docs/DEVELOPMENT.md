@@ -8,12 +8,12 @@ Entorno validado: Node.js 24.12.0 y pnpm 12.11.2. Se usa `process.loadEnvFile` d
 pnpm install --frozen-lockfile
 # Si aún no tienes configuración local:
 # copiar backend/.env.example a backend/.env y ajustar DATABASE_URL
-pnpm db:migrate
+pnpm db:setup
 pnpm db:check
 pnpm dev
 ```
 
-No sobrescribir un `.env` existente. Los scripts SQL se importan manualmente una sola vez según [backend/sql/README.md](../backend/sql/README.md). Si ya creaste las tablas y los datos, no vuelvas a importarlos para iniciar la API.
+No sobrescribir un `.env` existente. Crea previamente la base vacía `qa_test_ge` (por ejemplo con `createdb -h localhost -U postgres -W qa_test_ge`). `db:setup` instala el esquema y las migraciones en una sola entrada, sin seed y sin reimportar un esquema existente. Para actualizar, usa `pnpm db:migrate`. Consulta [backend/sql/README.md](../backend/sql/README.md).
 
 `dev` levanta Vite y tsx watch en paralelo. Frontend: `http://localhost:5173`; API: `http://localhost:3000/api/health` por defecto (el puerto real se define con `PORT`). `Ctrl+C` detiene la sesión. El frontend recupera su sesión por cookie, lista los proyectos autorizados y consulta/crea recursos mediante /api. Registro crea un workspace y un proyecto propios; las membresías sobre datos anteriores se conceden explícitamente.
 
@@ -30,7 +30,8 @@ Los asuntos de commit usan Conventional Commits en español (`feat: ...`, `fix(a
 | `pnpm dev` / `pnpm dev:all`                  | Frontend y backend en paralelo                              |
 | `pnpm dev:frontend`                          | Solo Vite                                                   |
 | `pnpm dev:backend` / `pnpm dev:api`          | API con tsx watch y PostgreSQL                              |
-| `pnpm db:migrate`                            | Aplica/verifica las migraciones aditivas 004–007, repetible |
+| `pnpm db:setup`                              | Instala esquema inicial y migraciones, repetible            |
+| `pnpm db:migrate`                            | Aplica/verifica las migraciones aditivas 004–012, repetible |
 | `pnpm db:check`                              | Conexión y tablas del esquema qa, solo lectura              |
 | `pnpm build`                                 | Tipos y compilación del frontend y backend                  |
 | `pnpm build:frontend` / `pnpm build:backend` | Compilación por separado                                    |
@@ -69,7 +70,7 @@ pnpm test
 
 Las pruebas de endpoints usan un repositorio simulado inyectado, sin cargar `.env` ni necesitar PostgreSQL. Las de repositorio comprueban parámetros y rollback mediante dobles. [TESTING.md](./TESTING.md) explica la verificación opcional con PostgreSQL real.
 
-Los datos de la API ya no se pierden al reiniciar: viven en qa_test_ge. La aplicación no crea ni modifica el esquema al arrancar y `db:migrate` aplica explícitamente las migraciones 004–007; no hay migración automática al arrancar ni gestor de respaldos. La migración 005 agrega plantillas privadas por usuario; la 007 agrega imágenes y enlaces de casos de prueba. La baja de cuenta desde Configuración revoca sesiones, anonimiza datos de identidad y elimina plantillas, pero conserva membresías, proyectos y registros QA. Un puerto ocupado requiere detener su proceso o cambiar PORT; un error de conexión requiere revisar servicio, permisos, credenciales y tablas importadas. `pnpm db:check` hace esa comprobación sin escrituras.
+Los datos viven en qa_test_ge. La API no modifica el esquema al arrancar: `db:setup` instala y `db:migrate` actualiza mediante el catálogo común de `backend/src/migrations.ts` (004–012). Las migraciones históricas se conservan sin fusionarlas ni reescribirlas. La baja de cuenta revoca sesiones y anonimiza identidad, pero conserva membresías y recursos QA. Un puerto ocupado requiere detener su proceso o cambiar PORT; `pnpm db:check` verifica conexión y esquema sin escrituras.
 
 ## CI y entrega
 
@@ -81,4 +82,4 @@ Los datos de la API ya no se pierden al reiniciar: viven en qa_test_ge. La aplic
 
 Aplica pnpm db:migrate antes de iniciar esta versión: la migración 012 añade idempotencia. No reimportes el esquema inicial sobre una base existente. typecheck incluye tsconfig.boundaries.json; lint usa información de tipos y reglas de hooks.
 
-CI importa 001_schema.sql en PostgreSQL desechable, aplica las migraciones dos veces y ejecuta pnpm --dir backend test:db con TEST_DATABASE_URL exclusivo. Este script crea y elimina datos: nunca apuntarlo a la base personal o productiva. La validación local equivalente utiliza otro clúster/puerto, sin cargar backend/.env. Las credenciales del servicio de CI son desechables de prueba.
+CI verifica tanto el camino de actualización desde 001_schema.sql como la instalación desde una base vacía con db:setup repetido. Ejecuta pnpm --dir backend test:db con TEST_DATABASE_URL exclusivo. Este script crea y elimina datos: nunca apuntarlo a la base personal o productiva. La validación local equivalente utiliza otro clúster/puerto, sin cargar backend/.env. Las credenciales del servicio de CI son desechables de prueba.
