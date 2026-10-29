@@ -1272,10 +1272,10 @@ h1 {
   overflow-wrap: anywhere;
 }
 .workspace-table__table thead th {
-  font-size: 10px;
+  font-size: 12px;
 }
 .workspace-table__table tbody td {
-  font-size: 13px;
+  font-size: 15px;
 }
 .workspace-table__table th:first-child {
   width: 11%;
@@ -3560,11 +3560,25 @@ tbody td {
   gap: 18px;
 }
 .projects-view__panel {
+  display: grid;
+  gap: 16px;
+  font-size: 14px;
+  line-height: 1.5;
   min-width: 0;
   padding: 22px;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--panel);
+}
+.projects-view__panel h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.projects-view__panel h3 {
+  font-size: 15px;
+}
+.projects-view__panel p {
+  margin: 0;
 }
 .projects-view__form {
   display: grid;
@@ -3653,9 +3667,29 @@ tbody td {
   flex-wrap: wrap;
   gap: 8px;
 }
-.account-settings__navigation .button[aria-pressed="true"] {
-  outline: 2px solid var(--line);
-  outline-offset: 2px;
+.account-settings__tab {
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--color-202334);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+.account-settings__tab[aria-pressed="true"] {
+  background: var(--purple);
+  color: #fff;
+  border-color: var(--purple);
+  font-weight: 600;
+}
+.account-settings__new-type {
+  display: grid;
+  gap: 12px;
+  padding-bottom: 20px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--line);
 }
 .account-settings__card {
   min-width: 0;
@@ -4529,4 +4563,29 @@ tbody td {
   .reports__bar-fill {
     transition: none;
   }
+}
+
+/* Shared interaction feedback for all enabled buttons. */
+:where(button):not(:disabled) {
+  transition:
+    filter 150ms ease,
+    box-shadow 150ms ease;
+}
+@media (hover: hover) {
+  :where(button):not(:disabled):hover {
+    filter: brightness(0.92);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--purple) 25%, transparent);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :where(button):not(:disabled) {
+    transition: none;
+  }
+}
+.workspace-table__table .bug-title,
+.workspace-table__table .assignee,
+.workspace-table__table .suite-badge,
+.workspace-table__table .status-badge,
+.workspace-table__table select {
+  font-size: 14px;
 }
