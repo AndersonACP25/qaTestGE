@@ -868,10 +868,15 @@ function App({
           SwaggerUI · API ↗
         </a>
         <div className="sidebar-bottom">
-          <div className="workspace__identity">
+          <button
+            type="button"
+            className="workspace__profile"
+            onClick={() => navigate("settings")}
+            aria-label={`Abrir configuración de ${user.name}`}
+          >
             <Avatar initials={user.name.slice(0, 2).toUpperCase()} color="orange" />
             <strong>{user.name}</strong>
-          </div>
+          </button>
         </div>
       </aside>
       {mobileNav && (
@@ -924,7 +929,7 @@ function App({
                   year: "numeric",
                 })}
               </div>
-              <h1>{pageTitle}</h1>
+              <h1 className="typography__title">{pageTitle}</h1>
               <p className="page-subtitle">{pageDescription(activePage)}</p>
             </div>
             {![
@@ -1112,7 +1117,7 @@ function App({
                 </div>
                 <section className="workspace__panel">
                   <div className="workspace-table__heading">
-                    <h2>Bugs recientes</h2>
+                    <h2 className="typography__section">Bugs recientes</h2>
                     <TableExport data={bugTableExport(bugs.slice(0, 5), tags)} />
                   </div>
                   <BugTable
@@ -1134,7 +1139,7 @@ function App({
                 </section>
                 <section className="workspace__panel">
                   <div className="workspace-table__heading">
-                    <h2>Ejecuciones recientes</h2>
+                    <h2 className="typography__section">Ejecuciones recientes</h2>
                     <TableExport data={runTableExport(runs.slice(0, 5), tags)} />
                   </div>
                   <RunTable

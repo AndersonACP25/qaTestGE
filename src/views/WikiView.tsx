@@ -34,7 +34,7 @@ export default function WikiView() {
     <div className="wiki-view">
       {guides.map((guide) => (
         <section className="wiki-view__card" key={guide.title}>
-          <h2>{guide.title}</h2>
+          <h2 className="typography__section">{guide.title}</h2>
           <p>{guide.text}</p>
         </section>
       ))}

@@ -157,7 +157,7 @@ export default function BugDesignView({
       {message && <Alert tone="success">{message}</Alert>}
       <div className="bug-design__layout">
         <div className="bug-design__card">
-          <h2>Describe el problema</h2>
+          <h2 className="typography__section">Describe el problema</h2>
           <p>
             Preparar otro bug reemplaza la vista previa. Guarda primero el borrador que quieras
             conservar.
@@ -218,7 +218,7 @@ export default function BugDesignView({
               Preparar bug
             </button>
           </form>
-          <h2>Borradores guardados</h2>
+          <h2 className="typography__section">Borradores guardados</h2>
           <button
             className="workspace__secondary"
             type="button"
@@ -271,7 +271,7 @@ export default function BugDesignView({
           ))}
         </div>
         <div className="bug-design__card">
-          <h2>Revisa el bug</h2>
+          <h2 className="typography__section">Revisa el bug</h2>
           {!preview ? (
             <p>Prepara un bug o abre un borrador para editarlo.</p>
           ) : (

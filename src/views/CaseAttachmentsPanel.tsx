@@ -49,7 +49,7 @@ export default function CaseAttachmentsPanel({ testCase }: { testCase: TestCase 
   }
   return (
     <section className="workspace__attachments" aria-label="Adjuntos del caso">
-      <h3>Imágenes y enlaces</h3>
+      <h3 className="typography__heading">Imágenes y enlaces</h3>
       {loadingAttachments && <p className="workspace__notice">Cargando adjuntos…</p>}
       {attachmentError && <Alert tone="error">{attachmentError}</Alert>}
       {!loadingAttachments && !attachmentError && !attachments.length && (

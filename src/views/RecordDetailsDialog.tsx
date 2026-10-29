@@ -28,7 +28,7 @@ export default function RecordDetailsDialog({
         <header className="record-view__hero">
           <div className="record-view__identity">
             <span className="record-view__id">{record.id}</span>
-            <h3>{record.title}</h3>
+            <h3 className="typography__heading">{record.title}</h3>
             <span className="record-view__project">
               {bug ? bug.project : testCase?.suite ? `Suite: ${testCase.suite}` : "Sin suite"}
             </span>

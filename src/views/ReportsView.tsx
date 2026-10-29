@@ -76,7 +76,9 @@ export default function ReportsView({
     <section className="reports" aria-labelledby="reports-title">
       <div className="reports__heading">
         <div>
-          <h2 id="reports-title">Resumen de {projectName}</h2>
+          <h2 className="typography__section" id="reports-title">
+            Resumen de {projectName}
+          </h2>
           <p>
             Indicadores calculados con los registros actuales del proyecto. Los casos omitidos no
             cuentan para la tasa de aprobación.
@@ -142,7 +144,7 @@ export default function ReportsView({
           const total = rows.reduce((sum, row) => sum + row.count, 0);
           return (
             <section className="reports__distribution" key={title} aria-label={title}>
-              <h3>{title}</h3>
+              <h3 className="typography__heading">{title}</h3>
               {rows.map(({ label, count, tone }) => (
                 <div className="reports__bar-row" key={label}>
                   <div className="reports__bar-label">

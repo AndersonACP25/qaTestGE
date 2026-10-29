@@ -229,7 +229,7 @@ export default function AccountSettingsView({
       </nav>
       <section className="account-settings__card" hidden={section !== "cuenta"}>
         <div className="account-settings__heading">
-          <h2>Información de la cuenta</h2>
+          <h2 className="typography__section">Información de la cuenta</h2>
           <p>Actualiza el nombre y correo asociados a tu usuario.</p>
         </div>
         <div className="account-settings__avatar-preview">
@@ -237,7 +237,7 @@ export default function AccountSettingsView({
             {user.name.trim().slice(0, 2).toLocaleUpperCase("es")}
           </span>
           <div>
-            <h3>Imagen de perfil</h3>
+            <h3 className="typography__heading">Imagen de perfil</h3>
             <p id="profile-image-preview">
               Próximamente podrás cambiar tu imagen de perfil. Esta opción es una maqueta.
             </p>
@@ -288,7 +288,7 @@ export default function AccountSettingsView({
       </section>
       <section className="account-settings__card" hidden={section !== "cuenta"}>
         <div className="account-settings__heading">
-          <h2>Seguridad</h2>
+          <h2 className="typography__section">Seguridad</h2>
           <p>
             Elige una contraseña nueva de al menos 12 caracteres. Las demás sesiones se revocarán.
           </p>
@@ -346,7 +346,7 @@ export default function AccountSettingsView({
         hidden={section !== "plantillas"}
       >
         <div className="account-settings__heading">
-          <h2>Plantillas para bugs</h2>
+          <h2 className="typography__section">Plantillas para bugs</h2>
           <p>
             Crea formatos personales inspirados en GitHub Issue Templates. El contenido se guarda
             como texto y nunca se interpreta como HTML.
@@ -480,7 +480,7 @@ export default function AccountSettingsView({
       </section>
       <section className="account-settings__card" hidden={section !== "ia"}>
         <div className="account-settings__heading">
-          <h2>Conexión con IA</h2>
+          <h2 className="typography__section">Conexión con IA</h2>
           <p>
             Vista preliminar de una futura configuración de proveedores. Esta sección es solo una
             maqueta.
@@ -513,7 +513,7 @@ export default function AccountSettingsView({
         hidden={section !== "cuenta"}
       >
         <div className="account-settings__heading">
-          <h2>Zona de peligro · Desactivar cuenta</h2>
+          <h2 className="typography__section">Zona de peligro · Desactivar cuenta</h2>
           <p>
             Tu acceso se desactivará y tu nombre, correo y contraseña se anonimizarán. Se revocarán
             todas las sesiones y se eliminarán tus plantillas. Los proyectos, membresías y registros

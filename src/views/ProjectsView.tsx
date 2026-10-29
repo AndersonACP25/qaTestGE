@@ -79,7 +79,9 @@ export default function ProjectsView({
       {error && <Alert tone="error">{error}</Alert>}
       {message && <Alert tone="success">{message}</Alert>}
       <section className="projects-view__panel">
-        <h2>{editing ? `Editar ${editing.name}` : "Crear proyecto"}</h2>
+        <h2 className="typography__section">
+          {editing ? `Editar ${editing.name}` : "Crear proyecto"}
+        </h2>
         <p>Solo el propietario del espacio puede crear, editar o eliminar proyectos.</p>
         <form className="projects-view__form" onSubmit={(event) => void save(event)}>
           {!editing && (
@@ -134,12 +136,12 @@ export default function ProjectsView({
         </form>
       </section>
       <section className="projects-view__panel">
-        <h2>Proyectos disponibles</h2>
+        <h2 className="typography__section">Proyectos disponibles</h2>
         {projects.length === 0 && <p>Aún no tienes proyectos.</p>}
         {projects.map((project) => (
           <article className="projects-view__item" key={project.id}>
             <div>
-              <h3>{project.name}</h3>
+              <h3 className="typography__heading">{project.name}</h3>
               <p>{project.description || "Sin descripción."}</p>
             </div>
             <div className="projects-view__actions">

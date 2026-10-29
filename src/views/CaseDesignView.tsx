@@ -44,7 +44,7 @@ export default function CaseDesignView({
           <div className="case-builder__heading">
             <span className="case-builder__step">01</span>
             <div>
-              <h2>Describe qué quieres probar</h2>
+              <h2 className="typography__section">Describe qué quieres probar</h2>
               <p>Una historia de usuario, un requisito o un flujo.</p>
             </div>
           </div>
@@ -149,7 +149,9 @@ export default function CaseDesignView({
           <div className="case-builder__heading">
             <span className="case-builder__step">03</span>
             <div>
-              <h2 id="case-builder-results">Pasos y resultados esperados</h2>
+              <h2 className="typography__section" id="case-builder-results">
+                Pasos y resultados esperados
+              </h2>
               <p>
                 {preview
                   ? `${formatCount(total, "caso de ejemplo", "casos de ejemplo")} · guardado manual`
@@ -199,7 +201,7 @@ export default function CaseDesignView({
                     key={`${testCase.categoryId}:${testCase.caseNumber}`}
                   >
                     <h3
-                      className="case-builder__case-title"
+                      className="typography__heading case-builder__case-title"
                       style={{ borderInlineStartColor: testCase.color }}
                     >
                       {testCase.categoryLabel} · Caso de ejemplo {testCase.caseNumber}
@@ -287,7 +289,7 @@ export default function CaseDesignView({
                 <span className="case-builder__empty-icon" aria-hidden="true">
                   ▤
                 </span>
-                <h3>Visualiza tu próximo plan de pruebas</h3>
+                <h3 className="typography__heading">Visualiza tu próximo plan de pruebas</h3>
                 <p>
                   Escribe una descripción, marca los tipos de prueba y pulsa «Mostrar tabla de
                   ejemplo» para recorrer la maqueta.
