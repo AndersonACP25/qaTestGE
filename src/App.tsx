@@ -1,3 +1,5 @@
+import TagPicker from "./TagPicker";
+import BugDesignView from "./views/BugDesignView";
 import TableExport from "./TableExport";
 import { bugTableExport, caseTableExport, runTableExport } from "./models/tableExport";
 import { categories } from "./models/caseDesign.model";
@@ -79,6 +81,7 @@ const navigation: {
       { id: "teams", label: "Equipos", icon: "grid" },
       { id: "bugs", label: "Bugs", icon: "bug", count: undefined },
       { id: "cases", label: "Casos de prueba", icon: "check-square" },
+      { id: "bug-builder", label: "Diseñar bugs", icon: "sparkle" },
       { id: "case-builder", label: "Diseñar test cases", icon: "sparkle" },
       { id: "runs", label: "Test runs", icon: "play" },
       { id: "evidence", label: "Evidencias", icon: "image" },
@@ -570,6 +573,7 @@ function App({
     tags: "Tags",
     settings: "Configuración",
     wiki: "Wiki",
+    "bug-builder": "Diseñar bugs",
     "case-builder": "Diseñar test cases",
   }[activePage];
   const notify = (message: string, tone: AlertTone = "success") => {
@@ -1182,6 +1186,7 @@ function App({
               "projects",
               "teams",
               "case-builder",
+              "bug-builder",
               "settings",
               "tags",
               "wiki",
@@ -1290,6 +1295,21 @@ function App({
             />
           ) : activePage === "wiki" ? (
             <WikiView />
+          ) : activePage === "bug-builder" ? (
+            !loading &&
+            !error &&
+            projectId && (
+              <BugDesignView
+                key={`${user.id}:${projectId}`}
+                userId={user.id}
+                projectId={projectId}
+                tags={tags}
+                tagError={tagError}
+                onSaved={(bug) =>
+                  setData((current) => ({ ...current, bugs: [bug, ...current.bugs] }))
+                }
+              />
+            )
           ) : activePage === "case-builder" ? (
             <CaseBuilder
               catalog={caseCatalog}
@@ -2304,49 +2324,6 @@ function TagBadges({ ids, tags }: { ids: string[]; tags: Tag[] }) {
   );
 }
 
-function TagPicker({
-  tags,
-  error,
-  selectedIds,
-  onChange,
-}: {
-  tags: Tag[];
-  error: string;
-  selectedIds: string[];
-  onChange: (ids: string[]) => void;
-}) {
-  return (
-    <fieldset className="workspace__fieldset">
-      <legend>Tags</legend>
-      {error ? (
-        <Alert tone="error">{error}</Alert>
-      ) : tags.length ? (
-        tags.map((tag) => (
-          <label className="workspace__check" key={tag.id}>
-            <input
-              type="checkbox"
-              name="tagIds"
-              value={tag.id}
-              checked={selectedIds.includes(tag.id)}
-              onChange={(event) =>
-                onChange(
-                  event.target.checked
-                    ? [...selectedIds, tag.id]
-                    : selectedIds.filter((id) => id !== tag.id),
-                )
-              }
-            />
-            <span className="tags-view__swatch" style={{ backgroundColor: tag.color }} />
-            {tag.name}
-          </label>
-        ))
-      ) : (
-        <p>No hay tags. Puedes crearlos desde la sección Tags.</p>
-      )}
-    </fieldset>
-  );
-}
-
 function pageDescription(page: NavigationPage): string {
   return {
     overview: "Aquí tienes el estado de calidad de tus proyectos.",
@@ -2360,6 +2337,7 @@ function pageDescription(page: NavigationPage): string {
     tags: "Crea tags por proyecto y clasifica bugs, casos de prueba y ejecuciones.",
     settings: "Preferencias del workspace y de tu perfil.",
     wiki: "Aprende a utilizar las funciones disponibles de qaTestGE.",
+    "bug-builder": "Convierte tu descripción en un borrador de bug y revísalo antes de guardar.",
     "case-builder": "De una idea a un plan de pruebas: explora la maqueta del futuro asistente.",
   }[page];
 }

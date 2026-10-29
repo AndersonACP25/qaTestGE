@@ -4718,3 +4718,60 @@ tbody td {
   flex: 1 1 180px;
   overflow-wrap: anywhere;
 }
+.bug-design {
+  display: grid;
+  gap: 16px;
+}
+.bug-design__layout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.bug-design__card {
+  min-width: 0;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+}
+.bug-design__card h2 {
+  font-size: 18px;
+  margin: 0 0 16px;
+}
+.bug-design__card p {
+  font-size: 14px;
+  line-height: 1.6;
+}
+.bug-design__card form + h2 {
+  margin-top: 28px;
+}
+.bug-design__editor {
+  border: 0;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+}
+.bug-design__primary {
+  font-size: 14px;
+}
+.bug-design__actions,
+.bug-design__draft {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+.bug-design__draft {
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+.bug-design__draft strong {
+  flex: 1 1 100%;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 1000px) {
+  .bug-design__layout {
+    grid-template-columns: 1fr;
+  }
+}

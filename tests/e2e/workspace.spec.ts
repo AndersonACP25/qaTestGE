@@ -1,5 +1,100 @@
 import { test, expect, navigate, noHorizontalOverflow } from "./fixture";
 
+test("Diseñar bugs conserva borradores y solo crea tras revisión", async ({
+  page,
+  workspace,
+}, testInfo) => {
+  await page.route("**/api/auth/bug-templates", (route) =>
+    route.fulfill({
+      json: {
+        data: [
+          {
+            id: "template-1",
+            name: "Error funcional",
+            title: "[BUG]",
+            description: "## Pasos para reproducir",
+            priority: "Alta",
+            createdAt: "hoy",
+          },
+        ],
+      },
+    }),
+  );
+  await page.route("**/api/tags?*", (route) =>
+    route.fulfill({
+      json: {
+        data: [
+          { id: "tag-1", projectId: "1", name: "Smoke demo", color: "#16754b", createdAt: "hoy" },
+        ],
+      },
+    }),
+  );
+  await page.reload();
+  await navigate(page, "Diseñar bugs");
+  await page.getByLabel("Problema observado").fill("El formulario no permite entrar");
+  await page.getByLabel("Plantilla de bug").selectOption("template-1");
+  await page.getByRole("button", { name: "Preparar bug", exact: true }).click();
+  await expect(page.getByLabel("Título del bug")).toHaveValue(
+    "[BUG] El formulario no permite entrar",
+  );
+  await page.getByLabel("Título del bug").fill("Error de acceso revisado");
+  await page.getByRole("checkbox", { name: "Smoke demo", exact: true }).check();
+  await expect(page.getByRole("button", { name: "Guardar bug en el proyecto" })).toBeDisabled();
+  await page.getByRole("button", { name: "Guardar borrador", exact: true }).click();
+  expect(workspace.writes.filter((item) => item.path === "/bugs")).toHaveLength(0);
+  await page.reload();
+  await navigate(page, "Diseñar bugs");
+  await page.getByRole("button", { name: "Abrir borrador", exact: true }).click();
+  await expect(page.getByLabel("Título del bug")).toHaveValue("Error de acceso revisado");
+  await expect(page.getByRole("checkbox", { name: "Smoke demo", exact: true })).toBeChecked();
+  await page
+    .getByRole("checkbox", { name: "Revisé el contenido y confirmo la creación del bug." })
+    .check();
+  await page.getByRole("button", { name: "Guardar bug en el proyecto" }).click();
+  await expect(
+    page.getByText("Bug BUG-002 guardado en el proyecto.", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Guardar bug en el proyecto" })).toBeDisabled();
+  const writes = workspace.writes.filter((item) => item.path === "/bugs");
+  expect(writes).toHaveLength(1);
+  expect(writes[0].body).toMatchObject({
+    projectId: "1",
+    title: "Error de acceso revisado",
+    priority: "Alta",
+    tagIds: ["tag-1"],
+  });
+  await expect(page.getByText("No hay borradores guardados.", { exact: true })).toBeVisible();
+  await noHorizontalOverflow(page);
+  await page.screenshot({ path: testInfo.outputPath("disenar-bugs.png"), fullPage: true });
+});
+
+test("edita y elimina tipos personalizados conservando sus preferencias", async ({ page }) => {
+  await navigate(page, "Configuración");
+  await page.getByRole("button", { name: "Diseño de casos", exact: true }).click();
+  await page.getByLabel("Nombre del nuevo tipo").fill("Contratos locales");
+  await page.getByRole("button", { name: "Añadir tipo de caso", exact: true }).click();
+  await page.getByRole("checkbox", { name: "Contratos locales", exact: true }).check();
+  await page.getByLabel("Valor inicial para Contratos locales").selectOption("4");
+  await page.getByRole("button", { name: "Guardar valores predeterminados" }).click();
+  await page.getByRole("button", { name: "Editar tipo Contratos locales", exact: true }).click();
+  await page.getByLabel("Nombre del tipo", { exact: true }).fill("Contratos revisados");
+  await page.getByRole("button", { name: "Guardar tipo de caso", exact: true }).click();
+  await page.reload();
+  await navigate(page, "Configuración");
+  await page.getByRole("button", { name: "Diseño de casos", exact: true }).click();
+  await expect(
+    page.getByRole("checkbox", { name: "Contratos revisados", exact: true }),
+  ).toBeChecked();
+  await expect(page.getByLabel("Valor inicial para Contratos revisados")).toHaveValue("4");
+  await page
+    .getByRole("button", { name: "Eliminar tipo Contratos revisados", exact: true })
+    .click();
+  await page.reload();
+  await navigate(page, "Diseñar test cases");
+  await expect(page.getByText("Contratos revisados", { exact: true })).toHaveCount(0);
+  await noHorizontalOverflow(page);
+});
+
 test.beforeEach(async ({ page, workspace }) => {
   void workspace;
   await page.goto("/");
