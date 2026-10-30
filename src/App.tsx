@@ -1,3 +1,9 @@
+import { ProjectPermissionsProvider } from "./controllers/ProjectPermissions";
+import { can } from "../backend/src/models/collaboration.model";
+import ProjectAccessView from "./views/ProjectAccessView";
+import { ProjectActivityView } from "./views/ProjectActivityView";
+import MentionsView from "./views/MentionsView";
+import CollaborationPanel from "./views/CollaborationPanel";
 import TypeCoverage from "./views/TypeCoverage";
 import CaseImportPanel from "./views/CaseImportPanel";
 import CaseHistoryPanel from "./views/CaseHistoryPanel";
@@ -73,6 +79,9 @@ const navigation: {
   {
     section: "WORKSPACE",
     items: [
+      { id: "activity", label: "Actividad y auditoría", icon: "clock" },
+      { id: "mentions", label: "Mis menciones", icon: "bell" },
+      { id: "access", label: "Accesos al proyecto", icon: "settings" },
       { id: "overview", label: "Dashboard", icon: "grid" },
       { id: "reports", label: "Reportes y métricas", icon: "chart" },
       { id: "projects", label: "Proyectos", icon: "grid" },
@@ -189,6 +198,8 @@ function App({
   const [recordDetail, setRecordDetail] = useState<RecordDetail | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>();
   const project = projects.find((p) => p.id === projectId);
+  const role = project?.role ?? "Solo lectura";
+  const allowed = (permission: Parameters<typeof can>[1]) => can(role, permission);
   useEffect(() => {
     if (!project?.organizationId) {
       setTeamMembers([]);
@@ -198,7 +209,7 @@ function App({
     setTeamMembers([]);
     setTeamMemberError("");
     void api<{ id: string; name: string }[]>(
-      `/teams/${encodeURIComponent(project.organizationId)}/members`,
+      `/project-members?projectId=${encodeURIComponent(project.id)}`,
       { signal: abort.signal },
     )
       .then(setTeamMembers)
@@ -209,7 +220,7 @@ function App({
           );
       });
     return () => abort.abort();
-  }, [project?.organizationId]);
+  }, [project?.organizationId, project?.id]);
   const { bugs, cases, runs, evidence } = data;
   useEffect(() => () => clearTimeout(toastTimer.current), []);
   useEffect(() => {
@@ -304,6 +315,9 @@ function App({
     visibleRuns = slicePage(filteredRuns),
     visibleEvidence = slicePage(filteredEvidence);
   const pageTitle = {
+    activity: "Actividad y auditoría",
+    mentions: "Mis menciones",
+    access: "Accesos al proyecto",
     overview: "Dashboard",
     plans: "Planes y ciclos",
     workflow: "Flujo de bugs",
@@ -853,7 +867,7 @@ function App({
   const isListing = ["bugs", "cases", "runs", "evidence"].includes(activePage);
   const isRenderCurrent = captureScope();
   const total = matchedTotal;
-  return (
+  const workspace = (
     <div className="app-shell workspace">
       <aside className={`sidebar${mobileNav ? " sidebar-open" : ""}`}>
         <div className="brand">
@@ -872,22 +886,31 @@ function App({
         <div className="workspace__identity">
           <strong>{project?.name ?? "Tu workspace"}</strong>
           <small>Cuenta de {user.name}</small>
+          <small>Rol del proyecto: {role}</small>
         </div>
         <div className="sidebar-nav">
           {navigation.map((group) => (
             <div className="nav-group" key={group.section}>
               <div className="nav-label">{group.section}</div>
-              {group.items.map((item) => (
-                <button
-                  className={`nav-item${activePage === item.id ? " nav-active" : ""}`}
-                  key={item.id}
-                  onClick={() => navigate(item.id)}
-                >
-                  <Icon name={item.icon} size={18} />
-                  <span>{item.label}</span>
-                  {item.id === "bugs" && <span className="nav-count">{bugs.length}</span>}
-                </button>
-              ))}
+              {group.items
+                .filter(
+                  (item) =>
+                    (item.id !== "access" || allowed("access.manage")) &&
+                    (item.id !== "workflow" || allowed("settings.manage")) &&
+                    (item.id !== "case-builder" || allowed("cases.write")) &&
+                    (item.id !== "bug-builder" || allowed("bugs.write")),
+                )
+                .map((item) => (
+                  <button
+                    className={`nav-item${activePage === item.id ? " nav-active" : ""}`}
+                    key={item.id}
+                    onClick={() => navigate(item.id)}
+                  >
+                    <Icon name={item.icon} size={18} />
+                    <span>{item.label}</span>
+                    {item.id === "bugs" && <span className="nav-count">{bugs.length}</span>}
+                  </button>
+                ))}
             </div>
           ))}
         </div>
@@ -962,6 +985,11 @@ function App({
             </div>
             {![
               "overview",
+              "activity",
+              "access",
+              "mentions",
+              "plans",
+              "workflow",
               "reports",
               "projects",
               "teams",
@@ -972,7 +1000,21 @@ function App({
               "wiki",
             ].includes(activePage) && (
               <button
-                disabled={!projectId || loading || saving || Boolean(error)}
+                disabled={
+                  !projectId ||
+                  loading ||
+                  saving ||
+                  Boolean(error) ||
+                  !allowed(
+                    activePage === "cases"
+                      ? "cases.write"
+                      : activePage === "runs"
+                        ? "runs.write"
+                        : activePage === "evidence"
+                          ? "evidence.write"
+                          : "bugs.write",
+                  )
+                }
                 className="button button-primary"
                 onClick={() =>
                   openModal(
@@ -1049,13 +1091,15 @@ function App({
           {workflowError && <Alert tone="error">{workflowError}</Alert>}
           {activePage === "cases" && projectId && (
             <>
-              <CaseImportPanel
-                key={`import:${user.id}:${projectId}`}
-                projectId={projectId}
-                onChanged={() => {
-                  if (isRenderCurrent()) setRevision((v) => v + 1);
-                }}
-              />
+              {allowed("cases.write") && (
+                <CaseImportPanel
+                  key={`import:${user.id}:${projectId}`}
+                  projectId={projectId}
+                  onChanged={() => {
+                    if (isRenderCurrent()) setRevision((v) => v + 1);
+                  }}
+                />
+              )}
               <div className="quality__filters">
                 <label className="workspace__field">
                   Tipo de prueba
@@ -1096,7 +1140,43 @@ function App({
               existente.
             </p>
           )}
-          {activePage === "plans" ? (
+          {activePage === "activity" ? (
+            projectId && <ProjectActivityView key={projectId} projectId={projectId} />
+          ) : activePage === "access" ? (
+            projectId &&
+            allowed("access.manage") && (
+              <ProjectAccessView
+                key={projectId}
+                projectId={projectId}
+                onChanged={() => {
+                  if (isRenderCurrent()) setRevision((v) => v + 1);
+                }}
+              />
+            )
+          ) : activePage === "mentions" ? (
+            projectId && (
+              <MentionsView
+                key={projectId}
+                projectId={projectId}
+                onOpen={(target) => {
+                  if (!isRenderCurrent()) return;
+                  if (target.kind === "bug") {
+                    const record = bugs.find((b) => b.id === target.id);
+                    if (record) setRecordDetail({ kind: "bug", record });
+                  } else if (target.kind === "case") {
+                    const record = cases.find((c) => c.id === target.id);
+                    if (record) setRecordDetail({ kind: "case", record });
+                  } else {
+                    const run = runs.find((r) => r.id === target.id);
+                    if (run) {
+                      setRunAction("view");
+                      setRunDetail(run);
+                    }
+                  }
+                }}
+              />
+            )
+          ) : activePage === "plans" ? (
             projectId && (
               <TestPlansView
                 key={`${user.id}:${projectId}`}
@@ -1898,7 +1978,10 @@ function App({
                       step={1}
                       value={evidenceForm.sizeBytes}
                       onChange={(event) =>
-                        setEvidenceForm({ ...evidenceForm, sizeBytes: event.target.valueAsNumber })
+                        setEvidenceForm({
+                          ...evidenceForm,
+                          sizeBytes: event.target.valueAsNumber,
+                        })
                       }
                       disabled={editingEvidence?.hasFile}
                       required
@@ -1970,6 +2053,7 @@ function App({
           }}
           initialAction={runAction}
           cases={cases}
+          userId={user.id}
           onClose={() => setRunDetail(null)}
           onChanged={(updated) => {
             if (!isRenderCurrent()) return;
@@ -2039,6 +2123,12 @@ function App({
                 ))}
             </>
           )}
+          <CollaborationPanel
+            key={`${projectId}:${recordDetail.record.id}`}
+            projectId={projectId}
+            userId={user.id}
+            target={{ kind: recordDetail.kind, id: recordDetail.record.id }}
+          />
           {recordDetail.kind === "case" && (
             <>
               <CaseAttachmentsPanel testCase={recordDetail.record} />
@@ -2112,6 +2202,7 @@ function App({
             <button
               type="button"
               className="workspace__secondary"
+              disabled={!allowed("evidence.write")}
               onClick={() => {
                 setEditingEvidence(evidenceActionTarget);
                 setEvidenceActionTarget(null);
@@ -2124,6 +2215,7 @@ function App({
             <button
               type="button"
               className="workspace__secondary"
+              disabled={!allowed("evidence.write")}
               onClick={() => editEvidence(evidenceActionTarget)}
             >
               Editar metadatos
@@ -2131,6 +2223,7 @@ function App({
             <button
               type="button"
               className="workspace__danger"
+              disabled={!allowed("evidence.write")}
               onClick={() => {
                 setEvidenceToDelete(evidenceActionTarget);
                 setEvidenceActionTarget(null);
@@ -2295,10 +2388,14 @@ function App({
       )}
     </div>
   );
+  return <ProjectPermissionsProvider role={role}>{workspace}</ProjectPermissionsProvider>;
 }
 
 function pageDescription(page: NavigationPage): string {
   return {
+    activity: "Consulta quién modificó los recursos y qué cambió.",
+    mentions: "Consulta las menciones de tus compañeros dentro del proyecto.",
+    access: "Asigna roles y controla el acceso a este proyecto.",
     overview: "Aquí tienes el estado de calidad de tus proyectos.",
     plans: "Agrupa casos y organiza ciclos de ejecución.",
     workflow: "Define los estados y transiciones de bugs por proyecto.",

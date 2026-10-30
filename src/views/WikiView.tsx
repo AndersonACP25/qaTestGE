@@ -1,7 +1,7 @@
 const guides = [
   {
     title: "1. Selecciona un proyecto",
-    text: "En Proyectos el propietario puede crear y editar proyectos, o eliminar los que no tengan registros vinculados. El selector superior determina los datos visibles; cada cuenta accede a los proyectos de sus organizaciones.",
+    text: "El propietario crea proyectos; sus Admin pueden editarlos o eliminar los que estén vacíos. El selector superior muestra solo proyectos donde tienes acceso, con tu rol Admin, QA, Dev o Solo lectura.",
   },
   {
     title: "2. Documenta casos de prueba",
@@ -21,7 +21,11 @@ const guides = [
   },
   {
     title: "Equipos y acceso",
-    text: "Crea equipos y selecciona el equipo propietario de cada proyecto. Una invitación es de un solo uso y concede acceso a todos los proyectos del equipo. Para retirar a un integrante debes reasignar primero sus bugs y casos.",
+    text: "Crea equipos y selecciona el equipo propietario de cada proyecto. Una invitación es de un solo uso y permite unirte al equipo; después un Admin asigna tu acceso a cada proyecto. Para retirar a un integrante debes reasignar primero sus bugs y casos.",
+  },
+  {
+    title: "Comentarios, menciones y auditoría",
+    text: "Comenta en el detalle de bugs, casos y ejecuciones. Escribe @ y selecciona un integrante con acceso para mencionarlo; consulta los avisos en Mis menciones. El autor y los Admin pueden editar o eliminar comentarios, conservando el historial. Actividad y auditoría muestra los cambios confirmados y sus actores desde la migración 014. No se envían correos.",
   },
   {
     title: "Diseñador y configuración",

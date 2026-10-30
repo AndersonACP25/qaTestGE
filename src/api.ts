@@ -48,6 +48,7 @@ export interface BugTemplateInput {
   priority: BugTemplatePriority;
 }
 export interface Project {
+  role?: import("../backend/src/models/collaboration.model").ProjectRole;
   id: string;
   organizationId: string;
   name: string;
@@ -157,6 +158,8 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
     const pathname = path.split("?")[0];
     const valid =
       method === "DELETE" ||
+      (method === "PUT" && /^\/project-members\/[^/]+$/.test(pathname)) ||
+      (method === "PATCH" && /^\/mention-notifications\/[^/]+$/.test(pathname)) ||
       (method === "PATCH" &&
         (pathname === "/auth/password" || /^\/teams\/[^/]+$/.test(pathname))) ||
       (method === "POST" && ["/auth/logout", "/team-invitations/accept"].includes(pathname));

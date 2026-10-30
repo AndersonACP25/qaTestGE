@@ -249,8 +249,8 @@ test("cambiar proyecto detiene una importación pendiente en su alcance original
     route.fulfill({
       json: {
         data: [
-          { id: "1", organizationId: "1", name: "Proyecto A", description: "" },
-          { id: "2", organizationId: "1", name: "Proyecto B", description: "" },
+          { id: "1", organizationId: "1", role: "Admin", name: "Proyecto A", description: "" },
+          { id: "2", organizationId: "1", role: "Admin", name: "Proyecto B", description: "" },
         ],
       },
     }),

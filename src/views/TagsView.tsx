@@ -1,3 +1,4 @@
+import { usePermissions } from "../controllers/ProjectPermissions";
 import { useEffect, useState, type FormEvent } from "react";
 import Alert from "../Alert";
 import { createTag, deleteTag, updateTag } from "../api";
@@ -12,6 +13,7 @@ export default function TagsView({
   tags: Tag[];
   onChanged: () => void;
 }) {
+  const readOnly = !usePermissions().can("tags.write");
   const [editing, setEditing] = useState<Tag | null>(null);
   const [name, setName] = useState("");
   const [color, setColor] = useState("#7462df");
@@ -81,39 +83,46 @@ export default function TagsView({
   return (
     <section className="tags-view">
       <form className="tags-view__form" onSubmit={(event) => void save(event)}>
-        <h2 className="typography__section">{editing ? "Editar tag" : "Crear tag"}</h2>
-        <label className="tags-view__field">
-          Nombre
-          <input
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            maxLength={50}
-            required
-          />
-        </label>
-        <label className="tags-view__field">
-          Color
-          <span className="tags-view__color-input">
+        <fieldset className="permissions__group" disabled={readOnly || busy}>
+          <h2 className="typography__section">{editing ? "Editar tag" : "Crear tag"}</h2>
+          <label className="tags-view__field">
+            Nombre
             <input
-              type="color"
-              value={color}
-              onChange={(event) => setColor(event.target.value)}
-              aria-label="Color del tag"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              maxLength={50}
+              required
             />
-            <code>{color}</code>
-          </span>
-        </label>
-        {error && <Alert tone="error">{error}</Alert>}
-        <div className="tags-view__actions">
-          <button className="button button-primary" type="submit" disabled={busy || !name.trim()}>
-            {busy ? "Guardando…" : editing ? "Guardar cambios" : "Crear tag"}
-          </button>
-          {editing && (
-            <button className="workspace__secondary" type="button" disabled={busy} onClick={reset}>
-              Cancelar
+          </label>
+          <label className="tags-view__field">
+            Color
+            <span className="tags-view__color-input">
+              <input
+                type="color"
+                value={color}
+                onChange={(event) => setColor(event.target.value)}
+                aria-label="Color del tag"
+              />
+              <code>{color}</code>
+            </span>
+          </label>
+          {error && <Alert tone="error">{error}</Alert>}
+          <div className="tags-view__actions">
+            <button className="button button-primary" type="submit" disabled={busy || !name.trim()}>
+              {busy ? "Guardando…" : editing ? "Guardar cambios" : "Crear tag"}
             </button>
-          )}
-        </div>
+            {editing && (
+              <button
+                className="workspace__secondary"
+                type="button"
+                disabled={busy || readOnly}
+                onClick={reset}
+              >
+                Cancelar
+              </button>
+            )}
+          </div>
+        </fieldset>
       </form>
       <section className="tags-view__list" aria-label="Tags del proyecto">
         <h2 className="typography__section">
@@ -130,7 +139,7 @@ export default function TagsView({
               <button
                 type="button"
                 className="workspace__secondary"
-                disabled={busy}
+                disabled={busy || readOnly}
                 onClick={() => startEdit(tag)}
               >
                 Editar
@@ -138,7 +147,7 @@ export default function TagsView({
               <button
                 type="button"
                 className="workspace__danger"
-                disabled={busy}
+                disabled={busy || readOnly}
                 onClick={() => void remove(tag)}
               >
                 Eliminar

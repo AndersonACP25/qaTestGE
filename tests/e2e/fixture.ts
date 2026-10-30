@@ -17,6 +17,7 @@ export const test = base.extend<{
         {
           id: "1",
           organizationId: "1",
+          role: "Admin",
           name: "Proyecto QA con nombre largo para comprobar responsive",
           description: "",
         },
@@ -68,6 +69,8 @@ export const test = base.extend<{
           },
           revision: 1,
         };
+      else if (path === "/project-members")
+        data = [{ id: "1", name: "QA Local", role: "Admin", owner: true, revision: 0 }];
       else if (path === "/teams" && method === "GET") data = state.teams;
       else if (path === "/teams" && method === "POST") {
         data = { id: "2", name: body.name, role: "owner" };
@@ -90,9 +93,16 @@ export const test = base.extend<{
       } else if (path === "/team-invitations/accept" && method === "POST") {
         await route.fulfill({ status: 204 });
         return;
-      } else if (path === "/projects" && method === "GET") data = state.projects;
+      } else if (path === "/projects" && method === "GET")
+        data = state.projects.map((p) => ({ ...p, role: p.role ?? "Admin" }));
       else if (path === "/projects" && method === "POST") {
-        data = { id: "2", organizationId: "1", name: body.name, description: body.description };
+        data = {
+          id: "2",
+          organizationId: "1",
+          role: "Admin",
+          name: body.name,
+          description: body.description,
+        };
         state.projects.push(data as (typeof state.projects)[number]);
         status = 201;
       } else if (path === "/projects/2" && method === "PATCH") {
@@ -223,7 +233,10 @@ export { expect };
 
 export async function navigate(page: Page, name: string) {
   const menu = page.getByRole("button", { name: "Abrir menú" });
-  if (await menu.isVisible()) await menu.click();
+  if ((page.viewportSize()?.width ?? 1440) <= 850) {
+    await expect(menu).toBeVisible();
+    if ((await menu.getAttribute("aria-expanded")) !== "true") await menu.click();
+  }
   await page.getByRole("button", { name: new RegExp(`^${name}(?: \\d+)?$`) }).click();
 }
 export async function noHorizontalOverflow(page: Page) {

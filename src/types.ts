@@ -1,5 +1,8 @@
 export type NavigationPage =
   | "overview"
+  | "activity"
+  | "access"
+  | "mentions"
   | "reports"
   | "plans"
   | "workflow"
