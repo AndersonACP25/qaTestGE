@@ -64,7 +64,7 @@ Las colecciones usan `{"data":[...]}`; las creaciones `{"data":{...}}`. Las list
 
 Registro e inicio establecen qa_session: cookie HttpOnly, SameSite=Lax, Path=/api, Secure en producción y expiración absoluta de siete días. Cada cuenta crea su workspace y proyecto propios; no hay gestión de miembros o invitaciones en la interfaz. La base solo conserva el hash SHA-256 del token de sesión. La respuesta pública contiene `{"data":{"user":{"id":"1","name":"QA","email":"qa@example.test"},"csrfToken":"..."}}`; nunca contraseñas, hashes ni el token de sesión.
 
-Los recursos y proyectos requieren la cookie. Todas las escrituras protegidas (POST, PATCH y DELETE), incluido logout, exigen X-CSRF-Token obtenido de login/registro/me. Las peticiones de escritura usan JSON, salvo subida de archivos en rutas específicas; se rechazan si declaran un Origin distinto de FRONTEND_ORIGIN/CORS_ORIGIN o API_ORIGIN. La autorización consulta la membresía actual; una cuenta sin acceso recibe 404 PROJECT_NOT_FOUND al seleccionar un proyecto ajeno. Los miembros autorizados pueden leer y crear recursos, editar bugs y evidencias, y eliminar evidencias; no hay administración HTTP de roles o invitaciones.
+Los recursos y proyectos requieren la cookie. Todas las escrituras protegidas (POST, PUT, PATCH y DELETE), incluido logout, exigen X-CSRF-Token obtenido de login/registro/me. Las peticiones de escritura usan JSON, salvo subida de archivos en rutas específicas; se rechazan si declaran un Origin distinto de FRONTEND_ORIGIN/CORS_ORIGIN o API_ORIGIN. La autorización consulta la membresía actual; una cuenta sin acceso recibe 404 PROJECT_NOT_FOUND al seleccionar un proyecto ajeno. Las escrituras se limitan por la matriz de roles del proyecto; existen endpoints de invitaciones y administración de acceso.
 
 En SwaggerUI, iniciar sesión con el endpoint login, consultar me y copiar csrfToken al campo X-CSRF-Token de **Authorize** para probar POST. La cookie se envía automáticamente desde el mismo origen. No introducir el token de sesión manualmente en JavaScript.
 
@@ -192,3 +192,21 @@ X-Request-ID permite correlacionar logs sin datos sensibles. INVALID_RESPONSE es
 - `GET/PUT /api/bug-workflow?projectId=…`: states (1–20, únicos, 1–60 caracteres), transitions (lista de destinos por cada estado), closedStates opcional y revision positiva. El primer estado es el inicial; closedStates identifica resueltos. PUT requiere revisión actual, no puede retirar estados usados ni referenciar destinos inexistentes.
 
 Todas las rutas requieren sesión y alcance del proyecto; escrituras requieren CSRF. Los conflictos de revisión y flujo devuelven 409. Swagger describe las formas completas. La importación usa POST de casos con claves idempotentes individuales; no existe un endpoint masivo ni rollback de todo el archivo.
+
+## Colaboración y permisos (014)
+
+Todos los endpoints siguientes requieren sesión y `projectId` en query; las escrituras también CSRF. Los proyectos listados incluyen `role` con Admin, QA, Dev o Solo lectura. Sin acceso: 404. Permiso insuficiente: 403. Revisión obsoleta: 409.
+
+| Método | Ruta                                      | Contrato                                                                                                                                                                      |
+| ------ | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/project-members`                        | Integrantes activos con acceso. `candidates=true` incluye integrantes sin acceso y exige Admin; devuelve id/name/role/owner/revision.                                         |
+| PUT    | `/project-members/{userId}`               | `{ role, revision }`, role puede ser null para revocar. Exige Admin, integrante del equipo y revisión actual. Protege propietario, último Admin y asignaciones vigentes. 204. |
+| GET    | `/comments`                               | `kind=bug\|case\|run` y `resourceId` correspondiente. Últimos 100, descendentes.                                                                                              |
+| POST   | `/comments`                               | `{ target: {kind,id}, body }`, texto 1–5000, header UUID `Idempotency-Key` obligatorio. Hasta 20 menciones `@[Nombre](user:ID)` a integrantes activos con acceso. 201.        |
+| PATCH  | `/comments/{commentId}`                   | `{ body, version }`; autor o Admin con permiso de comentar. Responde comentario actualizado.                                                                                  |
+| DELETE | `/comments/{commentId}`                   | `{ version }`; eliminación lógica, responde comentario con deletedAt.                                                                                                         |
+| GET    | `/activity`                               | Hasta 50 eventos; filtros opcionales conjuntos kind/resourceId y cursor decimal `before`. Incluye actor, fecha, acción, antes/después y correlación.                          |
+| GET    | `/mention-notifications`                  | Últimos 100 avisos propios y visibles en el proyecto.                                                                                                                         |
+| PATCH  | `/mention-notifications/{notificationId}` | JSON `{}`; marca un aviso propio leído de forma idempotente. 204.                                                                                                             |
+
+La matriz de permisos está en la guía de uso. Owner/member continúa describiendo el equipo; los permisos de trabajo se asignan por proyecto. No existe API para alterar auditoría ni enviar notificaciones externas. El borrado de comentarios conserva su contenido anterior en el historial autorizado del proyecto.

@@ -4,6 +4,11 @@ Todos los cambios importantes de qaTestGE se documentan aquí. El formato sigue 
 
 ## [Unreleased]
 
+- Comentarios con revisión y @menciones en bugs, casos y ejecuciones, con avisos internos por destinatario.
+- Actividad persistente con cambios antes/después, actor y correlación, inmutable desde aplicación/PostgreSQL ordinario.
+- Admin, QA, Dev y Solo lectura por proyecto; administración de accesos, protección de propietario/último Admin y revocación controlada.
+- Migración 014 que conserva accesos heredados explícitos y elimina la concesión automática de proyectos futuros.
+
 - Bug desde un fallo con caso, ejecución, snapshot y evidencias enlazados; severidad, entorno y versión afectada.
 - Tipo de prueba independiente, cobertura por tipo y ciclo documental Borrador/Listo/Obsoleto con historial y control de versiones concurrentes.
 - Planes/ciclos, clonación de ejecuciones y reejecución de fallidos conservando snapshots originales.

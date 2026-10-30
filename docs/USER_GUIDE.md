@@ -18,7 +18,7 @@ Organiza el trabajo de calidad de tu equipo en un solo lugar: registra bugs, pre
 - **Ejecuciones:** agrupar casos, registrar sus resultados y completar la ejecución cuando todos tengan un resultado. Puedes reabrirla para corregirlos.
 - **Evidencias:** subir y descargar archivos privados de hasta **2 MiB**, vinculados al trabajo del proyecto.
 - **Dashboard y reportes:** consultar el estado del proyecto y descargar el reporte en CSV.
-- **Proyectos y equipos:** crear espacios de colaboración y aceptar códigos de invitación de un solo uso. Los integrantes acceden a todos los proyectos de su equipo.
+- **Proyectos y equipos:** crear espacios de colaboración y aceptar códigos de invitación de un solo uso. Los integrantes necesitan un rol en cada proyecto; el propietario conserva Admin.
 
 Los listados muestran hasta 50 filas por página; usa Anterior y Siguiente para recorrer los resultados filtrados.
 
@@ -69,3 +69,30 @@ Para ejecutar tu propia instancia, consulta la [guía de desarrollo](DEVELOPMENT
 - **Clonar y reejecutar:** en el detalle de una ejecución puedes clonar todos sus casos o reejecutar solo los fallidos registrados. La nueva ejecución empieza sin resultados registrados, mantiene el plan y referencia al origen y copia los pasos/versiones evaluados. No realiza pruebas automáticamente. Si no hay fallidos, la opción queda deshabilitada.
 - **Importar:** abre Casos de prueba → Importar casos desde CSV o Excel y descarga la plantilla CSV. Excel admite `.xlsx`, una hoja y celdas de texto. Usa las columnas `clave`, `titulo`, `suite`, `tipo`, `estado`, `precondiciones`, `accion`, `resultadoEsperado`. Cada fila representa un paso; repite la clave y los datos del caso para agruparlo. Si omites clave, se agrupa por título. Máximo 2 MiB, 1000 filas y 100 pasos por caso. Revisa los errores y la vista previa antes de confirmar. Se crean casos nuevos; no se actualizan casos por coincidencia de título. Las exportaciones individuales y de listados tienen un formato de presentación: adapta sus columnas a la plantilla para importarlas. Si falla una escritura, los casos confirmados permanecen y puedes continuar los pendientes con las mismas claves de solicitud; no cambies de archivo para reintentar. Esta recuperación se conserva mientras mantengas abierta la vista.
 - **Flujo de bugs:** cada proyecto tiene su vocabulario y transiciones en Flujo de bugs. El primer estado se asigna al crear; marca las transiciones permitidas y cuáles cuentan como resueltos en métricas. El servidor rechaza transiciones no permitidas, revisiones antiguas y la retirada de estados en uso. La severidad es independiente de la prioridad; ambas usan Crítica, Alta, Media y Baja. Entorno y versión afectada admiten texto hasta 100 caracteres.
+
+## Comentarios, menciones y actividad
+
+Abre el detalle de un bug, caso o ejecución y utiliza **Comentarios y actividad**. Escribe el comentario y revisa su contenido antes de publicarlo. Para mencionar a alguien, escribe `@`, busca su nombre y selecciónalo en las sugerencias. La mención utiliza un identificador estable: escribir solo `@Nombre` sin seleccionarlo es texto y no genera un aviso. Puedes mencionar hasta 20 integrantes activos con acceso al proyecto. No se envían correos ni mensajes externos.
+
+**Mis menciones** muestra tus avisos del proyecto. **Abrir registro** lo marca como leído y abre el bug, caso o ejecución. Actualiza la lista para ver avisos nuevos; no hay avisos push ni tiempo real. Los avisos dejan de mostrarse si se retira la mención, se elimina el comentario o pierdes el acceso al proyecto.
+
+El autor y los Admin pueden editar o eliminar comentarios. El borrado muestra una marca de comentario eliminado; la versión anterior queda en la auditoría. Si otra persona modificó el comentario mientras lo editabas, se rechaza tu actualización para evitar sobrescribirla: actualiza la conversación y revisa la nueva versión. Se muestran los 100 comentarios más recientes del recurso.
+
+En el detalle puedes desplegar **Ver historial de actividad del registro**. La ventana **Actividad y auditoría** permite consultar cambios del proyecto y cargar entradas anteriores. Muestra actor, fecha, registro y cambios antes/después; también registra cambios de roles y permisos. El historial empieza al instalar la migración 014 y no reconstruye acciones anteriores. Los datos de auditoría se confirman junto con el cambio; las operaciones fallidas no dejan eventos de cambio. No se pueden editar ni eliminar desde la aplicación.
+
+## Accesos y roles por proyecto
+
+El propietario del equipo conserva Admin en sus proyectos. Desde **Accesos al proyecto**, un Admin puede asignar un rol a integrantes activos del equipo, cambiarlo o seleccionar **Sin acceso**. Los cambios requieren confirmación y se registran en actividad. Antes de retirar el acceso, reasigna sus bugs y casos pendientes. El sistema rechaza revisiones obsoletas y protege al propietario y al último Admin activo.
+
+| Capacidad                                                | Admin | QA  | Dev | Solo lectura |
+| -------------------------------------------------------- | ----- | --- | --- | ------------ |
+| Consultar recursos, descargar evidencias y ver actividad | Sí    | Sí  | Sí  | Sí           |
+| Comentar y mencionar                                     | Sí    | Sí  | Sí  | No           |
+| Gestionar bugs y evidencias                              | Sí    | Sí  | Sí  | No           |
+| Gestionar casos, resultados, planes y tags               | Sí    | Sí  | No  | No           |
+| Configurar flujo de bugs y administrar accesos           | Sí    | No  | No  | No           |
+| Editar o eliminar un proyecto vacío                      | Sí    | No  | No  | No           |
+
+La creación de proyectos y la administración del equipo siguen correspondiendo al propietario del equipo. Ser miembro de un equipo ya no concede acceso automático a todos sus proyectos: una invitación nueva necesita una asignación posterior por proyecto. Al actualizar desde versiones anteriores, los miembros existentes reciben QA explícitamente en los proyectos que ya compartían, para preservar su acceso. Los proyectos futuros requieren asignaciones nuevas.
+
+El rol se muestra junto a tu cuenta. Los controles de escritura se deshabilitan según el rol; el servidor vuelve a comprobarlo en cada escritura. Una revocación puede impedir una operación iniciada desde una pantalla que aún muestra datos anteriores. En ese caso, actualiza los proyectos disponibles.

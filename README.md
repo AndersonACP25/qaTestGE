@@ -17,6 +17,8 @@ Una plataforma para organizar el trabajo de QA de tu equipo: bugs, casos de prue
 - **Planes y ciclos:** agrupa casos, clona ejecuciones o reejecuta solo los fallidos conservando los pasos originales.
 - **Casos versionados e importación:** tipo de prueba independiente, Borrador/Listo/Obsoleto, historial e importación revisada de CSV/Excel.
 - **Flujo de bugs por proyecto:** estados y transiciones configurables, severidad, entorno y versión afectada.
+- **Comentarios y menciones:** conversa en bugs, casos y ejecuciones, con avisos internos e historial de actividad.
+- **Roles y auditoría:** Admin, QA, Dev y Solo lectura por proyecto, con registro persistente de cambios.
 - **Equipos y proyectos:** colabora mediante invitaciones de un solo uso.
 - **Dashboard, reportes y exportación:** consulta avances y descarga registros en Excel, PDF, Markdown o reportes CSV.
 - **Diseñadores:** prepara casos a partir de ejemplos y bugs desde plantillas; revisa el contenido antes de guardarlo.
