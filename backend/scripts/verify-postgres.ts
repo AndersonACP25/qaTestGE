@@ -243,6 +243,7 @@ try {
       "test_case_steps",
       "test_cases",
       "bugs",
+      "project_bug_workflows",
     ]) {
       await client.query(
         `DELETE FROM qa.${table} WHERE project_id IN (SELECT id FROM qa.projects WHERE organization_id=ANY($1::bigint[]))`,

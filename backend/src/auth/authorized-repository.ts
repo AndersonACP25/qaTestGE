@@ -27,6 +27,41 @@ export class AuthorizedRepository implements Repository {
     private readonly projects: () => Promise<Project[]>,
     private readonly actorId?: string,
   ) {}
+  get quality(): import("../models/quality.model.js").QualityRepository | undefined {
+    const base = this.base.quality;
+    if (!base) return undefined;
+    return {
+      listPlans: async (p) => {
+        await this.projectIds(p);
+        return base.listPlans(p);
+      },
+      savePlan: async (p, id, input, context) => {
+        await this.projectIds(p);
+        return base.savePlan(
+          p,
+          id,
+          input,
+          context ? { ...context, actorId: this.actorId! } : undefined,
+        );
+      },
+      deletePlan: async (p, id) => {
+        await this.projectIds(p);
+        return base.deletePlan(p, id);
+      },
+      caseHistory: async (p, id) => {
+        await this.projectIds(p);
+        return base.caseHistory(p, id);
+      },
+      workflow: async (p) => {
+        await this.projectIds(p);
+        return base.workflow(p);
+      },
+      saveWorkflow: async (p, input) => {
+        await this.projectIds(p);
+        return base.saveWorkflow(p, input);
+      },
+    };
+  }
   health() {
     return this.base.health();
   }

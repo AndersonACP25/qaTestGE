@@ -43,6 +43,20 @@ export async function checkDatabase(pool: pg.Pool): Promise<void> {
     LEFT JOIN qa.evidence e ON e.project_id = p.id
     LEFT JOIN qa.evidence_links el ON el.evidence_id = e.id LIMIT 0`);
   await pool.query("SELECT user_id,project_id,request_key FROM qa.creation_requests LIMIT 0");
+  await pool.query("SELECT test_type,lifecycle,version FROM qa.test_cases LIMIT 0");
+  await pool.query(
+    "SELECT source_result_id,severity,environment,affected_version FROM qa.bugs LIMIT 0",
+  );
+  await pool.query("SELECT plan_id,source_run_id FROM qa.test_runs LIMIT 0");
+  await pool.query("SELECT title_snapshot,case_version FROM qa.test_run_results LIMIT 0");
+  await pool.query(
+    "SELECT project_id,revision,states,transitions,closed_states FROM qa.project_bug_workflows LIMIT 0",
+  );
+  await pool.query("SELECT project_id,id,revision FROM qa.test_plans LIMIT 0");
+  await pool.query("SELECT project_id,plan_id,test_case_id FROM qa.test_plan_cases LIMIT 0");
+  await pool.query(
+    "SELECT project_id,test_case_id,version,snapshot FROM qa.test_case_versions LIMIT 0",
+  );
   await pool.query("SELECT 1");
   await pool.query(
     "SELECT u.id,s.token_hash,m.user_id FROM qa.users u LEFT JOIN qa.auth_sessions s ON s.user_id=u.id LEFT JOIN qa.organization_members m ON m.user_id=u.id LIMIT 0",

@@ -46,6 +46,10 @@ function valid(body: unknown): body is CreateTestRunInput {
   )
     return false;
   if (!validTagIds(body.tagIds)) return false;
+  if (body.planId !== undefined && !parseReference(body.planId, "PLAN")) return false;
+  if (body.sourceRunId !== undefined && !parseReference(body.sourceRunId, "RUN")) return false;
+  if (body.failedOnly !== undefined && typeof body.failedOnly !== "boolean") return false;
+  if (body.failedOnly && !body.sourceRunId) return false;
   if (body.caseIds === undefined) return true;
   if (!Array.isArray(body.caseIds) || body.caseIds.length > 1000) return false;
   const ids = body.caseIds.map((id) => parseReference(id, "TC"));

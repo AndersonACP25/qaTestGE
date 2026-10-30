@@ -6,7 +6,7 @@ export interface ListQuery {
   search?: string;
   status?: string;
 }
-export function listQuery(request: Request, statuses: readonly string[]): ListQuery | undefined {
+export function listQuery(request: Request, statuses?: readonly string[]): ListQuery | undefined {
   if (["limit", "offset", "search", "status"].every((key) => request.query[key] === undefined))
     return undefined;
   if (typeof request.query.projectId !== "string")
@@ -28,7 +28,8 @@ export function listQuery(request: Request, statuses: readonly string[]): ListQu
   if (
     limit < 1 ||
     (search !== undefined && (typeof search !== "string" || search.length > 200)) ||
-    (status !== undefined && (typeof status !== "string" || !statuses.includes(status)))
+    (status !== undefined &&
+      (typeof status !== "string" || (statuses ? !statuses.includes(status) : status.length > 60)))
   )
     throw new HttpError(400, "INVALID_FILTER", "Revisa los filtros y la página.");
   return {
