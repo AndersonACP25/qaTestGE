@@ -8,7 +8,7 @@ La Wiki del frontend documenta el flujo implementado. Las tablas de bugs, casos 
 
 ## Estado del documento
 
-Este documento combina la arquitectura objetivo de la v1.0 con el estado real del repositorio. El frontend usa React, Vite y TypeScript; existe una API Express MVC en TypeScript con repositorio PostgreSQL sobre qa_test_ge. Hay cuentas locales de una persona, sesiones persistidas, autorización de los proyectos de la cuenta, plantillas personales de bugs y CRUD de casos con adjuntos privados de imágenes/enlaces. Las imágenes de casos se guardan en PostgreSQL; la carga binaria general de evidencias y la integración con proveedores de IA siguen pendientes. GitHub Actions valida cambios y publica artefactos compilados al hacer push a main; el despliegue a un proveedor aún no está configurado.
+Este documento combina la arquitectura objetivo de la v1.0 con el estado real del repositorio. El frontend usa React, Vite y TypeScript; existe una API Express MVC en TypeScript con repositorio PostgreSQL sobre qa_test_ge. Hay cuentas locales de una persona, sesiones persistidas, autorización de los proyectos de la cuenta, plantillas personales de bugs y CRUD de casos con adjuntos privados de imágenes/enlaces. Las imágenes de casos se guardan en PostgreSQL; la carga binaria general de evidencias está implementada y la integración con proveedores de IA sigue pendiente. GitHub Actions valida cambios y publica artefactos compilados al hacer push a main; el despliegue a un proveedor aún no está configurado.
 
 ## Objetivos
 
@@ -25,7 +25,7 @@ Este documento combina la arquitectura objetivo de la v1.0 con el estado real de
 - El diseñador de casos usa ejemplos ilustrativos: `src/models/caseDesign.model.ts` mantiene el catálogo/validación, un hook controlador gestiona estado y exportación, y la vista permite guardar explícitamente cada ejemplo como caso del proyecto. No genera casos dinámicamente ni usa IA.
 - La API requiere DATABASE_URL, usa un pool pg y comprueba el esquema qa al arrancar. No existe fallback en memoria ni importación automática del SQL.
 - Los endpoints permiten listar y crear bugs, casos de prueba, ejecuciones y metadatos de evidencias. Los bugs y casos se pueden editar; los casos se pueden eliminar si no tienen referencias a ejecuciones, y sus imágenes/enlaces se administran por separado. Los metadatos de evidencias permiten editarse y eliminarse.
-- Bugs y casos de prueba permiten actualizar su estado mediante endpoints PATCH, con los valores validados por modelo y las restricciones existentes de PostgreSQL. No se requiere una tabla adicional de estados.
+- Bugs y casos de prueba permiten actualizar su estado mediante endpoints PATCH, con los valores validados por modelo y las restricciones existentes de PostgreSQL. La configuración de vocabulario y transiciones de bugs se conserva por proyecto (migración 013).
 - El propietario puede crear, renombrar y eliminar equipos sin proyectos ni otros integrantes. Al crear proyectos se selecciona un equipo propio. La interfaz permite generar invitaciones de un solo uso y retirar integrantes. El código se comparte manualmente, solo se almacena su hash, caduca en 24 horas y su aceptación es autenticada y transaccional. La membresía permite acceder a todos los proyectos de la organización; todavía no hay permisos por proyecto.
 - Configuración conserva las cantidades iniciales del diseñador por categoría en localStorage, separadas por usuario en el navegador; no se envían a la API ni a PostgreSQL.
 - Los archivos generales de evidencia se guardan como bytes privados en PostgreSQL, máximo 2 MiB, y se entregan como descarga autenticada con comprobación de proyecto.
@@ -156,7 +156,7 @@ Correlacionar solicitudes y errores con identificadores de operación. Medir lat
 - Invitaciones, permisos granulares de proyecto, recuperación de contraseña, verificación de correo y MFA; el acceso básico con sesiones ya está implementado.
 - - Carga binaria de evidencias, límites y retención; las imágenes adjuntas a casos tienen límite 2 MiB y se guardan en PostgreSQL.
 - Proveedores de IA permitidos, ubicación de procesamiento, consentimiento, costos y cuotas.
-- Necesidades de importación/exportación y migración de datos.
+- Mapeo de formatos de importación adicionales a la plantilla CSV/XLSX implementada.
 - Objetivos de disponibilidad, respaldo y recuperación.
 
 ### Autenticación local y tema
@@ -228,3 +228,17 @@ CI dispone de PostgreSQL efímero, migraciones repetidas y verificación de aisl
 ## Preparación y consistencia del release
 
 La tipografía se centraliza en src/typography.css con tokens rem y clases por rol. Las frases con cantidades usan formatCount/pluralize y un guardián ESLint de vocabulario. El perfil del lateral abre Configuración con navegación interna, conservando la sesión. Los perfiles de desarrollo comparten MEMORY.md y los criterios de docs/RELEASE.md; no son agentes dentro del producto.
+
+## Flujos de calidad implementados (migración 013)
+
+`013_quality_workflows.sql` añade tipo, ciclo de vida documental y revisión a casos; tablas de versiones, planes y sus miembros; plan/origen en ejecuciones; título y versión del caso en el snapshot de resultados; origen, severidad, entorno y versión afectada en bugs; y configuración de estados, transiciones y estados resueltos por proyecto. No sustituye los estados históricos de resultados ni cambia Suite. Infiere únicamente categorías conocidas de suites anteriores una vez; conserva el texto original y crea una versión de referencia. No reconstruye versiones anteriores a la instalación.
+
+El trigger diferido de versiones captura el caso y sus pasos al confirmar la transacción; el bloqueo y `expectedVersion` detectan ediciones concurrentes desde el formulario y diseñador. Cambios del estado histórico también generan versión. Los adjuntos tienen su ciclo independiente y no se copian como bytes en cada versión. Una ejecución nueva conserva título, versión y pasos; clonar usa el snapshot del origen incluso si el caso cambió o quedó obsoleto. Los resultados y notas nuevos se reinician. Los planes mantienen asociaciones explícitas; los ciclos referencian el plan y conservan su propia selección/snapshot.
+
+Crear un bug con `sourceResultId` bloquea su ejecución, comprueba que sea un fallo registrado del mismo proyecto y guarda bug, relación con el caso y asociaciones de evidencia en una transacción. Una restricción única impide dos bugs de origen para el mismo resultado. Un trigger enlaza automáticamente evidencias nuevas del resultado al bug. Se conservan las referencias originales; no se duplican archivos. Borrar una ejecución origen o retirar un resultado con bug se rechaza. Las reejecuciones y planes tienen claves foráneas compuestas por proyecto.
+
+`QualityRepository` extiende las capacidades a través de la propiedad `quality` del repositorio, con implementación PostgreSQL y autorización por proyecto en el decorador. Las nuevas rutas, DTO, validadores y OpenAPI se mantienen separados del componente App. El servidor valida el vocabulario/las aristas de bugs contra la configuración bloqueada del proyecto; la edición de configuración usa revisión y conserva estados usados. Miembros autorizados del proyecto pueden gestionar planes y flujo, igual que los demás recursos QA. No se añade una política nueva de roles.
+
+Importación CSV/XLSX usa ExcelJS ya instalado y validación Zod previa; todo permanece en el navegador hasta la confirmación. Las escrituras usan el endpoint existente y claves idempotentes por caso; el progreso parcial se mantiene en el componente y se detiene al salir de su alcance. No hay transacción global del archivo ni importación de evidencias. Planes admiten `Idempotency-Key` bajo el mismo mecanismo transaccional de creación; las copias y ciclos reutilizan el mecanismo de ejecuciones. No hay reintentos automáticos.
+
+Las comprobaciones PostgreSQL incluyen instalación/repetición, snapshots, concurrencia de versiones, planes, referencias, fallos sin ejecutar, evidencia posterior, idempotencia, estados y aislamiento entre cuentas. La cobertura por tipo es un cálculo de casos vigentes con resultados registrados, no una medición de requisitos o código.

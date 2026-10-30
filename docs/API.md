@@ -181,3 +181,14 @@ POST de bugs, casos y ejecuciones acepta Idempotency-Key (UUID) opcional. Conser
 GET de esas colecciones admite limit (1–100; 50 al activar opciones), offset (0–1000000), search (hasta 200; literal) y status del dominio. Usar estas opciones exige projectId. data sigue siendo un array con orden por ID descendente; sin opciones se conserva la colección completa. INVALID_PAGINATION, INVALID_FILTER y PROJECT_REQUIRED son errores 400. La UI muestra páginas de 50 y exporta la visible.
 
 X-Request-ID permite correlacionar logs sin datos sensibles. INVALID_RESPONSE es el error local del cliente cuando el JSON o un 204 incumple el contrato esperado.
+
+## Calidad y trazabilidad (013)
+
+- `GET/POST /api/test-plans`: projectId obligatorio; creación con name, description, caseIds (1–1000, únicos) y `Idempotency-Key` opcional. Devuelve id PLAN, revisión y casos.
+- `PATCH/DELETE /api/test-plans/{planId}`: edición requiere projectId y revisión actual en cuerpo; borrado usa projectId en query, 409 si tiene ciclos.
+- `GET /api/test-cases/{caseId}/history?projectId=…`: versiones descendentes con snapshot y changedAt. Los inputs de caso añaden testType (1–100), lifecycle (Borrador/Listo/Obsoleto), expectedVersion opcional para detectar conflictos de actualización.
+- `POST /api/test-runs`: acepta planId para resolver casos del plan o sourceRunId y failedOnly para copiar una ejecución; conserva el snapshot del origen y reinicia resultados. No admite ejecuciones vacías ni casos obsoletos en selecciones nuevas. Devuelve planId/sourceRunId y caseVersion por resultado.
+- `POST /api/bugs`: sourceResultId debe ser un fallo registrado del proyecto; crea vínculos al caso y evidencia en la misma transacción. Solo un bug por resultado. Inputs añaden severity (Crítica/Alta/Media/Baja), environment y affectedVersion (0–100). Respuesta añade sourceResultId/sourceCaseId/sourceRunId/sourceSteps.
+- `GET/PUT /api/bug-workflow?projectId=…`: states (1–20, únicos, 1–60 caracteres), transitions (lista de destinos por cada estado), closedStates opcional y revision positiva. El primer estado es el inicial; closedStates identifica resueltos. PUT requiere revisión actual, no puede retirar estados usados ni referenciar destinos inexistentes.
+
+Todas las rutas requieren sesión y alcance del proyecto; escrituras requieren CSRF. Los conflictos de revisión y flujo devuelven 409. Swagger describe las formas completas. La importación usa POST de casos con claves idempotentes individuales; no existe un endpoint masivo ni rollback de todo el archivo.
