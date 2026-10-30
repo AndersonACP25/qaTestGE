@@ -1,5 +1,7 @@
+import { actorDatabase } from "./actor-database.js";
+import type { DatabasePool, DatabaseClient } from "./actor-database.js";
 import { createHash, randomBytes } from "node:crypto";
-import type { Pool, PoolClient, QueryResultRow } from "pg";
+import type { QueryResultRow } from "pg";
 import type { Project } from "../repositories/repository.js";
 import type {
   AuthGrant,
@@ -40,7 +42,10 @@ const bugTemplate = (row: BugTemplateRow): BugTemplate => ({
 });
 
 export class PostgresAuth implements AuthProvider {
-  constructor(private readonly pool: Pool) {}
+  forActor(actorId: string, requestId: string) {
+    return new PostgresAuth(actorDatabase(this.pool, actorId, requestId));
+  }
+  constructor(private readonly pool: DatabasePool) {}
   async register(
     input: { name: string; email: string; password: string },
     previousToken?: string,
@@ -116,8 +121,8 @@ export class PostgresAuth implements AuthProvider {
   }
   async projects(userId: string): Promise<Project[]> {
     const { rows } = await this.pool.query<Project>(
-      `SELECT p.id::text,p.organization_id::text AS "organizationId",p.name,p.description
-      FROM qa.projects p JOIN qa.organization_members m ON m.organization_id=p.organization_id WHERE m.user_id=$1 ORDER BY p.id`,
+      `SELECT p.id::text,p.organization_id::text AS "organizationId",p.name,p.description,qa.project_role(p.id,$1) AS role
+      FROM qa.projects p WHERE qa.project_role(p.id,$1) IS NOT NULL ORDER BY p.id`,
       [userId],
     );
     return rows;
@@ -297,8 +302,7 @@ export class PostgresAuth implements AuthProvider {
     description: string,
   ): Promise<Project> {
     const { rows } = await this.pool.query<Project>(
-      `UPDATE qa.projects p SET name=$3,description=$4 WHERE p.id=$2 AND EXISTS
-       (SELECT 1 FROM qa.organization_members m WHERE m.organization_id=p.organization_id AND m.user_id=$1 AND m.role='owner')
+      `UPDATE qa.projects p SET name=$3,description=$4 WHERE p.id=$2 AND qa.project_role(p.id,$1)='Admin'
        RETURNING p.id::text,p.organization_id::text AS "organizationId",p.name,p.description`,
       [userId, projectId, name.trim(), description.trim()],
     );
@@ -307,24 +311,32 @@ export class PostgresAuth implements AuthProvider {
     return rows[0];
   }
   async deleteProject(userId: string, projectId: string): Promise<void> {
+    const client = await this.pool.connect();
     try {
-      const { rowCount } = await this.pool.query(
-        `DELETE FROM qa.projects p WHERE p.id=$2 AND EXISTS
-         (SELECT 1 FROM qa.organization_members m WHERE m.organization_id=p.organization_id AND m.user_id=$1 AND m.role='owner')`,
-        [userId, projectId],
+      await client.query("BEGIN");
+      const found = await client.query(
+        "SELECT id FROM qa.projects WHERE id=$1 AND qa.project_role(id,$2)='Admin' FOR UPDATE",
+        [projectId, userId],
       );
-      if (!rowCount)
-        throw new HttpError(404, "PROJECT_NOT_FOUND", "Proyecto no disponible para esta cuenta.");
-    } catch (error) {
-      if (typeof error === "object" && error !== null && "code" in error && error.code === "23503")
+      if (!found.rowCount) throw new HttpError(404, "PROJECT_NOT_FOUND", "Proyecto no disponible.");
+      await client.query("DELETE FROM qa.project_bug_workflows WHERE project_id=$1", [projectId]);
+      await client.query("DELETE FROM qa.project_members WHERE project_id=$1", [projectId]);
+      await client.query("DELETE FROM qa.projects WHERE id=$1", [projectId]);
+      await client.query("COMMIT");
+    } catch (e) {
+      await client.query("ROLLBACK");
+      if (typeof e === "object" && e !== null && "code" in e && e.code === "23503")
         throw new HttpError(
           409,
           "PROJECT_IN_USE",
-          "El proyecto tiene registros vinculados y no se puede eliminar.",
+          "El proyecto contiene recursos QA; no se puede eliminar.",
         );
-      throw error;
+      throw e;
+    } finally {
+      client.release();
     }
   }
+
   async updateProfile(userId: string, input: UpdateProfileInput): Promise<User> {
     try {
       const { rows } = await this.pool.query<User>(
@@ -454,7 +466,7 @@ export class PostgresAuth implements AuthProvider {
     }
   }
   private async saveSession(
-    client: PoolClient,
+    client: DatabaseClient,
     userId: string,
     grant: ReturnType<typeof newSession>,
     previousToken?: string,

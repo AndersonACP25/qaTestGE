@@ -27,6 +27,45 @@ export class AuthorizedRepository implements Repository {
     private readonly projects: () => Promise<Project[]>,
     private readonly actorId?: string,
   ) {}
+  get collaboration():
+    import("../models/collaboration.model.js").CollaborationRepository | undefined {
+    const base = this.base.collaboration;
+    if (!base) return undefined;
+    return {
+      members: async (p, c) => {
+        await this.projectIds(p);
+        return base.members(p, c);
+      },
+      saveMember: async (p, u, r, v) => {
+        await this.projectIds(p);
+        return base.saveMember(p, u, r, v);
+      },
+      comments: async (p, t) => {
+        await this.projectIds(p);
+        return base.comments(p, t);
+      },
+      createComment: async (p, t, b, k) => {
+        await this.projectIds(p);
+        return base.createComment(p, t, b, k);
+      },
+      editComment: async (p, id, b, v, r) => {
+        await this.projectIds(p);
+        return base.editComment(p, id, b, v, r);
+      },
+      activity: async (p, t, b) => {
+        await this.projectIds(p);
+        return base.activity(p, t, b);
+      },
+      notifications: async (p) => {
+        await this.projectIds(p);
+        return base.notifications(p);
+      },
+      readNotification: async (p, id) => {
+        await this.projectIds(p);
+        return base.readNotification(p, id);
+      },
+    };
+  }
   get quality(): import("../models/quality.model.js").QualityRepository | undefined {
     const base = this.base.quality;
     if (!base) return undefined;

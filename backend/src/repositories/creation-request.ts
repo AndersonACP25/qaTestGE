@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { PoolClient } from "pg";
+import type { DatabaseClient } from "../auth/actor-database.js";
 import type { Request, Response } from "express";
 import { HttpError } from "../http-error.js";
 export interface CreationContext {
@@ -29,7 +29,7 @@ export function creationHash(input: unknown) {
     .digest("hex");
 }
 export async function previousCreation(
-  client: PoolClient,
+  client: DatabaseClient,
   type: "bug" | "case" | "run" | "plan",
   projectId: string,
   input: unknown,
@@ -53,7 +53,7 @@ export async function previousCreation(
   return rows[0].resource_id;
 }
 export async function rememberCreation(
-  client: PoolClient,
+  client: DatabaseClient,
   type: "bug" | "case" | "run" | "plan",
   projectId: string,
   resourceId: string,

@@ -1,3 +1,4 @@
+import { collaborationPaths } from "./collaboration-openapi.js";
 import { qualityPaths } from "./quality-openapi.js";
 import { bugPriorities } from "./models/bug.model.js";
 import { testCaseStatuses } from "./models/test-case.model.js";
@@ -117,7 +118,13 @@ const resources = [
 const errorResponse = (description: string) => ({ description, content: json(ref("Error")) });
 const envelope = (data: object) => object({ data }, ["data"]);
 const project = object(
-  { id: projectId, organizationId: projectId, name: text(100), description: { type: "string" } },
+  {
+    id: projectId,
+    organizationId: projectId,
+    name: text(100),
+    description: { type: "string" },
+    role: { type: "string", enum: ["Admin", "QA", "Dev", "Solo lectura"] },
+  },
   ["id", "organizationId", "name", "description"],
 );
 const unavailable = errorResponse("DATABASE_UNAVAILABLE: PostgreSQL no disponible.");
@@ -134,6 +141,7 @@ export const openApiDocument = {
   security: [{ sessionCookie: [] as string[] }],
   paths: {
     ...qualityPaths,
+    ...collaborationPaths,
     "/api/auth/register": {
       post: {
         security: [],

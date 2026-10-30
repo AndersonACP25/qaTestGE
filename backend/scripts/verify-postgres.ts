@@ -157,6 +157,15 @@ try {
     "INSERT INTO qa.organization_members(organization_id,user_id,role) VALUES($1,$2,'member')",
     [orgIds[0], userIds[1]],
   );
+  assert.equal(
+    (
+      await first
+        .put(`/api/project-members/${userIds[1]}`)
+        .query({ projectId })
+        .send({ role: "QA", revision: 0 })
+    ).status,
+    204,
+  );
   const assigned = await first
     .post("/api/bugs")
     .send({ projectId, title: "Asignado", priority: "Media", assigneeUserId: userIds[1] });

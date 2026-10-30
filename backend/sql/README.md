@@ -42,3 +42,7 @@ Los ejemplos no se asignan a cuentas nuevas. Regístrate en la aplicación para 
 ### 013 · Flujos de calidad
 
 Ejecuta `pnpm db:migrate` antes de iniciar esta versión. Añade versiones y estados documentales de casos, tipo propio, planes/ciclos, snapshots con título/versión, origen de bugs, severidad/entorno/versión y flujos por proyecto. Conserva estados de resultado y Suite. El backfill reconoce categorías anteriores conocidas una sola vez y no reconstruye cambios previos. Las claves compuestas preservan aislamiento; los recursos con trazabilidad no se eliminan en cascada. Las versiones del caso se retiran únicamente cuando se elimina un caso sin otras referencias. Incluye claves idempotentes para crear planes.
+
+### 014 · Colaboración, auditoría y permisos
+
+Aplicar con `pnpm db:migrate`. Añade accesos por proyecto, comentarios/versiones, menciones, avisos privados y auditoría inmutable. Preserva acceso de miembros actuales mediante QA explícito; las invitaciones y proyectos futuros no generan permisos automáticos. El propietario mantiene Admin. La auditoría comienza al aplicar esta migración y no incluye archivos binarios ni secretos. La aplicación envía contexto transaccional de actor/correlación. Operaciones administrativas directas a PostgreSQL sin contexto se consideran mantenimiento confiable y se atribuyen a Sistema. El catálogo omite migraciones 013/014 ya registradas; no ejecutar los archivos a mano ni modificar migraciones distribuidas.
