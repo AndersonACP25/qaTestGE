@@ -1,3 +1,9 @@
+import TypeCoverage from "./views/TypeCoverage";
+import CaseImportPanel from "./views/CaseImportPanel";
+import CaseHistoryPanel from "./views/CaseHistoryPanel";
+import TestPlansView from "./views/TestPlansView";
+import BugWorkflowView from "./views/BugWorkflowView";
+import { useBugWorkflow } from "./controllers/useBugWorkflow";
 import { useProjectData } from "./controllers/useProjectData";
 import TableFooter from "./components/TableFooter";
 import { Icon, Avatar } from "./components/RecordPrimitives";
@@ -75,6 +81,8 @@ const navigation: {
       { id: "cases", label: "Casos de prueba", icon: "check-square" },
       { id: "bug-builder", label: "Diseñar bugs", icon: "sparkle" },
       { id: "case-builder", label: "Diseñar test cases", icon: "sparkle" },
+      { id: "plans", label: "Planes y ciclos", icon: "calendar" },
+      { id: "workflow", label: "Flujo de bugs", icon: "settings" },
       { id: "runs", label: "Test runs", icon: "play" },
       { id: "evidence", label: "Evidencias", icon: "image" },
       { id: "tags", label: "Tags", icon: "tag" },
@@ -112,6 +120,10 @@ function App({
     projectId,
     revision,
   );
+  const { workflow, error: workflowError } = useBugWorkflow(projectId, revision);
+  const projectBugStatuses = workflow?.states ?? bugStatuses;
+  const [typeFilter, setTypeFilter] = useState("Todos");
+  const [lifecycleFilter, setLifecycleFilter] = useState("Todos");
   const creationKey = useRef(crypto.randomUUID());
   const [saving, setSaving] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState("");
@@ -263,8 +275,13 @@ function App({
     [bugs, search, statusFilter],
   );
   const filteredCases = useMemo(
-    () => filterCases(cases, { search, statusFilter }),
-    [cases, search, statusFilter],
+    () =>
+      filterCases(cases, { search, statusFilter }).filter(
+        (c) =>
+          (typeFilter === "Todos" || (c.testType ?? "Funcional") === typeFilter) &&
+          (lifecycleFilter === "Todos" || (c.lifecycle ?? "Borrador") === lifecycleFilter),
+      ),
+    [cases, search, statusFilter, typeFilter, lifecycleFilter],
   );
   const filteredRuns = useMemo(
     () => filterRuns(runs, { search, statusFilter }),
@@ -288,6 +305,8 @@ function App({
     visibleEvidence = slicePage(filteredEvidence);
   const pageTitle = {
     overview: "Dashboard",
+    plans: "Planes y ciclos",
+    workflow: "Flujo de bugs",
     reports: "Reportes y métricas",
     projects: "Proyectos",
     teams: "Equipos",
@@ -477,6 +496,9 @@ function App({
           title,
           description: bugForm.description,
           priority: bugForm.priority,
+          severity: String(form.get("severity") ?? "Media") as Bug["priority"],
+          environment: String(form.get("environment") ?? ""),
+          affectedVersion: String(form.get("affectedVersion") ?? ""),
           status: bugForm.status,
           assignee: bugForm.assignee.trim() || null,
           assigneeUserId: assigneeUserId || null,
@@ -575,6 +597,9 @@ function App({
       caseInput = {
         title,
         suite: String(form.get("suite") ?? "").trim() || undefined,
+        testType: String(form.get("testType") ?? "Funcional"),
+        lifecycle: String(form.get("lifecycle") ?? "Borrador") as "Borrador" | "Listo" | "Obsoleto",
+        expectedVersion: editingCase?.version,
         preconditions: String(form.get("preconditions") ?? ""),
         steps: steps.filter((step) => step.action && step.expectedResult),
         tagIds: selectedTagIds,
@@ -660,6 +685,9 @@ function App({
           title,
           description: bugForm.description,
           priority: bugForm.priority,
+          severity: String(form.get("severity") ?? "Media") as Bug["priority"],
+          environment: String(form.get("environment") ?? ""),
+          affectedVersion: String(form.get("affectedVersion") ?? ""),
           assignee: bugForm.assignee.trim() || null,
           assigneeUserId: assigneeUserId || null,
           tagIds: selectedTagIds,
@@ -816,7 +844,7 @@ function App({
   }
   const filters =
     activePage === "bugs"
-      ? ["Todos", ...bugStatuses]
+      ? ["Todos", ...projectBugStatuses]
       : activePage === "cases"
         ? ["Todos", ...caseStatuses]
         : activePage === "runs"
@@ -1018,6 +1046,49 @@ function App({
             </p>
           )}
           {error && <Alert tone="error">{error}</Alert>}
+          {workflowError && <Alert tone="error">{workflowError}</Alert>}
+          {activePage === "cases" && projectId && (
+            <>
+              <CaseImportPanel
+                key={`import:${user.id}:${projectId}`}
+                projectId={projectId}
+                onChanged={() => {
+                  if (isRenderCurrent()) setRevision((v) => v + 1);
+                }}
+              />
+              <div className="quality__filters">
+                <label className="workspace__field">
+                  Tipo de prueba
+                  <select
+                    value={typeFilter}
+                    onChange={(e) => {
+                      setTypeFilter(e.target.value);
+                      setTablePage(1);
+                    }}
+                  >
+                    <option>Todos</option>
+                    {[...new Set(cases.map((c) => c.testType ?? "Funcional"))].sort().map((t) => (
+                      <option key={t}>{t}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="workspace__field">
+                  Estado del caso
+                  <select
+                    value={lifecycleFilter}
+                    onChange={(e) => {
+                      setLifecycleFilter(e.target.value);
+                      setTablePage(1);
+                    }}
+                  >
+                    {["Todos", "Borrador", "Listo", "Obsoleto"].map((t) => (
+                      <option key={t}>{t}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </>
+          )}
           {preferencesError && <Alert tone="error">{preferencesError}</Alert>}
           {!loading && !error && !projectId && activePage !== "projects" && (
             <p className="workspace__notice">
@@ -1025,7 +1096,28 @@ function App({
               existente.
             </p>
           )}
-          {activePage === "teams" ? (
+          {activePage === "plans" ? (
+            projectId && (
+              <TestPlansView
+                key={`${user.id}:${projectId}`}
+                projectId={projectId}
+                cases={cases}
+                onChanged={() => {
+                  if (isRenderCurrent()) setRevision((v) => v + 1);
+                }}
+              />
+            )
+          ) : activePage === "workflow" ? (
+            projectId && (
+              <BugWorkflowView
+                key={`${user.id}:${projectId}`}
+                projectId={projectId}
+                onChanged={() => {
+                  if (isRenderCurrent()) setRevision((v) => v + 1);
+                }}
+              />
+            )
+          ) : activePage === "teams" ? (
             <TeamsView onChanged={() => setRevision((value) => value + 1)} />
           ) : activePage === "projects" ? (
             <ProjectsView projects={projects} onChanged={() => setRevision((value) => value + 1)} />
@@ -1088,6 +1180,8 @@ function App({
             !error &&
             projectId && (
               <ReportsView
+                key={projectId}
+                closedStates={workflow?.closedStates}
                 projectName={project?.name ?? "Proyecto"}
                 bugs={bugs}
                 cases={cases}
@@ -1103,7 +1197,12 @@ function App({
               <>
                 <div className="workspace__metrics">
                   {[
-                    ["Bugs abiertos", bugs.filter((b) => b.status !== "Resuelto").length],
+                    [
+                      "Bugs abiertos",
+                      bugs.filter(
+                        (b) => !(workflow?.closedStates ?? ["Resuelto"]).includes(b.status),
+                      ).length,
+                    ],
                     ["Casos de prueba", cases.length],
                     ["Ejecuciones activas", runs.filter((r) => r.status === "En curso").length],
                     ["Evidencias", evidence.length],
@@ -1115,12 +1214,14 @@ function App({
                     </div>
                   ))}
                 </div>
+                <TypeCoverage key={projectId} cases={cases} runs={runs} />
                 <section className="workspace__panel">
                   <div className="workspace-table__heading">
                     <h2 className="typography__section">Bugs recientes</h2>
                     <TableExport data={bugTableExport(bugs.slice(0, 5), tags)} />
                   </div>
                   <BugTable
+                    workflow={workflow}
                     bugs={bugs.slice(0, 5)}
                     tags={tags}
                     onSelect={(bug) => setRecordDetail({ kind: "bug", record: bug })}
@@ -1206,6 +1307,7 @@ function App({
                 )}
                 {activePage === "bugs" && (
                   <BugTable
+                    workflow={workflow}
                     bugs={visibleBugs}
                     tags={tags}
                     onSelect={(bug) => setRecordDetail({ kind: "bug", record: bug })}
@@ -1412,9 +1514,11 @@ function App({
                             setBugForm({ ...bugForm, status: event.target.value as BugStatus })
                           }
                         >
-                          {bugStatuses.map((status) => (
-                            <option key={status}>{status}</option>
-                          ))}
+                          {[bugForm.status, ...(workflow?.transitions[bugForm.status] ?? [])]
+                            .filter((v, i, a) => a.indexOf(v) === i)
+                            .map((status) => (
+                              <option key={status}>{status}</option>
+                            ))}
                         </select>
                       </label>
                       <label className="workspace__field">
@@ -1430,6 +1534,34 @@ function App({
                       </label>
                     </>
                   )}
+                </>
+              )}
+              {(modal === "bug" || modal === "edit-bug") && (
+                <>
+                  <label className="workspace__field">
+                    Severidad
+                    <select name="severity" defaultValue={editingBug?.severity ?? "Media"}>
+                      {["Crítica", "Alta", "Media", "Baja"].map((v) => (
+                        <option key={v}>{v}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="workspace__field">
+                    Entorno
+                    <input
+                      name="environment"
+                      maxLength={100}
+                      defaultValue={editingBug?.environment ?? ""}
+                    />
+                  </label>
+                  <label className="workspace__field">
+                    Versión afectada
+                    <input
+                      name="affectedVersion"
+                      maxLength={100}
+                      defaultValue={editingBug?.affectedVersion ?? ""}
+                    />
+                  </label>
                 </>
               )}
               {["bug", "edit-bug", "case", "edit-case"].includes(modal) && (
@@ -1460,6 +1592,39 @@ function App({
               )}
               {(modal === "case" || modal === "edit-case") && (
                 <>
+                  <label className="workspace__field">
+                    Tipo de prueba
+                    <input
+                      name="testType"
+                      required
+                      maxLength={100}
+                      list="case-types"
+                      defaultValue={editingCase?.testType ?? "Funcional"}
+                    />
+                    <datalist id="case-types">
+                      {[
+                        "Funcional",
+                        "Regresión",
+                        "Seguridad",
+                        "Smoke",
+                        "Sanity",
+                        "API",
+                        "UAT",
+                        "Exploratorias",
+                        "Edge",
+                      ].map((t) => (
+                        <option key={t} value={t} />
+                      ))}
+                    </datalist>
+                  </label>
+                  <label className="workspace__field">
+                    Estado del caso
+                    <select name="lifecycle" defaultValue={editingCase?.lifecycle ?? "Borrador"}>
+                      {["Borrador", "Listo", "Obsoleto"].map((t) => (
+                        <option key={t}>{t}</option>
+                      ))}
+                    </select>
+                  </label>
                   <label className="workspace__field">
                     Suite (opcional)
                     <input name="suite" maxLength={100} defaultValue={editingCase?.suite ?? ""} />
@@ -1796,6 +1961,13 @@ function App({
         <TestRunDialog
           key={runDetail.id}
           run={runDetail}
+          bugs={bugs}
+          evidence={evidence}
+          onCreated={(created) => {
+            if (!isRenderCurrent()) return;
+            setRunDetail(created);
+            setRevision((v) => v + 1);
+          }}
           initialAction={runAction}
           cases={cases}
           onClose={() => setRunDetail(null)}
@@ -1820,7 +1992,63 @@ function App({
             else editCase(recordDetail.record);
           }}
         >
-          {recordDetail.kind === "case" && <CaseAttachmentsPanel testCase={recordDetail.record} />}
+          {recordDetail.kind === "bug" && (
+            <>
+              <div className="quality__actions">
+                {recordDetail.record.sourceRunId && (
+                  <button
+                    className="workspace__secondary"
+                    onClick={() => {
+                      const source = runs.find((r) => r.id === recordDetail.record.sourceRunId);
+                      if (source) {
+                        setRunDetail(source);
+                        setRecordDetail(null);
+                      }
+                    }}
+                  >
+                    Abrir ejecución de origen
+                  </button>
+                )}
+              </div>
+              {evidence
+                .filter((e) => e.related.split(", ").includes(recordDetail.record.id))
+                .map((e) => (
+                  <p key={e.id}>
+                    {e.id} · {e.name}
+                    {e.hasFile && (
+                      <button
+                        className="workspace__secondary"
+                        onClick={() => {
+                          void downloadEvidenceFile(e.id, projectId, e.name).catch(
+                            (cause: unknown) => {
+                              if (isRenderCurrent())
+                                notify(
+                                  cause instanceof Error
+                                    ? cause.message
+                                    : "No se pudo descargar la evidencia.",
+                                  "error",
+                                );
+                            },
+                          );
+                        }}
+                      >
+                        Descargar evidencia
+                      </button>
+                    )}
+                  </p>
+                ))}
+            </>
+          )}
+          {recordDetail.kind === "case" && (
+            <>
+              <CaseAttachmentsPanel testCase={recordDetail.record} />
+              <CaseHistoryPanel
+                key={recordDetail.record.id}
+                caseId={recordDetail.record.id}
+                projectId={projectId}
+              />
+            </>
+          )}
         </RecordDetailsDialog>
       )}
       {detail && (
@@ -2072,6 +2300,8 @@ function App({
 function pageDescription(page: NavigationPage): string {
   return {
     overview: "Aquí tienes el estado de calidad de tus proyectos.",
+    plans: "Agrupa casos y organiza ciclos de ejecución.",
+    workflow: "Define los estados y transiciones de bugs por proyecto.",
     reports: "Consulta indicadores, estados y resultados del proyecto seleccionado.",
     projects: "Crea y administra los proyectos de tu espacio de trabajo.",
     teams: "Administra la membresía de tus espacios de trabajo.",

@@ -52,6 +52,26 @@ export default function RecordDetailsDialog({
         {bug ? (
           <section className="record-view__section">
             <h4>Descripción</h4>
+            <p>
+              Severidad: {bug.severity ?? "Media"} · Entorno: {bug.environment || "Sin indicar"} ·
+              Versión: {bug.affectedVersion || "Sin indicar"}
+            </p>
+            {bug.sourceResultId && (
+              <section>
+                <h4>Origen del fallo</h4>
+                <p>
+                  {bug.sourceCaseId} · {bug.sourceRunId} · {bug.sourceResultId}
+                </p>
+                <ol>
+                  {bug.sourceSteps?.map((s, i) => (
+                    <li key={i}>
+                      {s.action}
+                      <p>Esperado: {s.expectedResult}</p>
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            )}
             <p className="record-view__copy">{bug.description?.trim() || "Sin descripción."}</p>
             <dl className="record-view__metadata">
               <div>
@@ -70,6 +90,10 @@ export default function RecordDetailsDialog({
           <>
             <section className="record-view__section">
               <h4>Precondiciones</h4>
+              <p>
+                {testCase?.testType ?? "Funcional"} · {testCase?.lifecycle ?? "Borrador"} · Versión{" "}
+                {testCase?.version ?? 1}
+              </p>
               <p className="record-view__copy">
                 {testCase?.preconditions?.trim() || "Sin precondiciones."}
               </p>

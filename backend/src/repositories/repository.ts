@@ -31,6 +31,7 @@ export interface Project {
   description: string;
 }
 export interface Repository {
+  readonly quality?: import("../models/quality.model.js").QualityRepository;
   health(): Promise<void>;
   listProjects(): Promise<Project[]>;
   listBugs(projectId?: string, options?: ListQuery): Promise<Bug[]>;

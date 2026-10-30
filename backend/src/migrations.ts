@@ -11,6 +11,7 @@ export const migrationFiles = [
   "010_team_invitations.sql",
   "011_qa_assignments.sql",
   "012_creation_requests.sql",
+  "013_quality_workflows.sql",
 ] as const;
 
 /** Initial install and upgrades share one ordered source; no seed or deletion. */

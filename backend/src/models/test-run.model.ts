@@ -5,6 +5,7 @@ export type ResultStatus = (typeof resultStatuses)[number];
 export interface TestRunResult {
   id: string;
   caseId: string;
+  caseVersion?: number;
   title: string;
   status: ResultStatus;
   notes: string;
@@ -27,6 +28,8 @@ export interface TestRun {
   id: string;
   projectId: string;
   caseIds: string[];
+  planId?: string | null;
+  sourceRunId?: string | null;
   title: string;
   caseCount: number;
   progress: number;
@@ -39,5 +42,8 @@ export interface TestRun {
 
 export type CreateTestRunInput = Pick<TestRun, "title" | "owner" | "projectId"> & {
   caseIds?: string[];
+  planId?: string;
+  sourceRunId?: string;
+  failedOnly?: boolean;
   tagIds?: string[];
 };

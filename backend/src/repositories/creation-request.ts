@@ -30,7 +30,7 @@ export function creationHash(input: unknown) {
 }
 export async function previousCreation(
   client: PoolClient,
-  type: "bug" | "case" | "run",
+  type: "bug" | "case" | "run" | "plan",
   projectId: string,
   input: unknown,
   context?: CreationContext,
@@ -54,7 +54,7 @@ export async function previousCreation(
 }
 export async function rememberCreation(
   client: PoolClient,
-  type: "bug" | "case" | "run",
+  type: "bug" | "case" | "run" | "plan",
   projectId: string,
   resourceId: string,
   input: unknown,

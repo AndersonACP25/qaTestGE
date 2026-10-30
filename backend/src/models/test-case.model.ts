@@ -6,6 +6,9 @@ export interface TestCase {
   projectId: string;
   title: string;
   suite: string;
+  testType?: string;
+  lifecycle?: "Borrador" | "Listo" | "Obsoleto";
+  version?: number;
   status: TestCaseStatus;
   createdAt: string;
   preconditions: string;
@@ -21,6 +24,9 @@ export interface TestStep {
 }
 export type CreateTestCaseInput = Pick<TestCase, "title" | "projectId"> & {
   suite?: string;
+  testType?: string;
+  lifecycle?: "Borrador" | "Listo" | "Obsoleto";
+  expectedVersion?: number;
   preconditions?: string;
   assigneeUserId?: string | null;
   steps?: TestStep[];

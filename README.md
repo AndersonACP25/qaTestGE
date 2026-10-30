@@ -1,4 +1,4 @@
-﻿# qaTestGE
+# qaTestGE
 
 Una plataforma para organizar el trabajo de QA de tu equipo: bugs, casos de prueba, ejecuciones manuales y evidencias, conectados dentro de cada proyecto.
 
@@ -10,11 +10,13 @@ Una plataforma para organizar el trabajo de QA de tu equipo: bugs, casos de prue
 
 <img width="1920" height="1007" alt="image" src="https://github.com/user-attachments/assets/54a8b5a2-b68d-42ef-9c1b-a35e04398bf5" />
 
-
 ## Qué ofrece
 
 - **Bugs y casos de prueba:** registra incidencias, documenta pasos, asigna responsables y organiza el trabajo con tags.
-- **Ejecuciones y evidencias:** registra resultados de pruebas manuales y adjunta archivos privados de hasta 2 MiB.
+- **Ejecuciones y evidencias:** registra resultados manuales, crea bugs enlazados desde fallos y adjunta archivos privados de hasta 2 MiB.
+- **Planes y ciclos:** agrupa casos, clona ejecuciones o reejecuta solo los fallidos conservando los pasos originales.
+- **Casos versionados e importación:** tipo de prueba independiente, Borrador/Listo/Obsoleto, historial e importación revisada de CSV/Excel.
+- **Flujo de bugs por proyecto:** estados y transiciones configurables, severidad, entorno y versión afectada.
 - **Equipos y proyectos:** colabora mediante invitaciones de un solo uso.
 - **Dashboard, reportes y exportación:** consulta avances y descarga registros en Excel, PDF, Markdown o reportes CSV.
 - **Diseñadores:** prepara casos a partir de ejemplos y bugs desde plantillas; revisa el contenido antes de guardarlo.

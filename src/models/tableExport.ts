@@ -31,11 +31,11 @@ export function caseTableExport(cases: TestCase[], tags: Tag[]): TableExportData
   return {
     title: "Casos de prueba",
     filename: "casos-de-prueba",
-    headers: ["CASO ID", "NOMBRE DEL CASO", "SUITE", "RESPONSABLE", "ESTADO", "CREADO"],
+    headers: ["CASO ID", "NOMBRE DEL CASO", "CLASIFICACIÓN", "RESPONSABLE", "ESTADO", "CREADO"],
     rows: cases.map((item) => [
       item.id,
       titleWithTags(item.title, item.tagIds, tags),
-      item.suite || "—",
+      `${item.suite || "—"}\n${item.testType ?? "Funcional"} · ${item.lifecycle ?? "Borrador"} · v${item.version ?? 1}`,
       item.assigneeName || "Sin asignar",
       item.status,
       item.updated,

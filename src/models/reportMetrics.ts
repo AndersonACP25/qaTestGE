@@ -19,6 +19,7 @@ export function calculateReportMetrics(
   cases: TestCase[],
   runs: TestRun[],
   evidence: Evidence[],
+  closedStates: readonly string[] = ["Resuelto"],
 ): ReportMetrics {
   const casesByStatus: Record<CaseStatus, number> = {
     Pendiente: 0,
@@ -44,8 +45,8 @@ export function calculateReportMetrics(
     resultsByStatus.passed + resultsByStatus.failed + resultsByStatus.blocked;
 
   return {
-    openBugs: bugs.filter((bug) => bug.status !== "Resuelto").length,
-    resolvedBugs: bugs.length - bugs.filter((bug) => bug.status !== "Resuelto").length,
+    openBugs: bugs.filter((bug) => !closedStates.includes(bug.status)).length,
+    resolvedBugs: bugs.length - bugs.filter((bug) => !closedStates.includes(bug.status)).length,
     casesByStatus,
     completedRuns: runs.filter((run) => run.status === "Completado").length,
     activeRuns: runs.filter((run) => run.status === "En curso").length,

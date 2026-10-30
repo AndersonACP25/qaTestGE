@@ -4,6 +4,13 @@ Todos los cambios importantes de qaTestGE se documentan aquí. El formato sigue 
 
 ## [Unreleased]
 
+- Bug desde un fallo con caso, ejecución, snapshot y evidencias enlazados; severidad, entorno y versión afectada.
+- Tipo de prueba independiente, cobertura por tipo y ciclo documental Borrador/Listo/Obsoleto con historial y control de versiones concurrentes.
+- Planes/ciclos, clonación de ejecuciones y reejecución de fallidos conservando snapshots originales.
+- Importación revisada CSV/Excel con plantilla, validación por fila, claves idempotentes y recuperación de avances parciales.
+- Flujo de estados, transiciones y estados resueltos configurable por proyecto, validado en servidor.
+- Migración aditiva 013, contratos/OpenAPI, guía de uso y regresiones de PostgreSQL y navegador en tres tamaños.
+
 ## [1.1.0] — 2026-10-23
 
 - Gestión de Test Runs: crear, consultar, editar título/responsable/casos/estado y eliminar con confirmación.

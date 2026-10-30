@@ -20,6 +20,11 @@ function setup({ completed = false, pending = false, linked = false, count = 1 }
   const query = vi.fn(async (sql: string, _values?: unknown[]) => {
     if (sql.includes("FOR UPDATE"))
       return { rows: [{ id: "1", status: completed ? "Completado" : "En curso" }], rowCount: 1 };
+    if (
+      sql.includes("SELECT 1 FROM qa.bugs") ||
+      sql.includes("SELECT 1 FROM qa.test_runs WHERE source_run_id")
+    )
+      return { rows: [], rowCount: 0 };
     if (sql.includes("qa.evidence_links"))
       return { rows: linked ? [{}] : [], rowCount: linked ? 1 : 0 };
     if (sql.startsWith("SELECT id,executed_at"))

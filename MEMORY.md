@@ -2,62 +2,53 @@
 
 ## Producto y arquitectura
 
-- qaTestGE gestiona bugs, casos de prueba, ejecuciones y evidencias por proyecto.
-- Frontend: React + TypeScript + Vite en `src/`; API: Express + TypeScript en `backend/src/`; PostgreSQL mediante `pg`.
-- Mantener referencias explícitas entre entidades y autorización por proyecto/cuenta.
-- La IA sigue siendo maqueta opcional. No enviar archivos ni datos sensibles a proveedores externos.
-- Integraciones externas nuevas viven en `servicios/`; API y lógica local de dominio permanecen en `backend/`.
+- qaTestGE gestiona bugs, casos, ejecuciones y evidencias por proyecto/organización.
+- React + TypeScript + Vite; Express MVC en backend/; PostgreSQL mediante pg, sin fallback en memoria.
+- Las cuentas representan personas; la membresía concede acceso a los proyectos del equipo. Los responsables QA deben ser miembros activos.
+- Mantener relaciones explícitas por ID y claves compuestas de proyecto. Las escrituras de pasos, snapshots y vínculos son transaccionales.
+- IA e imagen de perfil siguen siendo maquetas. No hay proveedores externos reales; futuras integraciones viven en servicios/.
 
-## Operación y validación
+## Operación
 
-- Rama de pruebas: `qa-env`; promover a `main` por pull request.
-- Antes de crear rama, revisar el árbol. Si `main`/`qa-env` tiene cambios locales pendientes, no cambiar de rama.
-- Crear commits pequeños, coherentes, Conventional Commits en español; no hacer push salvo petición explícita.
-- Validar con `pnpm typecheck`, `pnpm test`, `pnpm lint`, `pnpm format:check` y `pnpm build`.
-- Actualizar este archivo al terminar cada prompt de trabajo; máximo 99 líneas.
-- No usar la base de datos local para pruebas destructivas; las migraciones se ejecutan con `pnpm db:migrate`.
+- Rama de pruebas qa-env; promover a main por PR. No publicar ramas sin petición del usuario.
+- Revisar el árbol antes de crear ramas; commits pequeños Conventional Commits en español con lista de cambios.
+- Validar pnpm typecheck, pnpm lint, pnpm test, pnpm format:check y pnpm build.
+- Nunca usar la BD personal para integración destructiva. TEST_DATABASE_URL selecciona una base efímera explícita.
+- Instalación: base qa_test_ge vacía + pnpm db:setup. Actualización: pnpm db:migrate. No reimportar 001 sobre una instalación existente.
+- El catálogo compartido backend/src/migrations.ts instala 001 y aplica 004–013; no carga seed automáticamente.
+- CI comprueba PostgreSQL efímero, frontend/API y E2E. Push a main genera artefactos; no hay despliegue automático.
 
-## Estado conocido al 2026-10-29
+## Flujos implementados al 2026-10-30
 
-- La Wiki presenta el flujo disponible y aclara los límites actuales del diseñador y la IA.
-- Revisión aplicada en docs/HARDENING.md: contratos Zod/DTO inferidos, ErrorBoundary, caché y tokens por proyecto; regresiones de respuestas inválidas y tardías corregidas.
-- Lint tipado de promesas/hooks, globals por entorno, flags TypeScript adicionales en tsconfig.boundaries.json, filas SQL específicas y extracción de tablas/primitivas/adjuntos/controladores/rutas. AGENTS.md incorpora las reglas del informe.
-- Diseñar bugs combina texto y plantillas personales localmente, permite prioridad/tags y borradores versionados por usuario/proyecto con revisión y Web Locks. Actualizar lista conserva la vista previa; corrupción/conflictos no se sobrescriben. Crear exige revisión y usa Idempotency-Key. No hay IA ni nuevo estado Borrador de dominio.
-- docs/AI_INTEGRATION.md orienta la conexión futura: proveedor bajo servicios/, endpoint autenticado, consentimiento, secretos del servidor y salidas estructuradas. No hay proveedor externo real.
-- Interfaz: registros de tabla a 16 px (15 px en móvil), títulos a 16 px y contadores a 14 px; Proyectos/Equipos con títulos compactos y espaciado uniforme; Configuración con apartados de selección visible. Botones habilitados tienen hover por brillo sin sombra lateral y respetan movimiento reducido. Exportar usa verde. README orientado al usuario; detalles técnicos enlazados en docs/.
-- Las tablas de bugs, casos y ejecuciones incluyen acciones directas de edición y eliminación con confirmación. Un bug con casos o evidencias vinculadas no se puede eliminar.
-- Las tablas de registros usan tipografía ampliada y se validan en escritorio y móvil. Test Runs permite abrir una ejecución y enfocar el primer resultado pendiente desde su fila.
-- El propietario puede crear, editar y eliminar proyectos vacíos desde Proyectos. Los proyectos con registros vinculados no se borran.
-- Equipos permite listar espacios y miembros, crear invitaciones de un solo uso y retirar integrantes. Aceptar una invitación concede acceso a todos los proyectos de la organización; requiere migración 010.
-- Equipos permite crear, renombrar y eliminar espacios sin proyectos ni otros integrantes. Los proyectos nuevos se crean en el equipo propietario seleccionado.
-- Bugs y casos se asignan a integrantes activos de la organización mediante migración 011. Retirar a un integrante con asignaciones está bloqueado hasta reasignarlas; se conserva el responsable textual histórico de bugs.
-- Configuración se organiza por cuenta y seguridad, plantillas, diseño de casos e IA. Imagen de perfil e IA son maquetas sin carga de archivos ni credenciales. Se retiró «Sesión activa» del lateral.
-- Exportación individual de bugs/casos y TableExport compartido para filas filtradas de bugs/casos/runs y recientes del Dashboard: Excel/PDF/Markdown locales. Exporta las columnas externas y tags, sin detalle interno; mantiene acciones de dominio por tabla. Editor de pasos adaptable.
+- Migración 013: testType, lifecycle (Borrador/Listo/Obsoleto) y version en casos, versiones históricas, planes/casos, plan/origen en runs, título/versión en snapshots, origen/severidad/entorno/versión en bugs y flujo por proyecto.
+- El resultado histórico del caso (Pendiente/Aprobado/Fallido) permanece separado de su ciclo documental. Suite se conserva; solo categorías conocidas se infieren como tipo en el backfill inicial.
+- El trigger diferido captura caso/pasos/tags al confirmar. Formularios y diseñador envían expectedVersion; una edición concurrente antigua devuelve 409. No se reconstruye historial anterior a la migración.
+- Crear bug con sourceResultId exige fallo registrado del mismo proyecto y enlaza caso, run, snapshot y evidencias en una transacción. Solo un bug de origen por resultado. Nuevos adjuntos al resultado también se enlazan al bug.
+- Planes y ciclos permiten crear/editar grupos de casos e iniciar runs enlazados. Los planes con runs no se borran; cambios del plan afectan solo a ciclos nuevos.
+- Clonar y reejecutar fallidos copia snapshots originales y reinicia notas/resultados/progreso. Conserva plan y origen; permite revisar versiones históricas aunque el caso luego quede obsoleto. No ejecuta pruebas automáticamente.
+- Casos obsoletos no se incorporan a nuevas selecciones de ejecución. Orígenes y resultados con bugs/evidencias no se borran ni se retiran silenciosamente.
+- Cada proyecto configura estados, transiciones, estado inicial y closedStates para métricas. Se comprueba revisión y no se retiran estados usados. Miembros autorizados gestionan el flujo, sin nueva política de roles.
+- Bugs tienen severidad independiente de prioridad, entorno y versión afectada; las exportaciones individuales incluyen estos campos y los IDs del origen.
+- Tipo de prueba real desde el diseñador/formulario, filtros por tipo y ciclo documental, cobertura por tipo en Dashboard/Reportes. Cobertura = casos vigentes distintos con algún resultado registrado, no cobertura de código/requisitos.
+- CSV/.xlsx: plantilla, una fila por paso, clave de agrupación, vista previa y errores por fila antes de confirmar. ExcelJS existente, una hoja y texto sin fórmulas. Máximo 2 MiB, 1000 filas y 100 pasos/caso.
+- Importar crea casos nuevos mediante claves idempotentes; mantiene progreso parcial en la vista, no ofrece transacción global. Al cambiar de proyecto o salir, se detiene la cola y las respuestas tardías no modifican otro alcance.
+- Las exportaciones de presentación se adaptan a la plantilla para importar; no existe un importador genérico de todos los libros Excel ni de evidencias.
+- QualityRepository se expone como capacidad quality del repositorio, con decorador de autorización, rutas y OpenAPI propios. App compone vistas/controladores.
 
-- CI valida PR/push a main y qa-env; artefacto solo desde main. Job PostgreSQL efímero importa esquema inicial, repite migraciones y verifica aislamiento, concurrencia, asignaciones e idempotencia.
-- Bugs, casos, evidencias y tags admiten sus CRUD implementados; evidencias pueden almacenar/descargar archivos privados con límite de 2 MiB. Adjuntos de casos admiten imágenes/enlaces; migraciones `007` y `008`.
-- Preferencias del diseñador: documento v2 por usuario, migración de tres claves anteriores, revisión y Web Lock por escritura. Tipos incluidos y personalizados editables/eliminables desde su fila, ID estable, mínimo uno y máximo 100, nombres únicos de 1–60 caracteres. No modifica casos existentes.
-- Tags tienen CRUD por proyecto, nombre único por proyecto, color y asignaciones explícitas a bugs/casos/runs. Migración `009`.
-- Migraciones actuales: 004 autenticación, 005 plantillas, 006 Suite opcional, 007 adjuntos, 008 evidencias, 009 tags, 010 invitaciones, 011 responsables y 012 claves de creación por actor/proyecto/recurso con hash e ID, transaccionales. Aplicar db:migrate antes de iniciar esta versión.
-- No hay integraciones externas reales en `servicios/`; solo se define ahí el lugar de futuras integraciones.
-- Alertas reutilizables `Alert` para errores, éxitos, avisos e información; aplicadas en sesión, operaciones del workspace, ajustes, tags y diseño de casos.
-- Alertas con tokens semánticos `--feedback-*` para ambos temas, icono destacado, cierre accesible y movimiento reducido.
-- Resumen se llama Dashboard y no ofrece Nuevo bug. Editar un caso cierra primero su detalle, igual que al editar bugs; no apilar diálogos del mismo flujo.
-- Tablas usan BEM `workspace-table__scroll` y `workspace-table__table`: columnas ajustadas en escritorio, filas con etiquetas en móvil hasta 620 px, sin scroll horizontal permanente. Menú móvil con icono visible y controles táctiles ampliados.
-- El scroll vertical señalado encima de las tablas provenía de los filtros: `overflow-x:auto` y subrayado `bottom:-1px` creaban 1 px de overflow vertical. Se reprodujo con Playwright antes de corregirlo. Usar bloque BEM `listing-filters`, filtros con wrap y subrayado dentro del contenedor; no reintroducir overflow en esa barra.
-- El diseñador admite 1–5 ejemplos por categoría y exporta su vista previa editada a Excel, PDF y Markdown local. No hay cambios de esquema ni IA real.
-- El diseñador valida/envía todos los pasos actuales y permite actualizar el mismo caso ya guardado mediante confirmación explícita. No crea duplicados al actualizar.
-- Test Runs permite crear, consultar, editar y eliminar; resultados por caso con notas y snapshots, progreso por `executed_at` y finalización/reapertura. Se exige al menos un caso y todos los resultados registrados para completar.
-- Edición, resultados y borrado de runs se serializan en transacciones con bloqueo de la ejecución; conservar resultados/snapshots de casos mantenidos y rechazar retirada/borrado con evidencias vinculadas. No requiere migración nueva.
-- `.opencode/agents/` contiene orquestador y subagentes frontend, dominio-api, calidad y qa; son perfiles de desarrollo, no funciones del producto.
-- Los cinco perfiles se revisaron para contratos, concurrencia, tipografía, pluralización e instalación/release. Calidad revisa criterios de entrega y QA flujos; no hacen falta roles adicionales. `.opencode/memory.md` solo referencia esta memoria, sin duplicar estado.
-- `docs/DESIGN.md` fija tokens, componentes reutilizables, BEM, accesibilidad y estados; sustituye referencias obsoletas al catálogo y capacidades.
-- Playwright/Chromium usa Vite aislado en 127.0.0.1:4174 y API sintética por prueba, bloqueando red externa. Proyectos desktop, Mobile-M 375 px y Mobile-L 425 px. Scripts `test:e2e`, `test:e2e:ui`, `test:e2e:report`; CI instala Chromium y conserva artefactos de fallos.
-- Cliente central y descargas conservan errores HTTP con mensajes de respaldo; proxy devuelve 503 JSON cuando la API no responde. Reutilizar `Alert` en las vistas y capturas equivalentes a try/catch; regla en AGENTS.md.
-- Reportes del proyecto calculan conteos por estado, progreso promedio y aprobación solo con resultados ejecutados; permiten descargar CSV sin persistencia adicional. No se añade migración.
-- El footer reutilizable se comparte entre el workspace y la pantalla de acceso. Las notificaciones globales se muestran arriba, con ancho máximo de 360 px; alertas contextuales permanecen junto a su contenido.
-- Validación vigente: typecheck, lint, formato y build correctos; 162 unitarias/endpoints y 66 E2E aprobadas. PostgreSQL temporal validó instalación vacía, repetición, actualización desde 001, conservación de filas y la integración de autenticación, aislamiento, idempotencia y concurrencia; instancia cerrada y retirada sin tocar la BD personal.
+## Capacidades anteriores conservadas
 
-- Tablas: filtros/búsqueda a 14 px, páginas visibles de 50 y exportación de la página; API admite limit/offset/search/status parametrizados con projectId. Dashboard/Reportes aún calculan el snapshot completo. X-Request-ID y logs JSON no incluyen cuerpos, cookies, consultas ni secretos.
-- Preparación del release en docs/RELEASE.md; no se cambió la versión ni se publicó. README breve de presentación/stack/clonado; flujos completos en docs/USER_GUIDE.md. `pnpm db:setup` instala 001 y migraciones 004–012 desde backend/src/migrations.ts sobre una base creada previamente; no incluye seed ni reescribe SQL histórico. `db:migrate` comparte catálogo para actualizar.
-- Pluralización española central en src/utils/pluralization.ts (frases y verbos completos), guardián ESLint product/pluralization con vocabulario ampliable y pruebas 0/1/varios. Tipografía en src/typography.css: títulos 24–28, secciones 20, subtítulos 18, acciones 16 y ayuda 14 px, tokens rem y clases BEM. El botón de nombre/avatar abre Configuración y cierra el menú móvil.
+- CRUD de bugs/casos/runs/evidencias/tags, asignaciones, adjuntos privados (2 MiB), plantillas personales, invitaciones de equipo de un solo uso y gestión de proyectos/equipos.
+- Resultados manuales por caso, finalización/reapertura y snapshots; los recursos referenciados no se eliminan en cascada.
+- Borradores de bugs y preferencias del diseñador por usuario/proyecto, documentos versionados, revisiones y Web Locks. El diseñador usa ejemplos ilustrativos, no IA.
+- Claves idempotentes persistentes para bug/case/run/plan por actor/proyecto/recurso; huella y recurso se confirman juntos. No reintentar automáticamente ni renovar la clave tras una respuesta ambigua.
+- Contratos Zod de HTTP/almacenamiento, errores seguros, CSRF, autorización de servidor, X-Request-ID y logs sin cuerpos/cookies/secretos.
+- Tablas con páginas de 50/exportación visible, BEM, alertas superiores, footer compartido y navegación adaptable. Dashboard/Reportes cargan snapshot completo, sin afirmar paginación de esos agregados.
+- Tipografía src/typography.css; pluralización central y guardián ESLint. Mantener textos funcionales >=14 px.
+- .opencode/agents contiene perfiles de desarrollo; no son agentes del producto. MEMORY.md es la única memoria técnica compartida.
+
+## Validación de este lote
+
+- TypeScript, lint, formato, build y 169 pruebas unitarias/endpoints; 87 E2E (66 anteriores y 21 de calidad) aprobadas en escritorio, 375 y 425 px.
+- PostgreSQL 18 efímero: instalación vacía, repetición, actualización desde 001–012, conservación de suites/pasos y backfill único. Integraciones de autenticación, aislamiento, rollback, idempotencia, concurrencia, planes, fallos/evidencia y flujos verificadas.
+- Chromium 153 temporal para E2E: la descarga estándar de Playwright falló en este entorno; configuración temporal fuera de la entrega, sin nuevas dependencias del proyecto.
+- Rama local feat/trazabilidad-ciclos-calidad. Publicación autorizada por el usuario; PR #24 abierto hacia qa-env (https://github.com/AndersonACP25/qaTestGE/pull/24). Validación de GitHub Actions en curso.

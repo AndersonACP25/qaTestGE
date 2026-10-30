@@ -114,6 +114,11 @@ function validCaseFields(
 ): body is Record<string, unknown> & CreateTestCaseInput {
   return (
     text(body.title, 200) &&
+    (body.testType === undefined || text(body.testType, 100)) &&
+    (body.lifecycle === undefined ||
+      ["Borrador", "Listo", "Obsoleto"].includes(String(body.lifecycle))) &&
+    (body.expectedVersion === undefined ||
+      (Number.isSafeInteger(body.expectedVersion) && Number(body.expectedVersion) > 0)) &&
     (body.assigneeUserId === undefined ||
       body.assigneeUserId === null ||
       isId(body.assigneeUserId)) &&

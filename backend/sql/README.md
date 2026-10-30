@@ -38,3 +38,7 @@ Los ejemplos no se asignan a cuentas nuevas. Regístrate en la aplicación para 
 ## Verificación segura
 
 `pnpm db:check` solo lee conexión y esquema. Las pruebas de integración usan exclusivamente `TEST_DATABASE_URL` en PostgreSQL efímero; crean y eliminan datos. Nunca apuntarlas a una base personal o productiva. CI valida instalación desde cero, repetición y actualización del historial.
+
+### 013 · Flujos de calidad
+
+Ejecuta `pnpm db:migrate` antes de iniciar esta versión. Añade versiones y estados documentales de casos, tipo propio, planes/ciclos, snapshots con título/versión, origen de bugs, severidad/entorno/versión y flujos por proyecto. Conserva estados de resultado y Suite. El backfill reconoce categorías anteriores conocidas una sola vez y no reconstruye cambios previos. Las claves compuestas preservan aislamiento; los recursos con trazabilidad no se eliminan en cascada. Las versiones del caso se retiran únicamente cuando se elimina un caso sin otras referencias. Incluye claves idempotentes para crear planes.

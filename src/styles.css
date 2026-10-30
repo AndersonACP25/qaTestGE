@@ -4845,3 +4845,51 @@ tbody td {
   min-width: 0;
   overflow-wrap: anywhere;
 }
+
+.quality {
+  display: grid;
+  gap: 1rem;
+}
+.quality__panel {
+  padding: 1rem;
+  margin-block: 1rem;
+  border: 1px solid var(--border, #64748b);
+  border-radius: 12px;
+}
+.quality__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-block: 1rem;
+}
+.quality__choice {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding-block: 0.4rem;
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+.quality__filters {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-block: 1rem;
+}
+.quality__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 1rem;
+}
+.quality__cell {
+  text-align: left;
+  padding: 0.75rem 0.5rem;
+  border-bottom: 1px solid var(--border, #64748b);
+}
+.quality__table {
+  table-layout: fixed;
+}
+.quality__cell {
+  overflow-wrap: anywhere;
+  padding-inline: 0.25rem;
+}

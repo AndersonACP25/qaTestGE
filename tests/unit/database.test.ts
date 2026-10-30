@@ -76,6 +76,10 @@ describe("database boundaries without network or environment files", () => {
       "Alta",
       null,
       null,
+      "Media",
+      "",
+      "",
+      null,
     ]);
     await repo.listBugs("2");
     expect(query.mock.calls.at(-1)?.[1]).toEqual(["2"]);

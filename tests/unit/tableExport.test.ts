@@ -54,7 +54,7 @@ describe("exportación de las columnas del listado", () => {
     expect(caseTableExport([testCase], []).rows[0]).toEqual([
       "TC-1",
       "Acceso",
-      "—",
+      "—\nFuncional · Borrador · v1",
       "Sin asignar",
       "Pendiente",
       "Hoy",
