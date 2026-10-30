@@ -1,3 +1,4 @@
+import type { BugWorkflow } from "../../backend/src/models/quality.model";
 import { Avatar, Icon, Priority, StatusBadge } from "../components/RecordPrimitives";
 import type { Bug, BugStatus, CaseStatus, TestCase, TestRun, Tag, Evidence } from "../types";
 import { bugStatuses, caseStatuses } from "../types";
@@ -92,7 +93,9 @@ export function BugTable({
   onStatusChange,
   updatingStatus,
   compact = false,
+  workflow,
 }: {
+  workflow?: BugWorkflow | null;
   bugs: Bug[];
   tags: Tag[];
   onSelect: (bug: Bug) => void;
@@ -136,7 +139,11 @@ export function BugTable({
                 <StatusControl
                   label={bug.id}
                   status={bug.status}
-                  statuses={bugStatuses}
+                  statuses={
+                    workflow
+                      ? [bug.status, ...(workflow.transitions[bug.status] ?? [])]
+                      : bugStatuses
+                  }
                   disabled={Boolean(updatingStatus)}
                   onChange={(status) => onStatusChange(bug, status)}
                 />
@@ -201,7 +208,7 @@ export function CaseTable({
           <tr>
             <th>CASO ID</th>
             <th>NOMBRE DEL CASO</th>
-            <th>SUITE</th>
+            <th>CLASIFICACIÓN</th>
             <th>RESPONSABLE</th>
             <th>ESTADO</th>
             <th>CREADO</th>
@@ -218,8 +225,12 @@ export function CaseTable({
                 <span className="bug-title">{item.title}</span>
                 <TagBadges ids={item.tagIds ?? []} tags={tags} />
               </td>
-              <td data-label="SUITE">
+              <td data-label="CLASIFICACIÓN">
                 <span className="suite-badge">{item.suite || "—"}</span>
+                <p>
+                  {item.testType ?? "Funcional"} · {item.lifecycle ?? "Borrador"} · v
+                  {item.version ?? 1}
+                </p>
               </td>
               <td data-label="RESPONSABLE">{item.assigneeName || "Sin asignar"}</td>
               <td data-label="ESTADO">

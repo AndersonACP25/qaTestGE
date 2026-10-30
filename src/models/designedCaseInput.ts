@@ -29,7 +29,8 @@ export function designedCaseInput(
   return {
     projectId,
     title: `${testCase.categoryLabel} · ${steps[0].action}`.slice(0, 200),
-    suite: testCase.categoryLabel.slice(0, 100),
+    testType: testCase.categoryLabel.slice(0, 100),
+    lifecycle: "Borrador",
     preconditions: description,
     steps,
   };

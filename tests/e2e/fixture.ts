@@ -57,6 +57,17 @@ export const test = base.extend<{
           user: { id: "1", name: "QA Local", email: "qa@example.test" },
           csrfToken: "test-csrf",
         };
+      else if (path === "/bug-workflow")
+        data = {
+          states: ["Abierto", "En progreso", "En revisión", "Resuelto"],
+          transitions: {
+            Abierto: ["En progreso", "Resuelto"],
+            "En progreso": ["Abierto", "En revisión", "Resuelto"],
+            "En revisión": ["En progreso", "Resuelto"],
+            Resuelto: ["Abierto", "En progreso"],
+          },
+          revision: 1,
+        };
       else if (path === "/teams" && method === "GET") data = state.teams;
       else if (path === "/teams" && method === "POST") {
         data = { id: "2", name: body.name, role: "owner" };

@@ -1,3 +1,4 @@
+import TypeCoverage from "./TypeCoverage";
 import { formatCount } from "../utils/pluralization";
 import { useMemo } from "react";
 import type { Bug, Evidence, TestCase, TestRun } from "../types";
@@ -17,16 +18,18 @@ export default function ReportsView({
   cases,
   runs,
   evidence,
+  closedStates,
 }: {
   projectName: string;
   bugs: Bug[];
   cases: TestCase[];
   runs: TestRun[];
   evidence: Evidence[];
+  closedStates?: string[];
 }) {
   const metrics = useMemo(
-    () => calculateReportMetrics(bugs, cases, runs, evidence),
-    [bugs, cases, runs, evidence],
+    () => calculateReportMetrics(bugs, cases, runs, evidence, closedStates),
+    [bugs, cases, runs, evidence, closedStates],
   );
   const bugStatuses = [
     { label: "Abiertos y en seguimiento", count: metrics.openBugs, tone: "warning" },
@@ -135,6 +138,7 @@ export default function ReportsView({
         </article>
       </div>
 
+      <TypeCoverage cases={cases} runs={runs} />
       <div className="reports__distributions">
         {[
           { title: "Estado de bugs", rows: bugStatuses },

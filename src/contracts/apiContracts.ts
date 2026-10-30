@@ -12,7 +12,14 @@ const bug = z.object({
   project: text,
   description: text.default(""),
   priority: z.enum(["Crítica", "Alta", "Media", "Baja"]),
-  status: z.enum(["Abierto", "En progreso", "En revisión", "Resuelto"]),
+  status: z.string().min(1).max(60),
+  severity: z.enum(["Crítica", "Alta", "Media", "Baja"]).optional(),
+  environment: text.optional(),
+  affectedVersion: text.optional(),
+  sourceResultId: id.nullable().optional(),
+  sourceCaseId: id.nullable().optional(),
+  sourceRunId: id.nullable().optional(),
+  sourceSteps: z.array(z.object({ action: text, expectedResult: text })).optional(),
   assignee: text.nullable(),
   assigneeUserId: id.nullable().optional(),
   tagIds: tags,
@@ -22,6 +29,9 @@ const testCase = z.object({
   ...base,
   title: text,
   suite: text.nullable().transform((value) => value ?? ""),
+  testType: z.string().min(1).max(100).optional(),
+  lifecycle: z.enum(["Borrador", "Listo", "Obsoleto"]).optional(),
+  version: z.number().int().positive().optional(),
   preconditions: text.default(""),
   status: z.enum(["Pendiente", "Aprobado", "Fallido"]),
   steps: z.array(step),
@@ -32,6 +42,7 @@ const testCase = z.object({
 const runResult = z.object({
   id,
   caseId: id,
+  caseVersion: z.number().int().positive().optional(),
   title: text,
   status: z.enum(["passed", "failed", "blocked", "skipped"]),
   notes: text,
@@ -42,12 +53,42 @@ const run = z.object({
   ...base,
   title: text,
   owner: text,
+  planId: id.nullable().optional(),
+  sourceRunId: id.nullable().optional(),
   caseIds: z.array(id),
   caseCount: z.number().int().nonnegative(),
   progress: z.number().min(0).max(100),
   status: z.enum(["En curso", "Completado"]),
   results: z.array(runResult),
   tagIds: tags,
+});
+const plan = z.object({
+  id,
+  projectId: id,
+  name: text,
+  description: text,
+  caseIds: z.array(id),
+  revision: z.number().int().positive(),
+});
+const workflow = z.object({
+  states: z.array(z.string().min(1).max(60)).min(1),
+  closedStates: z.array(z.string()).optional(),
+  transitions: z.record(z.string(), z.array(z.string())),
+  revision: z.number().int().positive(),
+});
+const history = z.object({
+  version: z.number().int().positive(),
+  changedAt: text,
+  snapshot: z
+    .object({
+      title: text,
+      suite: text.nullable(),
+      test_type: text,
+      lifecycle: text,
+      steps: z.array(step),
+      preconditions: text,
+    })
+    .passthrough(),
 });
 const evidence = z.object({
   ...base,
@@ -88,7 +129,10 @@ export function parseApiData(path: string, method: string, input: unknown): unkn
   const parts = url.pathname.split("/").filter(Boolean);
   const [resource, action, detail] = parts;
   let schema: z.ZodType;
-  if (resource === "auth") {
+  if (resource === "bug-workflow") schema = workflow;
+  else if (resource === "test-plans") schema = method === "GET" ? z.array(plan) : plan;
+  else if (resource === "test-cases" && detail === "history") schema = z.array(history);
+  else if (resource === "auth") {
     if (action === "bug-templates")
       schema = parts.length === 2 && method === "GET" ? z.array(template) : template;
     else if (action === "me" && method === "PATCH") schema = user;
