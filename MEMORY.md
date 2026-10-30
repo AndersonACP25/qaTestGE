@@ -62,4 +62,4 @@
 - TypeScript, lint, formato, build y 173 pruebas unitarias/endpoints; 99 E2E (87 anteriores y 12 de colaboración) aprobadas en escritorio, 375 y 425 px.
 - PostgreSQL 18 efímero: instalación vacía, repetición, actualización desde 001–013, conservación de acceso heredado y asignación explícita de proyectos nuevos. Integraciones de autenticación/calidad y colaboración verificadas: roles, denegaciones, revocación, comentarios/menciones, avisos privados, contexto del pool, auditoría inmutable sin bytes, idempotencia y rollback.
 - Chromium 153 temporal para E2E: la descarga estándar de Playwright falló en este entorno; configuración temporal fuera de la entrega, sin nuevas dependencias del proyecto.
-- Publicación de este lote autorizada; abrir PR hacia qa-env después de validar.
+- Publicación autorizada completada: PR #25 hacia qa-env, https://github.com/AndersonACP25/qaTestGE/pull/25. GitHub Actions pendiente de finalizar; no se fusionó el PR.
