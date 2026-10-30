@@ -51,4 +51,4 @@
 - TypeScript, lint, formato, build y 169 pruebas unitarias/endpoints; 87 E2E (66 anteriores y 21 de calidad) aprobadas en escritorio, 375 y 425 px.
 - PostgreSQL 18 efímero: instalación vacía, repetición, actualización desde 001–012, conservación de suites/pasos y backfill único. Integraciones de autenticación, aislamiento, rollback, idempotencia, concurrencia, planes, fallos/evidencia y flujos verificadas.
 - Chromium 153 temporal para E2E: la descarga estándar de Playwright falló en este entorno; configuración temporal fuera de la entrega, sin nuevas dependencias del proyecto.
-- Rama local feat/trazabilidad-ciclos-calidad. La publicación/PR queda pendiente de petición explícita conforme a AGENTS.md.
+- Rama local feat/trazabilidad-ciclos-calidad. Publicación autorizada por el usuario; PR #24 abierto hacia qa-env (https://github.com/AndersonACP25/qaTestGE/pull/24). Validación de GitHub Actions en curso.
