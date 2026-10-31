@@ -33,6 +33,7 @@ import Dialog from "./Dialog";
 import {
   addTestCaseLink,
   api,
+  loadProject,
   createBug,
   createTestCase,
   deleteBug,
@@ -51,8 +52,6 @@ import {
 import type { BugTemplate, BugTemplatePriority, Project, User } from "./api";
 import AccountSettingsView from "./views/AccountSettingsView";
 import WikiView from "./views/WikiView";
-import ProjectsView from "./views/ProjectsView";
-import TeamsView from "./views/TeamsView";
 import TagsView from "./views/TagsView";
 import ReportsView from "./views/ReportsView";
 import RecordDetailsDialog, { type RecordDetail } from "./views/RecordDetailsDialog";
@@ -84,8 +83,6 @@ const navigation: {
       { id: "overview", label: "Dashboard", icon: "grid" },
       { id: "coverage", label: "Cobertura y requisitos", icon: "check-square" },
       { id: "reports", label: "Reportes y métricas", icon: "chart" },
-      { id: "projects", label: "Proyectos", icon: "grid" },
-      { id: "teams", label: "Equipos", icon: "grid" },
       { id: "bugs", label: "Bugs", icon: "bug", count: undefined },
       { id: "cases", label: "Casos de prueba", icon: "check-square" },
       { id: "bug-builder", label: "Diseñar bugs", icon: "sparkle" },
@@ -330,8 +327,6 @@ function App({
     overview: "Dashboard",
     plans: "Planes y ciclos",
     reports: "Reportes y métricas",
-    projects: "Proyectos",
-    teams: "Equipos",
     bugs: "Bugs",
     cases: "Casos de prueba",
     runs: "Test runs",
@@ -894,7 +889,12 @@ function App({
         <div className="workspace__identity">
           <strong>{project?.name ?? "Tu workspace"}</strong>
           <small>Cuenta de {user.name}</small>
-          <small>Rol del proyecto: {role}</small>
+          <span
+            className={`role-badge role-badge--${role === "Solo lectura" ? "reader" : role.toLowerCase()}`}
+            aria-label={`Rol del proyecto: ${role}`}
+          >
+            {role}
+          </span>
         </div>
         <div className="sidebar-nav">
           {navigation.map((group) => (
@@ -996,8 +996,6 @@ function App({
               "mentions",
               "plans",
               "reports",
-              "projects",
-              "teams",
               "case-builder",
               "bug-builder",
               "settings",
@@ -1151,7 +1149,7 @@ function App({
             </>
           )}
           {preferencesError && <Alert tone="error">{preferencesError}</Alert>}
-          {!loading && !error && !projectId && activePage !== "projects" && (
+          {!loading && !error && !projectId && activePage !== "settings" && (
             <p className="workspace__notice">
               No tienes proyectos disponibles. El administrador debe conceder acceso a un espacio
               existente.
@@ -1173,8 +1171,20 @@ function App({
               <MentionsView
                 key={projectId}
                 projectId={projectId}
-                onOpen={(target) => {
-                  if (!isRenderCurrent()) return;
+                onOpen={async (target, signal) => {
+                  const isCurrent = captureScope();
+                  const loaded = await loadProject(projectId, signal);
+                  if (!isCurrent() || signal.aborted) return false;
+                  const { bugs, cases, runs } = loaded;
+                  const exists =
+                    target.kind === "bug"
+                      ? bugs.some((b) => b.id === target.id)
+                      : target.kind === "case"
+                        ? cases.some((c) => c.id === target.id)
+                        : runs.some((r) => r.id === target.id);
+                  if (!exists)
+                    throw new Error("El registro de esta mención ya no está disponible.");
+                  setData(loaded);
                   if (target.kind === "bug") {
                     const record = bugs.find((b) => b.id === target.id);
                     if (record) setRecordDetail({ kind: "bug", record });
@@ -1188,6 +1198,7 @@ function App({
                       setRunDetail(run);
                     }
                   }
+                  return true;
                 }}
               />
             )
@@ -1202,12 +1213,9 @@ function App({
                 }}
               />
             )
-          ) : activePage === "teams" ? (
-            <TeamsView onChanged={() => setRevision((value) => value + 1)} />
-          ) : activePage === "projects" ? (
-            <ProjectsView projects={projects} onChanged={() => setRevision((value) => value + 1)} />
           ) : activePage === "settings" ? (
             <AccountSettingsView
+              projects={projects}
               projectId={projectId}
               projectName={project?.name ?? "Proyecto"}
               refreshRevision={revision}
@@ -2353,8 +2361,6 @@ function pageDescription(page: NavigationPage): string {
     overview: "Aquí tienes el estado de calidad de tus proyectos.",
     plans: "Agrupa casos y organiza ciclos de ejecución.",
     reports: "Consulta indicadores, estados y resultados del proyecto seleccionado.",
-    projects: "Crea y administra los proyectos de tu espacio de trabajo.",
-    teams: "Administra la membresía de tus espacios de trabajo.",
     bugs: "Registra, prioriza y da seguimiento a las incidencias de tus proyectos.",
     cases: "Organiza los escenarios que mantienen tu producto bajo control.",
     runs: "Ejecuta suites de prueba y consulta sus resultados.",

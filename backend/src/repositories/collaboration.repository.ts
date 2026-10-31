@@ -1,3 +1,4 @@
+import { resolvePlainMentions } from "../models/plain-mentions.js";
 import { createHash } from "node:crypto";
 import type { DatabasePool, DatabaseClient } from "../auth/actor-database.js";
 import type {
@@ -166,6 +167,13 @@ export class PostgresCollaborationRepository implements CollaborationRepository 
       return r.rows.map(toComment);
     });
   }
+  private async resolveBody(c: DatabaseClient, projectId: string, body: string) {
+    const members = await c.query<{ id: string; name: string }>(
+      `SELECT u.id::text,u.name FROM qa.projects p JOIN qa.organization_members m ON m.organization_id=p.organization_id JOIN qa.users u ON u.id=m.user_id AND u.is_active WHERE p.id=$1 AND qa.project_role(p.id,u.id) IS NOT NULL`,
+      [projectId],
+    );
+    return resolvePlainMentions(body, members.rows);
+  }
   private async mentions(c: DatabaseClient, projectId: string, commentId: string, body: string) {
     const ids = mentionIds(body);
     for (const id of ids) {
@@ -223,12 +231,13 @@ export class PostgresCollaborationRepository implements CollaborationRepository 
             "La solicitud ya se utilizó con otro contenido.",
           );
       } else {
+        const resolved = await this.resolveBody(c, projectId, body);
         const r = await c.query<{ id: string }>(
           `INSERT INTO qa.comments(project_id,${columns[target.kind]},author_id,body,request_key,request_hash) VALUES($1,$2,$3,$4,$5,$6) RETURNING id::text`,
-          [projectId, id, this.actorId, body, key, hash],
+          [projectId, id, this.actorId, resolved, key, hash],
         );
         commentId = r.rows[0].id;
-        await this.mentions(c, projectId, commentId, body);
+        await this.mentions(c, projectId, commentId, resolved);
       }
       const result = await c.query<CommentRow>(`${commentSql} WHERE c.id=$1 AND c.project_id=$2`, [
         commentId,
@@ -268,11 +277,12 @@ export class PostgresCollaborationRepository implements CollaborationRepository 
           "COMMENT_CONFLICT",
           "El comentario cambió o fue eliminado. Actualiza la conversación.",
         );
+      const resolved = remove ? "" : await this.resolveBody(c, projectId, body);
       await c.query(
         "UPDATE qa.comments SET body=$3,version=version+1,edited_at=now(),deleted_at=CASE WHEN $4 THEN now() ELSE NULL END WHERE id=$1 AND project_id=$2",
-        [id, projectId, remove ? "" : body, remove],
+        [id, projectId, resolved, remove],
       );
-      await this.mentions(c, projectId, id, remove ? "" : body);
+      await this.mentions(c, projectId, id, resolved);
       const updated = await c.query<CommentRow>(`${commentSql} WHERE c.id=$1 AND c.project_id=$2`, [
         id,
         projectId,

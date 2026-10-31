@@ -258,3 +258,113 @@
 .coverage .workspace__panel {
   min-width: 0;
 }
+.reports-view .analytics__chart {
+  border-top: 3px solid var(--purple);
+  box-shadow: 0 6px 20px rgb(32 35 52 / 4%);
+  padding: 24px;
+}
+.reports-view .analytics__chart figcaption {
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+.reports-view .analytics__chart h2 {
+  margin: 0;
+}
+.reports-view__summary {
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+}
+.reports-view__eyebrow {
+  color: var(--color-626678);
+  font-size: var(--font-caption);
+}
+.reports-view__metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+.reports-view__metric {
+  display: grid;
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--color-f7f8fa);
+  min-width: 0;
+}
+.reports-view__metric span {
+  color: var(--color-626678);
+  font-size: var(--font-caption);
+}
+.reports-view__metric strong {
+  font-size: 26px;
+  overflow-wrap: anywhere;
+}
+.reports-view__metric--approval {
+  background: var(--color-f1efff);
+  color: var(--purple);
+}
+.reports-view__metric--failure strong {
+  color: var(--feedback-error);
+}
+.reports-view__metric--blocked strong {
+  color: var(--feedback-warning);
+}
+.reports-view .workspace__panel {
+  display: grid;
+  gap: 20px;
+  align-content: start;
+  min-width: 0;
+}
+.reports-view .workspace__panel > h2,
+.reports-view .workspace__panel > p {
+  margin: 0;
+}
+.reports-view .workspace__panel > button {
+  justify-self: start;
+}
+.reports-view .analytics__bar-item {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--color-f7f8fa);
+  display: grid;
+  gap: 12px;
+}
+.reports-view .analytics__bar-label {
+  align-items: center;
+  line-height: 1.6;
+}
+.reports-view .analytics__bar-label > span {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.reports-view .analytics__bar-label strong {
+  white-space: nowrap;
+  padding: 4px 10px;
+  background: var(--color-f1efff);
+  border-radius: 999px;
+  color: var(--purple);
+  font-size: var(--font-caption);
+}
+.analytics__rank {
+  display: grid;
+  place-items: center;
+  min-width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--purple);
+  font-weight: 600;
+}
+@media (max-width: 850px) {
+  .reports-view__metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .reports-view .analytics__chart {
+    padding: 16px;
+  }
+}

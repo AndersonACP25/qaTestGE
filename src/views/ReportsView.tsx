@@ -1,3 +1,4 @@
+import { reportRangeError } from "../models/reportRange";
 import { useState } from "react";
 import Alert from "../Alert";
 import { defaultRange, useAnalytics } from "../controllers/useAnalytics";
@@ -23,19 +24,15 @@ export default function ReportsView({
     range.to,
     `${refreshRevision}:${applied}`,
   );
+  const dateError = reportRangeError(draft.from, draft.to);
   return (
-    <div className="analytics">
+    <div className="analytics reports-view">
       <form
         className="analytics__period"
         onSubmit={(e) => {
           e.preventDefault();
-          if (
-            !draft.from ||
-            !draft.to ||
-            draft.from > draft.to ||
-            (Date.parse(draft.to) - Date.parse(draft.from)) / 86400000 > 365
-          ) {
-            setInvalid("Selecciona un período válido de hasta 366 días.");
+          if (dateError) {
+            setInvalid(dateError);
             return;
           }
           setInvalid("");
@@ -49,8 +46,13 @@ export default function ReportsView({
           <input
             type="date"
             required
+            max={draft.to || undefined}
             value={draft.from}
-            onChange={(e) => setDraft({ ...draft, from: e.target.value })}
+            onChange={(e) => {
+              setMessage("");
+              setInvalid("");
+              setDraft({ ...draft, from: e.target.value });
+            }}
           />
         </label>
         <label className="workspace__field">
@@ -58,30 +60,58 @@ export default function ReportsView({
           <input
             type="date"
             required
+            min={draft.from || undefined}
             value={draft.to}
-            onChange={(e) => setDraft({ ...draft, to: e.target.value })}
+            onChange={(e) => {
+              setMessage("");
+              setInvalid("");
+              setDraft({ ...draft, to: e.target.value });
+            }}
           />
         </label>
-        <button className="workspace__secondary">Aplicar período</button>
+        <button className="workspace__secondary" disabled={!!dateError}>
+          Aplicar período
+        </button>
       </form>
-      {data && applied > 0 && !message && (
-        <Alert tone="success">Período aplicado. Los indicadores están actualizados.</Alert>
-      )}
+      {data &&
+        applied > 0 &&
+        !message &&
+        !dateError &&
+        draft.from === range.from &&
+        draft.to === range.to && (
+          <Alert tone="success">Período aplicado. Los indicadores están actualizados.</Alert>
+        )}
       {message && <Alert tone="success">{message}</Alert>}
-      {(error || invalid) && <Alert tone="error">{invalid || error}</Alert>}
+      {(error || invalid || dateError) && (
+        <Alert tone="error">{dateError || invalid || error}</Alert>
+      )}
       {!data && !error && <p role="status">Cargando reportes…</p>}
       {data && (
         <>
-          <section className="workspace__panel">
+          <section className="workspace__panel reports-view__summary layout__panel layout__stack">
+            <span className="reports-view__eyebrow">
+              {range.from} — {range.to} · UTC
+            </span>
             <h2 className="typography__section">Resultados del período</h2>
-            <p>
-              Aprobación:{" "}
-              <strong>
-                {data.summary.approvalRate === null ? "Sin datos" : `${data.summary.approvalRate}%`}
-              </strong>{" "}
-              · Registrados: {data.summary.recorded} · Fallidos: {data.summary.failed} · Bloqueados:{" "}
-              {data.summary.blocked}
-            </p>
+            <div className="reports-view__metrics">
+              {[
+                [
+                  "Aprobación",
+                  data.summary.approvalRate === null
+                    ? "Sin datos"
+                    : `${data.summary.approvalRate}%`,
+                  "approval",
+                ],
+                ["Registrados", data.summary.recorded, "neutral"],
+                ["Fallidos", data.summary.failed, "failure"],
+                ["Bloqueados", data.summary.blocked, "blocked"],
+              ].map(([label, value, tone]) => (
+                <div className={`reports-view__metric reports-view__metric--${tone}`} key={label}>
+                  <span>{label}</span>
+                  <strong>{value}</strong>
+                </div>
+              ))}
+            </div>
             <p className="typography__caption">
               La aprobación excluye omitidos y pendientes. Los totales de bugs, casos y cobertura
               reflejan el estado actual del proyecto.
@@ -169,6 +199,8 @@ export default function ReportsView({
                 el período.
               </p>
               <Bars
+                ranked
+                emptyLabel="No hay fallos registrados en este período."
                 items={data.frequentFailures.map((r) => ({
                   label: `${r.caseId} · ${r.title}`,
                   value: r.failures,

@@ -125,14 +125,29 @@ export function Distribution({ open, closed }: { open: number; closed: number })
     </figure>
   );
 }
-export function Bars({ items }: { items: { label: string; value: number; total: number }[] }) {
+export function Bars({
+  items,
+  ranked = false,
+  emptyLabel = "Sin datos registrados.",
+}: {
+  items: { label: string; value: number; total: number }[];
+  ranked?: boolean;
+  emptyLabel?: string;
+}) {
   return (
     <div className="analytics__bars">
-      {!items.length && <p>Sin datos registrados.</p>}
+      {!items.length && <p>{emptyLabel}</p>}
       {items.map((item, i) => (
-        <div key={i}>
+        <div className="analytics__bar-item" key={i}>
           <div className="analytics__bar-label">
-            <span>{item.label}</span>
+            <span>
+              {ranked && (
+                <span className="analytics__rank" aria-hidden="true">
+                  {i + 1}
+                </span>
+              )}
+              {item.label}
+            </span>
             <strong>
               {item.value} / {item.total}
             </strong>

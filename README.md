@@ -17,7 +17,8 @@ Una plataforma para organizar el trabajo de QA de tu equipo: bugs, casos de prue
 - **Planes y ciclos:** agrupa casos, clona ejecuciones o reejecuta solo los fallidos conservando los pasos originales.
 - **Casos versionados e importación:** tipo de prueba independiente, Borrador/Listo/Obsoleto, historial e importación revisada de CSV/Excel.
 - **Flujo de bugs por proyecto:** estados y transiciones configurables, severidad, entorno y versión afectada.
-- **Comentarios y menciones:** conversa en bugs, casos y ejecuciones, con avisos internos e historial de actividad.
+- **Comentarios y menciones:** conversa en bugs, casos y ejecuciones; selecciona a la persona tras @ o escribe su nombre completo único. Mis menciones se actualiza cada 15 segundos mientras está visible y permite abrir el registro; no avisa sobre menciones propias. Incluye historial de actividad.
+- **Configuración:** reúne Proyectos, Equipos, Flujo de bugs y Actividad y auditoría con sus permisos vigentes; el rol del proyecto se identifica mediante un badge.
 - **Roles y auditoría:** Admin, QA, Dev y Solo lectura por proyecto, con registro persistente de cambios.
 - **Equipos y proyectos:** colabora mediante invitaciones de un solo uso.
 - **Dashboard visual y analítica:** indicadores resumidos, tendencias de aprobación y bugs, fallos frecuentes y cobertura por tipo con agregaciones PostgreSQL.

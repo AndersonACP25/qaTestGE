@@ -158,7 +158,7 @@ test("Admin cambia un rol y una mención abre el recurso", async ({ page }) => {
   await expect(page.getByText(/Sin leer/)).toBeVisible();
   await page.getByRole("button", { name: "Abrir registro", exact: true }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
-  expect(read).toBe(true);
+  await expect.poll(() => read).toBe(true);
   await noHorizontalOverflow(page);
 });
 test("una respuesta tardía de comentarios no aparece en otro proyecto", async ({ page }) => {
