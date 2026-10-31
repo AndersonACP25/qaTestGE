@@ -15,6 +15,7 @@ export default function MentionsView({
   const [rows, setRows] = useState<MentionNotification[]>([]);
   const [revision, setRevision] = useState(0);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const alive = useRef(true);
   useEffect(() => {
     alive.current = true;
@@ -43,6 +44,7 @@ export default function MentionsView({
         body: "{}",
       });
       if (alive.current) {
+        setMessage("Mención marcada como leída.");
         setRevision((v) => v + 1);
         onOpen(row.target);
       }
@@ -55,6 +57,7 @@ export default function MentionsView({
       <h2 className="typography__section">Mis menciones</h2>
       <p>Avisos dentro del proyecto, sin envío de correos. Se muestran los 100 más recientes.</p>
       {error && <Alert tone="error">{error}</Alert>}
+      {message && <Alert tone="success">{message}</Alert>}
       <button className="workspace__secondary" onClick={() => setRevision((v) => v + 1)}>
         Actualizar menciones
       </button>

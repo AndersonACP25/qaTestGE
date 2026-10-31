@@ -1,17 +1,14 @@
 import { ProjectPermissionsProvider } from "./controllers/ProjectPermissions";
 import { can } from "../backend/src/models/collaboration.model";
 import ProjectAccessView from "./views/ProjectAccessView";
-import { ProjectActivityView } from "./views/ProjectActivityView";
 import MentionsView from "./views/MentionsView";
 import CollaborationPanel from "./views/CollaborationPanel";
 import DashboardView from "./views/DashboardView";
 import CoverageView from "./views/CoverageView";
 import "./views/analytics.css";
 import ImportPanel from "./views/ImportPanel";
-import CaseImportPanel from "./views/CaseImportPanel";
 import CaseHistoryPanel from "./views/CaseHistoryPanel";
 import TestPlansView from "./views/TestPlansView";
-import BugWorkflowView from "./views/BugWorkflowView";
 import { useBugWorkflow } from "./controllers/useBugWorkflow";
 import { useProjectData } from "./controllers/useProjectData";
 import TableFooter from "./components/TableFooter";
@@ -82,7 +79,6 @@ const navigation: {
   {
     section: "WORKSPACE",
     items: [
-      { id: "activity", label: "Actividad y auditoría", icon: "clock" },
       { id: "mentions", label: "Mis menciones", icon: "bell" },
       { id: "access", label: "Accesos al proyecto", icon: "settings" },
       { id: "overview", label: "Dashboard", icon: "grid" },
@@ -95,7 +91,6 @@ const navigation: {
       { id: "bug-builder", label: "Diseñar bugs", icon: "sparkle" },
       { id: "case-builder", label: "Diseñar test cases", icon: "sparkle" },
       { id: "plans", label: "Planes y ciclos", icon: "calendar" },
-      { id: "workflow", label: "Flujo de bugs", icon: "settings" },
       { id: "runs", label: "Test runs", icon: "play" },
       { id: "evidence", label: "Evidencias", icon: "image" },
       { id: "tags", label: "Tags", icon: "tag" },
@@ -139,7 +134,7 @@ function App({
   } = useProjectData(
     projectId,
     revision,
-    !["overview", "reports", "coverage"].includes(activePage),
+    !["overview", "reports", "coverage", "settings"].includes(activePage),
   );
   const error = projectError || resourceError;
   const { workflow, error: workflowError } = useBugWorkflow(projectId, revision);
@@ -329,13 +324,11 @@ function App({
     visibleRuns = slicePage(filteredRuns),
     visibleEvidence = slicePage(filteredEvidence);
   const pageTitle = {
-    activity: "Actividad y auditoría",
     mentions: "Mis menciones",
     access: "Accesos al proyecto",
     coverage: "Cobertura y requisitos",
     overview: "Dashboard",
     plans: "Planes y ciclos",
-    workflow: "Flujo de bugs",
     reports: "Reportes y métricas",
     projects: "Proyectos",
     teams: "Equipos",
@@ -911,7 +904,6 @@ function App({
                 .filter(
                   (item) =>
                     (item.id !== "access" || allowed("access.manage")) &&
-                    (item.id !== "workflow" || allowed("settings.manage")) &&
                     (item.id !== "case-builder" || allowed("cases.write")) &&
                     (item.id !== "bug-builder" || allowed("bugs.write")),
                 )
@@ -1000,11 +992,9 @@ function App({
             {![
               "coverage",
               "overview",
-              "activity",
               "access",
               "mentions",
               "plans",
-              "workflow",
               "reports",
               "projects",
               "teams",
@@ -1085,17 +1075,38 @@ function App({
                 ))}
               </select>
             </label>
-            <button
-              className="workspace__secondary"
-              disabled={loading || saving}
-              onClick={() => {
-                setError("");
-                setLoading(true);
-                setRevision((n) => n + 1);
-              }}
-            >
-              Actualizar
-            </button>
+            <div className="workspace__toolbar-actions">
+              <button
+                className="workspace__secondary"
+                disabled={loading || saving}
+                onClick={() => {
+                  setError("");
+                  setLoading(true);
+                  setRevision((n) => n + 1);
+                  notify("Actualizando datos del proyecto…", "info");
+                }}
+              >
+                Actualizar
+              </button>
+              {projectId &&
+                (activePage === "bugs" || activePage === "cases" || activePage === "tags") &&
+                allowed(
+                  activePage === "bugs"
+                    ? "bugs.write"
+                    : activePage === "cases"
+                      ? "cases.write"
+                      : "tags.write",
+                ) && (
+                  <ImportPanel
+                    key={`import:${user.id}:${projectId}:${activePage}`}
+                    projectId={projectId}
+                    kind={activePage}
+                    onChanged={() => {
+                      if (isRenderCurrent()) setRevision((v) => v + 1);
+                    }}
+                  />
+                )}
+            </div>
           </div>
           {loading && (
             <p className="workspace__notice" role="status">
@@ -1104,27 +1115,8 @@ function App({
           )}
           {error && <Alert tone="error">{error}</Alert>}
           {workflowError && <Alert tone="error">{workflowError}</Alert>}
-          {activePage === "bugs" && projectId && allowed("bugs.write") && (
-            <ImportPanel
-              key={`bugs:${user.id}:${projectId}`}
-              kind="bugs"
-              projectId={projectId}
-              onChanged={() => {
-                if (isRenderCurrent()) setRevision((v) => v + 1);
-              }}
-            />
-          )}
           {activePage === "cases" && projectId && (
             <>
-              {allowed("cases.write") && (
-                <CaseImportPanel
-                  key={`import:${user.id}:${projectId}`}
-                  projectId={projectId}
-                  onChanged={() => {
-                    if (isRenderCurrent()) setRevision((v) => v + 1);
-                  }}
-                />
-              )}
               <div className="quality__filters">
                 <label className="workspace__field">
                   Tipo de prueba
@@ -1165,9 +1157,7 @@ function App({
               existente.
             </p>
           )}
-          {activePage === "activity" ? (
-            projectId && <ProjectActivityView key={projectId} projectId={projectId} />
-          ) : activePage === "access" ? (
+          {activePage === "access" ? (
             projectId &&
             allowed("access.manage") && (
               <ProjectAccessView
@@ -1212,22 +1202,18 @@ function App({
                 }}
               />
             )
-          ) : activePage === "workflow" ? (
-            projectId && (
-              <BugWorkflowView
-                key={`${user.id}:${projectId}`}
-                projectId={projectId}
-                onChanged={() => {
-                  if (isRenderCurrent()) setRevision((v) => v + 1);
-                }}
-              />
-            )
           ) : activePage === "teams" ? (
             <TeamsView onChanged={() => setRevision((value) => value + 1)} />
           ) : activePage === "projects" ? (
             <ProjectsView projects={projects} onChanged={() => setRevision((value) => value + 1)} />
           ) : activePage === "settings" ? (
             <AccountSettingsView
+              projectId={projectId}
+              projectName={project?.name ?? "Proyecto"}
+              refreshRevision={revision}
+              onProjectChanged={() => {
+                if (isRenderCurrent()) setRevision((v) => v + 1);
+              }}
               user={user}
               onUserUpdated={onUserUpdated}
               onAccountDeleted={onAccountDeleted}
@@ -1281,7 +1267,13 @@ function App({
               </>
             )
           ) : activePage === "coverage" ? (
-            projectId && <CoverageView key={`${user.id}:${projectId}`} projectId={projectId} />
+            projectId && (
+              <CoverageView
+                key={`${user.id}:${projectId}`}
+                projectId={projectId}
+                refreshRevision={revision}
+              />
+            )
           ) : activePage === "reports" ? (
             !loading &&
             !error &&
@@ -1290,6 +1282,7 @@ function App({
                 key={`${user.id}:${projectId}`}
                 projectId={projectId}
                 projectName={project?.name ?? "Proyecto"}
+                refreshRevision={revision}
               />
             )
           ) : (
@@ -2023,6 +2016,7 @@ function App({
           onDeleted={() => {
             if (!isRenderCurrent()) return;
             setRunDetail(null);
+            notify("Ejecución eliminada.");
             setRevision((current) => current + 1);
           }}
         />
@@ -2353,13 +2347,11 @@ function App({
 
 function pageDescription(page: NavigationPage): string {
   return {
-    activity: "Consulta quién modificó los recursos y qué cambió.",
     mentions: "Consulta las menciones de tus compañeros dentro del proyecto.",
     access: "Asigna roles y controla el acceso a este proyecto.",
     coverage: "Conecta requisitos, casos y bugs del proyecto.",
     overview: "Aquí tienes el estado de calidad de tus proyectos.",
     plans: "Agrupa casos y organiza ciclos de ejecución.",
-    workflow: "Define los estados y transiciones de bugs por proyecto.",
     reports: "Consulta indicadores, estados y resultados del proyecto seleccionado.",
     projects: "Crea y administra los proyectos de tu espacio de trabajo.",
     teams: "Administra la membresía de tus espacios de trabajo.",
@@ -2368,7 +2360,7 @@ function pageDescription(page: NavigationPage): string {
     runs: "Ejecuta suites de prueba y consulta sus resultados.",
     evidence: "Capturas, videos y archivos vinculados a tu actividad de QA.",
     tags: "Crea tags por proyecto y clasifica bugs, casos de prueba y ejecuciones.",
-    settings: "Preferencias del workspace y de tu perfil.",
+    settings: "Administra tu cuenta, el flujo de bugs y la actividad del proyecto.",
     wiki: "Aprende a utilizar las funciones disponibles de qaTestGE.",
     "bug-builder": "Convierte tu descripción en un borrador de bug y revísalo antes de guardar.",
     "case-builder": "De una idea a un plan de pruebas: explora la maqueta del futuro asistente.",

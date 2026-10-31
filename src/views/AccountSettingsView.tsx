@@ -1,3 +1,6 @@
+import BugWorkflowView from "./BugWorkflowView";
+import { ProjectActivityView } from "./ProjectActivityView";
+import { usePermissions } from "../controllers/ProjectPermissions";
 import CaseDesignSettings from "./CaseDesignSettings";
 import type { CasePreferences } from "../models/casePreferences";
 import { useEffect, useState } from "react";
@@ -10,19 +13,34 @@ const priorities: BugTemplatePriority[] = ["Crítica", "Alta", "Media", "Baja"];
 const emptyTemplate: BugTemplateInput = { name: "", title: "", description: "", priority: "Media" };
 
 export default function AccountSettingsView({
+  refreshRevision = 0,
+  projectId = "",
+  projectName = "Proyecto",
+  onProjectChanged = () => {},
   preferences,
   onPreferencesChanged,
   user,
   onUserUpdated,
   onAccountDeleted,
 }: {
+  refreshRevision?: number;
+  projectId?: string;
+  projectName?: string;
+  onProjectChanged?: () => void;
   preferences: CasePreferences;
   onPreferencesChanged: (next: CasePreferences) => Promise<void>;
   user: User;
   onUserUpdated: (user: User) => void;
   onAccountDeleted: () => void;
 }) {
-  const [section, setSection] = useState<"cuenta" | "plantillas" | "diseno" | "ia">("cuenta");
+  const [section, setSection] = useState<
+    "cuenta" | "plantillas" | "diseno" | "ia" | "workflow" | "activity"
+  >("cuenta");
+  const canManage = usePermissions().can("settings.manage");
+  const activeSection =
+    (section === "workflow" && (!projectId || !canManage)) || (section === "activity" && !projectId)
+      ? "cuenta"
+      : section;
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -171,6 +189,7 @@ export default function AccountSettingsView({
     try {
       await api<void>(`/auth/bug-templates/${encodeURIComponent(template.id)}`, {
         method: "DELETE",
+        body: "{}",
       });
       setTemplates((current) => current.filter((item) => item.id !== template.id));
       if (editingTemplateId === template.id) resetTemplateForm();
@@ -214,20 +233,48 @@ export default function AccountSettingsView({
             ["plantillas", "Plantillas de bugs"],
             ["diseno", "Diseño de casos"],
             ["ia", "Inteligencia artificial"],
+            ...(projectId && canManage ? [["workflow", "Flujo de bugs"] as const] : []),
+            ...(projectId ? [["activity", "Actividad y auditoría"] as const] : []),
           ] as const
         ).map(([id, label]) => (
           <button
             key={id}
             type="button"
             className="account-settings__tab"
-            aria-pressed={section === id}
+            aria-pressed={activeSection === id}
             onClick={() => setSection(id)}
           >
             {label}
           </button>
         ))}
       </nav>
-      <section className="account-settings__card" hidden={section !== "cuenta"}>
+      {projectId && (activeSection === "workflow" || activeSection === "activity") && (
+        <section className="account-settings__project">
+          <span className="typography__caption">PROYECTO ACTUAL</span>
+          <strong>{projectName}</strong>
+          <p>Los ajustes y la actividad corresponden al proyecto seleccionado.</p>
+        </section>
+      )}
+      {projectId && activeSection === "workflow" && canManage && (
+        <section className="account-settings__card account-settings__card--wide">
+          <BugWorkflowView
+            key={projectId}
+            projectId={projectId}
+            onChanged={onProjectChanged}
+            refreshRevision={refreshRevision}
+          />
+        </section>
+      )}
+      {projectId && activeSection === "activity" && (
+        <section className="account-settings__card account-settings__card--wide">
+          <ProjectActivityView
+            key={projectId}
+            projectId={projectId}
+            refreshRevision={refreshRevision}
+          />
+        </section>
+      )}
+      <section className="account-settings__card" hidden={activeSection !== "cuenta"}>
         <div className="account-settings__heading">
           <h2 className="typography__section">Información de la cuenta</h2>
           <p>Actualiza el nombre y correo asociados a tu usuario.</p>
@@ -286,7 +333,7 @@ export default function AccountSettingsView({
           </div>
         </form>
       </section>
-      <section className="account-settings__card" hidden={section !== "cuenta"}>
+      <section className="account-settings__card" hidden={activeSection !== "cuenta"}>
         <div className="account-settings__heading">
           <h2 className="typography__section">Seguridad</h2>
           <p>
@@ -343,7 +390,7 @@ export default function AccountSettingsView({
       </section>
       <section
         className="account-settings__card account-settings__card--wide"
-        hidden={section !== "plantillas"}
+        hidden={activeSection !== "plantillas"}
       >
         <div className="account-settings__heading">
           <h2 className="typography__section">Plantillas para bugs</h2>
@@ -474,11 +521,11 @@ export default function AccountSettingsView({
       </section>
       <section
         className="account-settings__card account-settings__card--wide"
-        hidden={section !== "diseno"}
+        hidden={activeSection !== "diseno"}
       >
         <CaseDesignSettings preferences={preferences} onSave={onPreferencesChanged} />
       </section>
-      <section className="account-settings__card" hidden={section !== "ia"}>
+      <section className="account-settings__card" hidden={activeSection !== "ia"}>
         <div className="account-settings__heading">
           <h2 className="typography__section">Conexión con IA</h2>
           <p>
@@ -510,7 +557,7 @@ export default function AccountSettingsView({
       </section>
       <section
         className="account-settings__card account-settings__card--danger"
-        hidden={section !== "cuenta"}
+        hidden={activeSection !== "cuenta"}
       >
         <div className="account-settings__heading">
           <h2 className="typography__section">Zona de peligro · Desactivar cuenta</h2>

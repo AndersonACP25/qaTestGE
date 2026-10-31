@@ -115,7 +115,10 @@ export default function TestRunDialog({
                 const report = await api<RunReport>(
                   `/test-runs/${run.id}/report?projectId=${encodeURIComponent(run.projectId!)}`,
                 );
-                if (alive.current) await exportRunReport(report, () => alive.current);
+                if (alive.current) {
+                  await exportRunReport(report, () => alive.current);
+                  if (alive.current) setMessage("Informe PDF preparado para descargar.");
+                }
               })
             }
           >

@@ -1,10 +1,18 @@
 import { usePermissions } from "../controllers/ProjectPermissions";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Alert from "../Alert";
 import { listTestCaseAttachments, deleteTestCaseAttachment, testCaseImageUrl } from "../api";
 import type { TestCase, TestCaseAttachment } from "../types";
 export default function CaseAttachmentsPanel({ testCase }: { testCase: TestCase }) {
   const readOnly = !usePermissions().can("evidence.write");
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+  const [message, setMessage] = useState("");
   const [attachments, setAttachments] = useState<TestCaseAttachment[]>([]);
   const [loadingAttachments, setLoadingAttachments] = useState(true);
   const [attachmentError, setAttachmentError] = useState("");
@@ -40,19 +48,23 @@ export default function CaseAttachmentsPanel({ testCase }: { testCase: TestCase 
     setAttachmentError("");
     try {
       await deleteTestCaseAttachment(testCase.id, attachment.id, testCase.projectId);
+      if (!alive.current) return;
+      setMessage("Adjunto eliminado.");
       setRevision((current) => current + 1);
     } catch (cause) {
-      setAttachmentError(
-        cause instanceof Error ? cause.message : "No se pudo eliminar el adjunto.",
-      );
+      if (alive.current)
+        setAttachmentError(
+          cause instanceof Error ? cause.message : "No se pudo eliminar el adjunto.",
+        );
     } finally {
-      setDeletingAttachment("");
+      if (alive.current) setDeletingAttachment("");
     }
   }
   return (
     <section className="workspace__attachments" aria-label="Adjuntos del caso">
       <h3 className="typography__heading">Imágenes y enlaces</h3>
       {loadingAttachments && <p className="workspace__notice">Cargando adjuntos…</p>}
+      {message && <Alert tone="success">{message}</Alert>}
       {attachmentError && <Alert tone="error">{attachmentError}</Alert>}
       {!loadingAttachments && !attachmentError && !attachments.length && (
         <p className="workspace__notice">

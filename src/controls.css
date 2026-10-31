@@ -1,0 +1,200 @@
+/* Shared interaction contract for native buttons and links presented as actions. */
+button,
+a.workspace__secondary,
+a.button {
+  text-decoration: none;
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    filter 0.16s ease;
+}
+button:enabled:hover,
+a.workspace__secondary:hover,
+a.button:hover {
+  text-decoration: none;
+  filter: brightness(0.95);
+  box-shadow: 0 2px 6px rgb(32 35 52 / 12%);
+}
+button:focus-visible,
+a.workspace__secondary:focus-visible,
+a.button:focus-visible {
+  outline: 2px solid var(--purple);
+  outline-offset: 3px;
+}
+a.workspace__secondary,
+a.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  line-height: 1.4;
+}
+.workspace__secondary:not(:disabled):hover {
+  border-color: var(--purple);
+  color: var(--color-303346);
+}
+.import-panel__trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #e4f5ef;
+  color: #17654d;
+  border-color: #9bcfbb;
+  font-weight: 600;
+}
+.import-panel__trigger:enabled:hover {
+  background: #cfece0;
+  color: #104c3a;
+  border-color: #4c9d7e;
+}
+:root[data-theme="dark"] .import-panel__trigger {
+  background: #173b34;
+  color: #9de5ca;
+  border-color: #397a65;
+}
+:root[data-theme="dark"] .import-panel__trigger:enabled:hover {
+  background: #245447;
+  color: #c6f5e3;
+}
+.tags-view__list h2 .tags-view__count {
+  font-size: var(--font-caption);
+  font-weight: 600;
+  min-width: 24px;
+  height: 24px;
+  padding-inline: 5px;
+}
+.account-settings__project {
+  grid-column: 1/-1;
+  display: grid;
+  gap: 8px;
+  padding: 20px 24px;
+  background: var(--color-f1efff);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.account-settings__project p {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--font-caption);
+}
+@media (prefers-reduced-motion: reduce) {
+  button,
+  a.workspace__secondary,
+  a.button {
+    transition: none;
+  }
+}
+.project-activity {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+.project-activity__heading {
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.project-activity__heading h2 {
+  margin: 0 0 8px;
+}
+.project-activity__heading p {
+  margin: 0;
+  line-height: 1.6;
+  color: var(--color-626678);
+}
+.project-activity__heading button {
+  flex-shrink: 0;
+}
+.project-activity__summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+.project-activity__summary > div {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 18px;
+  background: var(--color-f7f8fa);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.project-activity__summary span {
+  font-size: var(--font-caption);
+  color: var(--color-626678);
+}
+.project-activity__summary strong {
+  font-size: var(--font-heading);
+  overflow-wrap: anywhere;
+}
+.project-activity .collaboration__activity {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.project-activity__event {
+  position: relative;
+  padding: 20px 20px 20px 24px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--purple);
+  border-radius: 12px;
+}
+.project-activity__event-heading {
+  margin: 0 0 8px;
+  line-height: 1.6;
+}
+.project-activity__time {
+  display: block;
+  margin-bottom: 12px;
+  font-size: var(--font-caption);
+  color: var(--color-626678);
+}
+.project-activity__event summary {
+  cursor: pointer;
+  color: var(--purple);
+  font-size: var(--font-caption);
+  font-weight: 600;
+}
+.project-activity__changes {
+  padding: 12px;
+  margin-bottom: 0;
+  background: var(--color-f7f8fa);
+  border-radius: 8px;
+}
+.project-activity__changes dt {
+  font-weight: 600;
+}
+.project-activity__changes dd {
+  margin: 8px 0;
+  font-size: var(--font-caption);
+  line-height: 1.6;
+}
+@media (max-width: 700px) {
+  .project-activity__heading {
+    flex-direction: column;
+  }
+  .project-activity__summary {
+    grid-template-columns: 1fr;
+  }
+}
+
+.workspace__toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.tags-view > .alert {
+  grid-column: 1/-1;
+}
+.tags-view > .alert,
+.project-activity > .alert,
+.coverage > .alert,
+.quality > .alert,
+.collaboration > .alert {
+  width: min(100%, 480px);
+  justify-self: start;
+}

@@ -1,12 +1,10 @@
 export type NavigationPage =
   | "coverage"
   | "overview"
-  | "activity"
   | "access"
   | "mentions"
   | "reports"
   | "plans"
-  | "workflow"
   | "bugs"
   | "cases"
   | "bug-builder"

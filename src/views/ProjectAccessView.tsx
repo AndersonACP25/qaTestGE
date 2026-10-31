@@ -15,6 +15,7 @@ export default function ProjectAccessView({
 }) {
   const [members, setMembers] = useState<ProjectMember[]>([]);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [revision, setRevision] = useState(0);
   const alive = useRef(true);
@@ -41,12 +42,14 @@ export default function ProjectAccessView({
     if (!window.confirm(`¿Cambiar el acceso de ${m.name} a ${value || "Sin acceso"}?`)) return;
     setBusy(true);
     setError("");
+    setMessage("");
     try {
       await api<void>(`/project-members/${m.id}?projectId=${projectId}`, {
         method: "PUT",
         body: JSON.stringify({ role: value ? (value as ProjectRole) : null, revision: m.revision }),
       });
       if (alive.current) {
+        setMessage(`Acceso de ${m.name} actualizado a ${value || "Sin acceso"}.`);
         setRevision((v) => v + 1);
         onChanged();
       }
@@ -65,6 +68,7 @@ export default function ProjectAccessView({
         asignación posterior a cada proyecto.
       </p>
       {error && <Alert tone="error">{error}</Alert>}
+      {message && <Alert tone="success">{message}</Alert>}
       {members.map((m) => (
         <article className="collaboration__comment" key={m.id}>
           <strong>{m.name}</strong>

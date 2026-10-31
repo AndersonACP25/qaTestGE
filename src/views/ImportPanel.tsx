@@ -16,7 +16,11 @@ export default function ImportPanel({
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button type="button" className="workspace__secondary" onClick={() => setOpen(true)}>
+      <button
+        type="button"
+        className="workspace__secondary import-panel__trigger"
+        onClick={() => setOpen(true)}
+      >
         Importar
       </button>
       {open && (
@@ -124,6 +128,8 @@ function ImportDialog({
           setSaved((v) => v + 1);
           onChanged();
         }
+      if (alive.current && preview.kind !== "tags")
+        setResult("Importación completada. Todos los registros del archivo se guardaron.");
     } catch (e) {
       if (alive.current)
         setError(

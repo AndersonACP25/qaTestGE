@@ -65,7 +65,13 @@ function ResourceSearch({
     </div>
   );
 }
-export default function CoverageView({ projectId }: { projectId: string }) {
+export default function CoverageView({
+  projectId,
+  refreshRevision = 0,
+}: {
+  projectId: string;
+  refreshRevision?: number;
+}) {
   const canWrite = usePermissions().can("cases.write");
   const [offset, setOffset] = useState(0),
     [revision, setRevision] = useState(0);
@@ -74,6 +80,7 @@ export default function CoverageView({ projectId }: { projectId: string }) {
   const [requirementTotal, setRequirementTotal] = useState(0);
   const [reqOffset, setReqOffset] = useState(0);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<Requirement | null>(null);
   const [code, setCode] = useState(""),
@@ -114,7 +121,7 @@ export default function CoverageView({ projectId }: { projectId: string }) {
           setError(e instanceof Error ? e.message : "No se pudo cargar la cobertura.");
       });
     return () => abort.abort();
-  }, [projectId, offset, reqOffset, revision]);
+  }, [projectId, offset, reqOffset, revision, refreshRevision]);
   function reset() {
     setEditing(null);
     setCode("");
@@ -123,13 +130,15 @@ export default function CoverageView({ projectId }: { projectId: string }) {
     setSelected([]);
     creationRequests.current.clear();
   }
-  async function act(work: () => Promise<void>) {
+  async function act(work: () => Promise<void>, success: string) {
     if (busy) return;
     setBusy(true);
     setError("");
+    setMessage("");
     try {
       await work();
       if (alive.current) {
+        setMessage(success);
         setRevision((v) => v + 1);
         setOffset(0);
       }
@@ -140,8 +149,9 @@ export default function CoverageView({ projectId }: { projectId: string }) {
     }
   }
   return (
-    <div className="analytics">
+    <div className="analytics coverage">
       {error && <Alert tone="error">{error}</Alert>}
+      {message && <Alert tone="success">{message}</Alert>}
       {canWrite && (
         <section className="workspace__panel">
           <h2 className="typography__section">
@@ -151,25 +161,31 @@ export default function CoverageView({ projectId }: { projectId: string }) {
             className="analytics__form"
             onSubmit={(e) => {
               e.preventDefault();
-              void act(async () => {
-                const body = {
-                  projectId,
-                  code,
-                  title,
-                  description,
-                  caseIds: selected.map((s) => s.id),
-                  ...(editing ? { version: editing.version } : {}),
-                };
-                const serialized = JSON.stringify(body);
-                const key = creationRequests.current.get(serialized) ?? crypto.randomUUID();
-                creationRequests.current.set(serialized, key);
-                await api<Requirement>(editing ? `/requirements/${editing.id}` : "/requirements", {
-                  method: editing ? "PATCH" : "POST",
-                  headers: editing ? {} : { "Idempotency-Key": key },
-                  body: serialized,
-                });
-                if (alive.current) reset();
-              });
+              void act(
+                async () => {
+                  const body = {
+                    projectId,
+                    code,
+                    title,
+                    description,
+                    caseIds: selected.map((s) => s.id),
+                    ...(editing ? { version: editing.version } : {}),
+                  };
+                  const serialized = JSON.stringify(body);
+                  const key = creationRequests.current.get(serialized) ?? crypto.randomUUID();
+                  creationRequests.current.set(serialized, key);
+                  await api<Requirement>(
+                    editing ? `/requirements/${editing.id}` : "/requirements",
+                    {
+                      method: editing ? "PATCH" : "POST",
+                      headers: editing ? {} : { "Idempotency-Key": key },
+                      body: serialized,
+                    },
+                  );
+                  if (alive.current) reset();
+                },
+                editing ? "Requisito actualizado." : "Requisito creado.",
+              );
             }}
           >
             <label className="workspace__field">
@@ -217,6 +233,7 @@ export default function CoverageView({ projectId }: { projectId: string }) {
                   {s.id} · {s.title}{" "}
                   <button
                     type="button"
+                    className="workspace__secondary"
                     disabled={busy}
                     onClick={() => setSelected((v) => v.filter((i) => i.id !== s.id))}
                   >
@@ -250,7 +267,7 @@ export default function CoverageView({ projectId }: { projectId: string }) {
         <p>{formatCount(requirementTotal, "requisito", "requisitos")}</p>
         <div className="analytics__choices">
           {requirements.map((r) => (
-            <div key={r.id}>
+            <article className="coverage__requirement" key={r.id}>
               <strong>
                 {r.code} · {r.title}
               </strong>
@@ -270,7 +287,7 @@ export default function CoverageView({ projectId }: { projectId: string }) {
                     Editar
                   </button>
                   <button
-                    className="workspace__secondary"
+                    className="workspace__danger"
                     disabled={busy}
                     onClick={() => {
                       if (window.confirm(`¿Eliminar el requisito ${r.code}?`))
@@ -280,22 +297,27 @@ export default function CoverageView({ projectId }: { projectId: string }) {
                             { method: "DELETE", body: JSON.stringify({}) },
                           );
                           if (alive.current && editing?.id === r.id) reset();
-                        });
+                        }, "Requisito eliminado.");
                     }}
                   >
                     Eliminar
                   </button>
                 </div>
               )}
-            </div>
+            </article>
           ))}
         </div>
         <div className="analytics__pagination">
-          <button disabled={!reqOffset} onClick={() => setReqOffset((v) => Math.max(0, v - 50))}>
+          <button
+            className="workspace__secondary"
+            disabled={!reqOffset}
+            onClick={() => setReqOffset((v) => Math.max(0, v - 50))}
+          >
             Anteriores
           </button>
           <span>Página {Math.floor(reqOffset / 50) + 1}</span>
           <button
+            className="workspace__secondary"
             disabled={reqOffset + 50 >= requirementTotal}
             onClick={() => setReqOffset((v) => v + 50)}
           >
@@ -313,13 +335,13 @@ export default function CoverageView({ projectId }: { projectId: string }) {
           <p role="status">Cargando matriz…</p>
         ) : (
           <>
-            <div className="analytics__matrix">
-              <table>
+            <div className="analytics__matrix coverage__matrix">
+              <table aria-label="Matriz de cobertura de requisitos">
                 <thead>
                   <tr>
-                    <th>Requisito</th>
-                    <th>Caso</th>
-                    <th>Bug</th>
+                    <th scope="col">Requisito</th>
+                    <th scope="col">Caso</th>
+                    <th scope="col">Bug</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -333,7 +355,7 @@ export default function CoverageView({ projectId }: { projectId: string }) {
                         {r.bugId ? `${r.bugId} · ${r.bugTitle}` : "Sin bug vinculado"}
                         {canWrite && r.caseId && (
                           <button
-                            className="workspace__secondary"
+                            className="workspace__secondary coverage__link-button"
                             onClick={() =>
                               setLink({ requirementId: r.requirementId, caseId: r.caseId! })
                             }
@@ -349,13 +371,18 @@ export default function CoverageView({ projectId }: { projectId: string }) {
             </div>
             {!matrix.rows.length && <p>Aún no hay requisitos.</p>}
             <div className="analytics__pagination">
-              <button disabled={!offset} onClick={() => setOffset((v) => Math.max(0, v - 50))}>
+              <button
+                className="workspace__secondary"
+                disabled={!offset}
+                onClick={() => setOffset((v) => Math.max(0, v - 50))}
+              >
                 Anterior
               </button>
               <span>
                 Página {Math.floor(offset / 50) + 1} · {formatCount(matrix.total, "fila", "filas")}
               </span>
               <button
+                className="workspace__secondary"
                 disabled={offset + 50 >= matrix.total}
                 onClick={() => setOffset((v) => v + 50)}
               >
@@ -378,10 +405,12 @@ export default function CoverageView({ projectId }: { projectId: string }) {
                   body: JSON.stringify({ ...link, bugId: id }),
                 });
                 if (alive.current) setLink(null);
-              });
+              }, "Bug vinculado al caso del requisito.");
             }}
           />
-          <button onClick={() => setLink(null)}>Cancelar vínculo</button>
+          <button className="workspace__secondary" onClick={() => setLink(null)}>
+            Cancelar vínculo
+          </button>
         </section>
       )}
     </div>

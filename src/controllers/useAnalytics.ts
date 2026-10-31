@@ -1,13 +1,18 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import type { AnalyticsData } from "../contracts/analyticsContracts";
-export function useAnalytics(projectId: string, from: string, to: string) {
+export function useAnalytics(
+  projectId: string,
+  from: string,
+  to: string,
+  revision: number | string = 0,
+) {
   const [state, setState] = useState<{ scope: string; data: AnalyticsData | null; error: string }>({
     scope: "",
     data: null,
     error: "",
   });
-  const scope = JSON.stringify([projectId, from, to]);
+  const scope = JSON.stringify([projectId, from, to, revision]);
   useEffect(() => {
     const abort = new AbortController();
     void api<AnalyticsData>(
@@ -26,7 +31,7 @@ export function useAnalytics(projectId: string, from: string, to: string) {
           });
       });
     return () => abort.abort();
-  }, [scope, projectId, from, to]);
+  }, [scope, projectId, from, to, revision]);
   return state.scope === scope ? state : { scope, data: null, error: "" };
 }
 export function defaultRange() {

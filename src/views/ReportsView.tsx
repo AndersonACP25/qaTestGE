@@ -4,20 +4,29 @@ import { defaultRange, useAnalytics } from "../controllers/useAnalytics";
 import { TrendChart, Bars } from "./AnalyticsCharts";
 import { download } from "../utils/download";
 export default function ReportsView({
+  refreshRevision = 0,
   projectId,
   projectName,
 }: {
+  refreshRevision?: number;
   projectId: string;
   projectName: string;
 }) {
   const [range, setRange] = useState(defaultRange);
   const [draft, setDraft] = useState(range);
+  const [message, setMessage] = useState("");
   const [invalid, setInvalid] = useState("");
-  const { data, error } = useAnalytics(projectId, range.from, range.to);
+  const [applied, setApplied] = useState(0);
+  const { data, error } = useAnalytics(
+    projectId,
+    range.from,
+    range.to,
+    `${refreshRevision}:${applied}`,
+  );
   return (
     <div className="analytics">
       <form
-        className="quality__actions"
+        className="analytics__period"
         onSubmit={(e) => {
           e.preventDefault();
           if (
@@ -30,6 +39,8 @@ export default function ReportsView({
             return;
           }
           setInvalid("");
+          setMessage("");
+          setApplied((v) => v + 1);
           setRange(draft);
         }}
       >
@@ -53,6 +64,10 @@ export default function ReportsView({
         </label>
         <button className="workspace__secondary">Aplicar período</button>
       </form>
+      {data && applied > 0 && !message && (
+        <Alert tone="success">Período aplicado. Los indicadores están actualizados.</Alert>
+      )}
+      {message && <Alert tone="success">{message}</Alert>}
       {(error || invalid) && <Alert tone="error">{invalid || error}</Alert>}
       {!data && !error && <p role="status">Cargando reportes…</p>}
       {data && (
@@ -112,6 +127,7 @@ export default function ReportsView({
                   ),
                   "reporte-analitica.csv",
                 );
+                setMessage("Reporte CSV preparado para descargar.");
               }}
             >
               Exportar reporte CSV
