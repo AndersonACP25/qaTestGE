@@ -1,3 +1,4 @@
+import { resolvePlainMentions } from "../../backend/src/models/plain-mentions";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import Alert from "../Alert";
@@ -115,16 +116,27 @@ export default function CollaborationPanel({
             e.preventDefault();
             void act(
               async () => {
+                if (
+                  fragment !== undefined &&
+                  suggestions.length > 0 &&
+                  !members.some(
+                    (m) => m.name.toLocaleLowerCase() === fragment.trim().toLocaleLowerCase(),
+                  )
+                )
+                  throw new Error(
+                    "Selecciona el nombre completo en las sugerencias para enviar la mención.",
+                  );
+                const resolved = resolvePlainMentions(body, members);
                 if (editing)
                   await api<Comment>(`/comments/${editing.id}?projectId=${projectId}`, {
                     method: "PATCH",
-                    body: JSON.stringify({ body, version: editing.version }),
+                    body: JSON.stringify({ body: resolved, version: editing.version }),
                   });
                 else
                   await api<Comment>(`/comments?projectId=${projectId}`, {
                     method: "POST",
                     headers: { "Idempotency-Key": requestKey.current },
-                    body: JSON.stringify({ body, target }),
+                    body: JSON.stringify({ body: resolved, target }),
                   });
                 if (alive.current) {
                   setBody("");
@@ -171,7 +183,8 @@ export default function CollaborationPanel({
             </div>
           )}
           <p className="collaboration__help">
-            Las menciones avisan dentro del proyecto. Revisa el texto antes de publicar.
+            Selecciona una sugerencia o escribe el nombre completo y único después de @. Los avisos
+            llegan a otras personas del proyecto; las automenciones no generan aviso.
           </p>
           <div className="collaboration__actions">
             <button className="button button-primary" disabled={busy}>

@@ -33,6 +33,7 @@ import Dialog from "./Dialog";
 import {
   addTestCaseLink,
   api,
+  loadProject,
   createBug,
   createTestCase,
   deleteBug,
@@ -1173,8 +1174,20 @@ function App({
               <MentionsView
                 key={projectId}
                 projectId={projectId}
-                onOpen={(target) => {
-                  if (!isRenderCurrent()) return;
+                onOpen={async (target, signal) => {
+                  const isCurrent = captureScope();
+                  const loaded = await loadProject(projectId, signal);
+                  if (!isCurrent() || signal.aborted) return false;
+                  const { bugs, cases, runs } = loaded;
+                  const exists =
+                    target.kind === "bug"
+                      ? bugs.some((b) => b.id === target.id)
+                      : target.kind === "case"
+                        ? cases.some((c) => c.id === target.id)
+                        : runs.some((r) => r.id === target.id);
+                  if (!exists)
+                    throw new Error("El registro de esta mención ya no está disponible.");
+                  setData(loaded);
                   if (target.kind === "bug") {
                     const record = bugs.find((b) => b.id === target.id);
                     if (record) setRecordDetail({ kind: "bug", record });
@@ -1188,6 +1201,7 @@ function App({
                       setRunDetail(run);
                     }
                   }
+                  return true;
                 }}
               />
             )

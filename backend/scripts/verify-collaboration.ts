@@ -262,6 +262,59 @@ try {
     (a: { action: string }) => a.action === "comments.insert",
   );
   assert.equal(requestEvent.requestId, comment.headers["x-request-id"]);
+  // Plain display names must deliver to the other signed-in account as stable mentions.
+  const plainKey = randomUUID();
+  const plainBody = { target, body: "Revisar @QA 2, por favor." };
+  const plain = await qa
+    .post("/api/comments")
+    .query({ projectId })
+    .set("Idempotency-Key", plainKey)
+    .send(plainBody);
+  assert.equal(plain.status, 201, JSON.stringify(plain.body));
+  assert.equal(plain.body.data.mentions[0].id, users[2]);
+  assert.ok(plain.body.data.body.includes(`(user:${users[2]})`));
+  assert.equal(
+    (
+      await qa
+        .post("/api/comments")
+        .query({ projectId })
+        .set("Idempotency-Key", plainKey)
+        .send(plainBody)
+    ).body.data.id,
+    plain.body.data.id,
+  );
+  const delivered = (await dev.get("/api/mention-notifications").query({ projectId })).body.data;
+  assert.equal(delivered.length, 1);
+  assert.equal(delivered[0].commentId, plain.body.data.id);
+  assert.equal(
+    (await viewer.get("/api/mention-notifications").query({ projectId })).body.data.length,
+    0,
+  );
+  await pool.query("UPDATE qa.users SET name='QA 2' WHERE id=$1", [users[3]]);
+  const ambiguous = await qa
+    .post("/api/comments")
+    .query({ projectId })
+    .set("Idempotency-Key", randomUUID())
+    .send(plainBody);
+  assert.equal(ambiguous.status, 400);
+  assert.equal(ambiguous.body.error.code, "AMBIGUOUS_MENTION");
+  await pool.query("UPDATE qa.users SET name='QA 3' WHERE id=$1", [users[3]]);
+  const editedPlain = await qa
+    .patch(`/api/comments/${plain.body.data.id}`)
+    .query({ projectId })
+    .send({ body: "Editado para @QA 2.", version: 1 });
+  assert.equal(editedPlain.status, 200);
+  assert.equal(editedPlain.body.data.mentions[0].id, users[2]);
+  assert.equal(
+    (
+      await owner
+        .delete(`/api/comments/${plain.body.data.id}`)
+        .query({ projectId })
+        .send({ version: 2 })
+    ).status,
+    200,
+  );
+
   await assert.rejects(
     pool.query("UPDATE qa.activity SET action='forged' WHERE project_id=$1", [projectId]),
     (e: { code: string }) => e.code === "42501",
