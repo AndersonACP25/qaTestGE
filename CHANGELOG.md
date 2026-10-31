@@ -4,6 +4,11 @@ Todos los cambios importantes de qaTestGE se documentan aquí. El formato sigue 
 
 ## [Unreleased]
 
+- Proyectos y Equipos en Configuración; badge del rol y reglas/clases compartidas de espaciado interior.
+- Reportes con indicadores y rankings renovados; validación de Desde/Hasta antes de consultar.
+- Encabezados de diálogos fijos, scrollbar lateral discreto, Wiki por categorías/búsqueda y comentarios más espaciados.
+- Menciones por nombre completo único con validación transaccional y selección obligatoria ante homónimos; avisos actualizados al recuperar foco y cada 15 segundos visibles. Abrir el aviso recarga el registro antes de marcarlo leído.
+
 - Importar junto a Actualizar con acento propio; descargas sin subrayado, hover/foco compartidos y contador de tags compacto.
 - Flujo de bugs y auditoría como pestañas de Configuración; actividad con resumen, búsqueda de páginas cargadas y cambios desplegables.
 - Confirmaciones explícitas en acciones antes silenciosas, preservando alcance y errores.

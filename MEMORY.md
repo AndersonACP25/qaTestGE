@@ -18,7 +18,7 @@
 - El catálogo compartido backend/src/migrations.ts instala 001 y aplica 004–015; no carga seed automáticamente.
 - CI comprueba PostgreSQL efímero, frontend/API y E2E. Push a main genera artefactos; no hay despliegue automático.
 
-## Flujos implementados al 2026-10-30
+## Flujos implementados al 2026-10-31
 
 - Migración 013: testType, lifecycle (Borrador/Listo/Obsoleto) y version en casos, versiones históricas, planes/casos, plan/origen en runs, título/versión en snapshots, origen/severidad/entorno/versión en bugs y flujo por proyecto.
 - El resultado histórico del caso (Pendiente/Aprobado/Fallido) permanece separado de su ciclo documental. Suite se conserva; solo categorías conocidas se infieren como tipo en el backfill inicial.
@@ -49,13 +49,13 @@
 ## Colaboración y permisos (014)
 
 - Comentarios en bugs/casos/runs, cuerpo de 1–5000 caracteres, UUID idempotente por actor/proyecto, revisión para editar/eliminar y control autor/Admin. Borrado lógico con contenido anterior en actividad.
-- @menciones mediante tokens de ID estable a integrantes activos con acceso, máximo 20. Avisos internos deduplicados, privados por destinatario; Mis menciones marca leído y abre el recurso. Sin emails, push ni tiempo real.
+- @menciones mediante tokens de ID estable, máximo 20; @Nombre completo único también se resuelve transaccionalmente. Homónimos exigen selección; sin autoavisos. Mis menciones consulta cada 15 s visibles y al recuperar foco, recarga el registro antes de marcar leído; avisos privados deduplicados, sin email ni push.
 - Activity registra cambios confirmados con actor, requestId y antes/después. Triggers niegan UPDATE/DELETE/TRUNCATE; no captura bytes, claves de almacenamiento ni idempotencia. No reconstruye historia anterior a 014 ni pretende resistir a un superusuario de BD.
 - actorDatabase vincula actor/requestId a cada transacción de auth/dominio con set_config local y restaura el pool al terminar. Los triggers validan capacidades; el decorador limita lecturas a proyectos vigentes.
 - Roles: Admin configura y administra accesos; QA gestiona recursos de prueba; Dev gestiona bugs/evidencias/comentarios; Solo lectura consulta y descarga. El propietario tiene Admin implícito. Crear proyectos y administrar equipos sigue siendo del propietario.
 - Miembros anteriores reciben QA explícito en proyectos existentes. Invitaciones y proyectos nuevos no otorgan accesos automáticamente. Revocar conserva revisión con rol null; protege propietario, último Admin y asignaciones.
 - Las escrituras mantienen bloqueo compartido del proyecto; cambiar roles usa bloqueo exclusivo. Notificaciones y respuestas tardías conservan el alcance. Actividad global pagina de 50; conversación/avisos muestran últimos 100.
-- PR #24 y #25 fusionados en qa-env. Los arreglos de interacción continúan en fix/usabilidad-feedback-configuracion, sobre el árbol validado de qa-env.
+- PR #24, #25 y #26 fusionados en qa-env. Los nuevos arreglos continúan en fix/gestion-reportes-menciones, sobre el mismo árbol del merge fba182d.
 
 ## Analítica, cobertura e importación (015)
 
@@ -73,13 +73,17 @@
 
 - Importar vive junto a Actualizar en workspace__toolbar-actions para Bugs/Casos/Tags. Acento verde común, descargas con estilo de acción, hover/foco sin subrayado y contador de tags a 14 px.
 - src/controls.css centraliza interacción de controles y respeta reducción de movimiento. AGENTS.md y docs/DESIGN.md exigen feedback accesible para acciones relevantes, sin alertas indiscriminadas por GET/200.
-- Configuración compone Flujo de bugs (solo Admin) y Actividad y auditoría (todos los roles autorizados), con contexto del proyecto. Componentes por proyecto descartan respuestas tardías; Configuración no carga snapshot QA completo.
+- Configuración compone Proyectos, Equipos, Flujo de bugs y Actividad y auditoría con permisos originales; el lateral muestra badge de rol. Los formularios personales se desmontan en gestión. Componentes descartan respuestas tardías; Configuración no carga snapshot QA completo.
 - Auditoría presenta resumen de páginas cargadas, búsqueda local explícita, línea de eventos y cambios desplegables. No confundir cantidades cargadas con totales del proyecto.
 - Confirmaciones en tags, flujo, requisitos/vínculos, accesos, comentarios, adjuntos, planes, invitaciones, importación y exportaciones. Scope guards impiden mensajes tardíos en otro proyecto. Las alertas de Tags ocupan su propia fila.
 - Cobertura usa tabla y botones consistentes, paginación/estados accesibles. Aplicar período mide 44 px y reaplica consultas aunque las fechas no cambien; Actualizar invalida también Reportes, Cobertura y actividad.
 
+- src/spacing.css centraliza escala 8/16/24/32 y layout__panel/inset/stack/actions; interiores de paneles/diálogos >=16 px, 24 px escritorio. AGENTS y DESIGN fijan la regla; badges compactos.
+- Dialog separa encabezado/cierre de cuerpo desplazable; foco/Escape intactos. Sidebar usa scrollbar nativo fino con alternativa en colores forzados. Comentarios separan contenido/acciones 16 px y tarjetas 24 px.
+- Wiki agrupa guías por categorías y búsqueda local sin perder contenido. Reportes renueva tarjetas, tendencias y ranking; valida fechas reales, Desde<=Hasta y máximo 366 días inclusivos antes de consultar.
+
 ## Validación y entrega
 
-- TypeScript, lint, formato, build frontend/API y 181 pruebas unitarias/endpoints aprobadas; 135 E2E completas aprobadas en escritorio, 375 y 425 px.
+- TypeScript, lint, formato, build frontend/API y 186 pruebas unitarias/endpoints aprobadas; 150 E2E completas aprobadas en escritorio, 375 y 425 px.
 - PostgreSQL 18 efímero: instalación vacía y repetición; actualización 014→015 conserva bugs, baseline único y días sin historia. Integraciones de autenticación/calidad/colaboración/analítica aprobadas; reaperturas, reclasificación, aislamiento, snapshots y rollback/idempotencia de tags verificados.
-- Chromium 153 temporal para E2E, sin nuevas dependencias de producto. El PR #25 ya fue fusionado; esta entrega publica fix/usabilidad-feedback-configuracion en un PR nuevo hacia qa-env. No fusionar sin instrucción. Este lote no cambia backend ni añade migraciones; la integración PostgreSQL anterior corresponde a la base 015.
+- Chromium 153 temporal para E2E, sin nuevas dependencias de producto. Esta entrega publica fix/gestion-reportes-menciones en un PR nuevo hacia qa-env. No fusionar sin instrucción. Sin migraciones nuevas; PostgreSQL verifica también menciones por texto entre cuentas, privacidad, homónimos, edición e idempotencia.
