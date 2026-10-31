@@ -1,43 +1,8 @@
-import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import CaseBuilder from "../../src/CaseBuilder";
-import CaseDesignView from "../../src/views/CaseDesignView";
-import type { CaseDesignController } from "../../src/controllers/useCaseDesignController";
 import { categories, selectCaseExamples, validCaseCount } from "../../src/models/caseDesign.model";
 import { caseExportRows } from "../../src/utils/exportCases";
-import { defaultCaseCountDefaults } from "../../src/models/caseCountDefaults";
 
-describe("case builder mockup", () => {
-  it("discloses fixed examples and requires input before showing a preview", () => {
-    const html = renderToStaticMarkup(createElement(CaseBuilder));
-    expect(html).toContain("IA no conectada");
-    expect(html).toContain("cada caso solo se crea en el proyecto cuando eliges guardarlo");
-    expect(html).toContain('type="submit" disabled=""');
-    expect(html).not.toContain("<table");
-  });
-
-  it("provides categories with individually labelled quantity controls", () => {
-    const html = renderToStaticMarkup(createElement(CaseBuilder));
-    expect(html.match(/type="checkbox"/g)).toHaveLength(categories.length);
-    expect(html.match(/type="number"/g)).toHaveLength(categories.length);
-    for (const label of [
-      "Smoke",
-      "Regresión",
-      "Funcionales",
-      "UI",
-      "UX",
-      "Integración",
-      "Edge cases",
-      "Exploratory",
-      "Pruebas de estrés",
-      "API",
-    ]) {
-      expect(html).toContain(label);
-    }
-    expect(html).toContain('id="case-builder-description"');
-  });
-
+describe("selección y cantidades del diseñador", () => {
   it("validates counts and excludes invalid quantities", () => {
     for (const value of [0, -1, 1.5, 6, NaN, Infinity]) {
       expect(validCaseCount(value)).toBe(false);
@@ -60,57 +25,5 @@ describe("case builder mockup", () => {
       ),
     ).toBe(true);
     expect(new Set(categories.map((item) => item.id)).size).toBe(categories.length);
-    expect(categories.every((item) => /^#[0-9a-f]{6}$/i.test(item.color))).toBe(true);
-    expect(new Set(categories.map((item) => item.color)).size).toBe(categories.length);
-  });
-
-  it("renders multiple editable action/result steps for each designed test case", () => {
-    const controller: CaseDesignController = {
-      categories,
-      text: "Validar acceso",
-      selected: ["api"],
-      counts: {},
-      defaultCounts: { ...defaultCaseCountDefaults, api: 2 },
-      preview: true,
-      exporting: false,
-      exportError: "",
-      savingCaseKey: "",
-      savedCases: {},
-      saveCaseError: "",
-      savePreviewCase: async () => {},
-      projectId: "project-1",
-      selectedCategories: [],
-      previewCases: [
-        {
-          categoryId: "api",
-          categoryLabel: "API",
-          caseNumber: 1,
-          color: "#15803d",
-          steps: [
-            { action: "Enviar solicitud", expected: "Se acepta" },
-            { action: "Consultar respuesta", expected: "Se muestran los datos" },
-          ],
-        },
-      ],
-      countsValid: true,
-      total: 1,
-      maxCaseCount: 5,
-      updateDescription: () => {},
-      toggleCategory: () => {},
-      updateCount: () => {},
-      submit: () => {},
-      updateExampleStep: () => {},
-      addExampleStep: () => {},
-      removeExampleStep: () => {},
-      exportPreview: async () => {},
-    };
-    const html = renderToStaticMarkup(createElement(CaseDesignView, controller));
-    expect(html).toContain("Enviar solicitud");
-    expect(html).toContain("Exportar Markdown");
-    expect(html).toContain("Se muestran los datos");
-    expect(html).toContain('aria-label="Cantidad de pruebas: API"');
-    expect(html).toContain('value="2"');
-    expect(html).toContain("Añadir paso (2/100)");
-    expect(html.match(/Resultado esperado/g)).toHaveLength(2);
   });
 });

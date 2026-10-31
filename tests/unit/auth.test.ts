@@ -1,3 +1,4 @@
+import { validateAccess } from "../../src/Session";
 import { describe, expect, it } from "vitest";
 import { hashPassword, verifyPassword } from "../../backend/src/auth/passwords";
 import { sessionHash } from "../../backend/src/auth/auth";
@@ -34,5 +35,19 @@ describe("project authorization without database access", () => {
     expect(listBugs).toHaveBeenCalledExactlyOnceWith("2");
     await expect(scoped.listBugs("1")).rejects.toMatchObject({ status: 404 });
     expect(listBugs).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("access validation", () => {
+  it("validates form fields without authenticating locally", () => {
+    expect(validateAccess("qa@example.test", "123")).toBe("");
+    expect(validateAccess("qa@example.test", "a long passphrase", "a long passphrase")).toBe("");
+  });
+  it("rejects empty values and mismatched registration passwords", () => {
+    expect(validateAccess("  ", "123")).not.toBe("");
+    expect(validateAccess("demo", "")).not.toBe("");
+    expect(validateAccess("demo", "a long passphrase", "different passphrase")).toBe(
+      "Las contraseñas no coinciden.",
+    );
   });
 });

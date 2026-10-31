@@ -23,28 +23,25 @@ pnpm exec vitest run tests/unit/caseBuilder.test.ts
 pnpm exec vitest run backend/tests/api.test.ts
 ```
 
-## Cobertura funcional actual
+## CORE y selección de pruebas
 
-- `tests/unit/filterItems.test.ts`: búsqueda y filtros de recursos.
-- `tests/unit/workspace.test.ts`: marca compartida y ausencia de los indicadores retirados.
-- `tests/unit/auth.test.ts`: derivación de contraseñas, hashes de sesión y aislamiento por proyecto.
-- `tests/unit/api.test.ts`: cookies, CSRF, errores de red y sesión expirada mediante fetch simulado.
-- `backend/tests/auth.test.ts`: rutas de acceso, cookies, CSRF, autorización y límite de intentos con proveedor simulado.
-- `backend/tests/auth.test.ts`: también valida CRUD de plantillas con CSRF y la confirmación de desactivación/anonimización de cuenta.
-- `tests/unit/theme.test.ts`: preferencia de tema y validación del formulario de acceso real.
-- `tests/unit/caseBuilder.test.ts`: maqueta del diseñador; no valida generación real con IA.
-- `tests/unit/exportCases.test.ts`: estructura y cantidades de ejemplos exportados.
-- `tests/unit/database.test.ts`: IDs bigint, configuración validada sin secretos, consultas parametrizadas y rollback con dobles de cliente.
-- `tests/unit/authProvider.test.ts`: ownership de plantillas y anonimización/revocación transaccional mediante dobles de PostgreSQL.
-- `tests/unit/openapi.test.ts`: contrato OpenAPI.
-- `backend/tests/api.test.ts`: endpoints Express con Supertest, validaciones y errores; se inyecta un repositorio simulado y no se conecta a PostgreSQL.
-- `backend/tests/api.test.ts`: también cubre CRUD/adjuntos de casos, autorización, enlaces HTTP(S), firma/MIME de imágenes y headers de consulta privada.
+`pnpm test` ejecuta todas las pruebas conservadas: no hay filtros ni exclusiones para ocultar fallos. Las unitarias se concentran en reglas de negocio y riesgos de datos, y los endpoints usan repositorios inyectados sin PostgreSQL real.
 
-No se configura un umbral ni un informe de cobertura automatizado. Las pruebas actuales no certifican accesibilidad, integración con una base de datos ni comportamiento completo de navegador.
+| Área CORE                             | Garantías prioritarias                                                            |
+| ------------------------------------- | --------------------------------------------------------------------------------- |
+| Bugs, casos, ejecuciones y evidencias | Validación, estados, snapshots, referencias, filtros y resultados                 |
+| Acceso y colaboración                 | Contraseñas/sesiones, CSRF, roles por proyecto, menciones privadas y auditoría    |
+| Persistencia                          | Aislamiento por usuario/proyecto, conflictos de revisión, idempotencia y rollback |
+| Importación y exportación             | Límites, fórmulas como texto, pasos y referencias preservados, progreso seguro    |
+| Analítica y planes                    | Fechas válidas, tasas/cobertura, reglas de ciclos y reejecución                   |
 
-## Reglas para nuevas pruebas
+Se retiran las comprobaciones unitarias de HTML estático, etiquetas/clases, Wiki, marca, presentación de alertas, tema, pluralización y totales exactos de OpenAPI. La validación de acceso del antiguo archivo de tema se conserva en `auth.test.ts`; el diseñador conserva sus reglas de selección/cantidades y exportación. El guardián de pluralización sigue activo en lint. La suite de navegador y la revisión visual siguen comprobando los flujos de interfaz.
 
-Pruebas unitarias deterministas en `tests/unit/`, con Vitest y sin backend, red ni servicios externos. Probar reglas y resultados observables; no depender de hora real, datos persistentes ni proveedores de IA. Las pruebas de endpoints viven en `backend/tests/` y usan la aplicación Express directamente, sin levantar un servidor de desarrollo separado.
+## Regla para próximas integraciones
+
+Antes de añadir una prueba unitaria, identificar qué regla del CORE protege y qué fallo de negocio, seguridad o pérdida de datos detectaría. Probar entradas y resultados observables con casos representativos, no detalles internos ni conteos arbitrarios. Evitar duplicar garantías ya verificadas; no añadir unitarias por CSS, texto, branding o maquetación. Conservar los escenarios de permisos, alcance, concurrencia, errores e integridad aunque se simplifique la suite.
+
+Usar Vitest determinista sin red ni base personal. Los endpoints en `backend/tests/` prueban la aplicación Express; cambios de permisos/transacciones/relaciones requieren además PostgreSQL efímero. No se fija un objetivo de cantidad de tests ni se sustituye cobertura de riesgos por volumen.
 
 ## Revisión manual del frontend
 
