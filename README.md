@@ -18,7 +18,7 @@ Una plataforma para organizar el trabajo de QA de tu equipo: bugs, casos de prue
 - **Casos versionados e importación:** tipo de prueba independiente, Borrador/Listo/Obsoleto, historial e importación revisada de CSV/Excel.
 - **Flujo de bugs por proyecto:** estados y transiciones configurables, severidad, entorno y versión afectada.
 - **Comentarios y menciones:** conversa en bugs, casos y ejecuciones; selecciona a la persona tras @ o escribe su nombre completo único. Mis menciones se actualiza cada 15 segundos mientras está visible y permite abrir el registro; no avisa sobre menciones propias. Incluye historial de actividad.
-- **Configuración:** reúne Proyectos, Equipos, Flujo de bugs y Actividad y auditoría con sus permisos vigentes; el rol del proyecto se identifica mediante un badge.
+- **Configuración:** reúne Proyectos, Equipos, Accesos al proyecto, Flujo de bugs y Actividad y auditoría con sus permisos vigentes; el rol del proyecto se identifica mediante un badge.
 - **Roles y auditoría:** Admin, QA, Dev y Solo lectura por proyecto, con registro persistente de cambios.
 - **Equipos y proyectos:** colabora mediante invitaciones de un solo uso.
 - **Dashboard visual y analítica:** indicadores resumidos, tendencias de aprobación y bugs, fallos frecuentes y cobertura por tipo con agregaciones PostgreSQL.
@@ -82,3 +82,9 @@ Abre **http://localhost:5173**, crea tu cuenta y empieza con tu primer proyecto.
 [Guía de uso](docs/USER_GUIDE.md) · [Desarrollo e instalación](docs/DEVELOPMENT.md) · [Arquitectura](docs/architecture.md) · [Contribuir](CONTRIBUTING.md) · [Seguridad](SECURITY.md)
 
 La migración **015** incorpora analítica y requisitos. Antes de iniciar una instalación existente ejecuta `pnpm db:migrate`. Consulta [definiciones y límites de las métricas](docs/analytics.md).
+
+## Accesos y verificación del CORE
+
+En Configuración → Accesos al proyecto, un Admin puede agregar integrantes registrados y activos del equipo, consultar/buscar usuarios con acceso, editar su rol (Admin, QA, Dev o Solo lectura) y retirar su acceso a ese proyecto. Los nuevos integrantes se incorporan desde Equipos; esta pantalla no crea ni modifica cuentas globales. El propietario conserva su acceso; antes de retirar a un responsable hay que reasignar sus bugs/casos. Los cambios concurrentes exigen actualizar la lista.
+
+Dashboard encabeza el menú lateral y presenta 0/0% cuando no hay indicadores evaluables, sin convertir fechas desconocidas en datos históricos. Las tarjetas separan encabezados, contenido y acciones. Las pruebas unitarias priorizan reglas del CORE, seguridad e integridad; [TESTING](docs/TESTING.md) y AGENTS.md describen qué validar y qué revisar en navegador.

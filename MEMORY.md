@@ -55,7 +55,7 @@
 - Roles: Admin configura y administra accesos; QA gestiona recursos de prueba; Dev gestiona bugs/evidencias/comentarios; Solo lectura consulta y descarga. El propietario tiene Admin implícito. Crear proyectos y administrar equipos sigue siendo del propietario.
 - Miembros anteriores reciben QA explícito en proyectos existentes. Invitaciones y proyectos nuevos no otorgan accesos automáticamente. Revocar conserva revisión con rol null; protege propietario, último Admin y asignaciones.
 - Las escrituras mantienen bloqueo compartido del proyecto; cambiar roles usa bloqueo exclusivo. Notificaciones y respuestas tardías conservan el alcance. Actividad global pagina de 50; conversación/avisos muestran últimos 100.
-- PR #24, #25 y #26 fusionados en qa-env. Los nuevos arreglos continúan en fix/gestion-reportes-menciones, sobre el mismo árbol del merge fba182d.
+- PR #24–#27 fusionados en qa-env; este lote trabaja en feat/configuracion-accesos-core desde el merge 69c9171.
 
 ## Analítica, cobertura e importación (015)
 
@@ -73,7 +73,7 @@
 
 - Importar vive junto a Actualizar en workspace__toolbar-actions para Bugs/Casos/Tags. Acento verde común, descargas con estilo de acción, hover/foco sin subrayado y contador de tags a 14 px.
 - src/controls.css centraliza interacción de controles y respeta reducción de movimiento. AGENTS.md y docs/DESIGN.md exigen feedback accesible para acciones relevantes, sin alertas indiscriminadas por GET/200.
-- Configuración compone Proyectos, Equipos, Flujo de bugs y Actividad y auditoría con permisos originales; el lateral muestra badge de rol. Los formularios personales se desmontan en gestión. Componentes descartan respuestas tardías; Configuración no carga snapshot QA completo.
+- Configuración compone Proyectos, Equipos, Accesos al proyecto, Flujo de bugs y Actividad y auditoría con permisos originales; el lateral muestra badge de rol. Los formularios personales se desmontan en gestión. Componentes descartan respuestas tardías; Configuración no carga snapshot QA completo.
 - Auditoría presenta resumen de páginas cargadas, búsqueda local explícita, línea de eventos y cambios desplegables. No confundir cantidades cargadas con totales del proyecto.
 - Confirmaciones en tags, flujo, requisitos/vínculos, accesos, comentarios, adjuntos, planes, invitaciones, importación y exportaciones. Scope guards impiden mensajes tardíos en otro proyecto. Las alertas de Tags ocupan su propia fila.
 - Cobertura usa tabla y botones consistentes, paginación/estados accesibles. Aplicar período mide 44 px y reaplica consultas aunque las fechas no cambien; Actualizar invalida también Reportes, Cobertura y actividad.
@@ -82,8 +82,12 @@
 - Dialog separa encabezado/cierre de cuerpo desplazable; foco/Escape intactos. Sidebar usa scrollbar nativo fino con alternativa en colores forzados. Comentarios separan contenido/acciones 16 px y tarjetas 24 px.
 - Wiki agrupa guías por categorías y búsqueda local sin perder contenido. Reportes renueva tarjetas, tendencias y ranking; valida fechas reales, Desde<=Hasta y máximo 366 días inclusivos antes de consultar.
 
+- Accesos: Admin gestiona altas/consulta/rol/retirada de integrantes activos del equipo con GET candidates/PUT role+revision existentes; no crea ni modifica cuentas globales. Protege propietario/último Admin, asignaciones y alcance. Feedback, bloqueo de escrituras, lecturas abortables y respuestas tardías descartadas por proyecto.
+- Dashboard es la primera opción; presenta 0/0% cuando no hay indicadores evaluables, sin cambiar null del servidor/Reportes. Paneles/tarjetas separan contenido y acciones 16–24 px; hidden se conserva.
+- Unitarias CORE por regla en AGENTS/TESTING: se retiran SSR/markup, tema, pluralización y conteos arbitrarios; se conservan auth/roles, reglas QA, contratos de datos, concurrencia, import/export y rollback. Validación de acceso de theme pasa a auth; diseñador conserva selección/cantidades. Sin filtros para ocultar fallos.
+
 ## Validación y entrega
 
-- TypeScript, lint, formato, build frontend/API y 186 pruebas unitarias/endpoints aprobadas; 150 E2E completas aprobadas en escritorio, 375 y 425 px.
+- TypeScript, lint, formato, build frontend/API y 159 pruebas unitarias/endpoints aprobadas; 159 E2E completas aprobadas en escritorio, 375 y 425 px.
 - PostgreSQL 18 efímero: instalación vacía y repetición; actualización 014→015 conserva bugs, baseline único y días sin historia. Integraciones de autenticación/calidad/colaboración/analítica aprobadas; reaperturas, reclasificación, aislamiento, snapshots y rollback/idempotencia de tags verificados.
-- Chromium 153 temporal para E2E, sin nuevas dependencias de producto. Esta entrega publica fix/gestion-reportes-menciones en un PR nuevo hacia qa-env. No fusionar sin instrucción. Sin migraciones nuevas; PostgreSQL verifica también menciones por texto entre cuentas, privacidad, homónimos, edición e idempotencia.
+- Chromium 153 temporal para E2E, sin nuevas dependencias de producto. Esta entrega publica feat/configuracion-accesos-core en un PR nuevo hacia qa-env. No fusionar sin instrucción. Sin migraciones nuevas; PostgreSQL verifica también CRUD de membresías por Admin no propietario, aislamiento, revocación efectiva y protección del propietario/último Admin.

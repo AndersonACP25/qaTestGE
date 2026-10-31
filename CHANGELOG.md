@@ -4,6 +4,10 @@ Todos los cambios importantes de qaTestGE se documentan aquí. El formato sigue 
 
 ## [Unreleased]
 
+- Accesos al proyecto en Configuración, con alta de acceso para integrantes existentes, búsqueda, edición de rol y retirada por Admin; se conservan las protecciones de servidor y el alcance por proyecto.
+- Dashboard como primera opción del menú; indicadores vacíos en 0/0% y mayor separación dentro de tarjetas y paneles.
+- Unitarias centradas en CORE: se retiran comprobaciones de presentación y se documenta el criterio para próximas integraciones, preservando seguridad e integridad.
+
 - Proyectos y Equipos en Configuración; badge del rol y reglas/clases compartidas de espaciado interior.
 - Reportes con indicadores y rankings renovados; validación de Desde/Hasta antes de consultar.
 - Encabezados de diálogos fijos, scrollbar lateral discreto, Wiki por categorías/búsqueda y comentarios más espaciados.
