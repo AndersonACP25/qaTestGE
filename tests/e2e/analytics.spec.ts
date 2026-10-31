@@ -243,11 +243,15 @@ test("gestiona requisitos y muestra vínculos en una matriz paginada", async ({
   await expect(
     page.getByRole("cell", { name: "LOGIN · Acceso seguro", exact: true }),
   ).toBeVisible();
+  await expect(page.getByText("Requisito creado.", { exact: true })).toBeVisible();
   expect(saved?.caseIds).toEqual(["TC-001"]);
   await expect(page.getByRole("cell", { name: /Sin bug vinculado/ })).toBeVisible();
   await page.getByRole("button", { name: "Vincular bug", exact: true }).click();
   await page.getByRole("button", { name: /^BUG-001 ·/ }).click();
   await expect(page.getByRole("cell", { name: /BUG-001 · Error vinculado/ })).toBeVisible();
+  await expect(
+    page.getByText("Bug vinculado al caso del requisito.", { exact: true }),
+  ).toBeVisible();
   await noHorizontalOverflow(page);
 });
 

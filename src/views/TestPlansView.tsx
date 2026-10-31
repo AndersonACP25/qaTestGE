@@ -200,6 +200,7 @@ export default function TestPlansView({
                       method: "DELETE",
                       body: "{}",
                     });
+                    if (alive.current) setMessage("Plan eliminado.");
                   });
               }}
             >

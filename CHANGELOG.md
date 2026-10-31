@@ -4,6 +4,11 @@ Todos los cambios importantes de qaTestGE se documentan aquí. El formato sigue 
 
 ## [Unreleased]
 
+- Importar junto a Actualizar con acento propio; descargas sin subrayado, hover/foco compartidos y contador de tags compacto.
+- Flujo de bugs y auditoría como pestañas de Configuración; actividad con resumen, búsqueda de páginas cargadas y cambios desplegables.
+- Confirmaciones explícitas en acciones antes silenciosas, preservando alcance y errores.
+- Tabla/acciones de cobertura mejoradas y botón Aplicar período alineado a los campos.
+
 - Importación revisada de Bugs, Casos y Tags desde Excel/CSV con plantilla y guía descargables.
 - Dashboard visual sin tablas; Reportes con agregados PostgreSQL, períodos, aprobación por ejecución, bugs históricos y fallos frecuentes.
 - Requisitos versionados y matriz requisito/caso/bug paginada.

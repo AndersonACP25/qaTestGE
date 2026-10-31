@@ -5,18 +5,21 @@ import { api } from "../api";
 import { useBugWorkflow } from "../controllers/useBugWorkflow";
 import type { BugWorkflow } from "../../backend/src/models/quality.model";
 export default function BugWorkflowView({
+  refreshRevision = 0,
   projectId,
   onChanged,
 }: {
+  refreshRevision?: number;
   projectId: string;
   onChanged: () => void;
 }) {
   const readOnly = !usePermissions().can("settings.manage");
   const [revision, setRevision] = useState(0);
-  const { workflow, error: loadError } = useBugWorkflow(projectId, revision);
+  const { workflow, error: loadError } = useBugWorkflow(projectId, revision + refreshRevision);
   const [draft, setDraft] = useState<BugWorkflow | null>(null);
   const [name, setName] = useState("");
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const alive = useRef(true);
   useEffect(() => {
@@ -30,12 +33,14 @@ export default function BugWorkflowView({
     if (!current) return;
     setBusy(true);
     setError("");
+    setMessage("");
     try {
       const result = await api<BugWorkflow>(`/bug-workflow?projectId=${projectId}`, {
         method: "PUT",
         body: JSON.stringify(current),
       });
       if (!alive.current) return;
+      setMessage("Flujo de bugs guardado.");
       setDraft(result);
       setRevision((v) => v + 1);
       onChanged();
@@ -54,6 +59,7 @@ export default function BugWorkflowView({
         en uso no se pueden retirar.
       </p>
       {(error || loadError) && <Alert tone="error">{error || loadError}</Alert>}
+      {message && <Alert tone="success">{message}</Alert>}
       {current && (
         <>
           <label className="workspace__field">
@@ -63,6 +69,7 @@ export default function BugWorkflowView({
           <button
             className="workspace__secondary"
             disabled={
+              readOnly ||
               busy ||
               !name.trim() ||
               current.states.includes(name.trim()) ||

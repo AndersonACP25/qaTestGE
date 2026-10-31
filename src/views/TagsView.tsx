@@ -1,6 +1,5 @@
-import ImportPanel from "./ImportPanel";
 import { usePermissions } from "../controllers/ProjectPermissions";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import Alert from "../Alert";
 import { createTag, deleteTag, updateTag } from "../api";
 import type { Tag } from "../types";
@@ -20,6 +19,14 @@ export default function TagsView({
   const [color, setColor] = useState("#7462df");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
 
   function startEdit(tag: Tag) {
     setEditing(tag);
@@ -47,16 +54,20 @@ export default function TagsView({
     if (busy) return;
     setBusy(true);
     setError("");
+    setMessage("");
     try {
       const input = { projectId, name: name.trim(), color };
       if (editing) await updateTag(editing.id, input);
       else await createTag(input);
+      if (!alive.current) return;
       reset();
+      setMessage(editing ? "Tag actualizado." : "Tag creado.");
       onChanged();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "No se pudo guardar el tag.");
+      if (alive.current)
+        setError(cause instanceof Error ? cause.message : "No se pudo guardar el tag.");
     } finally {
-      setBusy(false);
+      if (alive.current) setBusy(false);
     }
   }
 
@@ -70,22 +81,24 @@ export default function TagsView({
       return;
     setBusy(true);
     setError("");
+    setMessage("");
     try {
       await deleteTag(tag.id, projectId);
+      if (!alive.current) return;
+      setMessage(`Tag «${tag.name}» eliminado.`);
       if (editing?.id === tag.id) reset();
       onChanged();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "No se pudo eliminar el tag.");
+      if (alive.current)
+        setError(cause instanceof Error ? cause.message : "No se pudo eliminar el tag.");
     } finally {
-      setBusy(false);
+      if (alive.current) setBusy(false);
     }
   }
 
   return (
     <section className="tags-view">
-      {!readOnly && (
-        <ImportPanel key={projectId} projectId={projectId} kind="tags" onChanged={onChanged} />
-      )}
+      {message && <Alert tone="success">{message}</Alert>}
       <form className="tags-view__form" onSubmit={(event) => void save(event)}>
         <fieldset className="permissions__group" disabled={readOnly || busy}>
           <h2 className="typography__section">{editing ? "Editar tag" : "Crear tag"}</h2>
@@ -130,7 +143,7 @@ export default function TagsView({
       </form>
       <section className="tags-view__list" aria-label="Tags del proyecto">
         <h2 className="typography__section">
-          Tags del proyecto <span>{tags.length}</span>
+          Tags del proyecto <span className="tags-view__count">{tags.length}</span>
         </h2>
         {!tags.length ? (
           <p className="workspace__notice">Todavía no hay tags en este proyecto.</p>

@@ -43,6 +43,7 @@ export default function CollaborationPanel({
   const [body, setBody] = useState("");
   const [editing, setEditing] = useState<Comment | null>(null);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [revision, setRevision] = useState(0);
   const alive = useRef(true);
@@ -75,13 +76,17 @@ export default function CollaborationPanel({
       active = false;
     };
   }, [query, projectId, revision]);
-  async function act(operation: () => Promise<void>) {
+  async function act(operation: () => Promise<void>, success: string) {
     if (busy) return;
     setBusy(true);
     setError("");
+    setMessage("");
     try {
       await operation();
-      if (alive.current) setRevision((v) => v + 1);
+      if (alive.current) {
+        setMessage(success);
+        setRevision((v) => v + 1);
+      }
     } catch (e) {
       if (alive.current)
         setError(e instanceof Error ? e.message : "No se pudo guardar el comentario.");
@@ -102,29 +107,33 @@ export default function CollaborationPanel({
     <section className="collaboration">
       <h3 className="typography__heading">Comentarios y actividad</h3>
       {error && <Alert tone="error">{error}</Alert>}
+      {message && <Alert tone="success">{message}</Alert>}
       {can("comments.write") ? (
         <form
           className="collaboration__composer"
           onSubmit={(e) => {
             e.preventDefault();
-            void act(async () => {
-              if (editing)
-                await api<Comment>(`/comments/${editing.id}?projectId=${projectId}`, {
-                  method: "PATCH",
-                  body: JSON.stringify({ body, version: editing.version }),
-                });
-              else
-                await api<Comment>(`/comments?projectId=${projectId}`, {
-                  method: "POST",
-                  headers: { "Idempotency-Key": requestKey.current },
-                  body: JSON.stringify({ body, target }),
-                });
-              if (alive.current) {
-                setBody("");
-                setEditing(null);
-                requestKey.current = crypto.randomUUID();
-              }
-            });
+            void act(
+              async () => {
+                if (editing)
+                  await api<Comment>(`/comments/${editing.id}?projectId=${projectId}`, {
+                    method: "PATCH",
+                    body: JSON.stringify({ body, version: editing.version }),
+                  });
+                else
+                  await api<Comment>(`/comments?projectId=${projectId}`, {
+                    method: "POST",
+                    headers: { "Idempotency-Key": requestKey.current },
+                    body: JSON.stringify({ body, target }),
+                  });
+                if (alive.current) {
+                  setBody("");
+                  setEditing(null);
+                  requestKey.current = crypto.randomUUID();
+                }
+              },
+              editing ? "Comentario actualizado." : "Comentario publicado.",
+            );
           }}
         >
           <label className="workspace__field">
@@ -232,7 +241,7 @@ export default function CollaborationPanel({
                               method: "DELETE",
                               body: JSON.stringify({ version: c.version }),
                             });
-                          });
+                          }, "Comentario eliminado.");
                       }}
                     >
                       Eliminar comentario

@@ -71,6 +71,7 @@ test("publica comentario con mención, lo edita y consulta actividad", async ({ 
   );
   await page.getByRole("button", { name: "Publicar comentario", exact: true }).click();
   await expect(page.locator(".collaboration__mention")).toHaveText("@María Dev");
+  await expect(page.getByText("Comentario publicado.", { exact: true })).toBeVisible();
   expect(comments).toHaveLength(1);
   await page.getByRole("button", { name: "Editar comentario", exact: true }).click();
   await page
@@ -78,6 +79,7 @@ test("publica comentario con mención, lo edita y consulta actividad", async ({ 
     .fill("Contenido revisado @[María Dev](user:2)");
   await page.getByRole("button", { name: "Guardar comentario", exact: true }).click();
   await expect(page.locator(".collaboration__body")).toContainText("Contenido revisado");
+  await expect(page.getByText("Comentario actualizado.", { exact: true })).toBeVisible();
   await page.getByText("Ver historial de actividad del registro", { exact: true }).click();
   await expect(page.locator(".collaboration__activity")).toContainText("Comentario creado");
   await noHorizontalOverflow(page);

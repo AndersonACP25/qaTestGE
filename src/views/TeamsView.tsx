@@ -257,6 +257,7 @@ export default function TeamsView({ onChanged }: { onChanged: () => void }) {
                       body: "{}",
                     }),
                   );
+                  setMessage("Invitación generada. Copia el código para compartirlo.");
                 })
               }
             >

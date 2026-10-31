@@ -55,7 +55,7 @@
 - Roles: Admin configura y administra accesos; QA gestiona recursos de prueba; Dev gestiona bugs/evidencias/comentarios; Solo lectura consulta y descarga. El propietario tiene Admin implícito. Crear proyectos y administrar equipos sigue siendo del propietario.
 - Miembros anteriores reciben QA explícito en proyectos existentes. Invitaciones y proyectos nuevos no otorgan accesos automáticamente. Revocar conserva revisión con rol null; protege propietario, último Admin y asignaciones.
 - Las escrituras mantienen bloqueo compartido del proyecto; cambiar roles usa bloqueo exclusivo. Notificaciones y respuestas tardías conservan el alcance. Actividad global pagina de 50; conversación/avisos muestran últimos 100.
-- PR anterior #24 fusionado en qa-env. Trabajo actual autorizado para commit y PR en feat/colaboracion-auditoria-permisos.
+- PR #24 y #25 fusionados en qa-env. Los arreglos de interacción continúan en fix/usabilidad-feedback-configuracion, sobre el árbol validado de qa-env.
 
 ## Analítica, cobertura e importación (015)
 
@@ -69,8 +69,17 @@
 - GET /test-runs/:id/report es autenticado, readonly para todos los roles con acceso; PDF local con jsPDF/AutoTable, snapshots de título/versión/pasos, resultados actuales, notas, bugs de origen y referencias de evidencia. No incluye binarios ni genera URLs públicas.
 - Guías: docs/analytics.md y public/templates/guia-importacion.md; README, Wiki, arquitectura, OpenAPI y chequeo de esquema actualizados. Aplicar pnpm db:migrate antes de iniciar.
 
+## Interacción y configuración
+
+- Importar vive junto a Actualizar en workspace__toolbar-actions para Bugs/Casos/Tags. Acento verde común, descargas con estilo de acción, hover/foco sin subrayado y contador de tags a 14 px.
+- src/controls.css centraliza interacción de controles y respeta reducción de movimiento. AGENTS.md y docs/DESIGN.md exigen feedback accesible para acciones relevantes, sin alertas indiscriminadas por GET/200.
+- Configuración compone Flujo de bugs (solo Admin) y Actividad y auditoría (todos los roles autorizados), con contexto del proyecto. Componentes por proyecto descartan respuestas tardías; Configuración no carga snapshot QA completo.
+- Auditoría presenta resumen de páginas cargadas, búsqueda local explícita, línea de eventos y cambios desplegables. No confundir cantidades cargadas con totales del proyecto.
+- Confirmaciones en tags, flujo, requisitos/vínculos, accesos, comentarios, adjuntos, planes, invitaciones, importación y exportaciones. Scope guards impiden mensajes tardíos en otro proyecto. Las alertas de Tags ocupan su propia fila.
+- Cobertura usa tabla y botones consistentes, paginación/estados accesibles. Aplicar período mide 44 px y reaplica consultas aunque las fechas no cambien; Actualizar invalida también Reportes, Cobertura y actividad.
+
 ## Validación y entrega
 
-- TypeScript, lint, formato, build frontend/API y 181 pruebas unitarias/endpoints aprobadas; 120 E2E completas aprobadas en escritorio, 375 y 425 px.
+- TypeScript, lint, formato, build frontend/API y 181 pruebas unitarias/endpoints aprobadas; 135 E2E completas aprobadas en escritorio, 375 y 425 px.
 - PostgreSQL 18 efímero: instalación vacía y repetición; actualización 014→015 conserva bugs, baseline único y días sin historia. Integraciones de autenticación/calidad/colaboración/analítica aprobadas; reaperturas, reclasificación, aislamiento, snapshots y rollback/idempotencia de tags verificados.
-- Chromium 153 temporal para E2E, sin nuevas dependencias de producto. Rama feat/colaboracion-auditoria-permisos y mismo PR #25 hacia qa-env: https://github.com/AndersonACP25/qaTestGE/pull/25. Commits por área y actualización unificada del PR autorizados; no fusionar.
+- Chromium 153 temporal para E2E, sin nuevas dependencias de producto. El PR #25 ya fue fusionado; esta entrega publica fix/usabilidad-feedback-configuracion en un PR nuevo hacia qa-env. No fusionar sin instrucción. Este lote no cambia backend ni añade migraciones; la integración PostgreSQL anterior corresponde a la base 015.

@@ -175,7 +175,8 @@ test("configura estados y transiciones por proyecto", async ({ page }) => {
       config = { ...route.request().postDataJSON(), revision: 2 };
     await route.fulfill({ json: { data: config } });
   });
-  await navigate(page, "Flujo de bugs");
+  await navigate(page, "Configuración");
+  await page.getByRole("button", { name: "Flujo de bugs", exact: true }).click();
   await page.getByLabel("Nuevo estado").fill("Triage");
   await page.getByRole("button", { name: "Añadir estado", exact: true }).click();
   const article = page
@@ -184,6 +185,7 @@ test("configura estados y transiciones por proyecto", async ({ page }) => {
   await article.getByRole("checkbox", { name: "Abierto", exact: true }).check();
   await page.getByRole("button", { name: "Guardar flujo", exact: true }).click();
   await expect(page.getByRole("button", { name: "Guardar flujo", exact: true })).toBeEnabled();
+  await expect(page.getByText("Flujo de bugs guardado.", { exact: true })).toBeVisible();
   expect(config.states).toContain("Triage");
   expect((config.transitions as Record<string, string[]>).Triage).toContain("Abierto");
   await noHorizontalOverflow(page);

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { formatCount, pluralize } from "./utils/pluralization";
 import Alert from "./Alert";
 import Dialog from "./Dialog";
@@ -9,21 +9,37 @@ import { exportTable } from "./utils/exportTable";
 export default function TableExport({ data }: { data: TableExportData }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   async function save(format: ExportFormat) {
     setBusy(true);
     setError("");
+    setMessage("");
     try {
       await exportTable(format, data);
+      if (!alive.current) return;
+      setMessage("Archivo preparado para descargar.");
       setOpen(false);
     } catch {
-      setError("No se pudo exportar la tabla. Inténtalo de nuevo.");
+      if (alive.current) setError("No se pudo exportar la tabla. Inténtalo de nuevo.");
     } finally {
-      setBusy(false);
+      if (alive.current) setBusy(false);
     }
   }
   return (
     <>
+      {message && (
+        <Alert tone="success" onDismiss={() => setMessage("")}>
+          {message}
+        </Alert>
+      )}
       <button
         className="table-export__button"
         type="button"
