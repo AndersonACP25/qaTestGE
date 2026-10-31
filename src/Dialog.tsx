@@ -75,7 +75,7 @@ export default function Dialog({
             ×
           </button>
         </div>
-        {children}
+        <div className="workspace__dialog-body">{children}</div>
       </div>
     </div>
   );

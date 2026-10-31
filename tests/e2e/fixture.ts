@@ -264,6 +264,11 @@ export const test = base.extend<{
 export { expect };
 
 export async function navigate(page: Page, name: string) {
+  if (name === "Proyectos" || name === "Equipos") {
+    await navigate(page, "Configuración");
+    await page.getByRole("button", { name, exact: true }).click();
+    return;
+  }
   const menu = page.getByRole("button", { name: "Abrir menú" });
   if ((page.viewportSize()?.width ?? 1440) <= 850) {
     await expect(menu).toBeVisible();

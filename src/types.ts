@@ -13,8 +13,6 @@ export type NavigationPage =
   | "evidence"
   | "tags"
   | "settings"
-  | "projects"
-  | "teams"
   | "wiki";
 
 export type PriorityLevel = "Crítica" | "Alta" | "Media" | "Baja";

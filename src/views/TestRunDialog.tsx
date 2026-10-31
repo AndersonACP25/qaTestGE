@@ -78,7 +78,7 @@ export default function TestRunDialog({
   }, [initialAction, run.id, run.status]);
   useEffect(() => {
     if (error || message)
-      content.current?.closest<HTMLElement>('[role="dialog"]')?.scrollTo({ top: 0 });
+      content.current?.closest<HTMLElement>(".workspace__dialog-body")?.scrollTo({ top: 0 });
   }, [error, message]);
   async function act(operation: () => Promise<void>) {
     if (busy) return;
