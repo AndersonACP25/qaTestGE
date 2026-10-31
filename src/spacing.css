@@ -15,6 +15,7 @@
 }
 .layout__stack > h2,
 .layout__stack > h3,
+.layout__stack > h4,
 .layout__stack > p {
   margin: 0;
 }
@@ -153,7 +154,69 @@
 .mentions-view .collaboration__comment button {
   justify-self: start;
 }
+.quality__panel > h2,
+.quality__panel > h3,
+.quality__panel > p {
+  margin: 0;
+}
+/* Card content uses a shared vertical rhythm, separate from its outer padding. */
+.workspace__panel {
+  display: grid;
+  gap: 20px;
+  padding: var(--layout-space-lg);
+}
+.workspace__panel > h2,
+.workspace__panel > h3,
+.workspace__panel > p {
+  margin: 0;
+}
+.workspace__metric {
+  padding: var(--layout-space-lg);
+  gap: var(--layout-space-md);
+}
+.dashboard-view .workspace__metrics {
+  margin-bottom: 0;
+  gap: var(--layout-space-lg);
+}
+.dashboard-view .quality__actions {
+  margin-block: 0;
+}
+.analytics__chart {
+  display: grid;
+  align-content: start;
+  gap: 20px;
+}
+.analytics__chart figcaption h2,
+.analytics__chart > p {
+  margin: 0;
+}
+.analytics__empty {
+  color: var(--color-626678);
+  font-size: var(--font-body);
+}
+.dashboard-view .analytics__empty {
+  font-size: var(--font-title);
+  color: var(--color-202334);
+  font-weight: 600;
+}
+.account-settings__card:not([hidden]) {
+  display: grid;
+  align-content: start;
+  gap: 20px;
+  padding: var(--layout-space-lg);
+}
+.account-settings__heading {
+  display: grid;
+  gap: 12px;
+}
+.account-settings__heading p {
+  margin: 0;
+}
 @media (max-width: 620px) {
+  .quality__panel,
+  .workspace__panel,
+  .workspace__metric,
+  .account-settings__card:not([hidden]),
   .layout__panel {
     padding: var(--layout-space-md);
   }

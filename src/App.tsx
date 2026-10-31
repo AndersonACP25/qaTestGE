@@ -1,6 +1,5 @@
 import { ProjectPermissionsProvider } from "./controllers/ProjectPermissions";
 import { can } from "../backend/src/models/collaboration.model";
-import ProjectAccessView from "./views/ProjectAccessView";
 import MentionsView from "./views/MentionsView";
 import CollaborationPanel from "./views/CollaborationPanel";
 import DashboardView from "./views/DashboardView";
@@ -78,9 +77,8 @@ const navigation: {
   {
     section: "WORKSPACE",
     items: [
-      { id: "mentions", label: "Mis menciones", icon: "bell" },
-      { id: "access", label: "Accesos al proyecto", icon: "settings" },
       { id: "overview", label: "Dashboard", icon: "grid" },
+      { id: "mentions", label: "Mis menciones", icon: "bell" },
       { id: "coverage", label: "Cobertura y requisitos", icon: "check-square" },
       { id: "reports", label: "Reportes y métricas", icon: "chart" },
       { id: "bugs", label: "Bugs", icon: "bug", count: undefined },
@@ -322,7 +320,6 @@ function App({
     visibleEvidence = slicePage(filteredEvidence);
   const pageTitle = {
     mentions: "Mis menciones",
-    access: "Accesos al proyecto",
     coverage: "Cobertura y requisitos",
     overview: "Dashboard",
     plans: "Planes y ciclos",
@@ -903,7 +900,6 @@ function App({
               {group.items
                 .filter(
                   (item) =>
-                    (item.id !== "access" || allowed("access.manage")) &&
                     (item.id !== "case-builder" || allowed("cases.write")) &&
                     (item.id !== "bug-builder" || allowed("bugs.write")),
                 )
@@ -992,7 +988,6 @@ function App({
             {![
               "coverage",
               "overview",
-              "access",
               "mentions",
               "plans",
               "reports",
@@ -1155,18 +1150,7 @@ function App({
               existente.
             </p>
           )}
-          {activePage === "access" ? (
-            projectId &&
-            allowed("access.manage") && (
-              <ProjectAccessView
-                key={projectId}
-                projectId={projectId}
-                onChanged={() => {
-                  if (isRenderCurrent()) setRevision((v) => v + 1);
-                }}
-              />
-            )
-          ) : activePage === "mentions" ? (
+          {activePage === "mentions" ? (
             projectId && (
               <MentionsView
                 key={projectId}
@@ -2356,7 +2340,6 @@ function App({
 function pageDescription(page: NavigationPage): string {
   return {
     mentions: "Consulta las menciones de tus compañeros dentro del proyecto.",
-    access: "Asigna roles y controla el acceso a este proyecto.",
     coverage: "Conecta requisitos, casos y bugs del proyecto.",
     overview: "Aquí tienes el estado de calidad de tus proyectos.",
     plans: "Agrupa casos y organiza ciclos de ejecución.",
@@ -2366,7 +2349,7 @@ function pageDescription(page: NavigationPage): string {
     runs: "Ejecuta suites de prueba y consulta sus resultados.",
     evidence: "Capturas, videos y archivos vinculados a tu actividad de QA.",
     tags: "Crea tags por proyecto y clasifica bugs, casos de prueba y ejecuciones.",
-    settings: "Administra tu cuenta, el flujo de bugs y la actividad del proyecto.",
+    settings: "Administra tu cuenta, los accesos y la configuración del proyecto.",
     wiki: "Aprende a utilizar las funciones disponibles de qaTestGE.",
     "bug-builder": "Convierte tu descripción en un borrador de bug y revísalo antes de guardar.",
     "case-builder": "De una idea a un plan de pruebas: explora la maqueta del futuro asistente.",

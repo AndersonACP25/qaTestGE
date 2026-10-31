@@ -15,13 +15,13 @@ export default function DashboardView({
   if (!data) return <p role="status">Cargando indicadores…</p>;
   const s = data.summary;
   return (
-    <div className="analytics">
+    <div className="analytics dashboard-view">
       <div className="workspace__metrics">
         {[
           ["Bugs abiertos", s.openBugs],
           ["Casos activos", s.activeCases],
           ["Ejecuciones activas", s.activeRuns],
-          ["Aprobación · 30 días", s.approvalRate === null ? "Sin datos" : `${s.approvalRate}%`],
+          ["Aprobación · 30 días", `${s.approvalRate ?? 0}%`],
         ].map(([label, value]) => (
           <div className="workspace__metric" key={label}>
             <span>{label}</span>
@@ -34,6 +34,7 @@ export default function DashboardView({
         <TrendChart
           label="Aprobación por ejecución · 30 días"
           percent
+          emptyLabel="0"
           dates={data.runTrend.map((r) => r.createdAt)}
           series={[
             {
@@ -44,7 +45,7 @@ export default function DashboardView({
           ]}
         />
       </div>
-      <section className="workspace__panel">
+      <section className="workspace__panel layout__panel layout__stack">
         <h2 className="typography__section">Cobertura de requisitos</h2>
         <p>
           <strong>
@@ -68,7 +69,7 @@ export default function DashboardView({
       </section>
       <p className="typography__caption">
         La aprobación incluye resultados registrados aprobados, fallidos y bloqueados. Omite los no
-        ejecutados y los omitidos.
+        ejecutados y los omitidos. Se muestra 0% si todavía no hay resultados evaluables.
       </p>
     </div>
   );

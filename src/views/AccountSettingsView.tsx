@@ -1,3 +1,4 @@
+import ProjectAccessView from "./ProjectAccessView";
 import ProjectsView from "./ProjectsView";
 import TeamsView from "./TeamsView";
 import type { Project } from "../api";
@@ -39,11 +40,23 @@ export default function AccountSettingsView({
   onAccountDeleted: () => void;
 }) {
   const [section, setSection] = useState<
-    "cuenta" | "plantillas" | "diseno" | "ia" | "workflow" | "activity" | "projects" | "teams"
+    | "cuenta"
+    | "plantillas"
+    | "diseno"
+    | "ia"
+    | "workflow"
+    | "activity"
+    | "projects"
+    | "teams"
+    | "access"
   >("cuenta");
-  const canManage = usePermissions().can("settings.manage");
+  const { can } = usePermissions();
+  const canManage = can("settings.manage");
+  const canAccess = can("access.manage");
   const activeSection =
-    (section === "workflow" && (!projectId || !canManage)) || (section === "activity" && !projectId)
+    (section === "workflow" && (!projectId || !canManage)) ||
+    (section === "access" && (!projectId || !canAccess)) ||
+    (section === "activity" && !projectId)
       ? "cuenta"
       : section;
   const [name, setName] = useState(user.name);
@@ -240,6 +253,7 @@ export default function AccountSettingsView({
             ["plantillas", "Plantillas de bugs"],
             ["diseno", "Diseño de casos"],
             ["ia", "Inteligencia artificial"],
+            ...(projectId && canAccess ? [["access", "Accesos al proyecto"] as const] : []),
             ...(projectId && canManage ? [["workflow", "Flujo de bugs"] as const] : []),
             ...(projectId ? [["activity", "Actividad y auditoría"] as const] : []),
           ] as const
@@ -265,7 +279,7 @@ export default function AccountSettingsView({
           <TeamsView onChanged={onProjectChanged} />
         </section>
       )}
-      {projectId && (activeSection === "workflow" || activeSection === "activity") && (
+      {projectId && ["workflow", "activity", "access"].includes(activeSection) && (
         <section className="account-settings__project">
           <span className="typography__caption">PROYECTO ACTUAL</span>
           <strong>{projectName}</strong>
@@ -282,6 +296,16 @@ export default function AccountSettingsView({
           />
         </section>
       )}
+      {projectId && activeSection === "access" && canAccess && (
+        <section className="account-settings__card account-settings__card--wide">
+          <ProjectAccessView
+            key={projectId}
+            projectId={projectId}
+            onChanged={onProjectChanged}
+            refreshRevision={refreshRevision}
+          />
+        </section>
+      )}
       {projectId && activeSection === "activity" && (
         <section className="account-settings__card account-settings__card--wide">
           <ProjectActivityView
@@ -291,7 +315,7 @@ export default function AccountSettingsView({
           />
         </section>
       )}
-      {!["projects", "teams", "workflow", "activity"].includes(activeSection) && (
+      {!["projects", "teams", "workflow", "activity", "access"].includes(activeSection) && (
         <>
           <section className="account-settings__card" hidden={activeSection !== "cuenta"}>
             <div className="account-settings__heading">

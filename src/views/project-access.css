@@ -1,0 +1,84 @@
+.project-access {
+  gap: 24px;
+}
+.project-access__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+.project-access__heading p,
+.project-access__create p {
+  color: var(--color-626678);
+  line-height: 1.7;
+}
+.project-access__heading button {
+  flex-shrink: 0;
+}
+.project-access__create,
+.project-access__roles {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--color-f7f8fa);
+}
+.project-access__fields {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 16px;
+}
+.project-access__fields .workspace__field {
+  margin: 0;
+  min-width: 0;
+}
+.project-access__roles summary {
+  cursor: pointer;
+  min-height: 32px;
+  font-size: var(--font-body);
+}
+.project-access__roles p {
+  margin: 16px 0 0;
+  line-height: 1.7;
+}
+.project-access__list-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.project-access__list-heading h3,
+.project-access__list-heading p {
+  margin: 0;
+}
+.project-access__list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+.project-access__member {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  align-content: start;
+  min-width: 0;
+}
+.project-access__member h4,
+.project-access__member p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.project-access__editor p {
+  line-height: 1.7;
+}
+@media (max-width: 850px) {
+  .project-access__heading {
+    flex-direction: column;
+  }
+  .project-access__fields,
+  .project-access__list {
+    grid-template-columns: 1fr;
+  }
+  .project-access__fields button {
+    justify-self: start;
+  }
+}

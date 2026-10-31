@@ -386,6 +386,52 @@ try {
     ).status,
     204,
   );
+  // An Admin who does not own the team manages only project memberships.
+  const candidates = (await qa.get("/api/project-members").query({ projectId, candidates: true }))
+    .body.data;
+  const managed = candidates.find((m: { id: string }) => m.id === users[3]);
+  assert.equal(
+    (
+      await qa
+        .put(`/api/project-members/${users[3]}`)
+        .query({ projectId })
+        .send({ role: null, revision: managed.revision })
+    ).status,
+    204,
+  );
+  assert.equal((await viewer.get("/api/bugs").query({ projectId })).status, 404);
+  assert.equal(
+    (
+      await qa
+        .put(`/api/project-members/${users[3]}`)
+        .query({ projectId })
+        .send({ role: "Dev", revision: managed.revision + 1 })
+    ).status,
+    204,
+  );
+  assert.equal((await viewer.get("/api/bugs").query({ projectId })).status, 200);
+  assert.equal(
+    (
+      await qa
+        .put(`/api/project-members/${users[3]}`)
+        .query({ projectId })
+        .send({ role: "Solo lectura", revision: managed.revision + 2 })
+    ).status,
+    204,
+  );
+  assert.equal(
+    (
+      await qa
+        .put(`/api/project-members/${users[0]}`)
+        .query({ projectId })
+        .send({ role: null, revision: 0 })
+    ).status,
+    409,
+  );
+  assert.equal(
+    (await qa.get("/api/project-members").query({ projectId: other, candidates: true })).status,
+    404,
+  );
   await pool.query("UPDATE qa.users SET is_active=false WHERE id=$1", [users[0]]);
   assert.equal(
     (
