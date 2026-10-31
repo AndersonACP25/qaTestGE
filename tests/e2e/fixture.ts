@@ -264,7 +264,7 @@ export const test = base.extend<{
 export { expect };
 
 export async function navigate(page: Page, name: string) {
-  if (name === "Proyectos" || name === "Equipos") {
+  if (["Proyectos", "Equipos", "Accesos al proyecto"].includes(name)) {
     await navigate(page, "Configuración");
     await page.getByRole("button", { name, exact: true }).click();
     return;

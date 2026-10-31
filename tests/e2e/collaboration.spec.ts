@@ -108,6 +108,7 @@ test("Solo lectura consulta sin controles de escritura", async ({ page }) => {
     page.getByText("Tu rol permite consultar esta conversación.", { exact: true }),
   ).toBeVisible();
   await page.keyboard.press("Escape");
+  await navigate(page, "Configuración");
   await expect(page.getByRole("button", { name: "Accesos al proyecto", exact: true })).toHaveCount(
     0,
   );
@@ -146,13 +147,14 @@ test("Admin cambia un rol y una mención abre el recurso", async ({ page }) => {
       });
   });
   await navigate(page, "Accesos al proyecto");
-  page.once("dialog", (dialog) => dialog.accept());
+  const member = page.getByRole("article", { name: "Acceso de María Dev", exact: true });
+  await member.getByRole("button", { name: "Editar rol", exact: true }).click();
   await page
     .getByRole("combobox", { name: "Rol de María Dev", exact: true })
     .selectOption("Solo lectura");
-  await expect(page.getByRole("combobox", { name: "Rol de María Dev", exact: true })).toHaveValue(
-    "Solo lectura",
-  );
+  await page.getByRole("button", { name: "Guardar rol", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(member.locator(".role-badge")).toHaveText("Solo lectura");
   expect(current[1].role).toBe("Solo lectura");
   await navigate(page, "Mis menciones");
   await expect(page.getByText(/Sin leer/)).toBeVisible();

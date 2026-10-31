@@ -3559,7 +3559,7 @@ tbody td {
 }
 .projects-view {
   display: grid;
-  gap: 18px;
+  gap: 24px;
 }
 .projects-view__panel {
   display: grid;
@@ -3588,8 +3588,8 @@ tbody td {
 }
 .projects-view__item {
   display: grid;
-  gap: 10px;
-  padding: 12px 0;
+  gap: 16px;
+  padding: 16px 0;
   border-top: 1px solid var(--line);
 }
 .projects-view__item h3,
@@ -3713,7 +3713,7 @@ tbody td {
 }
 .account-settings__form {
   display: grid;
-  gap: 4px;
+  gap: 16px;
 }
 .account-settings__success {
   margin: 0 0 12px;
@@ -4851,8 +4851,10 @@ tbody td {
   gap: 1rem;
 }
 .quality__panel {
-  padding: 1rem;
-  margin-block: 1rem;
+  display: grid;
+  gap: 16px;
+  padding: 24px;
+  margin-block: 0;
   border: 1px solid var(--border, #64748b);
   border-radius: 12px;
 }

@@ -4,11 +4,13 @@ export function TrendChart({
   series,
   dates,
   percent = false,
+  emptyLabel = "Sin datos registrados en el período.",
 }: {
   label: string;
   series: { name: string; color: string; values: (number | null)[] }[];
   dates: string[];
   percent?: boolean;
+  emptyLabel?: string;
 }) {
   const id = useId();
   const max = percent
@@ -23,7 +25,7 @@ export function TrendChart({
         <h2 className="typography__heading">{label}</h2>
       </figcaption>
       {!hasData ? (
-        <p>Sin datos registrados en el período.</p>
+        <p className="analytics__empty">{emptyLabel}</p>
       ) : (
         <>
           <div className="analytics__plot">

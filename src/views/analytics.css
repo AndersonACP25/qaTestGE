@@ -42,7 +42,14 @@
   gap: 24px;
   align-items: center;
   flex-wrap: wrap;
-  margin-top: 24px;
+  margin-top: 0;
+}
+.analytics__distribution > div:last-child {
+  display: grid;
+  gap: 16px;
+}
+.analytics__distribution p {
+  margin: 0;
 }
 .analytics__donut {
   width: 160px;
