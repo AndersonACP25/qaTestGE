@@ -1,3 +1,5 @@
+import { exportRunReport } from "../utils/exportRunReport";
+import type { RunReport } from "../contracts/analyticsContracts";
 import { usePermissions } from "../controllers/ProjectPermissions";
 import CollaborationPanel from "./CollaborationPanel";
 import { useEffect, useRef, useState } from "react";
@@ -105,6 +107,20 @@ export default function TestRunDialog({
           {run.sourceRunId ? ` · Origen: ${run.sourceRunId}` : ""}
         </p>
         <div className="quality__actions">
+          <button
+            className="workspace__secondary"
+            disabled={busy}
+            onClick={() =>
+              void act(async () => {
+                const report = await api<RunReport>(
+                  `/test-runs/${run.id}/report?projectId=${encodeURIComponent(run.projectId!)}`,
+                );
+                if (alive.current) await exportRunReport(report, () => alive.current);
+              })
+            }
+          >
+            Exportar informe PDF
+          </button>
           {[false, true].map((failedOnly) => (
             <button
               type="button"

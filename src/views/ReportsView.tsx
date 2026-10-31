@@ -1,177 +1,181 @@
-import TypeCoverage from "./TypeCoverage";
-import { formatCount } from "../utils/pluralization";
-import { useMemo } from "react";
-import type { Bug, Evidence, TestCase, TestRun } from "../types";
-import { calculateReportMetrics } from "../models/reportMetrics";
-
-const caseStatusLabels = ["Pendiente", "Aprobado", "Fallido"] as const;
-const resultStatusLabels = [
-  ["passed", "Aprobado", "success"],
-  ["failed", "Fallido", "error"],
-  ["blocked", "Bloqueado", "warning"],
-  ["skipped", "Omitido", "neutral"],
-] as const;
-
+import { useState } from "react";
+import Alert from "../Alert";
+import { defaultRange, useAnalytics } from "../controllers/useAnalytics";
+import { TrendChart, Bars } from "./AnalyticsCharts";
+import { download } from "../utils/download";
 export default function ReportsView({
+  projectId,
   projectName,
-  bugs,
-  cases,
-  runs,
-  evidence,
-  closedStates,
 }: {
+  projectId: string;
   projectName: string;
-  bugs: Bug[];
-  cases: TestCase[];
-  runs: TestRun[];
-  evidence: Evidence[];
-  closedStates?: string[];
 }) {
-  const metrics = useMemo(
-    () => calculateReportMetrics(bugs, cases, runs, evidence, closedStates),
-    [bugs, cases, runs, evidence, closedStates],
-  );
-  const bugStatuses = [
-    { label: "Abiertos y en seguimiento", count: metrics.openBugs, tone: "warning" },
-    { label: "Resueltos", count: metrics.resolvedBugs, tone: "success" },
-  ];
-  const caseStatuses = caseStatusLabels.map((label) => ({
-    label,
-    count: metrics.casesByStatus[label],
-    tone: label === "Aprobado" ? "success" : label === "Fallido" ? "error" : "neutral",
-  }));
-  const resultStatuses = resultStatusLabels.map(([key, label, tone]) => ({
-    label,
-    count: metrics.resultsByStatus[key],
-    tone,
-  }));
-
-  function downloadCsv() {
-    const rows = [
-      ["Proyecto", projectName],
-      ["Generado", new Date().toLocaleString("es")],
-      ["Indicador", "Valor"],
-      ["Bugs abiertos y en seguimiento", String(metrics.openBugs)],
-      ["Bugs resueltos", String(metrics.resolvedBugs)],
-      ["Casos de prueba", String(cases.length)],
-      ["Ejecuciones activas", String(metrics.activeRuns)],
-      ["Ejecuciones completadas", String(metrics.completedRuns)],
-      ["Progreso promedio de ejecuciones (%)", String(metrics.averageRunProgress)],
-      ["Tasa de aprobación (%)", String(metrics.approvalRate)],
-      ["Resultados registrados", String(metrics.recordedResults)],
-      ["Evidencias", String(metrics.evidenceCount)],
-      ...caseStatuses.map(({ label, count }) => [`Casos: ${label}`, String(count)]),
-      ...resultStatuses.map(({ label, count }) => [`Resultados: ${label}`, String(count)]),
-    ];
-    const csv = rows
-      .map((row) => row.map((value) => `"${value.replaceAll('"', '""')}"`).join(";"))
-      .join("\r\n");
-    const file = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(file);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `reporte-${projectName.trim().replaceAll(/\s+/g, "-")}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-  }
-
+  const [range, setRange] = useState(defaultRange);
+  const [draft, setDraft] = useState(range);
+  const [invalid, setInvalid] = useState("");
+  const { data, error } = useAnalytics(projectId, range.from, range.to);
   return (
-    <section className="reports" aria-labelledby="reports-title">
-      <div className="reports__heading">
-        <div>
-          <h2 className="typography__section" id="reports-title">
-            Resumen de {projectName}
-          </h2>
-          <p>
-            Indicadores calculados con los registros actuales del proyecto. Los casos omitidos no
-            cuentan para la tasa de aprobación.
+    <div className="analytics">
+      <form
+        className="quality__actions"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (
+            !draft.from ||
+            !draft.to ||
+            draft.from > draft.to ||
+            (Date.parse(draft.to) - Date.parse(draft.from)) / 86400000 > 365
+          ) {
+            setInvalid("Selecciona un período válido de hasta 366 días.");
+            return;
+          }
+          setInvalid("");
+          setRange(draft);
+        }}
+      >
+        <label className="workspace__field">
+          Desde
+          <input
+            type="date"
+            required
+            value={draft.from}
+            onChange={(e) => setDraft({ ...draft, from: e.target.value })}
+          />
+        </label>
+        <label className="workspace__field">
+          Hasta
+          <input
+            type="date"
+            required
+            value={draft.to}
+            onChange={(e) => setDraft({ ...draft, to: e.target.value })}
+          />
+        </label>
+        <button className="workspace__secondary">Aplicar período</button>
+      </form>
+      {(error || invalid) && <Alert tone="error">{invalid || error}</Alert>}
+      {!data && !error && <p role="status">Cargando reportes…</p>}
+      {data && (
+        <>
+          <section className="workspace__panel">
+            <h2 className="typography__section">Resultados del período</h2>
+            <p>
+              Aprobación:{" "}
+              <strong>
+                {data.summary.approvalRate === null ? "Sin datos" : `${data.summary.approvalRate}%`}
+              </strong>{" "}
+              · Registrados: {data.summary.recorded} · Fallidos: {data.summary.failed} · Bloqueados:{" "}
+              {data.summary.blocked}
+            </p>
+            <p className="typography__caption">
+              La aprobación excluye omitidos y pendientes. Los totales de bugs, casos y cobertura
+              reflejan el estado actual del proyecto.
+            </p>
+            <button
+              className="workspace__secondary"
+              onClick={() => {
+                const rows = [
+                  ["Proyecto", projectName],
+                  ["Desde", range.from],
+                  ["Hasta", range.to],
+                  ["Aprobación", String(data.summary.approvalRate ?? "Sin datos")],
+                  ["Fecha", "Bugs abiertos", "Bugs cerrados"],
+                  ...data.bugTrend.map((r) => [
+                    r.date,
+                    String(r.open ?? ""),
+                    String(r.closed ?? ""),
+                  ]),
+                  ["Ejecución", "Título", "Fecha", "Aprobación"],
+                  ...data.runTrend.map((r) => [
+                    r.id,
+                    r.title,
+                    r.createdAt,
+                    String(r.approvalRate ?? ""),
+                  ]),
+                  ["Caso", "Título", "Fallos", "Evaluados"],
+                  ...data.frequentFailures.map((r) => [
+                    r.caseId,
+                    r.title,
+                    String(r.failures),
+                    String(r.executions),
+                  ]),
+                ];
+                download(
+                  new Blob(
+                    [
+                      "\uFEFF" +
+                        rows
+                          .map((r) => r.map((v) => '"' + v.replace(/"/g, '""') + '"').join(";"))
+                          .join("\r\n"),
+                    ],
+                    { type: "text/csv;charset=utf-8" },
+                  ),
+                  "reporte-analitica.csv",
+                );
+              }}
+            >
+              Exportar reporte CSV
+            </button>
+          </section>
+          <div className="analytics__grid">
+            <TrendChart
+              label="Tasa de aprobación por ejecución"
+              percent
+              dates={data.runTrend.map((r) => r.createdAt)}
+              series={[
+                {
+                  name: "Aprobación",
+                  color: "#7563dc",
+                  values: data.runTrend.map((r) => r.approvalRate),
+                },
+              ]}
+            />
+            <TrendChart
+              label="Bugs abiertos y cerrados en el tiempo"
+              dates={data.bugTrend.map((r) => r.date)}
+              series={[
+                { name: "Abiertos", color: "#7563dc", values: data.bugTrend.map((r) => r.open) },
+                { name: "Cerrados", color: "#37a58b", values: data.bugTrend.map((r) => r.closed) },
+              ]}
+            />
+          </div>
+          <p className="typography__caption">
+            Historial de bugs disponible desde{" "}
+            {new Date(data.historySince).toLocaleDateString("es")}. Se muestra el saldo al cierre de
+            cada día; el día actual es parcial. Hasta 60 ejecuciones recientes del período, según su
+            fecha de creación.
           </p>
-        </div>
-        <button
-          type="button"
-          className="workspace__secondary reports__download"
-          onClick={downloadCsv}
-        >
-          Descargar CSV
-        </button>
-      </div>
-
-      <div className="reports__metrics">
-        {[
-          {
-            label: "Bugs abiertos",
-            value: metrics.openBugs,
-            detail: formatCount(metrics.resolvedBugs, "resuelto", "resueltos"),
-          },
-          {
-            label: "Casos de prueba",
-            value: cases.length,
-            detail: formatCount(metrics.casesByStatus.Pendiente, "pendiente", "pendientes"),
-          },
-          {
-            label: "Ejecuciones completadas",
-            value: metrics.completedRuns,
-            detail: `${metrics.activeRuns} en curso`,
-          },
-          { label: "Evidencias", value: metrics.evidenceCount, detail: "En el proyecto actual" },
-        ].map((item) => (
-          <article className="reports__metric" key={item.label}>
-            <span>{item.label}</span>
-            <strong>{item.value}</strong>
-            <small>{item.detail}</small>
-          </article>
-        ))}
-      </div>
-
-      <div className="reports__quality">
-        <article className="reports__quality-card">
-          <span>Progreso promedio de ejecuciones</span>
-          <strong>{metrics.averageRunProgress}%</strong>
-          <progress value={metrics.averageRunProgress} max={100} aria-label="Progreso promedio" />
-        </article>
-        <article className="reports__quality-card">
-          <span>Tasa de aprobación</span>
-          <strong>{metrics.approvalRate}%</strong>
-          <small>
-            {formatCount(metrics.recordedResults, "resultado registrado", "resultados registrados")}
-          </small>
-        </article>
-      </div>
-
-      <TypeCoverage cases={cases} runs={runs} />
-      <div className="reports__distributions">
-        {[
-          { title: "Estado de bugs", rows: bugStatuses },
-          { title: "Estado de casos de prueba", rows: caseStatuses },
-          { title: "Resultados de ejecución", rows: resultStatuses },
-        ].map(({ title, rows }) => {
-          const total = rows.reduce((sum, row) => sum + row.count, 0);
-          return (
-            <section className="reports__distribution" key={title} aria-label={title}>
-              <h3 className="typography__heading">{title}</h3>
-              {rows.map(({ label, count, tone }) => (
-                <div className="reports__bar-row" key={label}>
-                  <div className="reports__bar-label">
-                    <span>{label}</span>
-                    <strong>{count}</strong>
-                  </div>
-                  <div
-                    className="reports__bar"
-                    role="img"
-                    aria-label={`${label}: ${count} de ${total}`}
-                  >
-                    <span
-                      className={`reports__bar-fill reports__bar-fill--${tone}`}
-                      style={{ width: `${total ? (count / total) * 100 : 0}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-              {!total && <p className="reports__empty">Sin registros para mostrar.</p>}
+          <div className="analytics__grid">
+            <section className="workspace__panel">
+              <h2 className="typography__section">Casos que fallan con frecuencia</h2>
+              <p className="typography__caption">
+                Hasta 10 casos, ordenados por cantidad de fallos. Fallidos / resultados evaluados en
+                el período.
+              </p>
+              <Bars
+                items={data.frequentFailures.map((r) => ({
+                  label: `${r.caseId} · ${r.title}`,
+                  value: r.failures,
+                  total: r.executions,
+                }))}
+              />
             </section>
-          );
-        })}
-      </div>
-    </section>
+            <section className="workspace__panel">
+              <h2 className="typography__section">Cobertura por tipo de prueba</h2>
+              <p className="typography__caption">
+                Casos activos con algún resultado registrado / casos activos. Cobertura acumulada.
+              </p>
+              <Bars
+                items={data.typeCoverage.map((r) => ({
+                  label: r.type,
+                  value: r.executed,
+                  total: r.total,
+                }))}
+              />
+            </section>
+          </div>
+        </>
+      )}
+    </div>
   );
 }

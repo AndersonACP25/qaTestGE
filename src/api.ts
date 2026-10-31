@@ -162,7 +162,8 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
       (method === "PATCH" && /^\/mention-notifications\/[^/]+$/.test(pathname)) ||
       (method === "PATCH" &&
         (pathname === "/auth/password" || /^\/teams\/[^/]+$/.test(pathname))) ||
-      (method === "POST" && ["/auth/logout", "/team-invitations/accept"].includes(pathname));
+      (method === "POST" &&
+        ["/auth/logout", "/team-invitations/accept", "/coverage-links"].includes(pathname));
     if (!valid)
       throw new ApiError("La API no devolvió los datos esperados.", 204, "INVALID_RESPONSE");
     return undefined as T;

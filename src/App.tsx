@@ -4,7 +4,10 @@ import ProjectAccessView from "./views/ProjectAccessView";
 import { ProjectActivityView } from "./views/ProjectActivityView";
 import MentionsView from "./views/MentionsView";
 import CollaborationPanel from "./views/CollaborationPanel";
-import TypeCoverage from "./views/TypeCoverage";
+import DashboardView from "./views/DashboardView";
+import CoverageView from "./views/CoverageView";
+import "./views/analytics.css";
+import ImportPanel from "./views/ImportPanel";
 import CaseImportPanel from "./views/CaseImportPanel";
 import CaseHistoryPanel from "./views/CaseHistoryPanel";
 import TestPlansView from "./views/TestPlansView";
@@ -83,6 +86,7 @@ const navigation: {
       { id: "mentions", label: "Mis menciones", icon: "bell" },
       { id: "access", label: "Accesos al proyecto", icon: "settings" },
       { id: "overview", label: "Dashboard", icon: "grid" },
+      { id: "coverage", label: "Cobertura y requisitos", icon: "check-square" },
       { id: "reports", label: "Reportes y métricas", icon: "chart" },
       { id: "projects", label: "Proyectos", icon: "grid" },
       { id: "teams", label: "Equipos", icon: "grid" },
@@ -125,10 +129,19 @@ function App({
   const [tags, setTags] = useState<Tag[]>([]);
   const [tagError, setTagError] = useState("");
   const [revision, setRevision] = useState(0);
-  const { data, setData, loading, error, setLoading, setError } = useProjectData(
+  const [projectError, setError] = useState("");
+  const {
+    data,
+    setData,
+    loading,
+    error: resourceError,
+    setLoading,
+  } = useProjectData(
     projectId,
     revision,
+    !["overview", "reports", "coverage"].includes(activePage),
   );
+  const error = projectError || resourceError;
   const { workflow, error: workflowError } = useBugWorkflow(projectId, revision);
   const projectBugStatuses = workflow?.states ?? bugStatuses;
   const [typeFilter, setTypeFilter] = useState("Todos");
@@ -228,6 +241,7 @@ function App({
     void api<Project[]>("/projects", { signal: abort.signal })
       .then((items) => {
         if (abort.signal.aborted) return;
+        setError("");
         setProjects(items);
         setProjectId((current) =>
           items.some((p) => p.id === current) ? current : (items[0]?.id ?? ""),
@@ -318,6 +332,7 @@ function App({
     activity: "Actividad y auditoría",
     mentions: "Mis menciones",
     access: "Accesos al proyecto",
+    coverage: "Cobertura y requisitos",
     overview: "Dashboard",
     plans: "Planes y ciclos",
     workflow: "Flujo de bugs",
@@ -908,7 +923,6 @@ function App({
                   >
                     <Icon name={item.icon} size={18} />
                     <span>{item.label}</span>
-                    {item.id === "bugs" && <span className="nav-count">{bugs.length}</span>}
                   </button>
                 ))}
             </div>
@@ -984,6 +998,7 @@ function App({
               <p className="page-subtitle">{pageDescription(activePage)}</p>
             </div>
             {![
+              "coverage",
               "overview",
               "activity",
               "access",
@@ -1089,6 +1104,16 @@ function App({
           )}
           {error && <Alert tone="error">{error}</Alert>}
           {workflowError && <Alert tone="error">{workflowError}</Alert>}
+          {activePage === "bugs" && projectId && allowed("bugs.write") && (
+            <ImportPanel
+              key={`bugs:${user.id}:${projectId}`}
+              kind="bugs"
+              projectId={projectId}
+              onChanged={() => {
+                if (isRenderCurrent()) setRevision((v) => v + 1);
+              }}
+            />
+          )}
           {activePage === "cases" && projectId && (
             <>
               {allowed("cases.write") && (
@@ -1239,7 +1264,6 @@ function App({
               projectId={projectId}
             />
           ) : activePage === "tags" ? (
-            !loading &&
             projectId && (
               <>
                 {tagError ? (
@@ -1248,6 +1272,7 @@ function App({
                   <Alert tone="error">{error}</Alert>
                 ) : (
                   <TagsView
+                    key={`${user.id}:${projectId}`}
                     projectId={projectId}
                     tags={tags}
                     onChanged={() => setRevision((current) => current + 1)}
@@ -1255,18 +1280,16 @@ function App({
                 )}
               </>
             )
+          ) : activePage === "coverage" ? (
+            projectId && <CoverageView key={`${user.id}:${projectId}`} projectId={projectId} />
           ) : activePage === "reports" ? (
             !loading &&
             !error &&
             projectId && (
               <ReportsView
-                key={projectId}
-                closedStates={workflow?.closedStates}
+                key={`${user.id}:${projectId}`}
+                projectId={projectId}
                 projectName={project?.name ?? "Proyecto"}
-                bugs={bugs}
-                cases={cases}
-                runs={runs}
-                evidence={evidence}
               />
             )
           ) : (
@@ -1274,74 +1297,11 @@ function App({
             !error &&
             projectId &&
             (activePage === "overview" ? (
-              <>
-                <div className="workspace__metrics">
-                  {[
-                    [
-                      "Bugs abiertos",
-                      bugs.filter(
-                        (b) => !(workflow?.closedStates ?? ["Resuelto"]).includes(b.status),
-                      ).length,
-                    ],
-                    ["Casos de prueba", cases.length],
-                    ["Ejecuciones activas", runs.filter((r) => r.status === "En curso").length],
-                    ["Evidencias", evidence.length],
-                  ].map(([label, value]) => (
-                    <div className="workspace__metric" key={label}>
-                      <span>{label}</span>
-                      <strong>{value}</strong>
-                      <small>Proyecto actual · PostgreSQL</small>
-                    </div>
-                  ))}
-                </div>
-                <TypeCoverage key={projectId} cases={cases} runs={runs} />
-                <section className="workspace__panel">
-                  <div className="workspace-table__heading">
-                    <h2 className="typography__section">Bugs recientes</h2>
-                    <TableExport data={bugTableExport(bugs.slice(0, 5), tags)} />
-                  </div>
-                  <BugTable
-                    workflow={workflow}
-                    bugs={bugs.slice(0, 5)}
-                    tags={tags}
-                    onSelect={(bug) => setRecordDetail({ kind: "bug", record: bug })}
-                    onExport={(bug) => setExportTarget({ kind: "bug", record: bug })}
-                    onEdit={editBug}
-                    onDelete={(bug) => {
-                      setDeleteBugError("");
-                      setDeleteBugTarget(bug);
-                    }}
-                    onStatusChange={(bug, status) => void changeBugStatus(bug, status)}
-                    updatingStatus={updatingStatus}
-                  />
-                  {!bugs.length && (
-                    <p className="workspace__notice">Aún no hay bugs en este proyecto.</p>
-                  )}
-                </section>
-                <section className="workspace__panel">
-                  <div className="workspace-table__heading">
-                    <h2 className="typography__section">Ejecuciones recientes</h2>
-                    <TableExport data={runTableExport(runs.slice(0, 5), tags)} />
-                  </div>
-                  <RunTable
-                    items={runs.slice(0, 5)}
-                    tags={tags}
-                    onExecute={(run) => {
-                      setRunAction("execute");
-                      setRunDetail(run);
-                    }}
-                    onSelect={(run, action) => {
-                      setRunAction(action);
-                      setRunDetail(run);
-                    }}
-                  />
-                  {!runs.length && (
-                    <p className="workspace__notice">
-                      Aún no hay ejecuciones. Crea casos y agrúpalos en una ejecución.
-                    </p>
-                  )}
-                </section>
-              </>
+              <DashboardView
+                key={`${user.id}:${projectId}:${revision}`}
+                projectId={projectId}
+                onNavigate={navigate}
+              />
             ) : isListing ? (
               <section className="listing-card">
                 <div className="listing-toolbar listing-filters">
@@ -2396,6 +2356,7 @@ function pageDescription(page: NavigationPage): string {
     activity: "Consulta quién modificó los recursos y qué cambió.",
     mentions: "Consulta las menciones de tus compañeros dentro del proyecto.",
     access: "Asigna roles y controla el acceso a este proyecto.",
+    coverage: "Conecta requisitos, casos y bugs del proyecto.",
     overview: "Aquí tienes el estado de calidad de tus proyectos.",
     plans: "Agrupa casos y organiza ciclos de ejecución.",
     workflow: "Define los estados y transiciones de bugs por proyecto.",

@@ -1,4 +1,5 @@
 export type NavigationPage =
+  | "coverage"
   | "overview"
   | "activity"
   | "access"

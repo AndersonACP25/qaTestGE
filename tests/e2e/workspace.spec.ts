@@ -126,11 +126,13 @@ test("Dashboard y listados sin desbordamiento en ambos temas", async ({ page }, 
 
 test("Reportes muestra métricas del proyecto y descarga el CSV", async ({ page }) => {
   await navigate(page, "Reportes y métricas");
-  await expect(page.getByRole("heading", { name: /Resumen de Proyecto QA/ })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Estado de bugs" })).toBeVisible();
-  await expect(page.getByText("Bugs abiertos", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Resultados del período" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Bugs abiertos y cerrados en el tiempo" }),
+  ).toBeVisible();
+  await expect(page.getByText("Sin datos", { exact: false }).first()).toBeVisible();
   const download = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Descargar CSV" }).click();
+  await page.getByRole("button", { name: "Exportar reporte CSV" }).click();
   expect((await download).suggestedFilename()).toMatch(/^reporte-.*\.csv$/);
 });
 
@@ -141,7 +143,7 @@ test("las acciones de las tablas caben sin recortar sus botones", async ({ page 
       : [testInfo.project.use.viewport!.width];
   for (const width of widths) {
     await page.setViewportSize({ width, height: 900 });
-    for (const name of ["Dashboard", "Bugs", "Casos de prueba"]) {
+    for (const name of ["Bugs", "Casos de prueba"]) {
       await navigate(page, name);
       await noHorizontalOverflow(page);
       const actions = page.locator(".workspace-table__actions button");
@@ -252,7 +254,7 @@ test("administra proyectos con confirmación de borrado", async ({ page }) => {
 
 test("genera y acepta invitaciones de un solo uso", async ({ page, workspace }) => {
   await navigate(page, "Equipos");
-  await expect(page.getByText(/concede acceso a todos los proyectos/)).toBeVisible();
+  await expect(page.getByText(/un Admin deberá asignarte acceso a cada proyecto/)).toBeVisible();
   await page.getByRole("button", { name: "Generar invitación" }).click();
   await expect(page.getByLabel("Código generado")).toHaveValue("a".repeat(64));
   await page.getByLabel("Código de invitación").fill("a".repeat(64));

@@ -1,5 +1,21 @@
 const guides = [
   {
+    title: "Importar desde Excel",
+    text: "En Bugs, Casos de prueba o Tags pulsa Importar. Descarga la plantilla y la guía, elimina los ejemplos y completa la hoja correspondiente. Selecciona el archivo, revisa los errores y confirma. Bugs y casos conservan lo ya guardado si una fila falla: mantén el diálogo abierto para continuar los pendientes. Los tags se validan como un lote completo. Antes de repetir un archivo en un diálogo nuevo, revisa el listado.",
+  },
+  {
+    title: "Dashboard y analítica",
+    text: "Dashboard resume el estado actual con indicadores y gráficos. Reportes y métricas permite seleccionar un período, consultar aprobación por ejecución, bugs abiertos/cerrados y casos que fallan con frecuencia, y exportar CSV. Los días anteriores al inicio del historial de bugs aparecen sin datos. La cobertura por tipo cuenta casos activos con resultados registrados.",
+  },
+  {
+    title: "Cobertura de requisitos",
+    text: "En Cobertura y requisitos crea códigos y títulos y busca casos para vincularlos. La matriz conecta requisitos, casos y bugs, mostrando también los requisitos sin casos. QA y Admin pueden gestionar estos vínculos; todos los roles con acceso pueden consultar.",
+  },
+  {
+    title: "Compartir una ejecución",
+    text: "Abre el detalle en Test runs y pulsa Exportar informe PDF. El informe incluye el resumen, los pasos y la versión capturados al crear la ejecución, los resultados, las notas y las referencias a bugs y evidencias. Descarga el archivo y compártelo con quien corresponda; no contiene los archivos de evidencia ni abre un enlace público.",
+  },
+  {
     title: "1. Selecciona un proyecto",
     text: "El propietario crea proyectos; sus Admin pueden editarlos o eliminar los que estén vacíos. El selector superior muestra solo proyectos donde tienes acceso, con tu rol Admin, QA, Dev o Solo lectura.",
   },

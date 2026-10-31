@@ -25,9 +25,8 @@ test("los contadores y la exportación concuerdan con un registro", async ({ pag
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Dashboard", exact: true })).toBeVisible();
   await navigate(page, "Reportes y métricas");
-  await expect(page.getByText("1 resuelto", { exact: true })).toBeVisible();
-  await expect(page.getByText("1 pendiente", { exact: true })).toBeVisible();
-  await expect(page.getByText("0 resultados registrados", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Resultados del período" })).toBeVisible();
+  await expect(page.getByText(/Registrados: 0/)).toBeVisible();
   await navigate(page, "Bugs");
   await expect(page.locator(".workspace-table__footer")).toContainText("1 resultado ·");
   await page.getByRole("button", { name: "Exportar tabla de Bugs", exact: true }).click();

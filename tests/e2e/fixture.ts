@@ -58,6 +58,38 @@ export const test = base.extend<{
           user: { id: "1", name: "QA Local", email: "qa@example.test" },
           csrfToken: "test-csrf",
         };
+      else if (path === "/analytics")
+        data = {
+          range: {
+            from: url.searchParams.get("from") ?? "2026-10-01",
+            to: url.searchParams.get("to") ?? "2026-10-30",
+          },
+          historySince: createdAt,
+          generatedAt: createdAt,
+          summary: {
+            bugs: 1,
+            openBugs: 1,
+            closedBugs: 0,
+            cases: state.cases.length,
+            activeCases: state.cases.length,
+            runs: state.runs.length,
+            activeRuns: 0,
+            completedRuns: 0,
+            evidence: 1,
+            recorded: 0,
+            passed: 0,
+            failed: 0,
+            blocked: 0,
+            skipped: 0,
+            approvalRate: null,
+            requirements: 0,
+            coveredRequirements: 0,
+          },
+          runTrend: [],
+          bugTrend: [],
+          frequentFailures: [],
+          typeCoverage: [],
+        };
       else if (path === "/bug-workflow")
         data = {
           states: ["Abierto", "En progreso", "En revisión", "Resuelto"],

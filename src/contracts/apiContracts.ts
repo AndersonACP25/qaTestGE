@@ -1,3 +1,11 @@
+import {
+  analyticsSchema,
+  requirementSchema,
+  requirementsSchema,
+  coverageSchema,
+  runReportSchema,
+  importResultSchema,
+} from "./analyticsContracts";
 import { z } from "zod";
 
 const id = z.string().min(1).max(120);
@@ -174,7 +182,13 @@ export function parseApiData(path: string, method: string, input: unknown): unkn
   const parts = url.pathname.split("/").filter(Boolean);
   const [resource, action, detail] = parts;
   let schema: z.ZodType;
-  if (resource === "project-members") schema = z.array(projectMember);
+  if (resource === "analytics") schema = analyticsSchema;
+  else if (resource === "requirements")
+    schema = method === "GET" ? requirementsSchema : requirementSchema;
+  else if (resource === "coverage-matrix") schema = coverageSchema;
+  else if (resource === "imports" && action === "tags") schema = importResultSchema;
+  else if (resource === "test-runs" && detail === "report") schema = runReportSchema;
+  else if (resource === "project-members") schema = z.array(projectMember);
   else if (resource === "comments") schema = method === "GET" ? z.array(comment) : comment;
   else if (resource === "activity") schema = z.array(activity);
   else if (resource === "mention-notifications") schema = z.array(notification);

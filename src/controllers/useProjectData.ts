@@ -3,7 +3,7 @@ import { loadProject } from "../api";
 type ProjectData = Awaited<ReturnType<typeof loadProject>>;
 const empty: ProjectData = { bugs: [], cases: [], runs: [], evidence: [] };
 
-export function useProjectData(projectId: string, revision: number) {
+export function useProjectData(projectId: string, revision: number, enabled = true) {
   const [cache, setCache] = useState<Record<string, ProjectData>>({});
   const [status, setStatus] = useState({ scope: "", loading: true, error: "" });
   const setData = useCallback(
@@ -33,7 +33,7 @@ export function useProjectData(projectId: string, revision: number) {
     [projectId],
   );
   useEffect(() => {
-    if (!projectId) return;
+    if (!projectId || !enabled) return;
     const abort = new AbortController();
     setLoading(true);
     setError("");
@@ -49,12 +49,12 @@ export function useProjectData(projectId: string, revision: number) {
         if (!abort.signal.aborted) setLoading(false);
       });
     return () => abort.abort();
-  }, [projectId, revision, setData, setError, setLoading]);
+  }, [projectId, revision, enabled, setData, setError, setLoading]);
   return {
     data: cache[projectId] ?? empty,
     setData,
-    loading: status.scope === projectId ? status.loading : true,
-    error: status.scope === projectId ? status.error : "",
+    loading: enabled && (status.scope === projectId ? status.loading : true),
+    error: enabled && status.scope === projectId ? status.error : "",
     setLoading,
     setError,
   };
