@@ -16,6 +16,19 @@ afterEach(() => {
   setCsrfToken("");
 });
 describe("frontend API client without network", () => {
+  it("acepta el vínculo de cobertura sin respuesta, conservando CSRF y cuerpo JSON", async () => {
+    const fetch = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", fetch);
+    setCsrfToken("coverage-csrf");
+    await expect(
+      api("/coverage-links?projectId=1", {
+        method: "POST",
+        body: JSON.stringify({ requirementId: "REQ-001", caseId: "TC-001", bugId: "BUG-001" }),
+      }),
+    ).resolves.toBeUndefined();
+    expect(fetch.mock.calls[0][1].headers.get("Content-Type")).toBe("application/json");
+    expect(fetch.mock.calls[0][1].headers.get("X-CSRF-Token")).toBe("coverage-csrf");
+  });
   it("no acepta 204 para lecturas o creaciones que necesitan respuesta", async () => {
     vi.stubGlobal(
       "fetch",

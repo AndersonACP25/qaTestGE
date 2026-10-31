@@ -1,6 +1,7 @@
+import type { DatabasePool, DatabaseClient } from "../auth/actor-database.js";
 import { previousCreation, rememberCreation } from "./creation-request.js";
 import type { CreationContext } from "./creation-request.js";
-import type { Pool, PoolClient } from "pg";
+
 import type {
   BugWorkflow,
   CaseVersion,
@@ -12,8 +13,8 @@ import { HttpError } from "../http-error.js";
 import { parseReference, resourceId } from "../validation.js";
 
 export class PostgresQualityRepository implements QualityRepository {
-  constructor(private readonly pool: Pool) {}
-  private async transaction<T>(work: (client: PoolClient) => Promise<T>) {
+  constructor(private readonly pool: DatabasePool) {}
+  private async transaction<T>(work: (client: DatabaseClient) => Promise<T>) {
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
@@ -142,10 +143,6 @@ export class PostgresQualityRepository implements QualityRepository {
     }));
   }
   async workflow(projectId: string): Promise<BugWorkflow> {
-    await this.pool.query(
-      "INSERT INTO qa.project_bug_workflows(project_id) VALUES($1) ON CONFLICT DO NOTHING",
-      [projectId],
-    );
     const result = await this.pool.query<BugWorkflow>(
       'SELECT states,transitions,closed_states AS "closedStates",revision FROM qa.project_bug_workflows WHERE project_id=$1',
       [projectId],
@@ -154,10 +151,6 @@ export class PostgresQualityRepository implements QualityRepository {
   }
   async saveWorkflow(projectId: string, input: BugWorkflow): Promise<BugWorkflow> {
     return this.transaction(async (client) => {
-      await client.query(
-        "INSERT INTO qa.project_bug_workflows(project_id) VALUES($1) ON CONFLICT DO NOTHING",
-        [projectId],
-      );
       const config = await client.query<BugWorkflow>(
         'SELECT states,transitions,closed_states AS "closedStates",revision FROM qa.project_bug_workflows WHERE project_id=$1 FOR UPDATE',
         [projectId],

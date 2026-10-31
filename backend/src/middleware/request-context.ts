@@ -15,7 +15,7 @@ export function requestContext(
   return (request, response, next) => {
     const requestId = randomUUID();
     const resource = request.originalUrl.match(
-      /^\/api\/(auth|projects|teams|team-invitations|bugs|test-cases|test-runs|evidence|tags)(?:\/|\?|$)/,
+      /^\/api\/(auth|projects|teams|team-invitations|bugs|test-cases|test-runs|evidence|tags|comments|activity|project-members|mention-notifications|bug-workflow|test-plans)(?:\/|\?|$)/,
     )?.[1];
     const started = performance.now();
     response.locals.requestId = requestId;

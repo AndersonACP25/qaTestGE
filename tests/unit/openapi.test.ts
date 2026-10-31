@@ -3,8 +3,8 @@ import { openApiDocument } from "../../backend/src/openapi";
 
 describe("OpenAPI contract", () => {
   it("documents all implemented operations and locally resolvable schemas", () => {
-    expect(Object.keys(openApiDocument.paths)).toHaveLength(39);
-    expect(Object.values(openApiDocument.paths).flatMap(Object.keys)).toHaveLength(62);
+    expect(Object.keys(openApiDocument.paths)).toHaveLength(53);
+    expect(Object.values(openApiDocument.paths).flatMap(Object.keys)).toHaveLength(80);
     expect(openApiDocument.paths["/api/projects/{projectId}"]).toHaveProperty("delete");
     expect(openApiDocument.paths["/api/bugs/{bugId}"]).toHaveProperty("delete");
     expect(openApiDocument.paths["/api/test-runs/{runId}"]).toHaveProperty("patch");

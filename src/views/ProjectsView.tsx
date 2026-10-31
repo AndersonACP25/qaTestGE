@@ -82,7 +82,10 @@ export default function ProjectsView({
         <h2 className="typography__section">
           {editing ? `Editar ${editing.name}` : "Crear proyecto"}
         </h2>
-        <p>Solo el propietario del espacio puede crear, editar o eliminar proyectos.</p>
+        <p>
+          El propietario crea proyectos. Los Admin del proyecto pueden editarlo o eliminarlo si está
+          vacío.
+        </p>
         <form className="projects-view__form" onSubmit={(event) => void save(event)}>
           {!editing && (
             <label className="workspace__field">
@@ -148,7 +151,7 @@ export default function ProjectsView({
               <button
                 type="button"
                 className="workspace__secondary"
-                disabled={busy}
+                disabled={busy || project.role !== "Admin"}
                 onClick={() => {
                   setEditing(project);
                   setName(project.name);
@@ -162,7 +165,7 @@ export default function ProjectsView({
               <button
                 type="button"
                 className="workspace__danger"
-                disabled={busy}
+                disabled={busy || project.role !== "Admin"}
                 onClick={() => {
                   setDeleting(project);
                   setError("");

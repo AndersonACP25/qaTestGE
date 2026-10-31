@@ -57,6 +57,21 @@ export async function checkDatabase(pool: pg.Pool): Promise<void> {
   await pool.query(
     "SELECT project_id,test_case_id,version,snapshot FROM qa.test_case_versions LIMIT 0",
   );
+  await pool.query("SELECT project_id,user_id,role,revision FROM qa.project_members LIMIT 0");
+  await pool.query("SELECT project_id,author_id,body,version,request_key FROM qa.comments LIMIT 0");
+  await pool.query("SELECT project_id,comment_id,user_id FROM qa.comment_mentions LIMIT 0");
+  await pool.query(
+    "SELECT project_id,resource_kind,actor_id,before_data,after_data FROM qa.activity LIMIT 0",
+  );
+  await pool.query("SELECT project_id,user_id,read_at FROM qa.mention_notifications LIMIT 0");
+  await pool.query("SELECT project_id,id,code,version FROM qa.requirements LIMIT 0");
+  await pool.query(
+    "SELECT project_id,requirement_id,test_case_id FROM qa.requirement_cases LIMIT 0",
+  );
+  await pool.query(
+    "SELECT project_id,bug_id,is_closed,event,occurred_at FROM qa.bug_state_events LIMIT 0",
+  );
+  await pool.query("SELECT project_id,actor_id,request_key FROM qa.import_batches LIMIT 0");
   await pool.query("SELECT 1");
   await pool.query(
     "SELECT u.id,s.token_hash,m.user_id FROM qa.users u LEFT JOIN qa.auth_sessions s ON s.user_id=u.id LEFT JOIN qa.organization_members m ON m.user_id=u.id LIMIT 0",

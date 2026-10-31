@@ -27,6 +27,88 @@ export class AuthorizedRepository implements Repository {
     private readonly projects: () => Promise<Project[]>,
     private readonly actorId?: string,
   ) {}
+  get collaboration():
+    import("../models/collaboration.model.js").CollaborationRepository | undefined {
+    const base = this.base.collaboration;
+    if (!base) return undefined;
+    return {
+      members: async (p, c) => {
+        await this.projectIds(p);
+        return base.members(p, c);
+      },
+      saveMember: async (p, u, r, v) => {
+        await this.projectIds(p);
+        return base.saveMember(p, u, r, v);
+      },
+      comments: async (p, t) => {
+        await this.projectIds(p);
+        return base.comments(p, t);
+      },
+      createComment: async (p, t, b, k) => {
+        await this.projectIds(p);
+        return base.createComment(p, t, b, k);
+      },
+      editComment: async (p, id, b, v, r) => {
+        await this.projectIds(p);
+        return base.editComment(p, id, b, v, r);
+      },
+      activity: async (p, t, b) => {
+        await this.projectIds(p);
+        return base.activity(p, t, b);
+      },
+      notifications: async (p) => {
+        await this.projectIds(p);
+        return base.notifications(p);
+      },
+      readNotification: async (p, id) => {
+        await this.projectIds(p);
+        return base.readNotification(p, id);
+      },
+    };
+  }
+  get analytics(): import("../models/analytics.model.js").AnalyticsRepository | undefined {
+    const base = this.base.analytics;
+    if (!base) return undefined;
+    return {
+      overview: async (p, range) => {
+        await this.projectIds(p);
+        return base.overview(p, range);
+      },
+      requirements: async (p, limit, offset, search) => {
+        await this.projectIds(p);
+        return base.requirements(p, limit, offset, search);
+      },
+      saveRequirement: async (p, id, input, context) => {
+        await this.projectIds(p);
+        return base.saveRequirement(
+          p,
+          id,
+          input,
+          context ? { ...context, actorId: this.actorId! } : undefined,
+        );
+      },
+      deleteRequirement: async (p, id, version) => {
+        await this.projectIds(p);
+        return base.deleteRequirement(p, id, version);
+      },
+      linkCaseBug: async (p, requirementId, caseId, bugId) => {
+        await this.projectIds(p);
+        return base.linkCaseBug(p, requirementId, caseId, bugId);
+      },
+      coverage: async (p, limit, offset, requirementId) => {
+        await this.projectIds(p);
+        return base.coverage(p, limit, offset, requirementId);
+      },
+      runReport: async (p, id) => {
+        await this.projectIds(p);
+        return base.runReport(p, id);
+      },
+      importTags: async (p, rows, context) => {
+        await this.projectIds(p);
+        return base.importTags(p, rows, { ...context, actorId: this.actorId! });
+      },
+    };
+  }
   get quality(): import("../models/quality.model.js").QualityRepository | undefined {
     const base = this.base.quality;
     if (!base) return undefined;

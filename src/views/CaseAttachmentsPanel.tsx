@@ -1,8 +1,10 @@
+import { usePermissions } from "../controllers/ProjectPermissions";
 import { useEffect, useState } from "react";
 import Alert from "../Alert";
 import { listTestCaseAttachments, deleteTestCaseAttachment, testCaseImageUrl } from "../api";
 import type { TestCase, TestCaseAttachment } from "../types";
 export default function CaseAttachmentsPanel({ testCase }: { testCase: TestCase }) {
+  const readOnly = !usePermissions().can("evidence.write");
   const [attachments, setAttachments] = useState<TestCaseAttachment[]>([]);
   const [loadingAttachments, setLoadingAttachments] = useState(true);
   const [attachmentError, setAttachmentError] = useState("");
@@ -80,7 +82,7 @@ export default function CaseAttachmentsPanel({ testCase }: { testCase: TestCase 
           <button
             type="button"
             className="workspace__secondary"
-            disabled={Boolean(deletingAttachment)}
+            disabled={readOnly || Boolean(deletingAttachment)}
             onClick={() => void removeAttachment(attachment)}
           >
             {deletingAttachment === attachment.id ? "Eliminando…" : "Eliminar"}

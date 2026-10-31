@@ -29,8 +29,12 @@ export interface Project {
   organizationId: string;
   name: string;
   description: string;
+  role?: import("../models/collaboration.model.js").ProjectRole;
 }
 export interface Repository {
+  forActor?(actorId: string, requestId: string): Repository;
+  readonly collaboration?: import("../models/collaboration.model.js").CollaborationRepository;
+  readonly analytics?: import("../models/analytics.model.js").AnalyticsRepository;
   readonly quality?: import("../models/quality.model.js").QualityRepository;
   health(): Promise<void>;
   listProjects(): Promise<Project[]>;

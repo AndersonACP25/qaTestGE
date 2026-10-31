@@ -1,3 +1,7 @@
+import { PostgresAnalyticsRepository } from "./analytics.repository.js";
+import { PostgresCollaborationRepository } from "./collaboration.repository.js";
+import { actorDatabase } from "../auth/actor-database.js";
+import type { DatabasePool, DatabaseClient } from "../auth/actor-database.js";
 import { PostgresQualityRepository } from "./quality.repository.js";
 import { previousCreation, rememberCreation, requireCreatedRow } from "./creation-request.js";
 import type { CreationContext } from "./creation-request.js";
@@ -12,7 +16,7 @@ import type {
   AttachmentRow,
   TagRow,
 } from "./postgres.rows.js";
-import type { Pool, PoolClient } from "pg";
+
 import type { Repository } from "./repository.js";
 import type { BugStatus, CreateBugInput, UpdateBugInput } from "../models/bug.model.js";
 import type {
@@ -35,7 +39,7 @@ import type {
 } from "../models/evidence.model.js";
 import { HttpError } from "../http-error.js";
 import { parseReference, resourceId } from "../validation.js";
-export type DatabasePool = Pool;
+export type { DatabasePool } from "../auth/actor-database.js";
 
 const common = (r: BaseRow, prefix: string) => ({
   id: resourceId(prefix, r.id),
@@ -126,8 +130,18 @@ const evidenceSql = `SELECT e.id, e.project_id, e.name, e.type, e.size_bytes, e.
  FROM qa.evidence_links l WHERE l.evidence_id=e.id),'[]'::json) AS related FROM qa.evidence e`;
 
 export class PostgresRepository implements Repository {
+  forActor(actorId: string, requestId: string) {
+    return new PostgresRepository(actorDatabase(this.pool, actorId, requestId), actorId);
+  }
+  readonly collaboration?: PostgresCollaborationRepository;
+  readonly analytics: PostgresAnalyticsRepository;
   readonly quality: PostgresQualityRepository;
-  constructor(private readonly pool: Pool) {
+  constructor(
+    private readonly pool: DatabasePool,
+    actorId?: string,
+  ) {
+    if (actorId) this.collaboration = new PostgresCollaborationRepository(pool, actorId);
+    this.analytics = new PostgresAnalyticsRepository(pool);
     this.quality = new PostgresQualityRepository(pool);
   }
   async health() {
@@ -948,12 +962,16 @@ export class PostgresRepository implements Repository {
     );
     return rowCount === 1;
   }
-  private async validateAssignee(client: PoolClient, projectId: string, userId?: string | null) {
+  private async validateAssignee(
+    client: DatabaseClient,
+    projectId: string,
+    userId?: string | null,
+  ) {
     if (!userId) return;
     const result = await client.query(
       `SELECT 1 FROM qa.projects p JOIN qa.organization_members m ON m.organization_id=p.organization_id
        JOIN qa.users u ON u.id=m.user_id AND u.is_active
-       WHERE p.id=$1 AND m.user_id=$2 FOR SHARE OF m,u`,
+       WHERE p.id=$1 AND m.user_id=$2 AND qa.project_role(p.id,u.id) IS NOT NULL FOR SHARE OF m,u`,
       [projectId, userId],
     );
     if (!result.rowCount)
@@ -969,7 +987,7 @@ export class PostgresRepository implements Repository {
     resourceId: string,
     projectId: string,
     tagIds: string[] | undefined,
-    client: Pool | PoolClient = this.pool,
+    client: DatabasePool | DatabaseClient = this.pool,
   ) {
     if (tagIds === undefined) return;
     await client.query(`DELETE FROM ${table} WHERE project_id=$1 AND ${resourceColumn}=$2`, [
@@ -985,7 +1003,7 @@ export class PostgresRepository implements Repository {
     if (inserted.rowCount !== tagIds.length)
       throw new HttpError(400, "INVALID_TAG", "Todos los tags deben pertenecer al proyecto.");
   }
-  private async transaction<T>(work: (client: PoolClient) => Promise<T>): Promise<T> {
+  private async transaction<T>(work: (client: DatabaseClient) => Promise<T>): Promise<T> {
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");

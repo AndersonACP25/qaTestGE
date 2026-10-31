@@ -10,22 +10,25 @@ test("importa CSV con revisión, muestra tipo y filtra por estado documental", a
   workspace,
 }) => {
   await navigate(page, "Casos de prueba");
-  await page.getByText("Importar casos desde CSV o Excel", { exact: true }).click();
+  await page.getByRole("button", { name: "Importar", exact: true }).click();
   const csv =
     "clave;titulo;suite;tipo;estado;precondiciones;accion;resultadoEsperado\nS1;Rechazar inyección;API;Seguridad;Listo;Usuario activo;Enviar entrada;Rechazar\nS1;Rechazar inyección;API;Seguridad;Listo;Usuario activo;Revisar datos;Sin cambios\n";
   await page
-    .getByLabel("Archivo (CSV o .xlsx, máximo 2 MiB)")
+    .getByLabel("Archivo Excel o CSV")
     .setInputFiles({ name: "casos.csv", mimeType: "text/csv", buffer: Buffer.from(csv) });
   await expect(
-    page.getByText("1 caso preparado · 0 casos guardados", { exact: true }),
+    page.getByText("1 registro preparado · 0 registros guardados", { exact: true }),
   ).toBeVisible();
   expect(workspace.writes.filter((w) => w.path === "/test-cases")).toHaveLength(0);
   await page.getByRole("button", { name: "Confirmar importación de pendientes" }).click();
-  await expect(page.getByText("1 caso preparado · 1 caso guardado", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("1 registro preparado · 1 registro guardado", { exact: true }),
+  ).toBeVisible();
   const write = workspace.writes.find((w) => w.path === "/test-cases")!;
   expect(write.body.testType).toBe("Seguridad");
   expect(write.body.lifecycle).toBe("Listo");
   expect(write.body.steps).toHaveLength(2);
+  await page.getByRole("button", { name: "Cerrar ventana", exact: true }).click();
   await page
     .getByRole("combobox", { name: "Tipo de prueba", exact: true })
     .selectOption("Seguridad");
@@ -220,8 +223,8 @@ test("una importación parcial continúa sin duplicar los casos confirmados", as
     await route.fulfill({ status: 201, json: { data: item } });
   });
   await navigate(page, "Casos de prueba");
-  await page.getByText("Importar casos desde CSV o Excel", { exact: true }).click();
-  await page.getByLabel("Archivo (CSV o .xlsx, máximo 2 MiB)").setInputFiles({
+  await page.getByRole("button", { name: "Importar", exact: true }).click();
+  await page.getByLabel("Archivo Excel o CSV").setInputFiles({
     name: "casos.csv",
     mimeType: "text/csv",
     buffer: Buffer.from(
@@ -231,11 +234,11 @@ test("una importación parcial continúa sin duplicar los casos confirmados", as
   await page.getByRole("button", { name: "Confirmar importación de pendientes" }).click();
   await expect(page.getByText("No disponible", { exact: true })).toBeVisible();
   await expect(
-    page.getByText("2 casos preparados · 1 caso guardado", { exact: true }),
+    page.getByText("2 registros preparados · 1 registro guardado", { exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Confirmar importación de pendientes" }).click();
   await expect(
-    page.getByText("2 casos preparados · 2 casos guardados", { exact: true }),
+    page.getByText("2 registros preparados · 2 registros guardados", { exact: true }),
   ).toBeVisible();
   expect(requests.map((r) => r.title)).toEqual(["Primero", "Segundo", "Segundo"]);
   expect(requests[1].key).toBe(requests[2].key);
@@ -249,8 +252,8 @@ test("cambiar proyecto detiene una importación pendiente en su alcance original
     route.fulfill({
       json: {
         data: [
-          { id: "1", organizationId: "1", name: "Proyecto A", description: "" },
-          { id: "2", organizationId: "1", name: "Proyecto B", description: "" },
+          { id: "1", organizationId: "1", role: "Admin", name: "Proyecto A", description: "" },
+          { id: "2", organizationId: "1", role: "Admin", name: "Proyecto B", description: "" },
         ],
       },
     }),
@@ -280,8 +283,8 @@ test("cambiar proyecto detiene una importación pendiente en su alcance original
   });
   await page.reload();
   await navigate(page, "Casos de prueba");
-  await page.getByText("Importar casos desde CSV o Excel", { exact: true }).click();
-  await page.getByLabel("Archivo (CSV o .xlsx, máximo 2 MiB)").setInputFiles({
+  await page.getByRole("button", { name: "Importar", exact: true }).click();
+  await page.getByLabel("Archivo Excel o CSV").setInputFiles({
     name: "casos.csv",
     mimeType: "text/csv",
     buffer: Buffer.from(
@@ -319,18 +322,20 @@ test("previsualiza un archivo Excel antes de importar", async ({ page, workspace
   sheet.addRow(["X1", "Caso Excel", "Pagos", "Regresión", "Listo", "", "Confirmar", "Recibo"]);
   const bytes = await book.xlsx.writeBuffer();
   await navigate(page, "Casos de prueba");
-  await page.getByText("Importar casos desde CSV o Excel", { exact: true }).click();
-  await page.getByLabel("Archivo (CSV o .xlsx, máximo 2 MiB)").setInputFiles({
+  await page.getByRole("button", { name: "Importar", exact: true }).click();
+  await page.getByLabel("Archivo Excel o CSV").setInputFiles({
     name: "casos.xlsx",
     mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     buffer: Buffer.from(bytes),
   });
   await expect(
-    page.getByText("1 caso preparado · 0 casos guardados", { exact: true }),
+    page.getByText("1 registro preparado · 0 registros guardados", { exact: true }),
   ).toBeVisible();
   expect(workspace.writes.filter((w) => w.path === "/test-cases")).toHaveLength(0);
   await page.getByRole("button", { name: "Confirmar importación de pendientes" }).click();
-  await expect(page.getByText("1 caso preparado · 1 caso guardado", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("1 registro preparado · 1 registro guardado", { exact: true }),
+  ).toBeVisible();
   expect(workspace.cases.at(-1)?.testType).toBe("Regresión");
   await noHorizontalOverflow(page);
 });

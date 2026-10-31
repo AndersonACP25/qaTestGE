@@ -1,3 +1,4 @@
+import { usePermissions } from "../controllers/ProjectPermissions";
 import { useEffect, useRef, useState } from "react";
 import { api, toRun } from "../api";
 import type { ApiRun } from "../contracts/apiContracts";
@@ -14,6 +15,7 @@ export default function TestPlansView({
   cases: TestCase[];
   onChanged: () => void;
 }) {
+  const readOnly = !usePermissions().can("plans.write");
   const [plans, setPlans] = useState<TestPlan[]>([]);
   const [editing, setEditing] = useState<TestPlan | null>(null);
   const [error, setError] = useState("");
@@ -96,39 +98,49 @@ export default function TestPlansView({
           });
         }}
       >
-        <h3 className="typography__heading">{editing ? "Editar plan" : "Nuevo plan"}</h3>
-        <label className="workspace__field">
-          Nombre
-          <input name="name" required maxLength={200} defaultValue={editing?.name} />
-        </label>
-        <label className="workspace__field">
-          Descripción
-          <textarea name="description" maxLength={5000} defaultValue={editing?.description ?? ""} />
-        </label>
-        <fieldset disabled={busy}>
-          <legend>Casos del plan</legend>
-          {cases.map((c) => (
-            <label className="quality__choice" key={c.id}>
-              <input
-                type="checkbox"
-                name="caseIds"
-                value={c.id}
-                defaultChecked={editing?.caseIds.includes(c.id)}
-              />
-              {c.id} · {c.title} · {c.lifecycle ?? "Borrador"}
-            </label>
-          ))}
-        </fieldset>
-        <div className="quality__actions">
-          <button className="button button-primary" disabled={busy}>
-            Guardar plan
-          </button>
-          {editing && (
-            <button className="workspace__secondary" type="button" onClick={() => setEditing(null)}>
-              Cancelar
+        <fieldset className="permissions__group" disabled={readOnly || busy}>
+          <h3 className="typography__heading">{editing ? "Editar plan" : "Nuevo plan"}</h3>
+          <label className="workspace__field">
+            Nombre
+            <input name="name" required maxLength={200} defaultValue={editing?.name} />
+          </label>
+          <label className="workspace__field">
+            Descripción
+            <textarea
+              name="description"
+              maxLength={5000}
+              defaultValue={editing?.description ?? ""}
+            />
+          </label>
+          <fieldset disabled={busy || readOnly}>
+            <legend>Casos del plan</legend>
+            {cases.map((c) => (
+              <label className="quality__choice" key={c.id}>
+                <input
+                  type="checkbox"
+                  name="caseIds"
+                  value={c.id}
+                  defaultChecked={editing?.caseIds.includes(c.id)}
+                />
+                {c.id} · {c.title} · {c.lifecycle ?? "Borrador"}
+              </label>
+            ))}
+          </fieldset>
+          <div className="quality__actions">
+            <button className="button button-primary" disabled={busy || readOnly}>
+              Guardar plan
             </button>
-          )}
-        </div>
+            {editing && (
+              <button
+                className="workspace__secondary"
+                type="button"
+                onClick={() => setEditing(null)}
+              >
+                Cancelar
+              </button>
+            )}
+          </div>
+        </fieldset>
       </form>
       {plans.map((plan) => (
         <article className="quality__panel" key={plan.id}>
@@ -141,14 +153,14 @@ export default function TestPlansView({
           <div className="quality__actions">
             <button
               className="workspace__secondary"
-              disabled={busy}
+              disabled={busy || readOnly}
               onClick={() => setEditing(plan)}
             >
               Editar plan
             </button>
             <button
               className="button button-primary"
-              disabled={busy}
+              disabled={busy || readOnly}
               onClick={() =>
                 void act(async () => {
                   let pending = cycles.current.get(plan.id);
@@ -180,7 +192,7 @@ export default function TestPlansView({
             </button>
             <button
               className="workspace__danger"
-              disabled={busy}
+              disabled={busy || readOnly}
               onClick={() => {
                 if (window.confirm(`¿Eliminar el plan ${plan.name}?`))
                   void act(async () => {

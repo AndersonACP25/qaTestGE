@@ -17,8 +17,13 @@ Una plataforma para organizar el trabajo de QA de tu equipo: bugs, casos de prue
 - **Planes y ciclos:** agrupa casos, clona ejecuciones o reejecuta solo los fallidos conservando los pasos originales.
 - **Casos versionados e importación:** tipo de prueba independiente, Borrador/Listo/Obsoleto, historial e importación revisada de CSV/Excel.
 - **Flujo de bugs por proyecto:** estados y transiciones configurables, severidad, entorno y versión afectada.
+- **Comentarios y menciones:** conversa en bugs, casos y ejecuciones, con avisos internos e historial de actividad.
+- **Roles y auditoría:** Admin, QA, Dev y Solo lectura por proyecto, con registro persistente de cambios.
 - **Equipos y proyectos:** colabora mediante invitaciones de un solo uso.
-- **Dashboard, reportes y exportación:** consulta avances y descarga registros en Excel, PDF, Markdown o reportes CSV.
+- **Dashboard visual y analítica:** indicadores resumidos, tendencias de aprobación y bugs, fallos frecuentes y cobertura por tipo con agregaciones PostgreSQL.
+- **Cobertura de requisitos:** vincula requisitos, casos y bugs en una matriz paginada.
+- **Importación Excel:** botón Importar en Bugs, Casos y Tags, vista previa, [plantilla](public/templates/plantilla-qaTestGE.xlsx) y [guía](public/templates/guia-importacion.md) descargables.
+- **Informes compartibles:** exporta la ejecución a PDF con sus snapshots, notas y referencias de evidencia.
 - **Diseñadores:** prepara casos a partir de ejemplos y bugs desde plantillas; revisa el contenido antes de guardarlo.
 
 La IA y el cambio de imagen de perfil siguen siendo maquetas. Las pruebas se ejecutan manualmente.
@@ -74,3 +79,5 @@ Abre **http://localhost:5173**, crea tu cuenta y empieza con tu primer proyecto.
 ## Más información
 
 [Guía de uso](docs/USER_GUIDE.md) · [Desarrollo e instalación](docs/DEVELOPMENT.md) · [Arquitectura](docs/architecture.md) · [Contribuir](CONTRIBUTING.md) · [Seguridad](SECURITY.md)
+
+La migración **015** incorpora analítica y requisitos. Antes de iniciar una instalación existente ejecuta `pnpm db:migrate`. Consulta [definiciones y límites de las métricas](docs/analytics.md).

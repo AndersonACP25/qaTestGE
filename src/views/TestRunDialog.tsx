@@ -1,3 +1,7 @@
+import { exportRunReport } from "../utils/exportRunReport";
+import type { RunReport } from "../contracts/analyticsContracts";
+import { usePermissions } from "../controllers/ProjectPermissions";
+import CollaborationPanel from "./CollaborationPanel";
 import { useEffect, useRef, useState } from "react";
 import Alert from "../Alert";
 import Dialog from "../Dialog";
@@ -32,17 +36,21 @@ export default function TestRunDialog({
   bugs = [],
   evidence = [],
   onCreated,
+  userId = "",
 }: {
   run: TestRun;
   cases: TestCase[];
   onClose: () => void;
   onChanged: (run: TestRun) => void;
   onDeleted: () => void;
+  userId?: string;
   bugs?: Bug[];
   evidence?: Evidence[];
   onCreated?: (run: TestRun) => void;
   initialAction?: "view" | "edit" | "delete" | "execute";
 }) {
+  const permission = usePermissions();
+  const readOnly = !permission.can("runs.write");
   const [failureId, setFailureId] = useState("");
   const [bugKey, setBugKey] = useState(crypto.randomUUID());
   const cloneRequests = useRef(new Map<boolean, { key: string; body: string }>());
@@ -99,12 +107,27 @@ export default function TestRunDialog({
           {run.sourceRunId ? ` · Origen: ${run.sourceRunId}` : ""}
         </p>
         <div className="quality__actions">
+          <button
+            className="workspace__secondary"
+            disabled={busy}
+            onClick={() =>
+              void act(async () => {
+                const report = await api<RunReport>(
+                  `/test-runs/${run.id}/report?projectId=${encodeURIComponent(run.projectId!)}`,
+                );
+                if (alive.current) await exportRunReport(report, () => alive.current);
+              })
+            }
+          >
+            Exportar informe PDF
+          </button>
           {[false, true].map((failedOnly) => (
             <button
               type="button"
               key={String(failedOnly)}
               className="workspace__secondary"
               disabled={
+                readOnly ||
                 busy ||
                 (failedOnly && !run.results?.some((r) => r.executedAt && r.status === "failed"))
               }
@@ -168,7 +191,7 @@ export default function TestRunDialog({
               });
             }}
           >
-            <fieldset className="test-run__fields" disabled={busy}>
+            <fieldset className="test-run__fields" disabled={readOnly || busy}>
               <legend>Editar ejecución</legend>
               <label className="workspace__field">
                 Título
@@ -220,7 +243,7 @@ export default function TestRunDialog({
             <div className="test-run__actions">
               <button
                 className="workspace__secondary"
-                disabled={busy}
+                disabled={readOnly || busy}
                 onClick={() => {
                   setEditing(true);
                   setConfirmDelete(false);
@@ -230,7 +253,7 @@ export default function TestRunDialog({
               </button>
               <button
                 className="workspace__danger"
-                disabled={busy}
+                disabled={readOnly || busy}
                 onClick={() => setConfirmDelete(true)}
               >
                 Eliminar ejecución
@@ -314,7 +337,7 @@ export default function TestRunDialog({
                   </details>
                   <fieldset
                     className="test-run__fields"
-                    disabled={busy || run.status === "Completado"}
+                    disabled={readOnly || busy || run.status === "Completado"}
                   >
                     <legend>Registrar resultado de {result.caseId}</legend>
                     <label className="workspace__field">
@@ -346,7 +369,7 @@ export default function TestRunDialog({
                   Adjuntar evidencia a {result.id}
                   <input
                     type="file"
-                    disabled={busy}
+                    disabled={busy || !permission.can("evidence.write")}
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file)
@@ -387,7 +410,7 @@ export default function TestRunDialog({
                       <button
                         type="button"
                         className="workspace__secondary"
-                        disabled={busy}
+                        disabled={busy || !permission.can("bugs.write")}
                         onClick={() => {
                           setFailureId(result.id);
                           setBugKey(crypto.randomUUID());
@@ -491,6 +514,12 @@ export default function TestRunDialog({
             )}
           </>
         )}
+        <CollaborationPanel
+          key={`${run.projectId}:${run.id}`}
+          projectId={run.projectId!}
+          target={{ kind: "run", id: run.id }}
+          userId={userId}
+        />
         {busy && <p role="status">Guardando cambios…</p>}
       </div>
     </Dialog>

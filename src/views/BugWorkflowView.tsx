@@ -1,3 +1,4 @@
+import { usePermissions } from "../controllers/ProjectPermissions";
 import { useEffect, useRef, useState } from "react";
 import Alert from "../Alert";
 import { api } from "../api";
@@ -10,6 +11,7 @@ export default function BugWorkflowView({
   projectId: string;
   onChanged: () => void;
 }) {
+  const readOnly = !usePermissions().can("settings.manage");
   const [revision, setRevision] = useState(0);
   const { workflow, error: loadError } = useBugWorkflow(projectId, revision);
   const [draft, setDraft] = useState<BugWorkflow | null>(null);
@@ -88,7 +90,7 @@ export default function BugWorkflowView({
                 <input
                   type="checkbox"
                   checked={current.closedStates?.includes(state) ?? state === "Resuelto"}
-                  disabled={busy}
+                  disabled={readOnly || busy}
                   onChange={(e) =>
                     setDraft({
                       ...current,
@@ -109,7 +111,7 @@ export default function BugWorkflowView({
               <div className="quality__actions">
                 <button
                   className="workspace__secondary"
-                  disabled={busy || index === 0}
+                  disabled={readOnly || busy || index === 0}
                   onClick={() =>
                     setDraft({
                       ...current,
@@ -121,7 +123,7 @@ export default function BugWorkflowView({
                 </button>
                 <button
                   className="workspace__danger"
-                  disabled={busy || current.states.length === 1}
+                  disabled={readOnly || busy || current.states.length === 1}
                   onClick={() => {
                     const transitions = { ...current.transitions };
                     delete transitions[state];
@@ -138,7 +140,7 @@ export default function BugWorkflowView({
                   Retirar estado
                 </button>
               </div>
-              <fieldset disabled={busy}>
+              <fieldset disabled={readOnly || busy}>
                 <legend>Puede pasar a</legend>
                 {current.states
                   .filter((s) => s !== state)
@@ -165,7 +167,11 @@ export default function BugWorkflowView({
               </fieldset>
             </article>
           ))}
-          <button className="button button-primary" disabled={busy} onClick={() => void save()}>
+          <button
+            className="button button-primary"
+            disabled={readOnly || busy}
+            onClick={() => void save()}
+          >
             {busy ? "Guardando…" : "Guardar flujo"}
           </button>
         </>

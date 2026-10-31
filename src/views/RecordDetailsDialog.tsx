@@ -1,3 +1,4 @@
+import { usePermissions } from "../controllers/ProjectPermissions";
 import Dialog from "../Dialog";
 import { formatCount } from "../utils/pluralization";
 import type { ReactNode } from "react";
@@ -17,6 +18,7 @@ export default function RecordDetailsDialog({
   children?: ReactNode;
 }) {
   const { record } = detail;
+  const permission = usePermissions();
   const isBug = detail.kind === "bug";
   const bug: Bug | null = detail.kind === "bug" ? detail.record : null;
   const testCase: TestCase | null = detail.kind === "case" ? detail.record : null;
@@ -151,7 +153,12 @@ export default function RecordDetailsDialog({
           <button type="button" className="workspace__secondary" onClick={onClose}>
             Cerrar
           </button>
-          <button type="button" className="button button-primary" onClick={onEdit}>
+          <button
+            type="button"
+            className="button button-primary"
+            disabled={!permission.can(isBug ? "bugs.write" : "cases.write")}
+            onClick={onEdit}
+          >
             {isBug ? "Editar bug" : "Editar caso"}
           </button>
         </footer>

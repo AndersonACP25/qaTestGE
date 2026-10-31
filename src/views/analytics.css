@@ -1,0 +1,150 @@
+.analytics {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+}
+.analytics__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+.analytics__chart {
+  margin: 0;
+  padding: 24px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  min-width: 0;
+}
+.analytics__chart svg {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.analytics__legend {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  font-size: 14px;
+}
+.analytics__legend span {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.analytics__legend i {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+.analytics__distribution {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 24px;
+}
+.analytics__donut {
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.analytics__donut strong {
+  width: 110px;
+  height: 110px;
+  background: var(--panel);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 28px;
+}
+.analytics__bars {
+  display: grid;
+  gap: 20px;
+}
+.analytics__bar-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  overflow-wrap: anywhere;
+}
+.analytics progress {
+  width: 100%;
+  height: 14px;
+  accent-color: #7563dc;
+}
+.analytics__pagination {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.analytics__matrix {
+  overflow: auto;
+}
+.analytics__matrix table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.analytics__matrix th,
+.analytics__matrix td {
+  text-align: left;
+  padding: 16px;
+  border-bottom: 1px solid var(--line);
+  min-width: 160px;
+}
+.analytics__choices {
+  display: grid;
+  gap: 10px;
+  max-height: 240px;
+  overflow: auto;
+}
+.analytics__choices label {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+.analytics__form {
+  display: grid;
+  gap: 16px;
+}
+.analytics__import-preview {
+  max-height: 280px;
+  overflow: auto;
+}
+@media (max-width: 850px) {
+  .analytics__grid {
+    grid-template-columns: 1fr;
+  }
+  .analytics__chart {
+    padding: 16px;
+  }
+}
+
+.analytics__chart svg text {
+  fill: currentColor;
+}
+
+.analytics__plot {
+  display: grid;
+  grid-template-columns: 45px minmax(0, 1fr);
+  gap: 8px;
+  margin-top: 20px;
+}
+.analytics__axis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font-size: 14px;
+  padding: 6px 0;
+}
+.analytics__dates {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 8px 0 12px 53px;
+  font-size: 14px;
+}
