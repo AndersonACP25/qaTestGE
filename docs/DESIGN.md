@@ -78,3 +78,11 @@ La versión 1.1.0 prueba Mobile-M (375 px) y Mobile-L (425 px). A 620 px o menos
 `TestRunDialog` centraliza edición, resultados por caso, snapshots de pasos y confirmación de eliminación. Mantener un único diálogo activo. Distinguir Pendiente de ejecutar de Omitido registrado; completar exige un resultado explícito por caso. Las ejecuciones completadas deben reabrirse antes de corregir resultados.
 
 Antes de añadir un componente, comprobar si puede resolverse con una variante existente. Documentar propósito, propiedades, estados y accesibilidad al ampliar un contrato. Revisar escritorio/móvil, ambos temas, teclado, contenido largo, carga, vacío, error y éxito. Ejecutar los cinco comandos de AGENTS.md; las pruebas automáticas no sustituyen una revisión visual ni certifican accesibilidad.
+
+## Interacción y feedback
+
+`src/controls.css` define el contrato compartido: botones y enlaces de acción sin subrayado, hover con transición, foco visible y deshabilitado reconocible. La reducción de movimiento desactiva las transiciones. Importar usa un acento verde propio y consistente en Bugs/Casos/Tags, junto a Actualizar. Las descargas de plantillas se presentan como acciones; los enlaces de lectura conservan su semántica.
+
+Las acciones relevantes deben mostrar progreso y un resultado accesible, con Alert para confirmaciones y errores. Crear, editar, eliminar, cambiar accesos o flujo, importar y exportar no terminan en silencio. Las confirmaciones se emiten al resolver la operación, nunca por anticipado ni por cada GET automático; una respuesta de otro usuario/proyecto no puede notificar en la vista actual. No convertir códigos HTTP 200 en notificaciones globales indiscriminadas.
+
+Flujo de bugs y Actividad y auditoría viven en pestañas de Configuración, con contexto del proyecto seleccionado. Solo Admin configura el flujo; todos los roles con acceso consultan auditoría. El historial presenta eventos y cambios desplegables, cantidades de las páginas cargadas y búsqueda local explícita. Cobertura mantiene una tabla accesible con encabezados, filas legibles, acciones diferenciadas y paginación consistente. Los formularios de períodos alinean acciones de 44 px con los campos, sin estirar botones a la altura completa del formulario.

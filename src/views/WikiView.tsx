@@ -41,7 +41,11 @@ const guides = [
   },
   {
     title: "Comentarios, menciones y auditoría",
-    text: "Comenta en el detalle de bugs, casos y ejecuciones. Escribe @ y selecciona un integrante con acceso para mencionarlo; consulta los avisos en Mis menciones. El autor y los Admin pueden editar o eliminar comentarios, conservando el historial. Actividad y auditoría muestra los cambios confirmados y sus actores desde la migración 014. No se envían correos.",
+    text: "Comenta en el detalle de bugs, casos y ejecuciones. Escribe @ y selecciona un integrante con acceso para mencionarlo; consulta los avisos en Mis menciones. El autor y los Admin pueden editar o eliminar comentarios, conservando el historial. En Configuración, la pestaña Actividad y auditoría muestra los cambios confirmados y sus actores desde la migración 014. No se envían correos.",
+  },
+  {
+    title: "Flujo de bugs en Configuración",
+    text: "Selecciona el proyecto y abre Configuración → Flujo de bugs. Un Admin puede definir el estado inicial, las transiciones y qué estados cuentan como resueltos. Al guardar se muestra una confirmación; los estados en uso no se pueden retirar.",
   },
   {
     title: "Diseñador y configuración",
