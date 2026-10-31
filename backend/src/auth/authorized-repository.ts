@@ -66,6 +66,49 @@ export class AuthorizedRepository implements Repository {
       },
     };
   }
+  get analytics(): import("../models/analytics.model.js").AnalyticsRepository | undefined {
+    const base = this.base.analytics;
+    if (!base) return undefined;
+    return {
+      overview: async (p, range) => {
+        await this.projectIds(p);
+        return base.overview(p, range);
+      },
+      requirements: async (p, limit, offset, search) => {
+        await this.projectIds(p);
+        return base.requirements(p, limit, offset, search);
+      },
+      saveRequirement: async (p, id, input, context) => {
+        await this.projectIds(p);
+        return base.saveRequirement(
+          p,
+          id,
+          input,
+          context ? { ...context, actorId: this.actorId! } : undefined,
+        );
+      },
+      deleteRequirement: async (p, id, version) => {
+        await this.projectIds(p);
+        return base.deleteRequirement(p, id, version);
+      },
+      linkCaseBug: async (p, requirementId, caseId, bugId) => {
+        await this.projectIds(p);
+        return base.linkCaseBug(p, requirementId, caseId, bugId);
+      },
+      coverage: async (p, limit, offset, requirementId) => {
+        await this.projectIds(p);
+        return base.coverage(p, limit, offset, requirementId);
+      },
+      runReport: async (p, id) => {
+        await this.projectIds(p);
+        return base.runReport(p, id);
+      },
+      importTags: async (p, rows, context) => {
+        await this.projectIds(p);
+        return base.importTags(p, rows, { ...context, actorId: this.actorId! });
+      },
+    };
+  }
   get quality(): import("../models/quality.model.js").QualityRepository | undefined {
     const base = this.base.quality;
     if (!base) return undefined;

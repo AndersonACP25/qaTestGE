@@ -1,3 +1,4 @@
+import { PostgresAnalyticsRepository } from "./analytics.repository.js";
 import { PostgresCollaborationRepository } from "./collaboration.repository.js";
 import { actorDatabase } from "../auth/actor-database.js";
 import type { DatabasePool, DatabaseClient } from "../auth/actor-database.js";
@@ -133,12 +134,14 @@ export class PostgresRepository implements Repository {
     return new PostgresRepository(actorDatabase(this.pool, actorId, requestId), actorId);
   }
   readonly collaboration?: PostgresCollaborationRepository;
+  readonly analytics: PostgresAnalyticsRepository;
   readonly quality: PostgresQualityRepository;
   constructor(
     private readonly pool: DatabasePool,
     actorId?: string,
   ) {
     if (actorId) this.collaboration = new PostgresCollaborationRepository(pool, actorId);
+    this.analytics = new PostgresAnalyticsRepository(pool);
     this.quality = new PostgresQualityRepository(pool);
   }
   async health() {

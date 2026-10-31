@@ -1,3 +1,4 @@
+import analyticsRouter from "./routes/analytics.routes.js";
 import collaborationRouter from "./routes/collaboration.routes.js";
 import qualityRouter from "./routes/quality.routes.js";
 import { requestContext } from "./middleware/request-context.js";
@@ -55,6 +56,7 @@ export function createApp(repository: Repository, auth: AuthProvider) {
   app.use("/api", requireAuth(auth, repository));
   app.use("/api", workspaceRouter(auth));
   app.use("/api", qualityRouter);
+  app.use("/api", analyticsRouter);
   app.use("/api", collaborationRouter);
   app.use("/api/bugs", bugsRouter);
   app.use("/api/test-cases", testCasesRouter);

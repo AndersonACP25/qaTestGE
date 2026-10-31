@@ -1,3 +1,4 @@
+import { analyticsPaths } from "./analytics-openapi.js";
 import { collaborationPaths } from "./collaboration-openapi.js";
 import { qualityPaths } from "./quality-openapi.js";
 import { bugPriorities } from "./models/bug.model.js";
@@ -140,6 +141,7 @@ export const openApiDocument = {
   servers: [{ url: "/", description: "Servidor actual (directo o proxy /api)" }],
   security: [{ sessionCookie: [] as string[] }],
   paths: {
+    ...analyticsPaths,
     ...qualityPaths,
     ...collaborationPaths,
     "/api/auth/register": {

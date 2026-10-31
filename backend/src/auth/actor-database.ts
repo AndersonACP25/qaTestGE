@@ -51,7 +51,7 @@ export function actorDatabase(
           values?: unknown[],
         ): Promise<QueryResult<R>> {
           const result = await client.query<R>(sql, values);
-          if (sql.trim().toUpperCase() === "BEGIN") await context(client);
+          if (/^BEGIN(?:\s|$)/i.test(sql.trim())) await context(client);
           return result;
         },
         release: () => client.release(),
