@@ -38,6 +38,7 @@ export interface BugTemplateInput {
   priority: BugTemplatePriority;
 }
 export interface AuthProvider {
+  forActor?(actorId: string, requestId: string): AuthProvider;
   register(input: RegistrationInput, previousToken?: string): Promise<AuthGrant>;
   login(email: string, password: string, previousToken?: string): Promise<AuthGrant>;
   authenticate(token: string): Promise<AuthState | null>;

@@ -12,7 +12,7 @@ Este documento define el cierre técnico; preparar cambios no crea una etiqueta 
 
 ## Entrega
 
-La instalación nueva requiere una base `qa_test_ge` vacía y `DATABASE_URL` configurada, seguida de `pnpm db:setup`. Las instalaciones existentes aplican `pnpm db:migrate`; el historial llega a 012 y no se fusiona ni reimporta. No se cargan ejemplos automáticamente.
+La instalación nueva requiere una base `qa_test_ge` vacía y `DATABASE_URL` configurada, seguida de `pnpm db:setup`. Las instalaciones existentes aplican `pnpm db:migrate`; el historial llega a 014 y no se fusiona ni reimporta. No se cargan ejemplos automáticamente.
 
 Antes de desplegar en una instalación existente, obtener un respaldo por el procedimiento del operador y verificar su recuperación en un entorno separado. El repositorio no implementa respaldos ni despliegue a un proveedor. GitHub Actions valida PR/push a main y qa-env y publica artefactos compilados únicamente desde main.
 

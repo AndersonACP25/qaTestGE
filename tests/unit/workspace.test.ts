@@ -17,7 +17,9 @@ describe("workspace branding", () => {
     expect(html).toContain('src="/favicon.svg"');
     expect(html).not.toContain("Almacenamiento");
     expect(html).not.toContain("Demo local");
-    expect(html).toContain("Equipos");
+    expect(html).not.toContain(">Equipos</span>");
+    expect(html).toContain("Configuración");
+    expect(html).toContain("role-badge");
     expect(html).toContain("Reportes y métricas");
     expect(html).toContain("app-footer");
     expect(html).toContain("IA no conectada");

@@ -157,6 +157,15 @@ try {
     "INSERT INTO qa.organization_members(organization_id,user_id,role) VALUES($1,$2,'member')",
     [orgIds[0], userIds[1]],
   );
+  assert.equal(
+    (
+      await first
+        .put(`/api/project-members/${userIds[1]}`)
+        .query({ projectId })
+        .send({ role: "QA", revision: 0 })
+    ).status,
+    204,
+  );
   const assigned = await first
     .post("/api/bugs")
     .send({ projectId, title: "Asignado", priority: "Media", assigneeUserId: userIds[1] });
@@ -243,6 +252,7 @@ try {
       "test_case_steps",
       "test_cases",
       "bugs",
+      "project_bug_workflows",
     ]) {
       await client.query(
         `DELETE FROM qa.${table} WHERE project_id IN (SELECT id FROM qa.projects WHERE organization_id=ANY($1::bigint[]))`,

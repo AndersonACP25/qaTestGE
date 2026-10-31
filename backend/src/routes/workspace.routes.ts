@@ -22,7 +22,7 @@ export function workspaceRouter(auth: AuthProvider) {
     if (request.body.teamId !== undefined && !isId(request.body.teamId))
       throw new HttpError(400, "INVALID_PROJECT", "Equipo inválido.");
     response.status(201).json({
-      data: await auth.createProject(
+      data: await ((response.locals.auth as AuthProvider) ?? auth).createProject(
         response.locals.user.id,
         input.name,
         input.description,
@@ -35,7 +35,7 @@ export function workspaceRouter(auth: AuthProvider) {
       throw new HttpError(400, "INVALID_PROJECT", "Identificador de proyecto inválido.");
     const input = projectInput(request.body);
     response.json({
-      data: await auth.updateProject(
+      data: await ((response.locals.auth as AuthProvider) ?? auth).updateProject(
         response.locals.user.id,
         request.params.projectId,
         input.name,
@@ -46,44 +46,67 @@ export function workspaceRouter(auth: AuthProvider) {
   router.delete("/projects/:projectId", async (request, response) => {
     if (!isId(request.params.projectId))
       throw new HttpError(400, "INVALID_PROJECT", "Identificador de proyecto inválido.");
-    await auth.deleteProject(response.locals.user.id, request.params.projectId);
+    await ((response.locals.auth as AuthProvider) ?? auth).deleteProject(
+      response.locals.user.id,
+      request.params.projectId,
+    );
     response.status(204).end();
   });
   router.get("/teams", async (_request, response) => {
-    response.json({ data: await auth.listTeams(response.locals.user.id) });
+    response.json({
+      data: await ((response.locals.auth as AuthProvider) ?? auth).listTeams(
+        response.locals.user.id,
+      ),
+    });
   });
   router.post("/teams", async (request, response) => {
     if (!isRecord(request.body) || !text(request.body.name, 100))
       throw new HttpError(400, "INVALID_TEAM", "Introduce un nombre válido.");
-    response
-      .status(201)
-      .json({ data: await auth.createTeam(response.locals.user.id, request.body.name) });
+    response.status(201).json({
+      data: await ((response.locals.auth as AuthProvider) ?? auth).createTeam(
+        response.locals.user.id,
+        request.body.name,
+      ),
+    });
   });
   router.patch("/teams/:teamId", async (request, response) => {
     if (!isId(request.params.teamId) || !isRecord(request.body) || !text(request.body.name, 100))
       throw new HttpError(400, "INVALID_TEAM", "Revisa el nombre y el equipo.");
-    await auth.updateTeam(response.locals.user.id, request.params.teamId, request.body.name);
+    await ((response.locals.auth as AuthProvider) ?? auth).updateTeam(
+      response.locals.user.id,
+      request.params.teamId,
+      request.body.name,
+    );
     response.status(204).end();
   });
   router.delete("/teams/:teamId", async (request, response) => {
     if (!isId(request.params.teamId))
       throw new HttpError(400, "INVALID_TEAM", "Identificador de equipo inválido.");
-    await auth.deleteTeam(response.locals.user.id, request.params.teamId);
+    await ((response.locals.auth as AuthProvider) ?? auth).deleteTeam(
+      response.locals.user.id,
+      request.params.teamId,
+    );
     response.status(204).end();
   });
   router.get("/teams/:teamId/members", async (request, response) => {
     if (!isId(request.params.teamId))
       throw new HttpError(400, "INVALID_TEAM", "Identificador de equipo inválido.");
     response.json({
-      data: await auth.listTeamMembers(response.locals.user.id, request.params.teamId),
+      data: await ((response.locals.auth as AuthProvider) ?? auth).listTeamMembers(
+        response.locals.user.id,
+        request.params.teamId,
+      ),
     });
   });
   router.post("/teams/:teamId/invitations", async (request, response) => {
     if (!isId(request.params.teamId))
       throw new HttpError(400, "INVALID_TEAM", "Identificador de equipo inválido.");
-    response
-      .status(201)
-      .json({ data: await auth.createTeamInvite(response.locals.user.id, request.params.teamId) });
+    response.status(201).json({
+      data: await ((response.locals.auth as AuthProvider) ?? auth).createTeamInvite(
+        response.locals.user.id,
+        request.params.teamId,
+      ),
+    });
   });
   router.post("/team-invitations/accept", async (request, response) => {
     if (
@@ -92,13 +115,16 @@ export function workspaceRouter(auth: AuthProvider) {
       !/^[a-f0-9]{64}$/.test(request.body.code)
     )
       throw new HttpError(400, "INVALID_INVITE", "El código de invitación no es válido.");
-    await auth.acceptTeamInvite(response.locals.user.id, request.body.code);
+    await ((response.locals.auth as AuthProvider) ?? auth).acceptTeamInvite(
+      response.locals.user.id,
+      request.body.code,
+    );
     response.status(204).end();
   });
   router.delete("/teams/:teamId/members/:memberId", async (request, response) => {
     if (!isId(request.params.teamId) || !isId(request.params.memberId))
       throw new HttpError(400, "INVALID_TEAM", "Identificadores inválidos.");
-    await auth.removeTeamMember(
+    await ((response.locals.auth as AuthProvider) ?? auth).removeTeamMember(
       response.locals.user.id,
       request.params.teamId,
       request.params.memberId,

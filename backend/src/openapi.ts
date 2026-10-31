@@ -1,4 +1,7 @@
-import { bugPriorities, bugStatuses } from "./models/bug.model.js";
+import { analyticsPaths } from "./analytics-openapi.js";
+import { collaborationPaths } from "./collaboration-openapi.js";
+import { qualityPaths } from "./quality-openapi.js";
+import { bugPriorities } from "./models/bug.model.js";
 import { testCaseStatuses } from "./models/test-case.model.js";
 import { evidenceTypes } from "./models/evidence.model.js";
 
@@ -41,6 +44,15 @@ const inputs = {
       projectId,
       title: text(200),
       priority: { type: "string", enum: bugPriorities },
+      severity: { type: "string", enum: bugPriorities },
+      environment: { type: "string", maxLength: 100 },
+      affectedVersion: { type: "string", maxLength: 100 },
+      sourceResultId: {
+        type: "string",
+        pattern: "^RES-[0-9]{1,19}$",
+        description:
+          "Solo un fallo registrado del proyecto. Enlaza caso, ejecución, pasos y evidencias de forma transaccional; un bug por resultado.",
+      },
       description: { type: "string", maxLength: 5000 },
       assignee: { type: "string", nullable: true, maxLength: 100 },
       assigneeUserId: { type: "string", nullable: true, pattern: "^[1-9][0-9]{0,18}$" },
@@ -53,6 +65,9 @@ const inputs = {
       projectId,
       title: text(200),
       suite: { type: "string", maxLength: 100 },
+      testType: { type: "string", minLength: 1, maxLength: 100 },
+      lifecycle: { type: "string", enum: ["Borrador", "Listo", "Obsoleto"] },
+      expectedVersion: { type: "integer", minimum: 1 },
       preconditions: { type: "string", maxLength: 10000 },
       assigneeUserId: { type: "string", nullable: true, pattern: "^[1-9][0-9]{0,18}$" },
       steps: { type: "array", maxItems: 100, items: step },
@@ -60,11 +75,23 @@ const inputs = {
     },
     ["projectId", "title"],
   ),
-  TestRunInput: object({ projectId, title: text(200), owner: text(100), caseIds, tagIds }, [
-    "projectId",
-    "title",
-    "owner",
-  ]),
+  TestRunInput: object(
+    {
+      projectId,
+      title: text(200),
+      owner: text(100),
+      caseIds,
+      tagIds,
+      planId: { type: "string", pattern: "^PLAN-[0-9]{1,19}$" },
+      sourceRunId: { type: "string", pattern: "^RUN-[0-9]{1,19}$" },
+      failedOnly: {
+        type: "boolean",
+        description:
+          "Con sourceRunId: copia solo fallidos registrados. Los resultados nuevos quedan pendientes y conservan snapshots del origen.",
+      },
+    },
+    ["projectId", "title", "owner"],
+  ),
   EvidenceInput: object(
     {
       projectId,
@@ -92,7 +119,13 @@ const resources = [
 const errorResponse = (description: string) => ({ description, content: json(ref("Error")) });
 const envelope = (data: object) => object({ data }, ["data"]);
 const project = object(
-  { id: projectId, organizationId: projectId, name: text(100), description: { type: "string" } },
+  {
+    id: projectId,
+    organizationId: projectId,
+    name: text(100),
+    description: { type: "string" },
+    role: { type: "string", enum: ["Admin", "QA", "Dev", "Solo lectura"] },
+  },
   ["id", "organizationId", "name", "description"],
 );
 const unavailable = errorResponse("DATABASE_UNAVAILABLE: PostgreSQL no disponible.");
@@ -108,6 +141,9 @@ export const openApiDocument = {
   servers: [{ url: "/", description: "Servidor actual (directo o proxy /api)" }],
   security: [{ sessionCookie: [] as string[] }],
   paths: {
+    ...analyticsPaths,
+    ...qualityPaths,
+    ...collaborationPaths,
     "/api/auth/register": {
       post: {
         security: [],
@@ -1074,7 +1110,7 @@ export const openApiDocument = {
                         type: "string",
                         enum:
                           path === "bugs"
-                            ? bugStatuses
+                            ? undefined
                             : path === "test-cases"
                               ? testCaseStatuses
                               : ["En curso", "Completado"],
@@ -1188,10 +1224,18 @@ export const openApiDocument = {
         },
         ["id", "name", "title", "description", "priority", "createdAt"],
       ),
-      BugStatusInput: object({ projectId, status: { type: "string", enum: bugStatuses } }, [
-        "projectId",
-        "status",
-      ]),
+      BugStatusInput: object(
+        {
+          projectId,
+          status: {
+            type: "string",
+            minLength: 1,
+            maxLength: 60,
+            description: "Vocabulario y transiciones definidos en /api/bug-workflow",
+          },
+        },
+        ["projectId", "status"],
+      ),
       TestCaseStatusInput: object(
         { projectId, status: { type: "string", enum: testCaseStatuses } },
         ["projectId", "status"],
@@ -1232,7 +1276,12 @@ export const openApiDocument = {
       BugUpdateInput: object(
         {
           ...inputs.BugInput.properties,
-          status: { type: "string", enum: bugStatuses },
+          status: {
+            type: "string",
+            minLength: 1,
+            maxLength: 60,
+            description: "Vocabulario y transiciones definidos en /api/bug-workflow",
+          },
         },
         ["projectId", "title", "priority"],
       ),
@@ -1240,10 +1289,18 @@ export const openApiDocument = {
         {
           ...inputs.BugInput.properties,
           ...common,
+          sourceCaseId: { type: "string", nullable: true },
+          sourceRunId: { type: "string", nullable: true },
+          sourceSteps: { type: "array", items: step },
           project: text(100),
           description: { type: "string" },
           assignee: { type: "string", nullable: true },
-          status: { type: "string", enum: bugStatuses },
+          status: {
+            type: "string",
+            minLength: 1,
+            maxLength: 60,
+            description: "Vocabulario y transiciones definidos en /api/bug-workflow",
+          },
           tagIds,
         },
         [
@@ -1264,6 +1321,7 @@ export const openApiDocument = {
           ...inputs.TestCaseInput.properties,
           ...common,
           status: { type: "string", enum: testCaseStatuses },
+          version: { type: "integer", minimum: 1 },
           assigneeName: { type: "string", nullable: true },
           tagIds,
         },
@@ -1307,6 +1365,7 @@ export const openApiDocument = {
         {
           id: { type: "string", pattern: "^RES-[0-9]{1,19}$" },
           caseId: { type: "string", pattern: "^TC-[0-9]{1,19}$" },
+          caseVersion: { type: "integer", minimum: 1 },
           title: text(200),
           status: { type: "string", enum: ["passed", "failed", "blocked", "skipped"] },
           notes: { type: "string", maxLength: 10000 },

@@ -8,6 +8,13 @@ export interface BaseRow {
   created_at: Date;
 }
 export interface BugRow extends BaseRow {
+  severity?: import("../models/bug.model.js").BugPriority;
+  environment?: string;
+  affected_version?: string;
+  source_result_id?: string | null;
+  source_run_id?: string | null;
+  source_case_id?: string | null;
+  source_steps?: TestStep[];
   title: string;
   project: string;
   description: string;
@@ -21,6 +28,9 @@ export interface BugRow extends BaseRow {
 export interface CaseRow extends BaseRow {
   title: string;
   suite: string | null;
+  test_type?: string;
+  lifecycle?: "Borrador" | "Listo" | "Obsoleto";
+  version?: number;
   preconditions: string;
   status: TestCaseStatus;
   steps?: TestStep[];
@@ -31,6 +41,8 @@ export interface CaseRow extends BaseRow {
 export interface RunRow extends BaseRow {
   title: string;
   owner: string;
+  plan_id?: string | null;
+  source_run_id?: string | null;
   status: TestRunStatus;
   case_ids: string[];
   progress: number;

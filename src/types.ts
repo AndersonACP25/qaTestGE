@@ -1,6 +1,10 @@
 export type NavigationPage =
+  | "coverage"
   | "overview"
+  | "access"
+  | "mentions"
   | "reports"
+  | "plans"
   | "bugs"
   | "cases"
   | "bug-builder"
@@ -9,12 +13,10 @@ export type NavigationPage =
   | "evidence"
   | "tags"
   | "settings"
-  | "projects"
-  | "teams"
   | "wiki";
 
 export type PriorityLevel = "Crítica" | "Alta" | "Media" | "Baja";
-export type BugStatus = "Abierto" | "En progreso" | "En revisión" | "Resuelto";
+export type BugStatus = string;
 export type CaseStatus = "Aprobado" | "Fallido" | "Pendiente";
 
 export const bugStatuses: BugStatus[] = ["Abierto", "En progreso", "En revisión", "Resuelto"];
@@ -27,6 +29,13 @@ export interface Bug {
   project: string;
   description?: string;
   priority: PriorityLevel;
+  severity?: PriorityLevel;
+  environment?: string;
+  affectedVersion?: string;
+  sourceResultId?: string | null;
+  sourceRunId?: string | null;
+  sourceCaseId?: string | null;
+  sourceSteps?: { action: string; expectedResult: string }[];
   status: BugStatus;
   assignee: string;
   assigneeUserId?: string | null;
@@ -41,6 +50,9 @@ export interface TestCase {
   projectId?: string;
   title: string;
   suite: string;
+  testType?: string;
+  lifecycle?: "Borrador" | "Listo" | "Obsoleto";
+  version?: number;
   status: CaseStatus;
   updated: string;
   preconditions?: string;
@@ -66,6 +78,8 @@ export interface TestRun {
   id: string;
   title: string;
   cases: string;
+  planId?: string | null;
+  sourceRunId?: string | null;
   progress: number;
   status: "En curso" | "Completado";
   owner: string;

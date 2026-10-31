@@ -1,0 +1,174 @@
+:root {
+  --layout-space-sm: 8px;
+  --layout-space-md: 16px;
+  --layout-space-lg: 24px;
+  --layout-space-xl: 32px;
+}
+.layout__panel {
+  padding: var(--layout-space-lg);
+  min-width: 0;
+}
+.layout__stack {
+  display: grid;
+  gap: var(--layout-space-md);
+  min-width: 0;
+}
+.layout__stack > h2,
+.layout__stack > h3,
+.layout__stack > p {
+  margin: 0;
+}
+.layout__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--layout-space-sm);
+}
+.layout__inset {
+  padding: var(--layout-space-md);
+}
+.account-settings__workspace {
+  grid-column: 1/-1;
+  min-width: 0;
+}
+.workspace__dialog {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+}
+.workspace__dialog .workspace__dialog-heading {
+  position: static;
+  flex-shrink: 0;
+  margin: 0;
+  padding: var(--layout-space-md) var(--layout-space-lg);
+  gap: var(--layout-space-md);
+}
+.workspace__dialog-heading h2 {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.workspace__dialog-body {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding: var(--layout-space-lg);
+}
+.workspace__dialog-body > :first-child {
+  margin-top: 0;
+}
+.workspace__dialog-body > :last-child {
+  margin-bottom: 0;
+}
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  align-self: flex-start;
+  gap: 6px;
+  max-width: 100%;
+  padding: 4px 10px;
+  min-height: 28px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--purple) 35%, transparent);
+  background: var(--color-f1efff);
+  color: var(--purple);
+  font-size: var(--font-caption);
+  font-weight: 600;
+  line-height: 1.4;
+}
+.role-badge--qa {
+  background: color-mix(in srgb, var(--feedback-info) 12%, var(--panel));
+  color: var(--feedback-info);
+  border-color: color-mix(in srgb, var(--feedback-info) 35%, transparent);
+}
+.role-badge--dev {
+  background: color-mix(in srgb, var(--feedback-success) 12%, var(--panel));
+  color: var(--feedback-success);
+  border-color: color-mix(in srgb, var(--feedback-success) 35%, transparent);
+}
+.role-badge--reader {
+  background: var(--color-f7f8fa);
+  color: var(--color-626678);
+  border-color: var(--line);
+}
+.sidebar-nav {
+  min-height: 0;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--purple) 45%, transparent) transparent;
+  scrollbar-gutter: stable;
+  padding-right: 8px;
+}
+.sidebar-nav::-webkit-scrollbar {
+  width: 8px;
+}
+.sidebar-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--purple) 45%, transparent);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: 999px;
+}
+.sidebar-nav::-webkit-scrollbar-thumb:hover {
+  background: var(--purple);
+  background-clip: padding-box;
+}
+.collaboration__composer {
+  gap: var(--layout-space-md);
+}
+.collaboration__comment {
+  display: grid;
+  gap: var(--layout-space-md);
+  padding: var(--layout-space-lg);
+}
+.collaboration__comment > p,
+.collaboration__comment > header {
+  margin: 0;
+}
+.collaboration__comment .collaboration__actions {
+  margin-top: var(--layout-space-sm);
+  gap: 12px;
+}
+.collaboration__comments {
+  gap: var(--layout-space-lg);
+}
+.mentions-view__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--layout-space-lg);
+}
+.mentions-view__heading p {
+  margin: 8px 0 0;
+  line-height: 1.6;
+  color: var(--color-626678);
+}
+.mentions-view__heading button {
+  flex-shrink: 0;
+}
+.mentions-view .collaboration__comment button {
+  justify-self: start;
+}
+@media (max-width: 620px) {
+  .layout__panel {
+    padding: var(--layout-space-md);
+  }
+  .workspace__dialog-body {
+    padding: var(--layout-space-md);
+  }
+  .workspace__dialog .workspace__dialog-heading {
+    padding: var(--layout-space-md);
+  }
+  .mentions-view__heading {
+    flex-direction: column;
+  }
+}
+@media (forced-colors: active) {
+  .sidebar-nav {
+    scrollbar-color: auto;
+  }
+}

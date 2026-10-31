@@ -1,3 +1,6 @@
+import analyticsRouter from "./routes/analytics.routes.js";
+import collaborationRouter from "./routes/collaboration.routes.js";
+import qualityRouter from "./routes/quality.routes.js";
 import { requestContext } from "./middleware/request-context.js";
 import cors from "cors";
 import express, { type ErrorRequestHandler } from "express";
@@ -52,6 +55,9 @@ export function createApp(repository: Repository, auth: AuthProvider) {
   });
   app.use("/api", requireAuth(auth, repository));
   app.use("/api", workspaceRouter(auth));
+  app.use("/api", qualityRouter);
+  app.use("/api", analyticsRouter);
+  app.use("/api", collaborationRouter);
   app.use("/api/bugs", bugsRouter);
   app.use("/api/test-cases", testCasesRouter);
   app.use("/api/test-runs", testRunsRouter);
@@ -77,6 +83,24 @@ export function createApp(repository: Repository, auth: AuthProvider) {
           code: "DATABASE_SCHEMA_UNAVAILABLE",
           message:
             "Falta una tabla o columna requerida en PostgreSQL. Verifica el esquema existente y ejecuta pnpm db:migrate; no reimportes 001_schema.sql sobre una base inicializada.",
+        },
+      });
+      return;
+    }
+    if (code === "42501") {
+      response.status(403).json({
+        error: {
+          code: "FORBIDDEN",
+          message: "Tu rol no permite realizar esta acción en el proyecto.",
+        },
+      });
+      return;
+    }
+    if (code === "23514") {
+      response.status(409).json({
+        error: {
+          code: "DOMAIN_CONFLICT",
+          message: "El estado o la transición no está permitido por el flujo del proyecto.",
         },
       });
       return;

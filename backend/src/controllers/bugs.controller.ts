@@ -3,7 +3,6 @@ import { listQuery } from "../repositories/list-query.js";
 import type { Request, Response } from "express";
 import {
   bugPriorities,
-  bugStatuses,
   type CreateBugInput,
   type BugStatus,
   type UpdateBugInput,
@@ -14,10 +13,7 @@ import { HttpError } from "../http-error.js";
 
 export async function listBugs(request: Request, response: Response) {
   response.json({
-    data: await repository(request).listBugs(
-      projectFilter(request),
-      listQuery(request, ["Abierto", "En progreso", "En revisión", "Resuelto"]),
-    ),
+    data: await repository(request).listBugs(projectFilter(request), listQuery(request)),
   });
 }
 export async function deleteBug(request: Request, response: Response) {
@@ -52,7 +48,7 @@ export async function updateBugStatus(request: Request, response: Response) {
     !isRecord(body) ||
     !isId(body.projectId) ||
     typeof body.status !== "string" ||
-    !bugStatuses.includes(body.status as BugStatus)
+    !text(body.status, 60)
   ) {
     response.status(400).json({
       error: {
@@ -105,6 +101,7 @@ function isCreateBugInput(input: unknown): input is CreateBugInput {
     (input.assigneeUserId === undefined ||
       input.assigneeUserId === null ||
       isId(input.assigneeUserId)) &&
+    validBugFields(input) &&
     validTagIds(input.tagIds)
   );
 }
@@ -127,6 +124,7 @@ function isUpdateBugInput(
     (input.assigneeUserId === undefined ||
       input.assigneeUserId === null ||
       isId(input.assigneeUserId)) &&
+    validBugFields(input) &&
     validTagIds(input.tagIds) &&
     (input.status === undefined || isBugStatus(input.status))
   );
@@ -143,5 +141,15 @@ function validTagIds(value: unknown): boolean {
 }
 
 function isBugStatus(value: unknown): value is BugStatus {
-  return typeof value === "string" && bugStatuses.includes(value as BugStatus);
+  return text(value, 60);
+}
+
+function validBugFields(input: Record<string, unknown>): boolean {
+  return (
+    (input.severity === undefined || bugPriorities.some((p) => p === input.severity)) &&
+    [input.environment, input.affectedVersion].every(
+      (v) => v === undefined || (typeof v === "string" && v.length <= 100),
+    ) &&
+    (input.sourceResultId === undefined || parseReference(input.sourceResultId, "RES") !== null)
+  );
 }

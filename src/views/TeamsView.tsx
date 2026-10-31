@@ -140,8 +140,8 @@ export default function TeamsView({ onChanged }: { onChanged: () => void }) {
       <section className="projects-view__panel">
         <h2 className="typography__section">Unirse a un equipo</h2>
         <p>
-          Solicita al propietario un código de un solo uso. Al aceptarlo podrás acceder a todos los
-          proyectos de ese espacio.
+          Solicita al propietario un código de un solo uso. Al aceptarlo formarás parte del equipo;
+          un Admin deberá asignarte acceso a cada proyecto.
         </p>
         <form className="projects-view__form" onSubmit={(event) => void accept(event)}>
           <label className="workspace__field">
@@ -242,8 +242,8 @@ export default function TeamsView({ onChanged }: { onChanged: () => void }) {
               </div>
             )}
             <p>
-              Compartir un código concede acceso a todos los proyectos de este espacio. Compártelo
-              solo con la persona prevista.
+              El código permite unirse al equipo. Después asigna los roles necesarios en cada
+              proyecto. Compártelo solo con la persona prevista.
             </p>
             <button
               className="workspace__secondary"
@@ -257,6 +257,7 @@ export default function TeamsView({ onChanged }: { onChanged: () => void }) {
                       body: "{}",
                     }),
                   );
+                  setMessage("Invitación generada. Copia el código para compartirlo.");
                 })
               }
             >

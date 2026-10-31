@@ -1,3 +1,5 @@
+import { usePermissions } from "../controllers/ProjectPermissions";
+import type { BugWorkflow } from "../../backend/src/models/quality.model";
 import { Avatar, Icon, Priority, StatusBadge } from "../components/RecordPrimitives";
 import type { Bug, BugStatus, CaseStatus, TestCase, TestRun, Tag, Evidence } from "../types";
 import { bugStatuses, caseStatuses } from "../types";
@@ -92,7 +94,9 @@ export function BugTable({
   onStatusChange,
   updatingStatus,
   compact = false,
+  workflow,
 }: {
+  workflow?: BugWorkflow | null;
   bugs: Bug[];
   tags: Tag[];
   onSelect: (bug: Bug) => void;
@@ -103,6 +107,7 @@ export function BugTable({
   updatingStatus: string;
   compact?: boolean;
 }) {
+  const readOnly = !usePermissions().can("bugs.write");
   return (
     <div className={`workspace-table__scroll${compact ? " table-compact" : ""}`}>
       <table className="workspace-table__table">
@@ -136,8 +141,12 @@ export function BugTable({
                 <StatusControl
                   label={bug.id}
                   status={bug.status}
-                  statuses={bugStatuses}
-                  disabled={Boolean(updatingStatus)}
+                  statuses={
+                    workflow
+                      ? [bug.status, ...(workflow.transitions[bug.status] ?? [])]
+                      : bugStatuses
+                  }
+                  disabled={readOnly || Boolean(updatingStatus)}
                   onChange={(status) => onStatusChange(bug, status)}
                 />
               </td>
@@ -153,8 +162,8 @@ export function BugTable({
               <td data-label="Acciones">
                 <RowActions
                   id={bug.id}
-                  onEdit={onEdit ? () => onEdit(bug) : undefined}
-                  onDelete={onDelete ? () => onDelete(bug) : undefined}
+                  onEdit={!readOnly && onEdit ? () => onEdit(bug) : undefined}
+                  onDelete={!readOnly && onDelete ? () => onDelete(bug) : undefined}
                 />
                 <button
                   className="workspace__secondary workspace-table__export"
@@ -194,6 +203,7 @@ export function CaseTable({
   onStatusChange: (item: TestCase, status: CaseStatus) => void;
   updatingStatus: string;
 }) {
+  const readOnly = !usePermissions().can("cases.write");
   return (
     <div className="workspace-table__scroll">
       <table className="workspace-table__table">
@@ -201,7 +211,7 @@ export function CaseTable({
           <tr>
             <th>CASO ID</th>
             <th>NOMBRE DEL CASO</th>
-            <th>SUITE</th>
+            <th>CLASIFICACIÓN</th>
             <th>RESPONSABLE</th>
             <th>ESTADO</th>
             <th>CREADO</th>
@@ -218,8 +228,12 @@ export function CaseTable({
                 <span className="bug-title">{item.title}</span>
                 <TagBadges ids={item.tagIds ?? []} tags={tags} />
               </td>
-              <td data-label="SUITE">
+              <td data-label="CLASIFICACIÓN">
                 <span className="suite-badge">{item.suite || "—"}</span>
+                <p>
+                  {item.testType ?? "Funcional"} · {item.lifecycle ?? "Borrador"} · v
+                  {item.version ?? 1}
+                </p>
               </td>
               <td data-label="RESPONSABLE">{item.assigneeName || "Sin asignar"}</td>
               <td data-label="ESTADO">
@@ -227,7 +241,7 @@ export function CaseTable({
                   label={item.id}
                   status={item.status}
                   statuses={caseStatuses}
-                  disabled={Boolean(updatingStatus)}
+                  disabled={readOnly || Boolean(updatingStatus)}
                   onChange={(status) => onStatusChange(item, status)}
                 />
               </td>
@@ -237,8 +251,8 @@ export function CaseTable({
               <td data-label="Acciones">
                 <RowActions
                   id={item.id}
-                  onEdit={() => onEdit(item)}
-                  onDelete={() => onDelete(item)}
+                  onEdit={readOnly ? undefined : () => onEdit(item)}
+                  onDelete={readOnly ? undefined : () => onDelete(item)}
                 />
                 <button
                   className="workspace__secondary workspace-table__export"
@@ -270,6 +284,7 @@ export function RunTable({
   onSelect: (item: TestRun, action: "view" | "edit" | "delete") => void;
   onExecute: (item: TestRun) => void;
 }) {
+  const readOnly = !usePermissions().can("runs.write");
   return (
     <div className="workspace-table__scroll">
       <table className="workspace-table__table">
@@ -304,6 +319,7 @@ export function RunTable({
                   <button
                     type="button"
                     className="workspace__secondary run-table__execute"
+                    disabled={readOnly && item.status !== "Completado"}
                     aria-label={`${item.status === "Completado" ? "Ver resultados de" : "Ejecutar"} ${item.title}`}
                     onClick={(event) => {
                       event.stopPropagation();
@@ -336,8 +352,8 @@ export function RunTable({
               <td data-label="Acciones">
                 <RowActions
                   id={item.id}
-                  onEdit={() => onSelect(item, "edit")}
-                  onDelete={() => onSelect(item, "delete")}
+                  onEdit={readOnly ? undefined : () => onSelect(item, "edit")}
+                  onDelete={readOnly ? undefined : () => onSelect(item, "delete")}
                 />
               </td>
             </tr>

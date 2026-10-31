@@ -154,7 +154,12 @@ export function useCaseDesignController(
       const input = designedCaseInput(projectId, text, currentCase);
       const existing = savedCases[key];
       const saved = existing
-        ? await updateTestCase(existing.id, projectId, { ...input, tagIds: existing.tagIds ?? [] })
+        ? await updateTestCase(existing.id, projectId, {
+            ...input,
+            expectedVersion: existing.version,
+            lifecycle: existing.lifecycle,
+            tagIds: existing.tagIds ?? [],
+          })
         : await createTestCase(
             input,
             requestKeys.current[key] ?? (requestKeys.current[key] = crypto.randomUUID()),

@@ -339,7 +339,7 @@ describe("qaTestGE API with an injected repository (no database)", () => {
       (
         await signed()
           .patch("/api/bugs/BUG-001")
-          .send({ ...input, status: "Cerrado" })
+          .send({ ...input, status: " " })
       ).status,
     ).toBe(400);
     expect(repo.updateBug).toHaveBeenCalledTimes(1);
@@ -353,7 +353,7 @@ describe("qaTestGE API with an injected repository (no database)", () => {
     expect(changedBug.body.data.status).toBe("En progreso");
     expect(repo.updateBugStatus).toHaveBeenCalledWith("1", "1", "En progreso");
     expect(
-      (await signed().patch("/api/bugs/BUG-001/status").send({ projectId: "1", status: "Cerrado" }))
+      (await signed().patch("/api/bugs/BUG-001/status").send({ projectId: "1", status: " " }))
         .status,
     ).toBe(400);
     expect(

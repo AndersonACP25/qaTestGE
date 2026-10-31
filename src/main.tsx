@@ -4,6 +4,8 @@ import { createRoot } from "react-dom/client";
 import Session from "./Session";
 import "./typography.css";
 import "./styles.css";
+import "./controls.css";
+import "./spacing.css";
 
 const rootElement = document.getElementById("root");
 

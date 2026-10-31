@@ -4,6 +4,34 @@ Todos los cambios importantes de qaTestGE se documentan aquí. El formato sigue 
 
 ## [Unreleased]
 
+- Proyectos y Equipos en Configuración; badge del rol y reglas/clases compartidas de espaciado interior.
+- Reportes con indicadores y rankings renovados; validación de Desde/Hasta antes de consultar.
+- Encabezados de diálogos fijos, scrollbar lateral discreto, Wiki por categorías/búsqueda y comentarios más espaciados.
+- Menciones por nombre completo único con validación transaccional y selección obligatoria ante homónimos; avisos actualizados al recuperar foco y cada 15 segundos visibles. Abrir el aviso recarga el registro antes de marcarlo leído.
+
+- Importar junto a Actualizar con acento propio; descargas sin subrayado, hover/foco compartidos y contador de tags compacto.
+- Flujo de bugs y auditoría como pestañas de Configuración; actividad con resumen, búsqueda de páginas cargadas y cambios desplegables.
+- Confirmaciones explícitas en acciones antes silenciosas, preservando alcance y errores.
+- Tabla/acciones de cobertura mejoradas y botón Aplicar período alineado a los campos.
+
+- Importación revisada de Bugs, Casos y Tags desde Excel/CSV con plantilla y guía descargables.
+- Dashboard visual sin tablas; Reportes con agregados PostgreSQL, períodos, aprobación por ejecución, bugs históricos y fallos frecuentes.
+- Requisitos versionados y matriz requisito/caso/bug paginada.
+- Informe de ejecución PDF con snapshots, notas y referencias de evidencia.
+- Migración aditiva 015 con eventos históricos inmutables e importación atómica de tags.
+
+- Comentarios con revisión y @menciones en bugs, casos y ejecuciones, con avisos internos por destinatario.
+- Actividad persistente con cambios antes/después, actor y correlación, inmutable desde aplicación/PostgreSQL ordinario.
+- Admin, QA, Dev y Solo lectura por proyecto; administración de accesos, protección de propietario/último Admin y revocación controlada.
+- Migración 014 que conserva accesos heredados explícitos y elimina la concesión automática de proyectos futuros.
+
+- Bug desde un fallo con caso, ejecución, snapshot y evidencias enlazados; severidad, entorno y versión afectada.
+- Tipo de prueba independiente, cobertura por tipo y ciclo documental Borrador/Listo/Obsoleto con historial y control de versiones concurrentes.
+- Planes/ciclos, clonación de ejecuciones y reejecución de fallidos conservando snapshots originales.
+- Importación revisada CSV/Excel con plantilla, validación por fila, claves idempotentes y recuperación de avances parciales.
+- Flujo de estados, transiciones y estados resueltos configurable por proyecto, validado en servidor.
+- Migración aditiva 013, contratos/OpenAPI, guía de uso y regresiones de PostgreSQL y navegador en tres tamaños.
+
 ## [1.1.0] — 2026-10-23
 
 - Gestión de Test Runs: crear, consultar, editar título/responsable/casos/estado y eliminar con confirmación.

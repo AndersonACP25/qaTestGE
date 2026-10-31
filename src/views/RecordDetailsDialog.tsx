@@ -1,3 +1,4 @@
+import { usePermissions } from "../controllers/ProjectPermissions";
 import Dialog from "../Dialog";
 import { formatCount } from "../utils/pluralization";
 import type { ReactNode } from "react";
@@ -17,6 +18,7 @@ export default function RecordDetailsDialog({
   children?: ReactNode;
 }) {
   const { record } = detail;
+  const permission = usePermissions();
   const isBug = detail.kind === "bug";
   const bug: Bug | null = detail.kind === "bug" ? detail.record : null;
   const testCase: TestCase | null = detail.kind === "case" ? detail.record : null;
@@ -52,6 +54,26 @@ export default function RecordDetailsDialog({
         {bug ? (
           <section className="record-view__section">
             <h4>Descripción</h4>
+            <p>
+              Severidad: {bug.severity ?? "Media"} · Entorno: {bug.environment || "Sin indicar"} ·
+              Versión: {bug.affectedVersion || "Sin indicar"}
+            </p>
+            {bug.sourceResultId && (
+              <section>
+                <h4>Origen del fallo</h4>
+                <p>
+                  {bug.sourceCaseId} · {bug.sourceRunId} · {bug.sourceResultId}
+                </p>
+                <ol>
+                  {bug.sourceSteps?.map((s, i) => (
+                    <li key={i}>
+                      {s.action}
+                      <p>Esperado: {s.expectedResult}</p>
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            )}
             <p className="record-view__copy">{bug.description?.trim() || "Sin descripción."}</p>
             <dl className="record-view__metadata">
               <div>
@@ -70,6 +92,10 @@ export default function RecordDetailsDialog({
           <>
             <section className="record-view__section">
               <h4>Precondiciones</h4>
+              <p>
+                {testCase?.testType ?? "Funcional"} · {testCase?.lifecycle ?? "Borrador"} · Versión{" "}
+                {testCase?.version ?? 1}
+              </p>
               <p className="record-view__copy">
                 {testCase?.preconditions?.trim() || "Sin precondiciones."}
               </p>
@@ -127,7 +153,12 @@ export default function RecordDetailsDialog({
           <button type="button" className="workspace__secondary" onClick={onClose}>
             Cerrar
           </button>
-          <button type="button" className="button button-primary" onClick={onEdit}>
+          <button
+            type="button"
+            className="button button-primary"
+            disabled={!permission.can(isBug ? "bugs.write" : "cases.write")}
+            onClick={onEdit}
+          >
             {isBug ? "Editar bug" : "Editar caso"}
           </button>
         </footer>

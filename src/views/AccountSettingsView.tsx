@@ -1,3 +1,9 @@
+import ProjectsView from "./ProjectsView";
+import TeamsView from "./TeamsView";
+import type { Project } from "../api";
+import BugWorkflowView from "./BugWorkflowView";
+import { ProjectActivityView } from "./ProjectActivityView";
+import { usePermissions } from "../controllers/ProjectPermissions";
 import CaseDesignSettings from "./CaseDesignSettings";
 import type { CasePreferences } from "../models/casePreferences";
 import { useEffect, useState } from "react";
@@ -10,19 +16,36 @@ const priorities: BugTemplatePriority[] = ["Crítica", "Alta", "Media", "Baja"];
 const emptyTemplate: BugTemplateInput = { name: "", title: "", description: "", priority: "Media" };
 
 export default function AccountSettingsView({
+  projects = [],
+  refreshRevision = 0,
+  projectId = "",
+  projectName = "Proyecto",
+  onProjectChanged = () => {},
   preferences,
   onPreferencesChanged,
   user,
   onUserUpdated,
   onAccountDeleted,
 }: {
+  projects?: Project[];
+  refreshRevision?: number;
+  projectId?: string;
+  projectName?: string;
+  onProjectChanged?: () => void;
   preferences: CasePreferences;
   onPreferencesChanged: (next: CasePreferences) => Promise<void>;
   user: User;
   onUserUpdated: (user: User) => void;
   onAccountDeleted: () => void;
 }) {
-  const [section, setSection] = useState<"cuenta" | "plantillas" | "diseno" | "ia">("cuenta");
+  const [section, setSection] = useState<
+    "cuenta" | "plantillas" | "diseno" | "ia" | "workflow" | "activity" | "projects" | "teams"
+  >("cuenta");
+  const canManage = usePermissions().can("settings.manage");
+  const activeSection =
+    (section === "workflow" && (!projectId || !canManage)) || (section === "activity" && !projectId)
+      ? "cuenta"
+      : section;
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -171,6 +194,7 @@ export default function AccountSettingsView({
     try {
       await api<void>(`/auth/bug-templates/${encodeURIComponent(template.id)}`, {
         method: "DELETE",
+        body: "{}",
       });
       setTemplates((current) => current.filter((item) => item.id !== template.id));
       if (editingTemplateId === template.id) resetTemplateForm();
@@ -211,352 +235,401 @@ export default function AccountSettingsView({
         {(
           [
             ["cuenta", "Cuenta y seguridad"],
+            ["projects", "Proyectos"],
+            ["teams", "Equipos"],
             ["plantillas", "Plantillas de bugs"],
             ["diseno", "Diseño de casos"],
             ["ia", "Inteligencia artificial"],
+            ...(projectId && canManage ? [["workflow", "Flujo de bugs"] as const] : []),
+            ...(projectId ? [["activity", "Actividad y auditoría"] as const] : []),
           ] as const
         ).map(([id, label]) => (
           <button
             key={id}
             type="button"
             className="account-settings__tab"
-            aria-pressed={section === id}
+            aria-pressed={activeSection === id}
             onClick={() => setSection(id)}
           >
             {label}
           </button>
         ))}
       </nav>
-      <section className="account-settings__card" hidden={section !== "cuenta"}>
-        <div className="account-settings__heading">
-          <h2 className="typography__section">Información de la cuenta</h2>
-          <p>Actualiza el nombre y correo asociados a tu usuario.</p>
-        </div>
-        <div className="account-settings__avatar-preview">
-          <span className="account-settings__avatar" aria-hidden="true">
-            {user.name.trim().slice(0, 2).toLocaleUpperCase("es")}
-          </span>
-          <div>
-            <h3 className="typography__heading">Imagen de perfil</h3>
-            <p id="profile-image-preview">
-              Próximamente podrás cambiar tu imagen de perfil. Esta opción es una maqueta.
-            </p>
-            <button
-              className="workspace__secondary"
-              type="button"
-              disabled
-              aria-describedby="profile-image-preview"
+      {activeSection === "projects" && (
+        <section className="account-settings__workspace">
+          <ProjectsView projects={projects} onChanged={onProjectChanged} />
+        </section>
+      )}
+      {activeSection === "teams" && (
+        <section className="account-settings__workspace">
+          <TeamsView onChanged={onProjectChanged} />
+        </section>
+      )}
+      {projectId && (activeSection === "workflow" || activeSection === "activity") && (
+        <section className="account-settings__project">
+          <span className="typography__caption">PROYECTO ACTUAL</span>
+          <strong>{projectName}</strong>
+          <p>Los ajustes y la actividad corresponden al proyecto seleccionado.</p>
+        </section>
+      )}
+      {projectId && activeSection === "workflow" && canManage && (
+        <section className="account-settings__card account-settings__card--wide">
+          <BugWorkflowView
+            key={projectId}
+            projectId={projectId}
+            onChanged={onProjectChanged}
+            refreshRevision={refreshRevision}
+          />
+        </section>
+      )}
+      {projectId && activeSection === "activity" && (
+        <section className="account-settings__card account-settings__card--wide">
+          <ProjectActivityView
+            key={projectId}
+            projectId={projectId}
+            refreshRevision={refreshRevision}
+          />
+        </section>
+      )}
+      {!["projects", "teams", "workflow", "activity"].includes(activeSection) && (
+        <>
+          <section className="account-settings__card" hidden={activeSection !== "cuenta"}>
+            <div className="account-settings__heading">
+              <h2 className="typography__section">Información de la cuenta</h2>
+              <p>Actualiza el nombre y correo asociados a tu usuario.</p>
+            </div>
+            <div className="account-settings__avatar-preview">
+              <span className="account-settings__avatar" aria-hidden="true">
+                {user.name.trim().slice(0, 2).toLocaleUpperCase("es")}
+              </span>
+              <div>
+                <h3 className="typography__heading">Imagen de perfil</h3>
+                <p id="profile-image-preview">
+                  Próximamente podrás cambiar tu imagen de perfil. Esta opción es una maqueta.
+                </p>
+                <button
+                  className="workspace__secondary"
+                  type="button"
+                  disabled
+                  aria-describedby="profile-image-preview"
+                >
+                  Cambiar imagen (próximamente)
+                </button>
+              </div>
+            </div>
+            <form
+              className="account-settings__form"
+              onSubmit={(event) => void saveProfile(event)}
+              aria-busy={profileBusy}
             >
-              Cambiar imagen (próximamente)
-            </button>
-          </div>
-        </div>
-        <form
-          className="account-settings__form"
-          onSubmit={(event) => void saveProfile(event)}
-          aria-busy={profileBusy}
-        >
-          <label className="workspace__field">
-            Nombre
-            <input
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              autoComplete="name"
-              maxLength={100}
-              required
-            />
-          </label>
-          <label className="workspace__field">
-            Correo electrónico
-            <input
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              type="email"
-              autoComplete="email"
-              maxLength={254}
-              required
-            />
-          </label>
-          {profileError && <Alert tone="error">{profileError}</Alert>}
-          {profileMessage && <Alert tone="success">{profileMessage}</Alert>}
-          <div className="workspace__actions">
-            <button className="button button-primary" type="submit" disabled={profileBusy}>
-              {profileBusy ? "Guardando…" : "Guardar cambios"}
-            </button>
-          </div>
-        </form>
-      </section>
-      <section className="account-settings__card" hidden={section !== "cuenta"}>
-        <div className="account-settings__heading">
-          <h2 className="typography__section">Seguridad</h2>
-          <p>
-            Elige una contraseña nueva de al menos 12 caracteres. Las demás sesiones se revocarán.
-          </p>
-        </div>
-        <form
-          className="account-settings__form"
-          onSubmit={(event) => void changePassword(event)}
-          aria-busy={passwordBusy}
-        >
-          <label className="workspace__field">
-            Contraseña actual
-            <input
-              value={currentPassword}
-              onChange={(event) => setCurrentPassword(event.target.value)}
-              type="password"
-              autoComplete="current-password"
-              maxLength={128}
-              required
-            />
-          </label>
-          <label className="workspace__field">
-            Nueva contraseña
-            <input
-              value={newPassword}
-              onChange={(event) => setNewPassword(event.target.value)}
-              type="password"
-              autoComplete="new-password"
-              minLength={12}
-              maxLength={128}
-              required
-            />
-          </label>
-          <label className="workspace__field">
-            Confirmar nueva contraseña
-            <input
-              value={confirmation}
-              onChange={(event) => setConfirmation(event.target.value)}
-              type="password"
-              autoComplete="new-password"
-              maxLength={128}
-              required
-            />
-          </label>
-          {passwordError && <Alert tone="error">{passwordError}</Alert>}
-          {passwordMessage && <Alert tone="success">{passwordMessage}</Alert>}
-          <div className="workspace__actions">
-            <button className="button button-primary" type="submit" disabled={passwordBusy}>
-              {passwordBusy ? "Actualizando…" : "Cambiar contraseña"}
-            </button>
-          </div>
-        </form>
-      </section>
-      <section
-        className="account-settings__card account-settings__card--wide"
-        hidden={section !== "plantillas"}
-      >
-        <div className="account-settings__heading">
-          <h2 className="typography__section">Plantillas para bugs</h2>
-          <p>
-            Crea formatos personales inspirados en GitHub Issue Templates. El contenido se guarda
-            como texto y nunca se interpreta como HTML.
-          </p>
-        </div>
-        <form
-          className="account-settings__form"
-          onSubmit={(event) => void saveTemplate(event)}
-          aria-busy={templateBusy}
-        >
-          <label className="workspace__field">
-            Nombre de la plantilla
-            <input
-              value={templateForm.name}
-              onChange={(event) => setTemplateForm({ ...templateForm, name: event.target.value })}
-              maxLength={100}
-              required
-              placeholder="Ej. Error funcional"
-            />
-          </label>
-          <label className="workspace__field">
-            Título sugerido
-            <input
-              value={templateForm.title}
-              onChange={(event) => setTemplateForm({ ...templateForm, title: event.target.value })}
-              maxLength={200}
-              placeholder="Ej. [Bug] "
-            />
-          </label>
-          <label className="workspace__field">
-            Descripción / secciones
-            <textarea
-              value={templateForm.description}
-              onChange={(event) =>
-                setTemplateForm({ ...templateForm, description: event.target.value })
-              }
-              maxLength={5000}
-              rows={5}
-              placeholder={
-                "## Pasos para reproducir\n\n## Comportamiento esperado\n\n## Comportamiento actual"
-              }
-            />
-          </label>
-          <label className="workspace__field">
-            Prioridad predeterminada
-            <select
-              value={templateForm.priority}
-              onChange={(event) =>
-                setTemplateForm({
-                  ...templateForm,
-                  priority: event.target.value as BugTemplatePriority,
-                })
-              }
+              <label className="workspace__field">
+                Nombre
+                <input
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  autoComplete="name"
+                  maxLength={100}
+                  required
+                />
+              </label>
+              <label className="workspace__field">
+                Correo electrónico
+                <input
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  type="email"
+                  autoComplete="email"
+                  maxLength={254}
+                  required
+                />
+              </label>
+              {profileError && <Alert tone="error">{profileError}</Alert>}
+              {profileMessage && <Alert tone="success">{profileMessage}</Alert>}
+              <div className="workspace__actions">
+                <button className="button button-primary" type="submit" disabled={profileBusy}>
+                  {profileBusy ? "Guardando…" : "Guardar cambios"}
+                </button>
+              </div>
+            </form>
+          </section>
+          <section className="account-settings__card" hidden={activeSection !== "cuenta"}>
+            <div className="account-settings__heading">
+              <h2 className="typography__section">Seguridad</h2>
+              <p>
+                Elige una contraseña nueva de al menos 12 caracteres. Las demás sesiones se
+                revocarán.
+              </p>
+            </div>
+            <form
+              className="account-settings__form"
+              onSubmit={(event) => void changePassword(event)}
+              aria-busy={passwordBusy}
             >
-              {priorities.map((priority) => (
-                <option key={priority}>{priority}</option>
-              ))}
-            </select>
-          </label>
-          {templateError && <Alert tone="error">{templateError}</Alert>}
-          {templateMessage && <Alert tone="success">{templateMessage}</Alert>}
-          <div className="workspace__actions">
-            <button
-              className="button button-primary"
-              type="submit"
-              disabled={templateBusy || templatesBusy}
+              <label className="workspace__field">
+                Contraseña actual
+                <input
+                  value={currentPassword}
+                  onChange={(event) => setCurrentPassword(event.target.value)}
+                  type="password"
+                  autoComplete="current-password"
+                  maxLength={128}
+                  required
+                />
+              </label>
+              <label className="workspace__field">
+                Nueva contraseña
+                <input
+                  value={newPassword}
+                  onChange={(event) => setNewPassword(event.target.value)}
+                  type="password"
+                  autoComplete="new-password"
+                  minLength={12}
+                  maxLength={128}
+                  required
+                />
+              </label>
+              <label className="workspace__field">
+                Confirmar nueva contraseña
+                <input
+                  value={confirmation}
+                  onChange={(event) => setConfirmation(event.target.value)}
+                  type="password"
+                  autoComplete="new-password"
+                  maxLength={128}
+                  required
+                />
+              </label>
+              {passwordError && <Alert tone="error">{passwordError}</Alert>}
+              {passwordMessage && <Alert tone="success">{passwordMessage}</Alert>}
+              <div className="workspace__actions">
+                <button className="button button-primary" type="submit" disabled={passwordBusy}>
+                  {passwordBusy ? "Actualizando…" : "Cambiar contraseña"}
+                </button>
+              </div>
+            </form>
+          </section>
+          <section
+            className="account-settings__card account-settings__card--wide"
+            hidden={activeSection !== "plantillas"}
+          >
+            <div className="account-settings__heading">
+              <h2 className="typography__section">Plantillas para bugs</h2>
+              <p>
+                Crea formatos personales inspirados en GitHub Issue Templates. El contenido se
+                guarda como texto y nunca se interpreta como HTML.
+              </p>
+            </div>
+            <form
+              className="account-settings__form"
+              onSubmit={(event) => void saveTemplate(event)}
+              aria-busy={templateBusy}
             >
-              {templateBusy
-                ? "Guardando…"
-                : editingTemplateId
-                  ? "Actualizar plantilla"
-                  : "Guardar plantilla"}
-            </button>
-            {editingTemplateId && (
-              <button
-                className="workspace__secondary"
-                type="button"
-                disabled={templateBusy}
-                onClick={resetTemplateForm}
-              >
-                Cancelar edición
+              <label className="workspace__field">
+                Nombre de la plantilla
+                <input
+                  value={templateForm.name}
+                  onChange={(event) =>
+                    setTemplateForm({ ...templateForm, name: event.target.value })
+                  }
+                  maxLength={100}
+                  required
+                  placeholder="Ej. Error funcional"
+                />
+              </label>
+              <label className="workspace__field">
+                Título sugerido
+                <input
+                  value={templateForm.title}
+                  onChange={(event) =>
+                    setTemplateForm({ ...templateForm, title: event.target.value })
+                  }
+                  maxLength={200}
+                  placeholder="Ej. [Bug] "
+                />
+              </label>
+              <label className="workspace__field">
+                Descripción / secciones
+                <textarea
+                  value={templateForm.description}
+                  onChange={(event) =>
+                    setTemplateForm({ ...templateForm, description: event.target.value })
+                  }
+                  maxLength={5000}
+                  rows={5}
+                  placeholder={
+                    "## Pasos para reproducir\n\n## Comportamiento esperado\n\n## Comportamiento actual"
+                  }
+                />
+              </label>
+              <label className="workspace__field">
+                Prioridad predeterminada
+                <select
+                  value={templateForm.priority}
+                  onChange={(event) =>
+                    setTemplateForm({
+                      ...templateForm,
+                      priority: event.target.value as BugTemplatePriority,
+                    })
+                  }
+                >
+                  {priorities.map((priority) => (
+                    <option key={priority}>{priority}</option>
+                  ))}
+                </select>
+              </label>
+              {templateError && <Alert tone="error">{templateError}</Alert>}
+              {templateMessage && <Alert tone="success">{templateMessage}</Alert>}
+              <div className="workspace__actions">
+                <button
+                  className="button button-primary"
+                  type="submit"
+                  disabled={templateBusy || templatesBusy}
+                >
+                  {templateBusy
+                    ? "Guardando…"
+                    : editingTemplateId
+                      ? "Actualizar plantilla"
+                      : "Guardar plantilla"}
+                </button>
+                {editingTemplateId && (
+                  <button
+                    className="workspace__secondary"
+                    type="button"
+                    disabled={templateBusy}
+                    onClick={resetTemplateForm}
+                  >
+                    Cancelar edición
+                  </button>
+                )}
+              </div>
+            </form>
+            <div className="account-settings__templates" aria-live="polite">
+              {templatesBusy ? (
+                <p className="workspace__notice">Cargando plantillas…</p>
+              ) : templates.length === 0 ? (
+                <p className="workspace__notice">
+                  Todavía no tienes plantillas. Las plantillas creadas aquí aparecerán en el
+                  formulario «Nuevo bug».
+                </p>
+              ) : (
+                templates.map((template) => (
+                  <article className="account-settings__template" key={template.id}>
+                    <div>
+                      <strong>{template.name}</strong>
+                      <p>
+                        {template.title || "Sin título sugerido"} · Prioridad {template.priority}
+                      </p>
+                    </div>
+                    <div className="account-settings__template-actions">
+                      <button
+                        className="workspace__secondary"
+                        type="button"
+                        disabled={templateBusy}
+                        onClick={() => editTemplate(template)}
+                      >
+                        Editar
+                      </button>
+                      <button
+                        className="workspace__secondary"
+                        type="button"
+                        disabled={templateBusy}
+                        onClick={() => void removeTemplate(template)}
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  </article>
+                ))
+              )}
+            </div>
+          </section>
+          <section
+            className="account-settings__card account-settings__card--wide"
+            hidden={activeSection !== "diseno"}
+          >
+            <CaseDesignSettings preferences={preferences} onSave={onPreferencesChanged} />
+          </section>
+          <section className="account-settings__card" hidden={activeSection !== "ia"}>
+            <div className="account-settings__heading">
+              <h2 className="typography__section">Conexión con IA</h2>
+              <p>
+                Vista preliminar de una futura configuración de proveedores. Esta sección es solo
+                una maqueta.
+              </p>
+            </div>
+            <div className="account-settings__mock">
+              <label className="workspace__field">
+                Proveedor
+                <select disabled value="">
+                  <option value="">Sin conectar</option>
+                  <option>OpenAI</option>
+                  <option>Anthropic</option>
+                  <option>Proveedor compatible</option>
+                </select>
+              </label>
+              <label className="workspace__field">
+                Clave del proveedor
+                <input type="password" disabled placeholder="No disponible en esta versión" />
+              </label>
+              <button className="button button-primary" type="button" disabled>
+                Conectar proveedor (próximamente)
               </button>
-            )}
-          </div>
-        </form>
-        <div className="account-settings__templates" aria-live="polite">
-          {templatesBusy ? (
-            <p className="workspace__notice">Cargando plantillas…</p>
-          ) : templates.length === 0 ? (
-            <p className="workspace__notice">
-              Todavía no tienes plantillas. Las plantillas creadas aquí aparecerán en el formulario
-              «Nuevo bug».
-            </p>
-          ) : (
-            templates.map((template) => (
-              <article className="account-settings__template" key={template.id}>
-                <div>
-                  <strong>{template.name}</strong>
-                  <p>
-                    {template.title || "Sin título sugerido"} · Prioridad {template.priority}
-                  </p>
-                </div>
-                <div className="account-settings__template-actions">
-                  <button
-                    className="workspace__secondary"
-                    type="button"
-                    disabled={templateBusy}
-                    onClick={() => editTemplate(template)}
-                  >
-                    Editar
-                  </button>
-                  <button
-                    className="workspace__secondary"
-                    type="button"
-                    disabled={templateBusy}
-                    onClick={() => void removeTemplate(template)}
-                  >
-                    Eliminar
-                  </button>
-                </div>
-              </article>
-            ))
-          )}
-        </div>
-      </section>
-      <section
-        className="account-settings__card account-settings__card--wide"
-        hidden={section !== "diseno"}
-      >
-        <CaseDesignSettings preferences={preferences} onSave={onPreferencesChanged} />
-      </section>
-      <section className="account-settings__card" hidden={section !== "ia"}>
-        <div className="account-settings__heading">
-          <h2 className="typography__section">Conexión con IA</h2>
-          <p>
-            Vista preliminar de una futura configuración de proveedores. Esta sección es solo una
-            maqueta.
-          </p>
-        </div>
-        <div className="account-settings__mock">
-          <label className="workspace__field">
-            Proveedor
-            <select disabled value="">
-              <option value="">Sin conectar</option>
-              <option>OpenAI</option>
-              <option>Anthropic</option>
-              <option>Proveedor compatible</option>
-            </select>
-          </label>
-          <label className="workspace__field">
-            Clave del proveedor
-            <input type="password" disabled placeholder="No disponible en esta versión" />
-          </label>
-          <button className="button button-primary" type="button" disabled>
-            Conectar proveedor (próximamente)
-          </button>
-          <p className="workspace__notice">
-            No se almacenan credenciales ni se envían datos a proveedores de IA.
-          </p>
-        </div>
-      </section>
-      <section
-        className="account-settings__card account-settings__card--danger"
-        hidden={section !== "cuenta"}
-      >
-        <div className="account-settings__heading">
-          <h2 className="typography__section">Zona de peligro · Desactivar cuenta</h2>
-          <p>
-            Tu acceso se desactivará y tu nombre, correo y contraseña se anonimizarán. Se revocarán
-            todas las sesiones y se eliminarán tus plantillas. Los proyectos, membresías y registros
-            de QA se conservarán para no romper su trazabilidad.
-          </p>
-        </div>
-        <form
-          className="account-settings__form"
-          onSubmit={(event) => void deactivateAccount(event)}
-          aria-busy={deleteBusy}
-        >
-          <label className="workspace__field">
-            Contraseña actual
-            <input
-              value={deletePassword}
-              onChange={(event) => setDeletePassword(event.target.value)}
-              type="password"
-              autoComplete="current-password"
-              maxLength={128}
-              required
-            />
-          </label>
-          <label className="workspace__field">
-            Escribe ELIMINAR CUENTA para confirmar
-            <input
-              value={deleteConfirmation}
-              onChange={(event) => setDeleteConfirmation(event.target.value)}
-              autoComplete="off"
-              required
-            />
-          </label>
-          {deleteError && <Alert tone="error">{deleteError}</Alert>}
-          <div className="workspace__actions">
-            <button
-              className="account-settings__delete-button"
-              type="submit"
-              disabled={deleteBusy || deleteConfirmation !== "ELIMINAR CUENTA"}
+              <p className="workspace__notice">
+                No se almacenan credenciales ni se envían datos a proveedores de IA.
+              </p>
+            </div>
+          </section>
+          <section
+            className="account-settings__card account-settings__card--danger"
+            hidden={activeSection !== "cuenta"}
+          >
+            <div className="account-settings__heading">
+              <h2 className="typography__section">Zona de peligro · Desactivar cuenta</h2>
+              <p>
+                Tu acceso se desactivará y tu nombre, correo y contraseña se anonimizarán. Se
+                revocarán todas las sesiones y se eliminarán tus plantillas. Los proyectos,
+                membresías y registros de QA se conservarán para no romper su trazabilidad.
+              </p>
+            </div>
+            <form
+              className="account-settings__form"
+              onSubmit={(event) => void deactivateAccount(event)}
+              aria-busy={deleteBusy}
             >
-              {deleteBusy ? "Desactivando…" : "Desactivar y anonimizar cuenta"}
-            </button>
-          </div>
-        </form>
-      </section>
+              <label className="workspace__field">
+                Contraseña actual
+                <input
+                  value={deletePassword}
+                  onChange={(event) => setDeletePassword(event.target.value)}
+                  type="password"
+                  autoComplete="current-password"
+                  maxLength={128}
+                  required
+                />
+              </label>
+              <label className="workspace__field">
+                Escribe ELIMINAR CUENTA para confirmar
+                <input
+                  value={deleteConfirmation}
+                  onChange={(event) => setDeleteConfirmation(event.target.value)}
+                  autoComplete="off"
+                  required
+                />
+              </label>
+              {deleteError && <Alert tone="error">{deleteError}</Alert>}
+              <div className="workspace__actions">
+                <button
+                  className="account-settings__delete-button"
+                  type="submit"
+                  disabled={deleteBusy || deleteConfirmation !== "ELIMINAR CUENTA"}
+                >
+                  {deleteBusy ? "Desactivando…" : "Desactivar y anonimizar cuenta"}
+                </button>
+              </div>
+            </form>
+          </section>
+        </>
+      )}
     </div>
   );
 }
