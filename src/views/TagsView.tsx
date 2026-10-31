@@ -1,3 +1,4 @@
+import ImportPanel from "./ImportPanel";
 import { usePermissions } from "../controllers/ProjectPermissions";
 import { useEffect, useState, type FormEvent } from "react";
 import Alert from "../Alert";
@@ -82,6 +83,9 @@ export default function TagsView({
 
   return (
     <section className="tags-view">
+      {!readOnly && (
+        <ImportPanel key={projectId} projectId={projectId} kind="tags" onChanged={onChanged} />
+      )}
       <form className="tags-view__form" onSubmit={(event) => void save(event)}>
         <fieldset className="permissions__group" disabled={readOnly || busy}>
           <h2 className="typography__section">{editing ? "Editar tag" : "Crear tag"}</h2>

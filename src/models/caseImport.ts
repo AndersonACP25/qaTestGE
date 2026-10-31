@@ -129,17 +129,18 @@ export function previewCaseImport(rows: unknown[][]): CaseImportPreview {
   if (!cases.length && !errors.length) errors.push("El archivo no contiene casos.");
   return { cases, errors };
 }
-export async function readCaseFile(file: File): Promise<CaseImportPreview> {
+export async function readImportRows(file: File, sheetName: string): Promise<unknown[][]> {
   if (file.size > 2 * 1024 * 1024) throw new Error("Máximo 2 MiB por archivo.");
-  if (file.name.toLowerCase().endsWith(".csv"))
-    return previewCaseImport(parseCsv(await file.text()));
+  if (file.name.toLowerCase().endsWith(".csv")) return parseCsv(await file.text());
   if (!file.name.toLowerCase().endsWith(".xlsx"))
     throw new Error("Selecciona un archivo CSV o Excel .xlsx.");
   const { default: ExcelJS } = await import("exceljs");
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(await file.arrayBuffer());
-  if (workbook.worksheets.length !== 1) throw new Error("Usa un libro con una sola hoja de casos.");
-  const sheet = workbook.worksheets[0];
+  const sheet =
+    workbook.getWorksheet(sheetName) ??
+    (workbook.worksheets.length === 1 ? workbook.worksheets[0] : undefined);
+  if (!sheet) throw new Error(`El libro debe incluir la hoja ${sheetName}. Usa la plantilla.`);
   if (sheet.rowCount > 1001 || sheet.columnCount > 30)
     throw new Error("Máximo 1000 filas de datos y 30 columnas.");
   const rows: unknown[][] = [];
@@ -153,5 +154,9 @@ export async function readCaseFile(file: File): Promise<CaseImportPreview> {
     }
     rows.push(values);
   });
-  return previewCaseImport(rows);
+  return rows;
+}
+
+export async function readCaseFile(file: File): Promise<CaseImportPreview> {
+  return previewCaseImport(await readImportRows(file, "Casos"));
 }
