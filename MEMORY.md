@@ -15,7 +15,7 @@
 - Validar pnpm typecheck, pnpm lint, pnpm test, pnpm format:check y pnpm build.
 - Nunca usar la BD personal para integración destructiva. TEST_DATABASE_URL selecciona una base efímera explícita.
 - Instalación: base qa_test_ge vacía + pnpm db:setup. Actualización: pnpm db:migrate. No reimportar 001 sobre una instalación existente.
-- El catálogo compartido backend/src/migrations.ts instala 001 y aplica 004–014; no carga seed automáticamente.
+- El catálogo compartido backend/src/migrations.ts instala 001 y aplica 004–015; no carga seed automáticamente.
 - CI comprueba PostgreSQL efímero, frontend/API y E2E. Push a main genera artefactos; no hay despliegue automático.
 
 ## Flujos implementados al 2026-10-30
@@ -29,9 +29,9 @@
 - Casos obsoletos no se incorporan a nuevas selecciones de ejecución. Orígenes y resultados con bugs/evidencias no se borran ni se retiran silenciosamente.
 - Cada proyecto configura estados, transiciones, estado inicial y closedStates para métricas. Se comprueba revisión y no se retiran estados usados. Solo Admin configura el flujo; QA/Admin gestionan planes.
 - Bugs tienen severidad independiente de prioridad, entorno y versión afectada; las exportaciones individuales incluyen estos campos y los IDs del origen.
-- Tipo de prueba real desde el diseñador/formulario, filtros por tipo y ciclo documental, cobertura por tipo en Dashboard/Reportes. Cobertura = casos vigentes distintos con algún resultado registrado, no cobertura de código/requisitos.
-- CSV/.xlsx: plantilla, una fila por paso, clave de agrupación, vista previa y errores por fila antes de confirmar. ExcelJS existente, una hoja y texto sin fórmulas. Máximo 2 MiB, 1000 filas y 100 pasos/caso.
-- Importar crea casos nuevos mediante claves idempotentes; mantiene progreso parcial en la vista, no ofrece transacción global. Al cambiar de proyecto o salir, se detiene la cola y las respuestas tardías no modifican otro alcance.
+- Tipo de prueba real desde el diseñador/formulario, filtros por tipo y ciclo documental, cobertura por tipo en Reportes. Cobertura por tipo = casos vigentes distintos con algún resultado registrado; la matriz de requisitos es una capacidad separada.
+- CSV/.xlsx: plantilla, una fila por paso, clave de agrupación, vista previa y errores por fila antes de confirmar. ExcelJS existente, hoja nombrada del recurso o libro de una sola hoja y texto sin fórmulas. Máximo 2 MiB, 1000 filas y 100 pasos/caso.
+- Importar crea bugs y casos nuevos mediante claves idempotentes; mantiene progreso parcial en la vista, no ofrece transacción global. Al cambiar de proyecto o salir, se detiene la cola y las respuestas tardías no modifican otro alcance.
 - Las exportaciones de presentación se adaptan a la plantilla para importar; no existe un importador genérico de todos los libros Excel ni de evidencias.
 - QualityRepository se expone como capacidad quality del repositorio, con decorador de autorización, rutas y OpenAPI propios. App compone vistas/controladores.
 
@@ -42,7 +42,7 @@
 - Borradores de bugs y preferencias del diseñador por usuario/proyecto, documentos versionados, revisiones y Web Locks. El diseñador usa ejemplos ilustrativos, no IA.
 - Claves idempotentes persistentes para bug/case/run/plan por actor/proyecto/recurso; huella y recurso se confirman juntos. No reintentar automáticamente ni renovar la clave tras una respuesta ambigua.
 - Contratos Zod de HTTP/almacenamiento, errores seguros, CSRF, autorización de servidor, X-Request-ID y logs sin cuerpos/cookies/secretos.
-- Tablas con páginas de 50/exportación visible, BEM, alertas superiores, footer compartido y navegación adaptable. Dashboard/Reportes cargan snapshot completo, sin afirmar paginación de esos agregados.
+- Tablas con páginas de 50/exportación visible, BEM, alertas superiores, footer compartido y navegación adaptable. Dashboard/Reportes consultan agregados del servidor; los demás listados conservan su carga existente.
 - Tipografía src/typography.css; pluralización central y guardián ESLint. Mantener textos funcionales >=14 px.
 - .opencode/agents contiene perfiles de desarrollo; no son agentes del producto. MEMORY.md es la única memoria técnica compartida.
 
@@ -57,9 +57,20 @@
 - Las escrituras mantienen bloqueo compartido del proyecto; cambiar roles usa bloqueo exclusivo. Notificaciones y respuestas tardías conservan el alcance. Actividad global pagina de 50; conversación/avisos muestran últimos 100.
 - PR anterior #24 fusionado en qa-env. Trabajo actual autorizado para commit y PR en feat/colaboracion-auditoria-permisos.
 
-## Validación de este lote
+## Analítica, cobertura e importación (015)
 
-- TypeScript, lint, formato, build y 173 pruebas unitarias/endpoints; 99 E2E (87 anteriores y 12 de colaboración) aprobadas en escritorio, 375 y 425 px.
-- PostgreSQL 18 efímero: instalación vacía, repetición, actualización desde 001–013, conservación de acceso heredado y asignación explícita de proyectos nuevos. Integraciones de autenticación/calidad y colaboración verificadas: roles, denegaciones, revocación, comentarios/menciones, avisos privados, contexto del pool, auditoría inmutable sin bytes, idempotencia y rollback.
-- Chromium 153 temporal para E2E: la descarga estándar de Playwright falló en este entorno; configuración temporal fuera de la entrega, sin nuevas dependencias del proyecto.
-- Publicación autorizada completada: PR #25 hacia qa-env, https://github.com/AndersonACP25/qaTestGE/pull/25. GitHub Actions pendiente de finalizar; no se fusionó el PR.
+- Dashboard no tiene tablas: indicadores, distribución de bugs, aprobación por run y cobertura de requisitos. Reportes muestra tendencias por período UTC, fallos frecuentes y cobertura por tipo; CSV de las series.
+- AnalyticsRepository limita lecturas al proyecto y usa transacciones REPEATABLE READ READ ONLY con UTC. actorDatabase reconoce BEGIN con opciones y fija contexto después de iniciar. useProjectData se desactiva para overview/reports/coverage; errores de listados no bloquean analítica.
+- Aprobación = passed/(passed+failed+blocked), solo resultados registrados; null sin denominador. Resumen/fallos usan executed_at; tendencia de hasta 60 runs usa created_at y tasa actual de cada run. Hasta 366 días inclusivos y 10 casos con más fallos.
+- bug_state_events es inmutable: baseline único al instalar 015, estados, reaperturas, eliminaciones y reclasificación de closedStates. Saldo diario UTC, día actual parcial y fechas previas sin datos; no reconstruir historia.
+- Requisitos versionados, código único por proyecto y hasta 100 casos; matriz plana paginada y selectores con búsquedas de hasta 50 coincidencias. Reutiliza bug_test_cases; vínculos de un caso aparecen en todos sus requisitos. QA/Admin escribe, todos los roles autorizados consultan. Auditoría transaccional e integridad entre proyectos.
+- Botón Importar en Bugs/Casos/Tags, vista previa y confirmación. Plantilla estática public/templates/plantilla-qaTestGE.xlsx con Guía/Bugs/Casos/Tags y guía Markdown descargable. Se verificó el archivo distribuido con el lector real; se normalizaron prefijos XML del exportador para ExcelJS.
+- Importación: 2 MiB, 1000 filas, solo texto. Bugs/casos guardan secuencialmente con claves persistentes por fila y progreso parcial; tags tiene lote atómico idempotente y conserva nombre/color existentes, conflicto si cambia color. No reintentar automáticamente. Mantener diálogo para continuar; al cerrarlo revisar el listado antes de repetir.
+- GET /test-runs/:id/report es autenticado, readonly para todos los roles con acceso; PDF local con jsPDF/AutoTable, snapshots de título/versión/pasos, resultados actuales, notas, bugs de origen y referencias de evidencia. No incluye binarios ni genera URLs públicas.
+- Guías: docs/analytics.md y public/templates/guia-importacion.md; README, Wiki, arquitectura, OpenAPI y chequeo de esquema actualizados. Aplicar pnpm db:migrate antes de iniciar.
+
+## Validación y entrega
+
+- TypeScript, lint, formato, build frontend/API y 181 pruebas unitarias/endpoints aprobadas; 120 E2E completas aprobadas en escritorio, 375 y 425 px.
+- PostgreSQL 18 efímero: instalación vacía y repetición; actualización 014→015 conserva bugs, baseline único y días sin historia. Integraciones de autenticación/calidad/colaboración/analítica aprobadas; reaperturas, reclasificación, aislamiento, snapshots y rollback/idempotencia de tags verificados.
+- Chromium 153 temporal para E2E, sin nuevas dependencias de producto. Rama feat/colaboracion-auditoria-permisos y mismo PR #25 hacia qa-env: https://github.com/AndersonACP25/qaTestGE/pull/25. Commits por área y actualización unificada del PR autorizados; no fusionar.

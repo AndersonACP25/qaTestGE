@@ -4,6 +4,12 @@ Todos los cambios importantes de qaTestGE se documentan aquí. El formato sigue 
 
 ## [Unreleased]
 
+- Importación revisada de Bugs, Casos y Tags desde Excel/CSV con plantilla y guía descargables.
+- Dashboard visual sin tablas; Reportes con agregados PostgreSQL, períodos, aprobación por ejecución, bugs históricos y fallos frecuentes.
+- Requisitos versionados y matriz requisito/caso/bug paginada.
+- Informe de ejecución PDF con snapshots, notas y referencias de evidencia.
+- Migración aditiva 015 con eventos históricos inmutables e importación atómica de tags.
+
 - Comentarios con revisión y @menciones en bugs, casos y ejecuciones, con avisos internos por destinatario.
 - Actividad persistente con cambios antes/después, actor y correlación, inmutable desde aplicación/PostgreSQL ordinario.
 - Admin, QA, Dev y Solo lectura por proyecto; administración de accesos, protección de propietario/último Admin y revocación controlada.

@@ -60,7 +60,7 @@ La interfaz consume la API mediante el proxy /api y envía la cookie de sesión 
 
 ### Interfaz web
 
-Presenta espacios de trabajo, proyectos, listas y formularios para los cuatro recursos principales. La vista Reportes presenta métricas agregadas y un CSV descargable construidos desde los datos que ya carga el proyecto, sin llamadas adicionales ni datos externos. El componente de pie de página es compartido entre el workspace y la pantalla de acceso; las notificaciones globales se muestran en la parte superior con ancho limitado. Para el diseñador de casos, el modelo contiene el catálogo fijo, el hook controlador gestiona la interacción y la vista renderiza el flujo. Debe mostrar estados de carga y error, validar formularios para facilitar el uso y no confiar en validaciones del cliente como control de seguridad.
+Presenta espacios de trabajo, proyectos, listas y formularios para los cuatro recursos principales. Dashboard y Reportes consultan agregados del servidor mediante /analytics, sin cargar los listados completos del proyecto; Reportes añade rango UTC y exportación CSV. El componente de pie de página es compartido entre el workspace y la pantalla de acceso; las notificaciones globales se muestran en la parte superior con ancho limitado. Para el diseñador de casos, el modelo contiene el catálogo fijo, el hook controlador gestiona la interacción y la vista renderiza el flujo. Debe mostrar estados de carga y error, validar formularios para facilitar el uso y no confiar en validaciones del cliente como control de seguridad.
 
 ### API y capa de aplicación
 
@@ -211,7 +211,7 @@ La [guía de integración de IA](AI_INTEGRATION.md) describe una implementación
 
 ### Exportación de listados y maqueta de perfil
 
-`TableExport` reutiliza el diálogo y los formatos existentes para exportar Bugs, Casos de prueba y Test runs, incluidas las tablas recientes del Dashboard. `models/tableExport.ts` transforma únicamente las filas filtradas recibidas y las columnas visibles en datos tabulares, sin descripciones, pasos ni resultados internos. Los tags se incluyen junto al título tal como aparecen en el listado. `utils/exportTable.ts` genera Excel, PDF apaisado y Markdown con las dependencias existentes y descarga local compartida con la exportación individual; no solicita datos adicionales a la API. Las celdas de Excel son texto y Markdown escapa separadores y HTML. Cada tabla mantiene sus controles y acciones de dominio; se reutiliza la capacidad de exportación sin introducir una abstracción genérica de celdas.
+`TableExport` reutiliza el diálogo y los formatos existentes para exportar Bugs, Casos de prueba y Test runs. `models/tableExport.ts` transforma únicamente las filas filtradas recibidas y las columnas visibles en datos tabulares, sin descripciones, pasos ni resultados internos. Los tags se incluyen junto al título tal como aparecen en el listado. `utils/exportTable.ts` genera Excel, PDF apaisado y Markdown con las dependencias existentes y descarga local compartida con la exportación individual; no solicita datos adicionales a la API. Las celdas de Excel son texto y Markdown escapa separadores y HTML. Cada tabla mantiene sus controles y acciones de dominio; se reutiliza la capacidad de exportación sin introducir una abstracción genérica de celdas.
 
 Configuración muestra una vista preliminar de imagen de perfil con iniciales y un botón deshabilitado. No selecciona ni sube archivos, no persiste imágenes y no añade endpoints ni migraciones.
 
@@ -221,7 +221,7 @@ Configuración muestra una vista preliminar de imagen de perfil con iniciales y 
 
 La migración 012 añade qa.creation_requests. Bugs, casos y ejecuciones admiten Idempotency-Key por actor/proyecto/recurso; el advisory lock, la huella y el ID se confirman en la misma transacción del recurso. Repetir contenido distinto o un recurso eliminado devuelve 409; no se introducen reintentos automáticos. El esquema se comprueba antes de abrir el puerto.
 
-Los listados API admiten filtros y paginación opcionales con parámetros ligados, projectId obligatorio y orden estable por ID. La UI muestra páginas de 50 y exporta la página visible. Dashboard/Reportes conservan el snapshot completo; no se afirma haber reducido su volumen ni medido carga.
+Los listados API admiten filtros y paginación opcionales con parámetros ligados, projectId obligatorio y orden estable por ID. La UI muestra páginas de 50 y exporta la página visible. Dashboard/Reportes usan agregaciones PostgreSQL y deshabilitan loadProject; no se han medido cargas de producción.
 
 CI dispone de PostgreSQL efímero, migraciones repetidas y verificación de aislamiento, rollback, concurrencia, idempotencia y asignaciones. requestContext genera X-Request-ID y logs JSON seguros sin cuerpos, consultas, cookies ni secretos. No se añade un proveedor externo.
 
@@ -257,4 +257,16 @@ Los comentarios están enlazados con claves compuestas y un único destino bug/c
 
 Las menciones usan tokens `@[Nombre](user:ID)` y se representan como texto React escapado, nunca HTML. Se comprueban IDs contra acceso vigente, no se confía en la etiqueta enviada para identificar al destinatario. La escritura de comentario/menciones/avisos es atómica. Un aviso por comentario/destinatario evita duplicados; editar sin retirar la mención no genera otro aviso. Solo el destinatario puede marcarlo leído y solo mientras conserve acceso. Retirar menciones o eliminar comentarios retira sus avisos. No se envían emails, no hay push/tiempo real y no se integra un proveedor externo.
 
-Las rutas y contratos nuevos viven en `collaboration.routes.ts`, `collaboration-openapi.ts` y `CollaborationRepository`. Las vistas compartidas se montan por proyecto/registro y descartan respuestas tardías al salir de su alcance. `pnpm db:migrate` omite 013/014 ya registradas para no reinstalar funciones previas sobre las nuevas reglas; la instalación y actualización comparten catálogo y bloqueo.
+Las rutas y contratos nuevos viven en `collaboration.routes.ts`, `collaboration-openapi.ts` y `CollaborationRepository`. Las vistas compartidas se montan por proyecto/registro y descartan respuestas tardías al salir de su alcance. `pnpm db:migrate` omite 013/014/015 ya registradas para no reinstalar funciones previas sobre las nuevas reglas; la instalación y actualización comparten catálogo y bloqueo.
+
+## Analítica, cobertura e importación (015)
+
+`AnalyticsRepository` es una capacidad separada, autorizada por proyecto y documentada en OpenAPI. Las consultas de lectura compuestas usan `BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY` antes de fijar el actor transaccional y la zona UTC. Dashboard y Reportes desactivan el snapshot de `useProjectData`; `useAnalytics` descarta respuestas de otro proyecto/rango. La matriz y los requisitos paginan en el servidor; sus selectores buscan páginas de hasta 50 recursos. Los demás listados mantienen su carga existente.
+
+015 añade requisitos versionados, vínculos de casos con claves compuestas por proyecto y auditoría transaccional. Reutiliza `bug_test_cases` para cerrar la matriz; editar requisitos exige `cases.write`, y vincular bugs exige también `bugs.write`. Los requisitos admiten hasta 100 casos, creaciones idempotentes y edición/eliminación con versión. Los recursos referenciados conservan integridad, sin cascadas de eliminación de casos o bugs.
+
+`bug_state_events` conserva una base de los bugs existentes y movimientos inmutables desde la instalación de 015. Los cambios de estado, eliminaciones y cambios de `closedStates` generan eventos en la misma transacción. Las tendencias no inventan historia previa y muestran saldo diario UTC; el día actual es parcial. Véanse las definiciones en [analytics.md](analytics.md).
+
+La importación usa un diálogo compartido para Bugs/Casos/Tags con plantilla Excel y guía estáticas en public/templates. ExcelJS lee la hoja nombrada del recurso o una hoja única, solo texto y sin fórmulas. La vista previa se valida antes de habilitar confirmación. Bugs y casos usan creaciones individuales idempotentes con progreso parcial; tags usa un lote atómico con huella persistente por actor/proyecto/UUID y conflicto de color. No se reintenta automáticamente. La plantilla se generó con Artifact Tool; se normalizaron los prefijos XML del paquete para compatibilidad con el lector ExcelJS, verificada con el archivo distribuido.
+
+`GET /test-runs/:runId/report` devuelve un DTO autenticado de solo lectura con el snapshot original, resultados actuales y referencias de bugs/evidencia. jsPDF/AutoTable generan localmente el informe paginado. No se publican URLs ni se incluyen bytes de archivos de evidencia. Todos los roles con acceso pueden descargarlo.

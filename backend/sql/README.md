@@ -46,3 +46,7 @@ Ejecuta `pnpm db:migrate` antes de iniciar esta versión. Añade versiones y est
 ### 014 · Colaboración, auditoría y permisos
 
 Aplicar con `pnpm db:migrate`. Añade accesos por proyecto, comentarios/versiones, menciones, avisos privados y auditoría inmutable. Preserva acceso de miembros actuales mediante QA explícito; las invitaciones y proyectos futuros no generan permisos automáticos. El propietario mantiene Admin. La auditoría comienza al aplicar esta migración y no incluye archivos binarios ni secretos. La aplicación envía contexto transaccional de actor/correlación. Operaciones administrativas directas a PostgreSQL sin contexto se consideran mantenimiento confiable y se atribuyen a Sistema. El catálogo omite migraciones 013/014 ya registradas; no ejecutar los archivos a mano ni modificar migraciones distribuidas.
+
+### 015: analítica y cobertura
+
+`015_analytics_coverage.sql` añade requisitos/casos, lotes idempotentes de tags, eventos inmutables para tendencias de bugs e índices por fecha/proyecto. Se aplica una vez desde el catálogo común. El historial comienza al aplicarla; los datos anteriores no se reconstruyen. Actualiza con `pnpm db:migrate` antes de iniciar la API.
