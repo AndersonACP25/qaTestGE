@@ -1,3 +1,4 @@
+import RichTextarea from "../components/RichTextarea";
 import { usePermissions } from "../controllers/ProjectPermissions";
 import { useEffect, useRef, useState } from "react";
 import { api, toRun } from "../api";
@@ -106,7 +107,7 @@ export default function TestPlansView({
           </label>
           <label className="workspace__field">
             Descripción
-            <textarea
+            <RichTextarea
               name="description"
               maxLength={5000}
               defaultValue={editing?.description ?? ""}

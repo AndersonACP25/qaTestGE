@@ -1,3 +1,4 @@
+import RichTextarea from "../components/RichTextarea";
 import { useEffect, useState, type FormEvent } from "react";
 import Alert from "../Alert";
 import { api, type Project } from "../api";
@@ -111,7 +112,7 @@ export default function ProjectsView({
           </label>
           <label className="workspace__field">
             Descripción
-            <textarea
+            <RichTextarea
               value={description}
               onChange={(event) => setDescription(event.target.value)}
               maxLength={5000}

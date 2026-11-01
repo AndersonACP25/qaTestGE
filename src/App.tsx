@@ -1,3 +1,4 @@
+import RichTextarea from "./components/RichTextarea";
 import { ProjectPermissionsProvider } from "./controllers/ProjectPermissions";
 import { can } from "../backend/src/models/collaboration.model";
 import MentionsView from "./views/MentionsView";
@@ -1494,7 +1495,7 @@ function App({
                   )}
                   <label className="workspace__field">
                     Descripción
-                    <textarea
+                    <RichTextarea
                       name="description"
                       value={bugForm.description}
                       onChange={(event) =>
@@ -1656,7 +1657,7 @@ function App({
                   </label>
                   <label className="workspace__field">
                     Precondiciones
-                    <textarea
+                    <RichTextarea
                       name="preconditions"
                       maxLength={10000}
                       defaultValue={editingCase?.preconditions ?? ""}
@@ -1684,7 +1685,7 @@ function App({
                           <tr key={index}>
                             <th scope="row">{index + 1}</th>
                             <td data-label="Acción">
-                              <textarea
+                              <RichTextarea
                                 aria-label="Acción"
                                 name="action"
                                 maxLength={10000}
@@ -1702,7 +1703,7 @@ function App({
                               />
                             </td>
                             <td data-label="Resultado esperado">
-                              <textarea
+                              <RichTextarea
                                 aria-label="Resultado esperado"
                                 name="expectedResult"
                                 maxLength={10000}
@@ -1756,7 +1757,7 @@ function App({
                   </fieldset>
                   <label className="workspace__field">
                     Enlaces relacionados (uno por línea)
-                    <textarea
+                    <RichTextarea
                       name="attachmentLinks"
                       rows={3}
                       placeholder="https://docs.example.com/especificacion"

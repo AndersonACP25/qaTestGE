@@ -1,3 +1,4 @@
+import RichTextarea from "../components/RichTextarea";
 import { exportRunReport } from "../utils/exportRunReport";
 import type { RunReport } from "../contracts/analyticsContracts";
 import { usePermissions } from "../controllers/ProjectPermissions";
@@ -363,7 +364,7 @@ export default function TestRunDialog({
                     </label>
                     <label className="workspace__field">
                       Notas
-                      <textarea name="notes" defaultValue={result.notes} maxLength={10000} />
+                      <RichTextarea name="notes" defaultValue={result.notes} maxLength={10000} />
                     </label>
                     <button className="workspace__secondary">Guardar resultado</button>
                   </fieldset>
@@ -468,7 +469,7 @@ export default function TestRunDialog({
                         </label>
                         <label className="workspace__field">
                           Descripción / resultado observado
-                          <textarea
+                          <RichTextarea
                             name="description"
                             required
                             maxLength={5000}

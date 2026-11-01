@@ -1,3 +1,4 @@
+import RichTextarea from "../components/RichTextarea";
 import { resolvePlainMentions } from "../../backend/src/models/plain-mentions";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
@@ -150,7 +151,7 @@ export default function CollaborationPanel({
         >
           <label className="workspace__field">
             {editing ? "Editar comentario" : "Nuevo comentario"}
-            <textarea
+            <RichTextarea
               required
               aria-label={editing ? "Editar comentario" : "Nuevo comentario"}
               maxLength={5000}

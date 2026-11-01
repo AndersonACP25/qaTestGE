@@ -1,3 +1,4 @@
+import RichTextarea from "../components/RichTextarea";
 import ProjectAccessView from "./ProjectAccessView";
 import ProjectsView from "./ProjectsView";
 import TeamsView from "./TeamsView";
@@ -473,7 +474,7 @@ export default function AccountSettingsView({
               </label>
               <label className="workspace__field">
                 Descripción / secciones
-                <textarea
+                <RichTextarea
                   value={templateForm.description}
                   onChange={(event) =>
                     setTemplateForm({ ...templateForm, description: event.target.value })

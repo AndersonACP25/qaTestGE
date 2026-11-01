@@ -1,3 +1,4 @@
+import RichTextarea from "../components/RichTextarea";
 import { withStorageLock } from "../models/storageLock";
 import { useEffect, useState } from "react";
 import Alert from "../Alert";
@@ -185,7 +186,7 @@ export default function BugDesignView({
           >
             <label className="workspace__field">
               Problema observado
-              <textarea
+              <RichTextarea
                 value={source}
                 onChange={(event) => setSource(event.target.value)}
                 maxLength={3500}
@@ -293,7 +294,7 @@ export default function BugDesignView({
                 </label>
                 <label className="workspace__field">
                   Descripción del bug
-                  <textarea
+                  <RichTextarea
                     value={preview.description}
                     onChange={(event) => edit({ description: event.target.value })}
                     maxLength={5000}
