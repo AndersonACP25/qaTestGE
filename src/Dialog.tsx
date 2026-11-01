@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useId, useRef } from "react";
 import type { ReactNode } from "react";
 
 export default function Dialog({
@@ -14,11 +14,14 @@ export default function Dialog({
   wide?: boolean;
   confirmation?: boolean;
 }) {
+  const titleId = useId();
   const panel = useRef<HTMLDivElement>(null);
   const close = useRef(onClose);
   close.current = onClose;
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     panel.current?.querySelector<HTMLElement>("input,textarea,select,button")?.focus();
     const handle = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -30,7 +33,7 @@ export default function Dialog({
         ...(panel.current?.querySelectorAll<HTMLElement>(
           'button:not(:disabled),input:not(:disabled),textarea:not(:disabled),select:not(:disabled),[tabindex="0"]',
         ) ?? []),
-      ];
+      ].filter((item) => item.getClientRects().length > 0 && !item.matches(":disabled"));
       if (!items.length) {
         event.preventDefault();
         panel.current?.focus();
@@ -48,7 +51,8 @@ export default function Dialog({
     document.addEventListener("keydown", handle);
     return () => {
       document.removeEventListener("keydown", handle);
-      previous?.focus();
+      document.body.style.overflow = previousOverflow;
+      if (previous?.isConnected) previous.focus({ preventScroll: true });
     };
   }, []);
   return (
@@ -63,11 +67,11 @@ export default function Dialog({
         ref={panel}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="workspace-dialog-title"
+        aria-labelledby={titleId}
         tabIndex={-1}
       >
         <div className="workspace__dialog-heading">
-          <h2 id="workspace-dialog-title">{title}</h2>
+          <h2 id={titleId}>{title}</h2>
           <button
             type="button"
             className="workspace__close"

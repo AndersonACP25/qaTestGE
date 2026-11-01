@@ -1,3 +1,4 @@
+import EvidenceUploadDialog from "./views/EvidenceUploadDialog";
 import NotificationBell from "./components/NotificationBell";
 import { useMentionNotifications } from "./controllers/useMentionNotifications";
 import RichTextarea from "./components/RichTextarea";
@@ -169,6 +170,7 @@ function App({
   const [deleteBugTarget, setDeleteBugTarget] = useState<Bug | null>(null);
   const [deleteBugError, setDeleteBugError] = useState("");
   const [deleteBugBusy, setDeleteBugBusy] = useState(false);
+  const [evidenceUploadTarget, setEvidenceUploadTarget] = useState("");
   const [editingEvidence, setEditingEvidence] = useState<Evidence | null>(null);
   const [evidenceActionTarget, setEvidenceActionTarget] = useState<Evidence | null>(null);
   const [evidenceToDelete, setEvidenceToDelete] = useState<Evidence | null>(null);
@@ -1071,6 +1073,7 @@ function App({
                   setModal("");
                   setRunDetail(null);
                   setRecordDetail(null);
+                  setEvidenceUploadTarget("");
                   setDeleteBugTarget(null);
                   setDeleteCaseTarget(null);
                   setSaving(false);
@@ -1701,25 +1704,37 @@ function App({
                   />
                   <fieldset className="workspace__step-editor">
                     <legend>Pasos y resultados esperados · {caseSteps.length}/100</legend>
-                    <table className="workspace__steps-table">
-                      <thead>
-                        <tr>
-                          <th scope="col">Paso</th>
-                          <th scope="col">Acción</th>
-                          <th scope="col">Resultado esperado</th>
-                          <th scope="col">Acciones</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {caseSteps.map((step, index) => (
-                          <tr key={index}>
-                            <th scope="row">{index + 1}</th>
-                            <td data-label="Acción">
+                    <div className="case-steps__list">
+                      {caseSteps.map((step, index) => (
+                        <section
+                          className="case-steps__item"
+                          key={index}
+                          aria-label={`Paso ${index + 1}`}
+                        >
+                          <header className="case-steps__heading">
+                            <strong>Paso {index + 1}</strong>
+                            <button
+                              type="button"
+                              className="workspace__secondary"
+                              disabled={caseSteps.length <= 1}
+                              onClick={() =>
+                                setCaseSteps((steps) =>
+                                  steps.length <= 1
+                                    ? steps
+                                    : steps.filter((_item, stepIndex) => stepIndex !== index),
+                                )
+                              }
+                            >
+                              Eliminar paso
+                            </button>
+                          </header>
+                          <div className="case-steps__fields">
+                            <label className="workspace__field">
+                              Acción
                               <RichTextarea
                                 aria-label="Acción"
                                 name="action"
                                 maxLength={10000}
-                                rows={3}
                                 value={step.action}
                                 onChange={(event) =>
                                   setCaseSteps((current) =>
@@ -1731,13 +1746,13 @@ function App({
                                   )
                                 }
                               />
-                            </td>
-                            <td data-label="Resultado esperado">
+                            </label>
+                            <label className="workspace__field">
+                              Resultado esperado
                               <RichTextarea
                                 aria-label="Resultado esperado"
                                 name="expectedResult"
                                 maxLength={10000}
-                                rows={3}
                                 value={step.expectedResult}
                                 onChange={(event) =>
                                   setCaseSteps((current) =>
@@ -1749,27 +1764,11 @@ function App({
                                   )
                                 }
                               />
-                            </td>
-                            <td>
-                              <button
-                                type="button"
-                                className="workspace__secondary"
-                                disabled={caseSteps.length <= 1}
-                                onClick={() =>
-                                  setCaseSteps((steps) =>
-                                    steps.length <= 1
-                                      ? steps
-                                      : steps.filter((_item, stepIndex) => stepIndex !== index),
-                                  )
-                                }
-                              >
-                                Eliminar paso
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                            </label>
+                          </div>
+                        </section>
+                      ))}
+                    </div>
                     <button
                       type="button"
                       className="workspace__secondary"
@@ -2056,6 +2055,17 @@ function App({
           {recordDetail.kind === "bug" && (
             <>
               <div className="quality__actions">
+                <button
+                  type="button"
+                  className="workspace__secondary"
+                  disabled={!allowed("evidence.write")}
+                  onClick={() => {
+                    setEvidenceUploadTarget(recordDetail.record.id);
+                    setRecordDetail(null);
+                  }}
+                >
+                  Subir evidencia
+                </button>
                 {recordDetail.record.sourceRunId && (
                   <button
                     className="workspace__secondary"
@@ -2117,6 +2127,24 @@ function App({
             </>
           )}
         </RecordDetailsDialog>
+      )}
+      {evidenceUploadTarget && (
+        <EvidenceUploadDialog
+          key={`${user.id}:${projectId}:${evidenceUploadTarget}`}
+          projectId={projectId}
+          targetId={evidenceUploadTarget}
+          onClose={() => setEvidenceUploadTarget("")}
+          onSaved={(item) => {
+            if (!isRenderCurrent()) return;
+            setData((current) => ({
+              ...current,
+              evidence: [item, ...current.evidence.filter((evidence) => evidence.id !== item.id)],
+            }));
+            setEvidenceUploadTarget("");
+            setRevision((value) => value + 1);
+            notify(`Evidencia ${item.id} guardada.`);
+          }}
+        />
       )}
       {detail && (
         <Dialog wide title="Detalle del registro" onClose={() => setDetail(null)}>
