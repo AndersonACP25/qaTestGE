@@ -1,3 +1,4 @@
+import FormattedText from "../components/FormattedText";
 import RichTextarea from "../components/RichTextarea";
 import { usePermissions } from "../controllers/ProjectPermissions";
 import { useEffect, useRef, useState } from "react";
@@ -17,6 +18,9 @@ export default function TestPlansView({
   onChanged: () => void;
 }) {
   const readOnly = !usePermissions().can("plans.write");
+  const [search, setSearch] = useState("");
+  const [caseSearch, setCaseSearch] = useState("");
+  const [formRevision, setFormRevision] = useState(0);
   const [plans, setPlans] = useState<TestPlan[]>([]);
   const [editing, setEditing] = useState<TestPlan | null>(null);
   const [error, setError] = useState("");
@@ -64,16 +68,26 @@ export default function TestPlansView({
     }
   }
   return (
-    <section className="quality">
-      <h2 className="typography__section">Planes y ciclos de prueba</h2>
+    <section className="quality test-plan">
+      <h2 className="typography__section">Gestión de Test Plan</h2>
       <p>
-        Agrupa casos y crea una ejecución de cada ciclo. Las ejecuciones conservan el vínculo al
-        plan aunque este cambie.
+        Define el alcance, organiza los casos y mantén cada Test Plan. Inicia Test Runs para
+        registrar su ejecución.
       </p>
+      <div className="test-plan__summary">
+        <div>
+          <span>Test Plans</span>
+          <strong>{plans.length}</strong>
+        </div>
+        <div>
+          <span>Casos incluidos</span>
+          <strong>{new Set(plans.flatMap((plan) => plan.caseIds)).size}</strong>
+        </div>
+      </div>
       {error && <Alert tone="error">{error}</Alert>}
       {message && <Alert tone="success">{message}</Alert>}
       <form
-        key={editing?.id ?? "new"}
+        key={`${editing?.id ?? "new"}:${formRevision}`}
         className="quality__panel"
         onSubmit={(e) => {
           e.preventDefault();
@@ -94,13 +108,17 @@ export default function TestPlansView({
             if (alive.current) {
               planKey.current = crypto.randomUUID();
               setEditing(null);
-              setMessage("Plan guardado.");
+              setCaseSearch("");
+              setFormRevision((value) => value + 1);
+              setMessage("Test Plan guardado.");
             }
           });
         }}
       >
         <fieldset className="permissions__group" disabled={readOnly || busy}>
-          <h3 className="typography__heading">{editing ? "Editar plan" : "Nuevo plan"}</h3>
+          <h3 className="typography__heading">
+            {editing ? "Editar Test Plan" : "Nuevo Test Plan"}
+          </h3>
           <label className="workspace__field">
             Nombre
             <input name="name" required maxLength={200} defaultValue={editing?.name} />
@@ -114,14 +132,31 @@ export default function TestPlansView({
             />
           </label>
           <fieldset disabled={busy || readOnly}>
-            <legend>Casos del plan</legend>
+            <legend>Casos del Test Plan</legend>
+            <label className="workspace__field">
+              Buscar casos del Test Plan
+              <input
+                type="search"
+                value={caseSearch}
+                onChange={(event) => setCaseSearch(event.target.value)}
+              />
+            </label>
             {cases.map((c) => (
-              <label className="quality__choice" key={c.id}>
+              <label
+                className="quality__choice"
+                key={c.id}
+                hidden={
+                  !`${c.id} ${c.title}`
+                    .toLocaleLowerCase("es")
+                    .includes(caseSearch.trim().toLocaleLowerCase("es"))
+                }
+              >
                 <input
                   type="checkbox"
                   name="caseIds"
                   value={c.id}
                   defaultChecked={editing?.caseIds.includes(c.id)}
+                  disabled={c.lifecycle === "Obsoleto" && !editing?.caseIds.includes(c.id)}
                 />
                 {c.id} · {c.title} · {c.lifecycle ?? "Borrador"}
               </label>
@@ -129,13 +164,16 @@ export default function TestPlansView({
           </fieldset>
           <div className="quality__actions">
             <button className="button button-primary" disabled={busy || readOnly}>
-              Guardar plan
+              Guardar Test Plan
             </button>
             {editing && (
               <button
                 className="workspace__secondary"
                 type="button"
-                onClick={() => setEditing(null)}
+                onClick={() => {
+                  setEditing(null);
+                  setCaseSearch("");
+                }}
               >
                 Cancelar
               </button>
@@ -143,73 +181,110 @@ export default function TestPlansView({
           </div>
         </fieldset>
       </form>
-      {plans.map((plan) => (
-        <article className="quality__panel" key={plan.id}>
-          <h3 className="typography__heading">{plan.name}</h3>
-          <p>{plan.description}</p>
-          <p>
-            {plan.id} · {formatCount(plan.caseIds.length, "caso", "casos")} · revisión{" "}
-            {plan.revision}
-          </p>
-          <div className="quality__actions">
-            <button
-              className="workspace__secondary"
-              disabled={busy || readOnly}
-              onClick={() => setEditing(plan)}
-            >
-              Editar plan
-            </button>
-            <button
-              className="button button-primary"
-              disabled={busy || readOnly}
-              onClick={() =>
-                void act(async () => {
-                  let pending = cycles.current.get(plan.id);
-                  if (!pending) {
-                    pending = {
-                      key: crypto.randomUUID(),
-                      body: JSON.stringify({
-                        projectId,
-                        title: `${plan.name} · ciclo`.slice(0, 200),
-                        owner: "QA",
-                        planId: plan.id,
-                      }),
-                    };
-                    cycles.current.set(plan.id, pending);
-                  }
-                  const run = toRun(
-                    await api<ApiRun>("/test-runs", {
-                      method: "POST",
-                      headers: { "Idempotency-Key": pending.key },
-                      body: pending.body,
-                    }),
-                  );
-                  cycles.current.delete(plan.id);
-                  if (alive.current) setMessage(`Ejecución ${run.id} creada. Ábrela en Test runs.`);
-                })
-              }
-            >
-              Iniciar ciclo
-            </button>
-            <button
-              className="workspace__danger"
-              disabled={busy || readOnly}
-              onClick={() => {
-                if (window.confirm(`¿Eliminar el plan ${plan.name}?`))
+      <label className="workspace__field">
+        Buscar Test Plans
+        <input
+          type="search"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Nombre, identificador o descripción"
+        />
+      </label>
+      <h2 className="typography__section">Test Plans del proyecto</h2>
+      {!plans.length && <p>No hay Test Plans. Crea el primero para organizar tus casos.</p>}
+      {plans.length > 0 &&
+        !plans.some((plan) =>
+          `${plan.name} ${plan.id} ${plan.description}`
+            .toLocaleLowerCase("es")
+            .includes(search.trim().toLocaleLowerCase("es")),
+        ) && <p>No hay Test Plans que coincidan.</p>}
+      {plans
+        .filter((plan) =>
+          `${plan.name} ${plan.id} ${plan.description}`
+            .toLocaleLowerCase("es")
+            .includes(search.trim().toLocaleLowerCase("es")),
+        )
+        .map((plan) => (
+          <article className="quality__panel" key={plan.id}>
+            <h3 className="typography__heading">{plan.name}</h3>
+            <FormattedText text={plan.description || "Sin descripción."} />
+            <p>
+              {plan.id} · {formatCount(plan.caseIds.length, "caso", "casos")} · revisión{" "}
+              {plan.revision}
+            </p>
+            <details>
+              <summary>Ver casos del Test Plan</summary>
+              <ul>
+                {plan.caseIds.map((id) => (
+                  <li key={id}>
+                    {id} · {cases.find((item) => item.id === id)?.title ?? "Caso no disponible"}
+                  </li>
+                ))}
+              </ul>
+            </details>
+            <div className="quality__actions">
+              <button
+                className="workspace__secondary"
+                disabled={busy || readOnly}
+                onClick={() => {
+                  setEditing(plan);
+                  setCaseSearch("");
+                }}
+              >
+                Editar Test Plan
+              </button>
+              <button
+                className="button button-primary"
+                disabled={busy || readOnly}
+                onClick={() =>
                   void act(async () => {
-                    await api<void>(`/test-plans/${plan.id}?projectId=${projectId}`, {
-                      method: "DELETE",
-                      body: "{}",
+                    let pending = cycles.current.get(plan.id);
+                    if (!pending) {
+                      pending = {
+                        key: crypto.randomUUID(),
+                        body: JSON.stringify({
+                          projectId,
+                          title: `${plan.name} · Test Run`.slice(0, 200),
+                          owner: "QA",
+                          planId: plan.id,
+                        }),
+                      };
+                      cycles.current.set(plan.id, pending);
+                    }
+                    const run = toRun(
+                      await api<ApiRun>("/test-runs", {
+                        method: "POST",
+                        headers: { "Idempotency-Key": pending.key },
+                        body: pending.body,
+                      }),
+                    );
+                    cycles.current.delete(plan.id);
+                    if (alive.current)
+                      setMessage(`Ejecución ${run.id} creada. Ábrela en Test runs.`);
+                  })
+                }
+              >
+                Iniciar Test Run
+              </button>
+              <button
+                className="workspace__danger"
+                disabled={busy || readOnly}
+                onClick={() => {
+                  if (window.confirm(`¿Eliminar el Test Plan ${plan.name}?`))
+                    void act(async () => {
+                      await api<void>(`/test-plans/${plan.id}?projectId=${projectId}`, {
+                        method: "DELETE",
+                        body: "{}",
+                      });
+                      if (alive.current) setMessage("Test Plan eliminado.");
                     });
-                    if (alive.current) setMessage("Plan eliminado.");
-                  });
-              }}
-            >
-              Eliminar
-            </button>
-          </div>
-        </article>
-      ))}
+                }}
+              >
+                Eliminar
+              </button>
+            </div>
+          </article>
+        ))}
     </section>
   );
 }
