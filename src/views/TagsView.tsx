@@ -1,5 +1,6 @@
+import TableExport from "../TableExport";
 import { usePermissions } from "../controllers/ProjectPermissions";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type ReactNode, type FormEvent } from "react";
 import Alert from "../Alert";
 import { createTag, deleteTag, updateTag } from "../api";
 import type { Tag } from "../types";
@@ -8,10 +9,12 @@ export default function TagsView({
   projectId,
   tags,
   onChanged,
+  importAction,
 }: {
   projectId: string;
   tags: Tag[];
   onChanged: () => void;
+  importAction?: ReactNode;
 }) {
   const readOnly = !usePermissions().can("tags.write");
   const [editing, setEditing] = useState<Tag | null>(null);
@@ -98,6 +101,17 @@ export default function TagsView({
 
   return (
     <section className="tags-view">
+      <div className="tags-view__toolbar workspace-table__toolbar">
+        {importAction}
+        <TableExport
+          data={{
+            title: "Tags",
+            filename: "tags",
+            headers: ["Nombre", "Color"],
+            rows: tags.map((tag) => [tag.name, tag.color]),
+          }}
+        />
+      </div>
       {message && <Alert tone="success">{message}</Alert>}
       <form className="tags-view__form" onSubmit={(event) => void save(event)}>
         <fieldset className="permissions__group" disabled={readOnly || busy}>

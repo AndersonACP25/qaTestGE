@@ -36,7 +36,7 @@ El diseñador no analiza tu descripción ni genera contenido con IA. Revisa siem
 
 ## Diseña tus bugs
 
-En **Diseñar bugs**, describe el problema y elige una plantilla personal si la necesitas. **Preparar bug** combina ese texto con la plantilla para crear una vista previa local editable; no analiza el problema con IA ni inventa hechos. Revisa título, descripción y prioridad, asigna tags del proyecto y confirma **Guardar bug en el proyecto**.
+En **Diseñar bugs**, describe el problema y elige una plantilla personal si la necesitas. **Preparar bug** combina ese texto con la plantilla para crear una vista previa local editable; no analiza el problema con IA ni inventa hechos. Revisa título, descripción y prioridad, asigna tags del proyecto y confirma **Guardar en Bugs**.
 
 Puedes conservar varios borradores con **Guardar borrador**, abrirlos o eliminarlos. Se guardan únicamente en este navegador por usuario y proyecto; no son bugs del proyecto y no se sincronizan entre dispositivos. Si otra pestaña cambia la lista, usa **Actualizar lista de borradores** antes de guardar para evitar sobrescribirla. Evita incluir credenciales o datos sensibles. Al crear el bug se retira su borrador local.
 
@@ -72,9 +72,9 @@ Para ejecutar tu propia instancia, consulta la [guía de desarrollo](DEVELOPMENT
 
 ## Comentarios, menciones y actividad
 
-Abre el detalle de un bug, caso o ejecución y utiliza **Comentarios y actividad**. Escribe el comentario y revisa su contenido antes de publicarlo. Para mencionar a alguien, escribe `@`, busca su nombre y selecciónalo en las sugerencias. La mención utiliza un identificador estable: escribir solo `@Nombre` sin seleccionarlo es texto y no genera un aviso. Puedes mencionar hasta 20 integrantes activos con acceso al proyecto. No se envían correos ni mensajes externos.
+Abre el detalle de un bug, caso o ejecución y utiliza **Comentarios y actividad**. Escribe el comentario y revisa su contenido antes de publicarlo. Para mencionar a alguien, escribe `@`, busca su nombre y selecciónalo en las sugerencias. El editor muestra solo `@Nombre` y conserva internamente el destinatario seleccionado. También puedes escribir un nombre completo y único; si hay homónimos, selecciona la persona en las sugerencias. Puedes mencionar hasta 20 integrantes activos con acceso al proyecto. No se envían correos ni mensajes externos.
 
-**Mis menciones** muestra tus avisos del proyecto. **Abrir registro** lo marca como leído y abre el bug, caso o ejecución. Actualiza la lista para ver avisos nuevos; no hay avisos push ni tiempo real. Los avisos dejan de mostrarse si se retira la mención, se elimina el comentario o pierdes el acceso al proyecto.
+**Mis menciones** muestra tus avisos del proyecto. **Abrir registro** lo marca como leído y abre el bug, caso o ejecución. La lista se actualiza cada 15 segundos mientras está visible y al recuperar el foco; también puedes actualizarla manualmente. Incluye las automenciones. No hay avisos push. Los avisos dejan de mostrarse si se retira la mención, se elimina el comentario o pierdes el acceso al proyecto.
 
 El autor y los Admin pueden editar o eliminar comentarios. El borrado muestra una marca de comentario eliminado; la versión anterior queda en la auditoría. Si otra persona modificó el comentario mientras lo editabas, se rechaza tu actualización para evitar sobrescribirla: actualiza la conversación y revisa la nueva versión. Se muestran los 100 comentarios más recientes del recurso.
 
@@ -96,3 +96,13 @@ El propietario del equipo conserva Admin en sus proyectos. Desde **Accesos al pr
 La creación de proyectos y la administración del equipo siguen correspondiendo al propietario del equipo. Ser miembro de un equipo ya no concede acceso automático a todos sus proyectos: una invitación nueva necesita una asignación posterior por proyecto. Al actualizar desde versiones anteriores, los miembros existentes reciben QA explícitamente en los proyectos que ya compartían, para preservar su acceso. Los proyectos futuros requieren asignaciones nuevas.
 
 El rol se muestra junto a tu cuenta. Los controles de escritura se deshabilitan según el rol; el servidor vuelve a comprobarlo en cada escritura. Una revocación puede impedir una operación iniciada desde una pantalla que aún muestra datos anteriores. En ese caso, actualiza los proyectos disponibles.
+
+## Formato, importación y descargas
+
+En los campos de texto largo, selecciona texto y utiliza **Negrita**, **Cursiva**, **Tachado** o **Código en línea**. También puedes insertar listas y citas. **Vista previa** muestra el resultado; **Editar texto** vuelve al contenido. El formato se guarda como Markdown, sin ejecutar HTML.
+
+En **Diseñar bugs**, prepara el bug, revisa sus campos y marca la confirmación. **Guardar en Bugs** crea el registro en el proyecto; **Ver en Bugs** abre el mantenimiento. **Guardar borrador** conserva únicamente el borrador de este navegador.
+
+**Importar** está junto a **Exportar tabla** en Bugs, Casos y Tags. En **Test runs**, el botón **Exportar** de cada fila permite descargar su informe PDF. Eliminar muestra únicamente la confirmación; cancelar conserva la ejecución. En **Evidencias**, **Descargar** aparece en los registros con archivo disponible, también desde su detalle.
+
+En **Configuración → Inteligencia artificial** puedes consultar el catálogo de proveedores previstos. Todas las integraciones siguen pendientes: la lista no conecta proveedores ni guarda claves.

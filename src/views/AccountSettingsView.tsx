@@ -1,4 +1,5 @@
 import ProjectAccessView from "./ProjectAccessView";
+import RichTextarea from "../components/RichTextarea";
 import ProjectsView from "./ProjectsView";
 import TeamsView from "./TeamsView";
 import type { Project } from "../api";
@@ -281,8 +282,8 @@ export default function AccountSettingsView({
       )}
       {projectId && ["workflow", "activity", "access"].includes(activeSection) && (
         <section className="account-settings__project">
-          <span className="typography__caption">PROYECTO ACTUAL</span>
-          <strong>{projectName}</strong>
+          <span className="account-settings__project-label">Estás trabajando en</span>
+          <strong className="account-settings__project-name">{projectName}</strong>
           <p>Los ajustes y la actividad corresponden al proyecto seleccionado.</p>
         </section>
       )}
@@ -473,7 +474,7 @@ export default function AccountSettingsView({
               </label>
               <label className="workspace__field">
                 Descripción / secciones
-                <textarea
+                <RichTextarea
                   value={templateForm.description}
                   onChange={(event) =>
                     setTemplateForm({ ...templateForm, description: event.target.value })
@@ -581,6 +582,22 @@ export default function AccountSettingsView({
                 una maqueta.
               </p>
             </div>
+            <ul className="account-settings__providers" aria-label="Proveedores previstos">
+              {[
+                ["OpenAI", "Generación y revisión de casos y bugs"],
+                ["Anthropic", "Análisis de requisitos y documentación"],
+                ["Google Gemini", "Análisis de texto y contenido multimodal"],
+                ["Azure OpenAI", "Integración en entornos empresariales"],
+                ["Mistral AI", "Alternativa de modelos y despliegue"],
+                ["Ollama", "Modelos locales en infraestructura propia"],
+              ].map(([name, purpose]) => (
+                <li key={name}>
+                  <strong>{name}</strong>
+                  <span>{purpose}</span>
+                  <span className="account-settings__provider-status">Integración futura</span>
+                </li>
+              ))}
+            </ul>
             <div className="account-settings__mock">
               <label className="workspace__field">
                 Proveedor
@@ -588,6 +605,10 @@ export default function AccountSettingsView({
                   <option value="">Sin conectar</option>
                   <option>OpenAI</option>
                   <option>Anthropic</option>
+                  <option>Google Gemini</option>
+                  <option>Azure OpenAI</option>
+                  <option>Mistral AI</option>
+                  <option>Ollama (local)</option>
                   <option>Proveedor compatible</option>
                 </select>
               </label>

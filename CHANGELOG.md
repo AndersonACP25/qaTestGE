@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-01 · Interacción, edición y menciones
+
+- Formato Markdown y vista previa en campos largos; menciones visibles como @Nombre con destinatarios estables.
+- Avisos en bugs/casos/runs incluidas automenciones; migración 016 recupera las existentes sin duplicar ni sobrescribir lecturas.
+- Importar junto a Exportar tabla; Guardar en Bugs y acceso al mantenimiento; exportación individual PDF de runs y descarga directa de evidencias.
+- Confirmaciones de eliminación compactas, alertas de ancho limitado, tags alineados, matriz con espacio y proyecto destacado en Configuración.
+- Catálogo de proveedores futuros de IA, sin conexiones activas. Verificados CORE, PostgreSQL efímero y escritorio/móvil.
+
 Todos los cambios importantes de qaTestGE se documentan aquí. El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y el versionado pretende seguir [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]

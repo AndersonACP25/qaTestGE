@@ -278,11 +278,13 @@ export function RunTable({
   tags,
   onSelect,
   onExecute,
+  onExport,
 }: {
   items: TestRun[];
   tags: Tag[];
   onSelect: (item: TestRun, action: "view" | "edit" | "delete") => void;
   onExecute: (item: TestRun) => void;
+  onExport: (item: TestRun) => void;
 }) {
   const readOnly = !usePermissions().can("runs.write");
   return (
@@ -355,6 +357,17 @@ export function RunTable({
                   onEdit={readOnly ? undefined : () => onSelect(item, "edit")}
                   onDelete={readOnly ? undefined : () => onSelect(item, "delete")}
                 />
+                <button
+                  type="button"
+                  className="workspace__secondary workspace-table__export"
+                  aria-label={`Exportar ${item.id}`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onExport(item);
+                  }}
+                >
+                  Exportar
+                </button>
               </td>
             </tr>
           ))}
@@ -368,10 +381,12 @@ export function EvidenceTable({
   items,
   onSelect,
   onActions,
+  onDownload,
 }: {
   items: Evidence[];
   onSelect: (item: Evidence) => void;
   onActions: (item: Evidence) => void;
+  onDownload: (item: Evidence) => void;
 }) {
   return (
     <div className="workspace-table__scroll">
@@ -415,6 +430,19 @@ export function EvidenceTable({
                 {item.date}
               </td>
               <td data-label="Acciones">
+                {item.hasFile && (
+                  <button
+                    type="button"
+                    className="workspace__secondary"
+                    aria-label={`Descargar ${item.name}`}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onDownload(item);
+                    }}
+                  >
+                    Descargar
+                  </button>
+                )}
                 <button
                   type="button"
                   className="row-more"

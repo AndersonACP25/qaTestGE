@@ -67,7 +67,7 @@ test("publica comentario con mención, lo edita y consulta actividad", async ({ 
   await page.getByLabel("Nuevo comentario", { exact: true }).fill("Revisar @Mar");
   await page.getByRole("button", { name: "@María Dev", exact: true }).click();
   await expect(page.getByLabel("Nuevo comentario", { exact: true })).toHaveValue(
-    "Revisar @[María Dev](user:2) ",
+    "Revisar @María Dev ",
   );
   await page.getByRole("button", { name: "Publicar comentario", exact: true }).click();
   await expect(page.locator(".collaboration__mention")).toHaveText("@María Dev");

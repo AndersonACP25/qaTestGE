@@ -11,7 +11,7 @@ Conectar primero **Diseñar bugs**: enviar una descripción revisada y, opcional
 1. El frontend muestra exactamente qué texto se enviará, qué proveedor se usará y permite cancelar. No incluye evidencias, credenciales, borradores completos ni datos del proyecto por defecto. La persona debe aprobar el envío.
 2. Un endpoint nuevo en `backend/`, por ejemplo `POST /api/ai/bug-proposals`, comprueba sesión, CSRF, autorización del proyecto y límites del texto. Si recibe una referencia a plantilla, verifica que pertenece al usuario.
 3. El backend llama a una interfaz de proveedor cuyo contrato y adaptador externo viven bajo `servicios/ia/`. El proveedor recibe solo el texto aprobado y devuelve una propuesta; nunca recibe acceso al repositorio ni guarda bugs.
-4. El frontend muestra la propuesta editable. **Guardar bug en el proyecto** sigue siendo una acción humana separada de **Proponer con IA**. Los borradores locales siguen disponibles si falla el proveedor.
+4. El frontend muestra la propuesta editable. **Guardar en Bugs** sigue siendo una acción humana separada de **Proponer con IA**. Los borradores locales siguen disponibles si falla el proveedor.
 
 No se necesitan agentes con herramientas ni acceso del modelo a PostgreSQL para este primer objetivo.
 

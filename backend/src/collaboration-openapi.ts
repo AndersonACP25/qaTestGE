@@ -170,7 +170,7 @@ export const collaborationPaths = {
       targetQuery,
     ),
     post: operation(
-      "Publicar comentario; menciones @[Nombre](user:ID) o @Nombre completo único, solo a integrantes activos con acceso. Nombres ambiguos requieren selección. Sin avisos para automenciones.",
+      "Publicar comentario; menciones @[Nombre](user:ID) o @Nombre completo único, solo a integrantes activos con acceso. Nombres ambiguos requieren selección. Las automenciones también generan avisos privados.",
       comment,
       [
         {

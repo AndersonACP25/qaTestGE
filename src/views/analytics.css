@@ -375,3 +375,8 @@
     padding: 16px;
   }
 }
+
+.coverage__matrix th:first-child,
+.coverage__matrix td:first-child {
+  padding-left: 24px;
+}

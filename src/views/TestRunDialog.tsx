@@ -1,3 +1,4 @@
+import RichTextarea from "../components/RichTextarea";
 import { exportRunReport } from "../utils/exportRunReport";
 import type { RunReport } from "../contracts/analyticsContracts";
 import { usePermissions } from "../controllers/ProjectPermissions";
@@ -47,7 +48,7 @@ export default function TestRunDialog({
   bugs?: Bug[];
   evidence?: Evidence[];
   onCreated?: (run: TestRun) => void;
-  initialAction?: "view" | "edit" | "delete" | "execute";
+  initialAction?: "view" | "edit" | "delete" | "execute" | "export";
 }) {
   const permission = usePermissions();
   const readOnly = !permission.can("runs.write");
@@ -94,8 +95,94 @@ export default function TestRunDialog({
       if (alive.current) setBusy(false);
     }
   }
+  async function downloadReport() {
+    const report = await api<RunReport>(
+      `/test-runs/${run.id}/report?projectId=${encodeURIComponent(run.projectId!)}`,
+    );
+    if (!alive.current) return;
+    await exportRunReport(report, () => alive.current);
+    if (alive.current) setMessage("Informe PDF preparado para descargar.");
+  }
+  if (confirmDelete)
+    return (
+      <Dialog
+        key="delete"
+        confirmation
+        title={`Eliminar ${run.id}`}
+        onClose={() => {
+          if (!busy) {
+            if (initialAction === "delete") onClose();
+            else setConfirmDelete(false);
+          }
+        }}
+      >
+        <p>
+          ¿Eliminar «{run.title}» y sus resultados? Los casos se conservan. Si hay bugs o evidencias
+          vinculados, la eliminación se rechazará.
+        </p>
+        {error && <Alert tone="error">{error}</Alert>}
+        <div className="workspace__actions workspace__actions--confirmation">
+          <button
+            type="button"
+            className="workspace__secondary"
+            disabled={busy}
+            onClick={() => {
+              if (initialAction === "delete") onClose();
+              else setConfirmDelete(false);
+            }}
+          >
+            Cancelar eliminación
+          </button>
+          <button
+            type="button"
+            className="workspace__danger"
+            disabled={busy || readOnly}
+            onClick={() =>
+              void act(async () => {
+                await deleteTestRun(run.id, run.projectId!);
+                if (alive.current) onDeleted();
+              })
+            }
+          >
+            {busy ? "Eliminando…" : "Confirmar eliminación"}
+          </button>
+        </div>
+      </Dialog>
+    );
+  if (initialAction === "export")
+    return (
+      <Dialog
+        key="export"
+        title={`Exportar ${run.id}`}
+        onClose={() => {
+          if (!busy) onClose();
+        }}
+      >
+        <p>
+          {run.title}. El informe incluye los casos, pasos, resultados, notas y referencias de
+          evidencias.
+        </p>
+        {error && <Alert tone="error">{error}</Alert>}
+        {message && <Alert tone="success">{message}</Alert>}
+        <button
+          type="button"
+          className="workspace__secondary"
+          disabled={busy}
+          onClick={() => void act(downloadReport)}
+        >
+          {busy ? "Preparando…" : "Exportar informe PDF"}
+        </button>
+      </Dialog>
+    );
   return (
-    <Dialog wide title={`Ejecución ${run.id}`} onClose={onClose}>
+    <Dialog
+      key="detail"
+      wide
+      title={`Ejecución ${run.id}`}
+      onClose={() => {
+        if (!busy) onClose();
+      }}
+    >
       <div className="test-run" ref={content}>
         {error && <Alert tone="error">{error}</Alert>}
         {message && <Alert tone="success">{message}</Alert>}
@@ -110,17 +197,7 @@ export default function TestRunDialog({
           <button
             className="workspace__secondary"
             disabled={busy}
-            onClick={() =>
-              void act(async () => {
-                const report = await api<RunReport>(
-                  `/test-runs/${run.id}/report?projectId=${encodeURIComponent(run.projectId!)}`,
-                );
-                if (alive.current) {
-                  await exportRunReport(report, () => alive.current);
-                  if (alive.current) setMessage("Informe PDF preparado para descargar.");
-                }
-              })
-            }
+            onClick={() => void act(downloadReport)}
           >
             Exportar informe PDF
           </button>
@@ -262,35 +339,6 @@ export default function TestRunDialog({
                 Eliminar ejecución
               </button>
             </div>
-            {confirmDelete && (
-              <div className="test-run__confirmation">
-                <Alert tone="warning">
-                  Se eliminará la ejecución y sus resultados. Los casos se conservan. Si hay
-                  evidencias vinculadas, se rechazará la eliminación.
-                </Alert>
-                <div className="test-run__actions">
-                  <button
-                    className="workspace__secondary"
-                    disabled={busy}
-                    onClick={() => setConfirmDelete(false)}
-                  >
-                    Cancelar eliminación
-                  </button>
-                  <button
-                    className="workspace__danger"
-                    disabled={busy}
-                    onClick={() =>
-                      void act(async () => {
-                        await deleteTestRun(run.id, run.projectId!);
-                        onDeleted();
-                      })
-                    }
-                  >
-                    Confirmar eliminación
-                  </button>
-                </div>
-              </div>
-            )}
             <h3 className="typography__heading">Resultados por caso</h3>
             {initialAction === "execute" && run.status !== "Completado" && (
               <Alert tone="info">
@@ -363,7 +411,7 @@ export default function TestRunDialog({
                     </label>
                     <label className="workspace__field">
                       Notas
-                      <textarea name="notes" defaultValue={result.notes} maxLength={10000} />
+                      <RichTextarea name="notes" defaultValue={result.notes} maxLength={10000} />
                     </label>
                     <button className="workspace__secondary">Guardar resultado</button>
                   </fieldset>
@@ -468,7 +516,7 @@ export default function TestRunDialog({
                         </label>
                         <label className="workspace__field">
                           Descripción / resultado observado
-                          <textarea
+                          <RichTextarea
                             name="description"
                             required
                             maxLength={5000}

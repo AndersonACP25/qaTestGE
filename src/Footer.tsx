@@ -12,7 +12,7 @@ export default function Footer({
       <span className="app-footer__metadata">
         © {new Date().getFullYear()} qaTestGE{version ? ` · v${version}` : ""}
       </span>
-      <span className="app-footer__status">{status}</span>
+      {status && <span className="app-footer__status">{status}</span>}
     </footer>
   );
 }

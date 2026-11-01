@@ -1,3 +1,4 @@
+import FormattedText from "../components/FormattedText";
 import { usePermissions } from "../controllers/ProjectPermissions";
 import Dialog from "../Dialog";
 import { formatCount } from "../utils/pluralization";
@@ -74,7 +75,10 @@ export default function RecordDetailsDialog({
                 </ol>
               </section>
             )}
-            <p className="record-view__copy">{bug.description?.trim() || "Sin descripción."}</p>
+            <FormattedText
+              className="record-view__copy"
+              text={bug.description?.trim() || "Sin descripción."}
+            />
             <dl className="record-view__metadata">
               <div>
                 <dt>Responsable</dt>
@@ -96,9 +100,10 @@ export default function RecordDetailsDialog({
                 {testCase?.testType ?? "Funcional"} · {testCase?.lifecycle ?? "Borrador"} · Versión{" "}
                 {testCase?.version ?? 1}
               </p>
-              <p className="record-view__copy">
-                {testCase?.preconditions?.trim() || "Sin precondiciones."}
-              </p>
+              <FormattedText
+                className="record-view__copy"
+                text={testCase?.preconditions?.trim() || "Sin precondiciones."}
+              />
               <p>Responsable QA: {testCase?.assigneeName || "Sin asignar"}</p>
             </section>
             <section className="record-view__section">
@@ -115,11 +120,11 @@ export default function RecordDetailsDialog({
                       </span>
                       <div>
                         <span>Acción</span>
-                        <p>{step.action}</p>
+                        <FormattedText text={step.action} />
                       </div>
                       <div>
                         <span>Resultado esperado</span>
-                        <p>{step.expectedResult}</p>
+                        <FormattedText text={step.expectedResult} />
                       </div>
                     </li>
                   ))}

@@ -320,7 +320,7 @@ test("exporta PDF con snapshot de ejecución y referencias de evidencia", async 
   );
   await page.goto("/");
   await navigate(page, "Test runs");
-  await page.getByText("Validación de acceso", { exact: true }).click();
+  await page.getByRole("button", { name: "Exportar RUN-001", exact: true }).click();
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "Exportar informe PDF" }).click();
   const file = await download;

@@ -13,7 +13,7 @@ export default function TableFooter({
   const pages = Math.max(1, Math.ceil(total / pageSize));
   return (
     <div className="workspace-table__footer">
-      <span>{formatCount(total, "resultado", "resultados")} · datos del proyecto</span>
+      <span>{formatCount(total, "resultado", "resultados")}</span>
       <nav className="workspace-table__pagination" aria-label="Páginas de registros">
         <button
           className="workspace__secondary"

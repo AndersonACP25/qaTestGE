@@ -39,7 +39,7 @@ test("Diseñar bugs conserva borradores y solo crea tras revisión", async ({
   );
   await page.getByLabel("Título del bug").fill("Error de acceso revisado");
   await page.getByRole("checkbox", { name: "Smoke demo", exact: true }).check();
-  await expect(page.getByRole("button", { name: "Guardar bug en el proyecto" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Guardar en Bugs" })).toBeDisabled();
   await page.getByRole("button", { name: "Guardar borrador", exact: true }).click();
   expect(workspace.writes.filter((item) => item.path === "/bugs")).toHaveLength(0);
   await page.reload();
@@ -50,11 +50,9 @@ test("Diseñar bugs conserva borradores y solo crea tras revisión", async ({
   await page
     .getByRole("checkbox", { name: "Revisé el contenido y confirmo la creación del bug." })
     .check();
-  await page.getByRole("button", { name: "Guardar bug en el proyecto" }).click();
-  await expect(
-    page.getByText("Bug BUG-002 guardado en el proyecto.", { exact: true }),
-  ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Guardar bug en el proyecto" })).toBeDisabled();
+  await page.getByRole("button", { name: "Guardar en Bugs" }).click();
+  await expect(page.getByText("Bug BUG-002 guardado en Bugs.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Guardar en Bugs" })).toBeDisabled();
   const writes = workspace.writes.filter((item) => item.path === "/bugs");
   expect(writes).toHaveLength(1);
   expect(writes[0].body).toMatchObject({

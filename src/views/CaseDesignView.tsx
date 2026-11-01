@@ -1,3 +1,4 @@
+import RichTextarea from "../components/RichTextarea";
 import type { CaseDesignController } from "../controllers/useCaseDesignController";
 import { formatCount } from "../utils/pluralization";
 import Alert from "../Alert";
@@ -51,7 +52,7 @@ export default function CaseDesignView({
           <label className="case-builder__label" htmlFor="case-builder-description">
             Descripción o requisito
           </label>
-          <textarea
+          <RichTextarea
             id="case-builder-description"
             className="case-builder__input"
             value={text}
@@ -212,7 +213,7 @@ export default function CaseDesignView({
                           <legend>Paso {index + 1}</legend>
                           <label className="case-builder__label">
                             Acción
-                            <textarea
+                            <RichTextarea
                               className="case-builder__input"
                               rows={2}
                               value={step.action}
@@ -229,7 +230,7 @@ export default function CaseDesignView({
                           </label>
                           <label className="case-builder__label">
                             Resultado esperado
-                            <textarea
+                            <RichTextarea
                               className="case-builder__input"
                               rows={2}
                               value={step.expected}

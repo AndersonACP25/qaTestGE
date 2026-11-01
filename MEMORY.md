@@ -15,10 +15,10 @@
 - Validar pnpm typecheck, pnpm lint, pnpm test, pnpm format:check y pnpm build.
 - Nunca usar la BD personal para integración destructiva. TEST_DATABASE_URL selecciona una base efímera explícita.
 - Instalación: base qa_test_ge vacía + pnpm db:setup. Actualización: pnpm db:migrate. No reimportar 001 sobre una instalación existente.
-- El catálogo compartido backend/src/migrations.ts instala 001 y aplica 004–015; no carga seed automáticamente.
+- El catálogo compartido backend/src/migrations.ts instala 001 y aplica 004–016; no carga seed automáticamente.
 - CI comprueba PostgreSQL efímero, frontend/API y E2E. Push a main genera artefactos; no hay despliegue automático.
 
-## Flujos implementados al 2026-10-31
+## Flujos implementados al 2026-11-01
 
 - Migración 013: testType, lifecycle (Borrador/Listo/Obsoleto) y version en casos, versiones históricas, planes/casos, plan/origen en runs, título/versión en snapshots, origen/severidad/entorno/versión en bugs y flujo por proyecto.
 - El resultado histórico del caso (Pendiente/Aprobado/Fallido) permanece separado de su ciclo documental. Suite se conserva; solo categorías conocidas se infieren como tipo en el backfill inicial.
@@ -49,13 +49,13 @@
 ## Colaboración y permisos (014)
 
 - Comentarios en bugs/casos/runs, cuerpo de 1–5000 caracteres, UUID idempotente por actor/proyecto, revisión para editar/eliminar y control autor/Admin. Borrado lógico con contenido anterior en actividad.
-- @menciones mediante tokens de ID estable, máximo 20; @Nombre completo único también se resuelve transaccionalmente. Homónimos exigen selección; sin autoavisos. Mis menciones consulta cada 15 s visibles y al recuperar foco, recarga el registro antes de marcar leído; avisos privados deduplicados, sin email ni push.
+- @menciones mediante tokens de ID estable, máximo 20; @Nombre completo único también se resuelve transaccionalmente. Homónimos exigen selección; las automenciones generan avisos. Mis menciones consulta cada 15 s visibles y al recuperar foco, recarga el registro antes de marcar leído; avisos privados deduplicados, sin email ni push.
 - Activity registra cambios confirmados con actor, requestId y antes/después. Triggers niegan UPDATE/DELETE/TRUNCATE; no captura bytes, claves de almacenamiento ni idempotencia. No reconstruye historia anterior a 014 ni pretende resistir a un superusuario de BD.
 - actorDatabase vincula actor/requestId a cada transacción de auth/dominio con set_config local y restaura el pool al terminar. Los triggers validan capacidades; el decorador limita lecturas a proyectos vigentes.
 - Roles: Admin configura y administra accesos; QA gestiona recursos de prueba; Dev gestiona bugs/evidencias/comentarios; Solo lectura consulta y descarga. El propietario tiene Admin implícito. Crear proyectos y administrar equipos sigue siendo del propietario.
 - Miembros anteriores reciben QA explícito en proyectos existentes. Invitaciones y proyectos nuevos no otorgan accesos automáticamente. Revocar conserva revisión con rol null; protege propietario, último Admin y asignaciones.
 - Las escrituras mantienen bloqueo compartido del proyecto; cambiar roles usa bloqueo exclusivo. Notificaciones y respuestas tardías conservan el alcance. Actividad global pagina de 50; conversación/avisos muestran últimos 100.
-- PR #24–#27 fusionados en qa-env; este lote trabaja en feat/configuracion-accesos-core desde el merge 69c9171.
+- PR #24–#29 fusionados; este lote trabaja en fix/usabilidad-menciones-exportacion desde qa-env (513b69b), conservando las mejoras del CORE y accesos.
 
 ## Analítica, cobertura e importación (015)
 
@@ -71,7 +71,7 @@
 
 ## Interacción y configuración
 
-- Importar vive junto a Actualizar en workspace__toolbar-actions para Bugs/Casos/Tags. Acento verde común, descargas con estilo de acción, hover/foco sin subrayado y contador de tags a 14 px.
+- Importar vive junto a Exportar tabla para Bugs/Casos/Tags. Los listados conservan su montaje durante recargas/fallos para mantener progreso y claves idempotentes. Acento verde común, descargas con estilo de acción, hover/foco sin subrayado y contador de tags a 14 px.
 - src/controls.css centraliza interacción de controles y respeta reducción de movimiento. AGENTS.md y docs/DESIGN.md exigen feedback accesible para acciones relevantes, sin alertas indiscriminadas por GET/200.
 - Configuración compone Proyectos, Equipos, Accesos al proyecto, Flujo de bugs y Actividad y auditoría con permisos originales; el lateral muestra badge de rol. Los formularios personales se desmontan en gestión. Componentes descartan respuestas tardías; Configuración no carga snapshot QA completo.
 - Auditoría presenta resumen de páginas cargadas, búsqueda local explícita, línea de eventos y cambios desplegables. No confundir cantidades cargadas con totales del proyecto.
@@ -86,8 +86,12 @@
 - Dashboard es la primera opción; presenta 0/0% cuando no hay indicadores evaluables, sin cambiar null del servidor/Reportes. Paneles/tarjetas separan contenido y acciones 16–24 px; hidden se conserva.
 - Unitarias CORE por regla en AGENTS/TESTING: se retiran SSR/markup, tema, pluralización y conteos arbitrarios; se conservan auth/roles, reglas QA, contratos de datos, concurrencia, import/export y rollback. Validación de acceso de theme pasa a auth; diseñador conserva selección/cantidades. Sin filtros para ocultar fallos.
 
+- RichTextarea comparte formato Markdown y vista previa en todos los campos largos; FormattedText usa React escapado, sin HTML, URLs ni imágenes. Exportaciones conservan texto fuente. mentionDraft conserva rangos/IDs mientras el editor muestra @Nombre y descarta selecciones modificadas.
+- Guardar en Bugs publica tras revisión; Ver en Bugs abre el mantenimiento. Runs exportan PDF desde fila/detalle y eliminar abre solo confirmación compacta. Evidencias con archivo descargan desde fila/detalle. Alertas inline <=560 px y toast <=360 px; fecha con inicial mayúscula, sin Cuenta de/datos del proyecto/PostgreSQL en pie.
+- Migración 016 repone automenciones previas de comentarios activos y usuarios con acceso, conserva fecha y lectura existentes. Requiere pnpm db:migrate. Proveedores de IA son catálogo futuro (OpenAI, Anthropic, Gemini, Azure OpenAI, Mistral, Ollama), sin conexiones ni claves.
+
 ## Validación y entrega
 
-- TypeScript, lint, formato, build frontend/API y 159 pruebas unitarias/endpoints aprobadas; 159 E2E completas aprobadas en escritorio, 375 y 425 px.
+- Lote 2026-11-01: TypeScript, lint, formato, build frontend/API y 163 unitarias CORE aprobadas; 180 E2E aprobadas en escritorio, 375 y 425 px.
 - PostgreSQL 18 efímero: instalación vacía y repetición; actualización 014→015 conserva bugs, baseline único y días sin historia. Integraciones de autenticación/calidad/colaboración/analítica aprobadas; reaperturas, reclasificación, aislamiento, snapshots y rollback/idempotencia de tags verificados.
-- Chromium 153 temporal para E2E, sin nuevas dependencias de producto. Esta entrega publica feat/configuracion-accesos-core en un PR nuevo hacia qa-env. No fusionar sin instrucción. Sin migraciones nuevas; PostgreSQL verifica también CRUD de membresías por Admin no propietario, aislamiento, revocación efectiva y protección del propietario/último Admin.
+- Chromium 153 temporal para E2E, sin nuevas dependencias de producto. Entrega en fix/usabilidad-menciones-exportacion hacia qa-env; no fusionar sin instrucción. PostgreSQL efímero verifica roles/accesos, menciones propias y ajenas en los tres recursos, privacidad, deduplicación y actualización 015→016 repetible.

@@ -1,3 +1,4 @@
+import RichTextarea from "../components/RichTextarea";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import Alert from "../Alert";
@@ -210,7 +211,7 @@ export default function CoverageView({
             </label>
             <label className="workspace__field">
               Descripción
-              <textarea
+              <RichTextarea
                 maxLength={5000}
                 value={description}
                 disabled={busy}
