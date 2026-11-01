@@ -1,6 +1,6 @@
 import RichTextarea from "../components/RichTextarea";
 import { withStorageLock } from "../models/storageLock";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Alert from "../Alert";
 import TagPicker from "../TagPicker";
 import { api, createBug, type BugTemplate } from "../api";
@@ -19,13 +19,22 @@ export default function BugDesignView({
   tags,
   tagError,
   onSaved,
+  onOpenBugs,
 }: {
   userId: string;
   projectId: string;
   tags: Tag[];
   tagError: string;
   onSaved: (bug: Bug) => void;
+  onOpenBugs: () => void;
 }) {
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
   const [initial] = useState(() => {
     try {
       return { ...loadBugDraftDocument(userId, projectId), error: "" };
@@ -130,8 +139,9 @@ export default function BugDesignView({
         },
         preview.id,
       );
+      if (!alive.current) return;
       setSavedId(saved.id);
-      setMessage(`Bug ${saved.id} guardado en el proyecto.`);
+      setMessage(`Bug ${saved.id} guardado en Bugs.`);
       onSaved(saved);
       try {
         await persist(drafts.filter(({ id }) => id !== preview.id));
@@ -155,7 +165,16 @@ export default function BugDesignView({
       </Alert>
       {initial.error && <Alert tone="error">{initial.error}</Alert>}
       {error && <Alert tone="error">{error}</Alert>}
-      {message && <Alert tone="success">{message}</Alert>}
+      {message && (
+        <Alert tone="success">
+          <span>{message}</span>
+          {savedId && (
+            <button type="button" className="workspace__secondary" onClick={onOpenBugs}>
+              Ver en Bugs
+            </button>
+          )}
+        </Alert>
+      )}
       <div className="bug-design__layout">
         <div className="bug-design__card">
           <h2 className="typography__section">Describe el problema</h2>
@@ -364,10 +383,11 @@ export default function BugDesignView({
                     type="submit"
                     disabled={!reviewed || !preview.title.trim() || Boolean(tagError)}
                   >
-                    Guardar bug en el proyecto
+                    Guardar en Bugs
                   </button>
                 </div>
               </fieldset>
+              {busy && <p role="status">Guardando bug…</p>}
               {savedId && <p>Ya se creó {savedId}. Prepara otro bug para continuar.</p>}
             </form>
           )}

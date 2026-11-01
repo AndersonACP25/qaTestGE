@@ -236,6 +236,57 @@
   }
 }
 
+.tag-picker__option {
+  align-items: center;
+}
+.tags-view__toolbar {
+  grid-column: 1 / -1;
+}
+.workspace__dialog--confirmation {
+  width: min(100%, 480px);
+}
+.workspace__dialog--confirmation .workspace__dialog-body {
+  padding: 16px 24px 24px;
+}
+.workspace__actions--confirmation {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  margin-top: 24px;
+}
+.account-settings__project {
+  display: grid;
+  gap: 8px;
+  padding: 24px;
+  border-left: 4px solid var(--purple);
+  background: linear-gradient(110deg, var(--color-f1efff), var(--panel));
+  border-radius: 12px;
+}
+.account-settings__project-label {
+  font-size: var(--font-caption);
+  color: var(--color-626678);
+}
+.account-settings__project-name {
+  font-size: 24px;
+  color: var(--purple);
+  overflow-wrap: anywhere;
+}
+.account-settings__providers {
+  display: grid;
+  gap: 16px;
+  list-style: none;
+  padding: 0;
+}
+.account-settings__providers li {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.account-settings__provider-status {
+  font-size: var(--font-caption);
+  color: var(--color-626678);
+}
 .rich-textarea {
   display: grid;
   min-width: 0;
@@ -305,4 +356,9 @@
 }
 .formatted-text ul {
   padding-left: 24px;
+}
+@media (max-width: 620px) {
+  .workspace__dialog--confirmation .workspace__dialog-body {
+    padding: 16px;
+  }
 }

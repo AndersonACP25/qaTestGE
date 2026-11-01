@@ -77,7 +77,7 @@ test("una creación tardía no contamina otro proyecto", async ({ page, workspac
   await page
     .getByRole("checkbox", { name: "Revisé el contenido y confirmo la creación del bug." })
     .check();
-  await page.getByRole("button", { name: "Guardar bug en el proyecto" }).click();
+  await page.getByRole("button", { name: "Guardar en Bugs" }).click();
   await requested;
   await page.getByRole("combobox", { name: "Proyecto", exact: true }).selectOption("2");
   await expect(

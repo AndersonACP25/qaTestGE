@@ -18,7 +18,7 @@ export default function TagPicker({
         <Alert tone="error">{error}</Alert>
       ) : tags.length ? (
         tags.map((tag) => (
-          <label className="workspace__check" key={tag.id}>
+          <label className="workspace__check tag-picker__option" key={tag.id}>
             <input
               type="checkbox"
               name="tagIds"

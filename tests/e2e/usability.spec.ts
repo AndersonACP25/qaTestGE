@@ -1,6 +1,6 @@
 import { test, expect, navigate, noHorizontalOverflow } from "./fixture";
 const date = "2026-10-30T12:00:00Z";
-test("Importar está en la barra superior y las descargas tienen hover sin subrayado", async ({
+test("Importar está junto a Exportar tabla y las descargas tienen hover sin subrayado", async ({
   page,
   workspace,
 }, testInfo) => {
@@ -17,8 +17,8 @@ test("Importar está en la barra superior y las descargas tienen hover sin subra
   const refresh = page.getByRole("button", { name: "Actualizar", exact: true }),
     importButton = page.getByRole("button", { name: "Importar", exact: true });
   expect(
-    await importButton.evaluate(
-      (e) => e.parentElement === document.querySelector(".workspace__toolbar-actions"),
+    await importButton.evaluate((e) =>
+      e.parentElement?.classList.contains("workspace-table__toolbar"),
     ),
   ).toBe(true);
   expect(

@@ -197,8 +197,10 @@ function App({
   const [toast, setToast] = useState("");
   const [toastTone, setToastTone] = useState<AlertTone>("success");
   const [runDetail, setRunDetail] = useState<TestRun | null>(null);
-  const [runAction, setRunAction] = useState<"view" | "edit" | "delete" | "execute">("view");
-  const [detail, setDetail] = useState<object | null>(null);
+  const [runAction, setRunAction] = useState<"view" | "edit" | "delete" | "execute" | "export">(
+    "view",
+  );
+  const [detail, setDetail] = useState<Evidence | null>(null);
   const [recordDetail, setRecordDetail] = useState<RecordDetail | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>();
   const project = projects.find((p) => p.id === projectId);
@@ -424,11 +426,17 @@ function App({
     }
   }
   async function downloadEvidence(item: Evidence) {
+    const isCurrent = captureScope();
+    notify(`Preparando descarga de ${item.name}…`, "info");
     try {
       await downloadEvidenceFile(item.id, item.projectId, item.name);
-      notify(`Descargando ${item.name}.`);
+      if (isCurrent()) notify(`Descargando ${item.name}.`);
     } catch (cause) {
-      notify(cause instanceof Error ? cause.message : "No se pudo descargar el archivo.", "error");
+      if (isCurrent())
+        notify(
+          cause instanceof Error ? cause.message : "No se pudo descargar el archivo.",
+          "error",
+        );
     }
   }
   function editCase(testCase: TestCase) {
@@ -886,7 +894,6 @@ function App({
         </div>
         <div className="workspace__identity">
           <strong>{project?.name ?? "Tu workspace"}</strong>
-          <small>Cuenta de {user.name}</small>
           <span
             className={`role-badge role-badge--${role === "Solo lectura" ? "reader" : role.toLowerCase()}`}
             aria-label={`Rol del proyecto: ${role}`}
@@ -976,12 +983,14 @@ function App({
           <div className="welcome-row">
             <div>
               <div className="eyebrow">
-                {new Date().toLocaleDateString("es", {
-                  weekday: "long",
-                  day: "numeric",
-                  month: "long",
-                  year: "numeric",
-                })}
+                {new Date()
+                  .toLocaleDateString("es", {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                  })
+                  .replace(/^./u, (letter) => letter.toLocaleUpperCase("es"))}
               </div>
               <h1 className="typography__title">{pageTitle}</h1>
               <p className="page-subtitle">{pageDescription(activePage)}</p>
@@ -1082,24 +1091,6 @@ function App({
               >
                 Actualizar
               </button>
-              {projectId &&
-                (activePage === "bugs" || activePage === "cases" || activePage === "tags") &&
-                allowed(
-                  activePage === "bugs"
-                    ? "bugs.write"
-                    : activePage === "cases"
-                      ? "cases.write"
-                      : "tags.write",
-                ) && (
-                  <ImportPanel
-                    key={`import:${user.id}:${projectId}:${activePage}`}
-                    projectId={projectId}
-                    kind={activePage}
-                    onChanged={() => {
-                      if (isRenderCurrent()) setRevision((v) => v + 1);
-                    }}
-                  />
-                )}
             </div>
           </div>
           {loading && (
@@ -1225,6 +1216,12 @@ function App({
                 projectId={projectId}
                 tags={tags}
                 tagError={tagError}
+                onOpenBugs={() => {
+                  setSearch("");
+                  setStatusFilter("Todos");
+                  setTablePage(1);
+                  navigate("bugs");
+                }}
                 onSaved={((isCurrent) => (bug) => {
                   if (isCurrent())
                     setData((current) => ({
@@ -1254,6 +1251,17 @@ function App({
                     key={`${user.id}:${projectId}`}
                     projectId={projectId}
                     tags={tags}
+                    importAction={
+                      allowed("tags.write") ? (
+                        <ImportPanel
+                          projectId={projectId}
+                          kind="tags"
+                          onChanged={() => {
+                            if (isRenderCurrent()) setRevision((v) => v + 1);
+                          }}
+                        />
+                      ) : null
+                    }
                     onChanged={() => setRevision((current) => current + 1)}
                   />
                 )}
@@ -1279,8 +1287,8 @@ function App({
               />
             )
           ) : (
-            !loading &&
-            !error &&
+            (!loading || isListing) &&
+            (!error || isListing) &&
             projectId &&
             (activePage === "overview" ? (
               <DashboardView
@@ -1320,6 +1328,18 @@ function App({
                 </div>
                 {activePage !== "evidence" && (
                   <div className="workspace-table__toolbar">
+                    {projectId &&
+                      (activePage === "bugs" || activePage === "cases") &&
+                      allowed(activePage === "bugs" ? "bugs.write" : "cases.write") && (
+                        <ImportPanel
+                          key={`import:${user.id}:${projectId}:${activePage}`}
+                          projectId={projectId}
+                          kind={activePage}
+                          onChanged={() => {
+                            if (isRenderCurrent()) setRevision((v) => v + 1);
+                          }}
+                        />
+                      )}
                     <TableExport
                       data={
                         activePage === "bugs"
@@ -1366,6 +1386,10 @@ function App({
                   <RunTable
                     items={visibleRuns}
                     tags={tags}
+                    onExport={(run) => {
+                      setRunAction("export");
+                      setRunDetail(run);
+                    }}
                     onExecute={(run) => {
                       setRunAction("execute");
                       setRunDetail(run);
@@ -1381,6 +1405,7 @@ function App({
                     items={visibleEvidence}
                     onSelect={setDetail}
                     onActions={setEvidenceActionTarget}
+                    onDownload={(item) => void downloadEvidence(item)}
                   />
                 )}
                 {!total && (
@@ -1399,13 +1424,7 @@ function App({
           )}
           <Footer
             version={version}
-            status={
-              error
-                ? "Datos no disponibles"
-                : loading
-                  ? "Actualizando datos…"
-                  : "Datos persistidos en PostgreSQL"
-            }
+            status={error ? "Datos no disponibles" : loading ? "Actualizando datos…" : ""}
           />
         </div>
       </main>
@@ -2130,6 +2149,15 @@ function App({
                 </React.Fragment>
               ))}
           </dl>
+          {"hasFile" in detail && detail.hasFile && (
+            <button
+              type="button"
+              className="workspace__secondary"
+              onClick={() => void downloadEvidence(detail)}
+            >
+              Descargar evidencia
+            </button>
+          )}
           {isTestCaseRecord(detail) && <CaseAttachmentsPanel testCase={detail} />}
         </Dialog>
       )}
@@ -2184,6 +2212,7 @@ function App({
       )}
       {evidenceToDelete && (
         <Dialog
+          confirmation
           title="Eliminar evidencia"
           onClose={() => {
             if (!saving) {
@@ -2197,7 +2226,7 @@ function App({
             no se puede deshacer.
           </p>
           {formError && <Alert tone="error">{formError}</Alert>}
-          <div className="workspace__actions">
+          <div className="workspace__actions workspace__actions--confirmation">
             <button
               type="button"
               className="workspace__secondary"
@@ -2253,6 +2282,7 @@ function App({
       )}
       {deleteBugTarget && (
         <Dialog
+          confirmation
           title={`Eliminar ${deleteBugTarget.id}`}
           onClose={() => {
             if (!deleteBugBusy) setDeleteBugTarget(null);
@@ -2263,7 +2293,7 @@ function App({
             relaciones.
           </p>
           {deleteBugError && <Alert tone="error">{deleteBugError}</Alert>}
-          <div className="workspace__actions">
+          <div className="workspace__actions workspace__actions--confirmation">
             <button
               type="button"
               className="workspace__secondary"
@@ -2285,6 +2315,7 @@ function App({
       )}
       {deleteCaseTarget && (
         <Dialog
+          confirmation
           title={`Eliminar ${deleteCaseTarget.id}`}
           onClose={() => {
             if (!deleteCaseBusy) {
@@ -2298,7 +2329,7 @@ function App({
             una ejecución, hacen referencia a él.
           </p>
           {deleteCaseError && <Alert tone="error">{deleteCaseError}</Alert>}
-          <div className="workspace__actions">
+          <div className="workspace__actions workspace__actions--confirmation">
             <button
               type="button"
               className="workspace__secondary"
