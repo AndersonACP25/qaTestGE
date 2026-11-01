@@ -1,3 +1,8 @@
+import {
+  auditSettingsSchema,
+  auditFiltersSchema,
+  provisionUserSchema,
+} from "../models/audit.model.js";
 import { Router } from "express";
 import { z } from "zod";
 import { repository } from "../repositories/repository.js";
@@ -29,6 +34,24 @@ function parse<T>(schema: z.ZodType<T>, input: unknown): T {
     );
   return r.data;
 }
+router.get("/audit-settings", async (req, res) => {
+  res.json({ data: await collab(req).auditSettings(project(req)) });
+});
+router.put("/audit-settings", async (req, res) => {
+  res.json({
+    data: await collab(req).saveAuditSettings(project(req), parse(auditSettingsSchema, req.body)),
+  });
+});
+router.post("/project-users", async (req, res) => {
+  const key = parse(z.uuid(), req.get("Idempotency-Key"));
+  res.status(201).json({
+    data: await collab(req).createProjectUser(
+      project(req),
+      parse(provisionUserSchema, req.body),
+      key,
+    ),
+  });
+});
 router.get("/project-members", async (req, res) => {
   const candidates = req.query.candidates;
   if (candidates !== undefined && candidates !== "true")
@@ -69,20 +92,25 @@ router.delete("/comments/:commentId", async (req, res) => {
 });
 router.get("/activity", async (req, res) => {
   let t: ResourceTarget | undefined;
-  if (req.query.kind !== undefined || req.query.resourceId !== undefined)
+  if (req.query.resourceId !== undefined)
     t = parse(targetSchema, { kind: req.query.kind, id: req.query.resourceId });
   if (req.query.before !== undefined && !isId(req.query.before))
     throw new HttpError(400, "INVALID_CURSOR", "Cursor inválido.");
+  const filters = parse(auditFiltersSchema, req.query);
   res.json({
     data: await collab(req).activity(
       project(req),
       t,
       typeof req.query.before === "string" ? req.query.before : undefined,
+      filters,
     ),
   });
 });
 router.get("/mention-notifications", async (req, res) => {
   res.json({ data: await collab(req).notifications(project(req)) });
+});
+router.patch("/mention-notifications/read-all", async (req, res) => {
+  res.json({ data: await collab(req).readAllNotifications(project(req)) });
 });
 router.patch("/mention-notifications/:notificationId", async (req, res) => {
   const id = parseReference(req.params.notificationId, "NTF");

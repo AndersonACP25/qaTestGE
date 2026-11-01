@@ -72,6 +72,12 @@ export async function checkDatabase(pool: pg.Pool): Promise<void> {
     "SELECT project_id,bug_id,is_closed,event,occurred_at FROM qa.bug_state_events LIMIT 0",
   );
   await pool.query("SELECT project_id,actor_id,request_key FROM qa.import_batches LIMIT 0");
+  await pool.query(
+    "SELECT project_id,profile,detail,page_size,version FROM qa.project_audit_settings LIMIT 0",
+  );
+  await pool.query(
+    "SELECT project_id,actor_id,request_key,request_hash,user_id FROM qa.project_user_requests LIMIT 0",
+  );
   await pool.query("SELECT 1");
   await pool.query(
     "SELECT u.id,s.token_hash,m.user_id FROM qa.users u LEFT JOIN qa.auth_sessions s ON s.user_id=u.id LEFT JOIN qa.organization_members m ON m.user_id=u.id LIMIT 0",

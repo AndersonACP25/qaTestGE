@@ -15,6 +15,7 @@ export const migrationFiles = [
   "014_collaboration_permissions.sql",
   "015_analytics_coverage.sql",
   "016_self_mentions.sql",
+  "017_project_administration.sql",
 ] as const;
 
 /** Initial install and upgrades share one ordered source; no seed or deletion. */
@@ -45,7 +46,8 @@ export async function applyMigrations(
         filename.startsWith("013") ||
         filename.startsWith("014") ||
         filename.startsWith("015") ||
-        filename.startsWith("016")
+        filename.startsWith("016") ||
+        filename.startsWith("017")
       ) {
         const existing = await client.query<{ present: boolean }>(
           "SELECT EXISTS(SELECT 1 FROM qa.schema_migrations WHERE version=$1) AS present",

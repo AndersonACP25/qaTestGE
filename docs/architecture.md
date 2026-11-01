@@ -273,7 +273,7 @@ La importación usa un diálogo compartido para Bugs/Casos/Tags con plantilla Ex
 
 ## Ajustes de interacción y configuración
 
-Flujo de bugs y Actividad y auditoría se componen dentro de AccountSettingsView. Las pestañas conservan permisos y se montan por proyecto; al cambiar de alcance se descartan respuestas anteriores. Configuración no descarga el snapshot QA completo. La auditoría permite buscar sobre las páginas cargadas, sin presentar esa búsqueda como un filtro global del servidor.
+Flujo de bugs y Actividad y auditoría se componen dentro de AccountSettingsView. Las pestañas conservan permisos y se montan por proyecto; al cambiar de alcance se descartan respuestas anteriores. Configuración no descarga el snapshot QA completo. La auditoría conserva una búsqueda local explícita y añade filtros en servidor por perfil, recurso, operación, autor, fechas UTC y búsqueda, con cursor descendente.
 
 Los mantenimientos reutilizan Alert para confirmar escrituras y descargas, además de errores. Tags, flujo, requisitos/vínculos, accesos, comentarios, adjuntos y eliminación de planes tienen confirmaciones explícitas. Los controles de importación comparten ubicación, acento y estados; la capa común controls.css define hover/foco y elimina subrayados de acciones. Reaplicar un período vuelve a consultar sus agregados incluso si las fechas no cambian; Actualizar invalida también Reportes, Cobertura y la actividad del proyecto.
 
@@ -287,7 +287,7 @@ Los comentarios convierten `@Nombre completo` en el token estable existente cuan
 
 ### Accesos por proyecto y pruebas del CORE
 
-AccountSettingsView compone Accesos al proyecto cuando existe projectId y la persona tiene access.manage; se elimina la página lateral independiente y Dashboard pasa a ser la primera opción. ProjectAccessView separa alta de acceso, consulta/búsqueda, edición de rol y retirada. Reutiliza GET /project-members?candidates=true y PUT /project-members/:userId con role/revision, sin nuevas rutas ni migraciones: solo integrantes registrados, activos y pertenecientes al equipo. Retirar equivale a revocar esa membresía, no borrar la cuenta. Admin no propietario también puede gestionarlas. Se conservan validación de servidor, propietario/último Admin protegido, asignaciones y conflicto de revisión; no hay reintentos automáticos.
+AccountSettingsView compone Accesos al proyecto cuando existe projectId y la persona tiene access.manage; se elimina la página lateral independiente y Dashboard pasa a ser la primera opción. ProjectAccessView separa alta de acceso, consulta/búsqueda, edición de rol y retirada. Reutiliza GET /project-members?candidates=true y PUT /project-members/:userId con role/revision, para integrantes registrados, activos y pertenecientes al equipo. La migración 017 añade además el alta administrativa de cuentas nuevas mediante POST /project-users. Retirar equivale a revocar esa membresía, no borrar la cuenta. Admin no propietario también puede gestionarlas. Se conservan validación de servidor, propietario/último Admin protegido, asignaciones y conflicto de revisión; no hay reintentos automáticos.
 
 El componente por proyecto aborta lecturas al desmontar y descarta resultados tardíos de escritura, con bloqueo durante el guardado y mensajes concretos. El Dashboard representa tasas null como 0% solo al presentar, con explicación; el contrato de analítica y Reportes conserva null para ausencias históricas. El espaciado compartido separa los hijos de paneles/tarjetas y respeta hidden.
 
@@ -301,7 +301,7 @@ El listado se conserva montado durante su recarga para que Importar, situado jun
 
 ## Interacción de registros y notificaciones
 
-La campana y Mis menciones comparten estado y errores seguros; el marcado es una acción explícita, idempotente y privada del destinatario con la API existente. No se modifica el servidor ni se añade una migración.
+La campana y Mis menciones comparten estado y errores seguros; el marcado es una acción explícita, idempotente y privada del destinatario con la API existente. PATCH /mention-notifications/read-all marca atómicamente todos los avisos propios activos del proyecto, incluidos los anteriores a los 100 visibles; devuelve cantidad real y fecha del servidor. No afecta otros destinatarios ni menciones futuras.
 
 Los borradores de bugs con ID UUID mantienen su clave existente; IDs locales antiguos se convierten en UUID v8 determinista mediante SHA-256 de usuario/proyecto/ID. Reintentar conserva la misma identidad y la huella de contenido sigue validándose en servidor. Publicar un bug sin borrador guardado evita una escritura local innecesaria; un fallo de limpieza de un borrador publicado no vuelve a crear el registro.
 
@@ -310,3 +310,13 @@ El editor de pasos usa tarjetas y columnas adaptables en lugar de una tabla estr
 Los resultados del Test Run mantienen claves de React por ID; guardar no remonta su formulario ni desplaza el diálogo al inicio. El feedback y los errores de la mutación aparecen en el caso correspondiente y se conserva scrollTop. ActivityList ordena copias por fecha descendente e ID descendente en empates, sin numeración visible.
 
 Test Plan conserva contratos, IDs, revisiones y permisos de /test-plans. La vista incorpora búsquedas de planes/casos, detalle de los casos, alta/edición y creación explícita de un Test Run enlazado. Los casos ocultos por búsqueda conservan sus selecciones; no se incorporan casos obsoletos nuevos.
+
+## Administración del proyecto y Work Items (017)
+
+La migración 017 añade project_audit_settings y project_user_requests, sus controles de permisos y un índice de consulta de actividad. GET/PUT /audit-settings usa perfil General (todos), Calidad (recursos QA) o Seguridad (accesos, usuarios, configuración y flujo), detalle Resumen/Detallado y páginas de 25/50/100. Solo Admin guarda, con revisión optimista; una revisión obsoleta devuelve 409. Esta configuración presenta/filtra eventos: nunca suspende, modifica ni elimina la auditoría transaccional. Los cambios de configuración también se auditan.
+
+POST /project-users exige access.manage, UUID Idempotency-Key y nombre/correo/contraseña inicial/rol validados. Crea una cuenta global, membresía de equipo sin administración y rol exclusivamente en el proyecto elegido dentro de una sola transacción. Un correo ya existente devuelve 409 sin tomar control de esa cuenta. El bloqueo por proyecto serializa las altas/reintentos y la comprobación de contraseña con scrypt evita guardar una huella rápida de la contraseña. El historial solo registra nombre/rol, nunca correo, contraseña ni hash. El administrador comunica las credenciales iniciales por su propio canal; no se envían correos y no hay flujo de restablecimiento. QA, Dev y Solo lectura no pueden crear cuentas ni cambiar configuración.
+
+WorkItemLayout compone identidad con acento por tipo, navegación a las secciones existentes y propiedades laterales adaptables para bugs, casos, ejecuciones y evidencias. No cambia contratos de los recursos. Los formularios amplían el espacio en escritorio, conservando el editor de pasos adaptable y el scroll de ejecución. Test Plan separa edición y catálogo con tarjetas y mantiene selección, revisiones, roles e idempotencia existentes.
+
+FileDropzone permite selección y arrastre en alta/reemplazo de evidencia y resultados de Test Run, además de importación/carga del bug. El mismo objeto File se conserva en FormData tras un drop; se mantienen 2 MiB y autorización por proyecto. La lectura masiva comparte estado con la campana, bloquea acciones simultáneas y descarta respuestas de otro alcance. Abrir un registro sigue sin marcarlo leído.

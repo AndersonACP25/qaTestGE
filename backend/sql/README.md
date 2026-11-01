@@ -50,3 +50,7 @@ Aplicar con `pnpm db:migrate`. Añade accesos por proyecto, comentarios/versione
 ### 015: analítica y cobertura
 
 `015_analytics_coverage.sql` añade requisitos/casos, lotes idempotentes de tags, eventos inmutables para tendencias de bugs e índices por fecha/proyecto. Se aplica una vez desde el catálogo común. El historial comienza al aplicarla; los datos anteriores no se reconstruyen. Actualiza con `pnpm db:migrate` antes de iniciar la API.
+
+### 017 · Administración de usuarios y auditoría
+
+Ejecuta `pnpm db:migrate`. Añade configuración de vista de auditoría por proyecto con revisión y control Admin, registro idempotente de altas de cuentas y un índice de filtros de actividad. Conserva todos los eventos existentes; no introduce retención ni desactivación del registro. Las cuentas creadas reciben membresía de equipo sin administración y el rol seleccionado solo en el proyecto actual. No modifica cuentas con un correo ya registrado.

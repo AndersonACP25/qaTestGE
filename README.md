@@ -17,9 +17,11 @@ Una plataforma para organizar el trabajo de QA de tu equipo: bugs, casos de prue
 - **Test Plan:** agrupa casos, clona ejecuciones o reejecuta solo los fallidos conservando los pasos originales.
 - **Casos versionados e importación:** tipo de prueba independiente, Borrador/Listo/Obsoleto, historial e importación revisada de CSV/Excel.
 - **Flujo de bugs por proyecto:** estados y transiciones configurables, severidad, entorno y versión afectada.
-- **Comentarios y menciones:** conversa en bugs, casos y ejecuciones; selecciona a la persona tras @ o escribe su nombre completo único. Mis menciones y la campana del navbar comparten los avisos del proyecto. Abrir un registro no cambia su lectura: se marca explícitamente con el botón verde. Incluye automenciones, filtros e historial de actividad.
+- **Comentarios y menciones:** conversa en bugs, casos y ejecuciones; selecciona a la persona tras @ o escribe su nombre completo único. Mis menciones y la campana del navbar comparten los avisos del proyecto. Abrir un registro no cambia su lectura: se marca explícitamente con el botón verde. Incluye automenciones, filtros, lectura masiva de todos los avisos propios e historial de actividad.
 - **Configuración:** reúne Proyectos, Equipos, Accesos al proyecto, Flujo de bugs y Actividad y auditoría con sus permisos vigentes; el rol del proyecto se identifica mediante un badge.
-- **Roles y auditoría:** Admin, QA, Dev y Solo lectura por proyecto, con registro persistente de cambios.
+- **Roles y auditoría:** Admin, QA, Dev y Solo lectura por proyecto, con registro persistente de cambios. Admin puede crear cuentas y asignarles un rol únicamente en el proyecto actual. Auditoría ofrece perfiles General/Calidad/Seguridad y filtros en servidor.
+- **Work Items:** detalles de bugs, casos, ejecuciones y evidencias con identidad, navegación por secciones y panel de propiedades. Test Plan separa planificación y catálogo.
+- **Evidencias:** selecciona o arrastra archivos al registro, al bug o al resultado de una ejecución; máximo 2 MiB y descarga privada.
 - **Equipos y proyectos:** colabora mediante invitaciones de un solo uso.
 - **Dashboard visual y analítica:** indicadores resumidos, tendencias de aprobación y bugs, fallos frecuentes y cobertura por tipo con agregaciones PostgreSQL.
 - **Cobertura de requisitos:** vincula requisitos, casos y bugs en una matriz paginada.

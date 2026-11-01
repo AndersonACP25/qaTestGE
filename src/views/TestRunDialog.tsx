@@ -1,3 +1,5 @@
+import FileDropzone from "../components/FileDropzone";
+import WorkItemLayout from "../components/WorkItemLayout";
 import RichTextarea from "../components/RichTextarea";
 import { exportRunReport } from "../utils/exportRunReport";
 import type { RunReport } from "../contracts/analyticsContracts";
@@ -52,6 +54,7 @@ export default function TestRunDialog({
 }) {
   const permission = usePermissions();
   const readOnly = !permission.can("runs.write");
+  const [evidenceFiles, setEvidenceFiles] = useState<Record<string, File>>({});
   const [failureId, setFailureId] = useState("");
   const [bugKey, setBugKey] = useState(crypto.randomUUID());
   const cloneRequests = useRef(new Map<boolean, { key: string; body: string }>());
@@ -182,435 +185,454 @@ export default function TestRunDialog({
   return (
     <Dialog
       key="detail"
-      wide
+      workItem
       title={`Ejecución ${run.id}`}
       onClose={() => {
         if (!busy) onClose();
       }}
     >
-      <div className="test-run" ref={content}>
-        {error && <Alert tone="error">{error}</Alert>}
-        {message && <Alert tone="success">{message}</Alert>}
-        <p className="test-run__summary">
-          {run.title} · {run.status} · {run.progress}% registrado
-        </p>
-        <p>
-          {run.planId ? `Plan: ${run.planId}` : "Sin plan"}
-          {run.sourceRunId ? ` · Origen: ${run.sourceRunId}` : ""}
-        </p>
-        <div className="quality__actions">
-          <button
-            className="workspace__secondary"
-            disabled={busy}
-            onClick={() => void act(downloadReport)}
-          >
-            Exportar informe PDF
-          </button>
-          {[false, true].map((failedOnly) => (
+      <WorkItemLayout
+        kind="run"
+        id={run.id}
+        title={run.title}
+        status={run.status}
+        fields={[
+          { label: "Responsable", value: run.owner },
+          { label: "Test Plan", value: run.planId || "Sin plan" },
+          { label: "Progreso", value: `${run.progress}%` },
+          { label: "Casos", value: run.caseIds?.length ?? 0 },
+        ]}
+        anchors={[
+          { label: "Ejecución", selector: ".test-run__result, .test-run__summary" },
+          { label: "Discusión", selector: ".collaboration" },
+          { label: "Historial", selector: ".collaboration__history" },
+        ]}
+      >
+        <div className="test-run" ref={content}>
+          {error && <Alert tone="error">{error}</Alert>}
+          {message && <Alert tone="success">{message}</Alert>}
+          <p className="test-run__summary">
+            {run.title} · {run.status} · {run.progress}% registrado
+          </p>
+          <p>
+            {run.planId ? `Plan: ${run.planId}` : "Sin plan"}
+            {run.sourceRunId ? ` · Origen: ${run.sourceRunId}` : ""}
+          </p>
+          <div className="quality__actions">
             <button
-              type="button"
-              key={String(failedOnly)}
               className="workspace__secondary"
-              disabled={
-                readOnly ||
-                busy ||
-                (failedOnly && !run.results?.some((r) => r.executedAt && r.status === "failed"))
-              }
-              onClick={() =>
-                void act(async () => {
-                  let pending = cloneRequests.current.get(failedOnly);
-                  if (!pending) {
-                    pending = {
-                      key: crypto.randomUUID(),
-                      body: JSON.stringify({
-                        projectId: run.projectId,
-                        title: `${run.title} · ${failedOnly ? "fallidos" : "copia"}`.slice(0, 200),
-                        owner: run.owner,
-                        sourceRunId: run.id,
-                        failedOnly,
-                      }),
-                    };
-                    cloneRequests.current.set(failedOnly, pending);
-                  }
-                  const created = toRun(
-                    await api<ApiRun>("/test-runs", {
-                      method: "POST",
-                      headers: { "Idempotency-Key": pending.key },
-                      body: pending.body,
-                    }),
-                  );
-                  cloneRequests.current.delete(failedOnly);
-                  if (alive.current) {
-                    setMessage(`Ejecución ${created.id} creada con resultados pendientes.`);
-                    onCreated?.(created);
-                  }
-                })
-              }
+              disabled={busy}
+              onClick={() => void act(downloadReport)}
             >
-              {failedOnly ? "Reejecutar solo fallidos" : "Clonar ejecución"}
+              Exportar informe PDF
             </button>
-          ))}
-        </div>
-        <progress
-          className="test-run__progress"
-          aria-label="Progreso de ejecución"
-          value={run.progress}
-          max={100}
-        />
-        {editing ? (
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              const form = new FormData(event.currentTarget);
-              void act(async () => {
-                const updated = await updateTestRun(run.id, run.projectId!, {
-                  title: String(form.get("title")),
-                  owner: String(form.get("owner")),
-                  caseIds: form.getAll("caseIds") as string[],
-                  status: String(form.get("status")) as TestRunStatus,
-                  tagIds: run.tagIds ?? [],
+            {[false, true].map((failedOnly) => (
+              <button
+                type="button"
+                key={String(failedOnly)}
+                className="workspace__secondary"
+                disabled={
+                  readOnly ||
+                  busy ||
+                  (failedOnly && !run.results?.some((r) => r.executedAt && r.status === "failed"))
+                }
+                onClick={() =>
+                  void act(async () => {
+                    let pending = cloneRequests.current.get(failedOnly);
+                    if (!pending) {
+                      pending = {
+                        key: crypto.randomUUID(),
+                        body: JSON.stringify({
+                          projectId: run.projectId,
+                          title: `${run.title} · ${failedOnly ? "fallidos" : "copia"}`.slice(
+                            0,
+                            200,
+                          ),
+                          owner: run.owner,
+                          sourceRunId: run.id,
+                          failedOnly,
+                        }),
+                      };
+                      cloneRequests.current.set(failedOnly, pending);
+                    }
+                    const created = toRun(
+                      await api<ApiRun>("/test-runs", {
+                        method: "POST",
+                        headers: { "Idempotency-Key": pending.key },
+                        body: pending.body,
+                      }),
+                    );
+                    cloneRequests.current.delete(failedOnly);
+                    if (alive.current) {
+                      setMessage(`Ejecución ${created.id} creada con resultados pendientes.`);
+                      onCreated?.(created);
+                    }
+                  })
+                }
+              >
+                {failedOnly ? "Reejecutar solo fallidos" : "Clonar ejecución"}
+              </button>
+            ))}
+          </div>
+          <progress
+            className="test-run__progress"
+            aria-label="Progreso de ejecución"
+            value={run.progress}
+            max={100}
+          />
+          {editing ? (
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                const form = new FormData(event.currentTarget);
+                void act(async () => {
+                  const updated = await updateTestRun(run.id, run.projectId!, {
+                    title: String(form.get("title")),
+                    owner: String(form.get("owner")),
+                    caseIds: form.getAll("caseIds") as string[],
+                    status: String(form.get("status")) as TestRunStatus,
+                    tagIds: run.tagIds ?? [],
+                  });
+                  onChanged(updated);
+                  setEditing(false);
+                  setMessage("Ejecución actualizada.");
                 });
-                onChanged(updated);
-                setEditing(false);
-                setMessage("Ejecución actualizada.");
-              });
-            }}
-          >
-            <fieldset className="test-run__fields" disabled={readOnly || busy}>
-              <legend>Editar ejecución</legend>
-              <label className="workspace__field">
-                Título
-                <input name="title" defaultValue={run.title} required maxLength={200} />
-              </label>
-              <label className="workspace__field">
-                Responsable
-                <input name="owner" defaultValue={run.owner} required maxLength={100} />
-              </label>
-              <label className="workspace__field">
-                Estado
-                <select name="status" defaultValue={run.status}>
-                  <option>En curso</option>
-                  <option>Completado</option>
-                </select>
-              </label>
-              <p>
-                Para completar, registra un resultado para cada caso. Los resultados existentes se
-                conservan al mantener el caso seleccionado.
-              </p>
-              <fieldset className="test-run__selection">
-                <legend>Casos de la ejecución</legend>
-                {cases.map((item) => (
-                  <label key={item.id}>
-                    <input
-                      type="checkbox"
-                      name="caseIds"
-                      value={item.id}
-                      defaultChecked={run.caseIds?.includes(item.id)}
-                    />
-                    {item.id} · {item.title}
-                  </label>
-                ))}
+              }}
+            >
+              <fieldset className="test-run__fields" disabled={readOnly || busy}>
+                <legend>Editar ejecución</legend>
+                <label className="workspace__field">
+                  Título
+                  <input name="title" defaultValue={run.title} required maxLength={200} />
+                </label>
+                <label className="workspace__field">
+                  Responsable
+                  <input name="owner" defaultValue={run.owner} required maxLength={100} />
+                </label>
+                <label className="workspace__field">
+                  Estado
+                  <select name="status" defaultValue={run.status}>
+                    <option>En curso</option>
+                    <option>Completado</option>
+                  </select>
+                </label>
+                <p>
+                  Para completar, registra un resultado para cada caso. Los resultados existentes se
+                  conservan al mantener el caso seleccionado.
+                </p>
+                <fieldset className="test-run__selection">
+                  <legend>Casos de la ejecución</legend>
+                  {cases.map((item) => (
+                    <label key={item.id}>
+                      <input
+                        type="checkbox"
+                        name="caseIds"
+                        value={item.id}
+                        defaultChecked={run.caseIds?.includes(item.id)}
+                      />
+                      {item.id} · {item.title}
+                    </label>
+                  ))}
+                </fieldset>
+                <div className="test-run__actions">
+                  <button
+                    className="workspace__secondary"
+                    type="button"
+                    onClick={() => setEditing(false)}
+                  >
+                    Cancelar edición
+                  </button>
+                  <button className="button button-primary">Guardar ejecución</button>
+                </div>
               </fieldset>
+            </form>
+          ) : (
+            <>
               <div className="test-run__actions">
                 <button
                   className="workspace__secondary"
-                  type="button"
-                  onClick={() => setEditing(false)}
-                >
-                  Cancelar edición
-                </button>
-                <button className="button button-primary">Guardar ejecución</button>
-              </div>
-            </fieldset>
-          </form>
-        ) : (
-          <>
-            <div className="test-run__actions">
-              <button
-                className="workspace__secondary"
-                disabled={readOnly || busy}
-                onClick={() => {
-                  setEditing(true);
-                  setConfirmDelete(false);
-                }}
-              >
-                Editar ejecución
-              </button>
-              <button
-                className="workspace__danger"
-                disabled={readOnly || busy}
-                onClick={() => setConfirmDelete(true)}
-              >
-                Eliminar ejecución
-              </button>
-            </div>
-            <h3 className="typography__heading">Resultados por caso</h3>
-            {initialAction === "execute" && run.status !== "Completado" && (
-              <Alert tone="info">
-                Registra el resultado de cada caso pendiente y guárdalo para actualizar el progreso.
-              </Alert>
-            )}
-            {!run.results?.length && (
-              <p>Aún no hay casos. Edita la ejecución para seleccionarlos.</p>
-            )}
-            {run.results?.map((result) => (
-              <div key={result.id} className="quality__panel">
-                <form
-                  className="test-run__result"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    const form = new FormData(event.currentTarget);
-                    const scrollBody =
-                      event.currentTarget.closest<HTMLElement>(".workspace__dialog-body");
-                    const scrollTop = scrollBody?.scrollTop ?? 0;
-                    void act(async () => {
-                      setResultFeedback(null);
-                      try {
-                        const updated = await updateTestRunResult(
-                          run.id,
-                          result.id,
-                          run.projectId!,
-                          {
-                            status: String(form.get("status")) as ResultStatus,
-                            notes: String(form.get("notes")),
-                          },
-                        );
-                        if (!alive.current) return;
-                        onChanged(updated);
-                        setResultFeedback({
-                          id: result.id,
-                          error: "",
-                          message: `Resultado de ${result.caseId} guardado.`,
-                        });
-                      } catch (cause) {
-                        if (alive.current)
-                          setResultFeedback({
-                            id: result.id,
-                            error:
-                              cause instanceof Error
-                                ? cause.message
-                                : "No se pudo guardar el resultado.",
-                            message: "",
-                          });
-                      } finally {
-                        requestAnimationFrame(() => {
-                          if (alive.current && scrollBody) scrollBody.scrollTop = scrollTop;
-                        });
-                      }
-                    });
+                  disabled={readOnly || busy}
+                  onClick={() => {
+                    setEditing(true);
+                    setConfirmDelete(false);
                   }}
                 >
-                  {resultFeedback?.id === result.id && (
-                    <Alert tone={resultFeedback.error ? "error" : "success"}>
-                      {resultFeedback.error || resultFeedback.message}
-                    </Alert>
-                  )}
-                  <h4>
-                    {result.caseId} · {result.title} · versión {result.caseVersion ?? 1}
-                  </h4>
-                  <p>
-                    {result.executedAt
-                      ? `Registrado: ${labels[result.status]}`
-                      : "Pendiente de ejecutar"}
-                  </p>
-                  <details>
-                    <summary>Ver pasos de esta ejecución ({result.steps.length})</summary>
-                    <ol>
-                      {result.steps.map((step, index) => (
-                        <li key={index}>
-                          {step.action}
-                          <p>Esperado: {step.expectedResult}</p>
-                        </li>
-                      ))}
-                    </ol>
-                  </details>
-                  <fieldset
-                    className="test-run__fields"
-                    disabled={readOnly || busy || run.status === "Completado"}
-                  >
-                    <legend>Registrar resultado de {result.caseId}</legend>
-                    <label className="workspace__field">
-                      Resultado
-                      <select
-                        ref={
-                          initialAction === "execute" && result.id === pendingResultId
-                            ? pendingControl
-                            : undefined
+                  Editar ejecución
+                </button>
+                <button
+                  className="workspace__danger"
+                  disabled={readOnly || busy}
+                  onClick={() => setConfirmDelete(true)}
+                >
+                  Eliminar ejecución
+                </button>
+              </div>
+              <h3 className="typography__heading">Resultados por caso</h3>
+              {initialAction === "execute" && run.status !== "Completado" && (
+                <Alert tone="info">
+                  Registra el resultado de cada caso pendiente y guárdalo para actualizar el
+                  progreso.
+                </Alert>
+              )}
+              {!run.results?.length && (
+                <p>Aún no hay casos. Edita la ejecución para seleccionarlos.</p>
+              )}
+              {run.results?.map((result) => (
+                <div key={result.id} className="quality__panel">
+                  <form
+                    className="test-run__result"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      const form = new FormData(event.currentTarget);
+                      const scrollBody =
+                        event.currentTarget.closest<HTMLElement>(".workspace__dialog-body");
+                      const scrollTop = scrollBody?.scrollTop ?? 0;
+                      void act(async () => {
+                        setResultFeedback(null);
+                        try {
+                          const updated = await updateTestRunResult(
+                            run.id,
+                            result.id,
+                            run.projectId!,
+                            {
+                              status: String(form.get("status")) as ResultStatus,
+                              notes: String(form.get("notes")),
+                            },
+                          );
+                          if (!alive.current) return;
+                          onChanged(updated);
+                          setResultFeedback({
+                            id: result.id,
+                            error: "",
+                            message: `Resultado de ${result.caseId} guardado.`,
+                          });
+                        } catch (cause) {
+                          if (alive.current)
+                            setResultFeedback({
+                              id: result.id,
+                              error:
+                                cause instanceof Error
+                                  ? cause.message
+                                  : "No se pudo guardar el resultado.",
+                              message: "",
+                            });
+                        } finally {
+                          requestAnimationFrame(() => {
+                            if (alive.current && scrollBody) scrollBody.scrollTop = scrollTop;
+                          });
                         }
-                        name="status"
-                        defaultValue={result.status}
-                      >
-                        {Object.entries(labels).map(([value, label]) => (
-                          <option key={value} value={value}>
-                            {label}
-                          </option>
+                      });
+                    }}
+                  >
+                    {resultFeedback?.id === result.id && (
+                      <Alert tone={resultFeedback.error ? "error" : "success"}>
+                        {resultFeedback.error || resultFeedback.message}
+                      </Alert>
+                    )}
+                    <h4>
+                      {result.caseId} · {result.title} · versión {result.caseVersion ?? 1}
+                    </h4>
+                    <p>
+                      {result.executedAt
+                        ? `Registrado: ${labels[result.status]}`
+                        : "Pendiente de ejecutar"}
+                    </p>
+                    <details>
+                      <summary>Ver pasos de esta ejecución ({result.steps.length})</summary>
+                      <ol>
+                        {result.steps.map((step, index) => (
+                          <li key={index}>
+                            {step.action}
+                            <p>Esperado: {step.expectedResult}</p>
+                          </li>
                         ))}
-                      </select>
-                    </label>
-                    <label className="workspace__field">
-                      Notas
-                      <RichTextarea name="notes" defaultValue={result.notes} maxLength={10000} />
-                    </label>
-                    <button className="workspace__secondary">Guardar resultado</button>
-                  </fieldset>
-                </form>
-                <label className="workspace__field">
-                  Adjuntar evidencia a {result.id}
-                  <input
-                    type="file"
-                    disabled={busy || !permission.can("evidence.write")}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file)
-                        void act(async () => {
-                          await uploadEvidenceFile(null, run.projectId!, file, result.id);
-                          if (alive.current) {
-                            setMessage("Evidencia enlazada al resultado.");
-                            onChanged(run);
+                      </ol>
+                    </details>
+                    <fieldset
+                      className="test-run__fields"
+                      disabled={readOnly || busy || run.status === "Completado"}
+                    >
+                      <legend>Registrar resultado de {result.caseId}</legend>
+                      <label className="workspace__field">
+                        Resultado
+                        <select
+                          ref={
+                            initialAction === "execute" && result.id === pendingResultId
+                              ? pendingControl
+                              : undefined
                           }
-                        });
+                          name="status"
+                          defaultValue={result.status}
+                        >
+                          {Object.entries(labels).map(([value, label]) => (
+                            <option key={value} value={value}>
+                              {label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="workspace__field">
+                        Notas
+                        <RichTextarea name="notes" defaultValue={result.notes} maxLength={10000} />
+                      </label>
+                      <button className="workspace__secondary">Guardar resultado</button>
+                    </fieldset>
+                  </form>
+                  <FileDropzone
+                    label={`Adjuntar evidencia a ${result.id}`}
+                    file={evidenceFiles[result.id] ?? null}
+                    disabled={busy || !permission.can("evidence.write")}
+                    onFile={(file) => {
+                      setEvidenceFiles((files) => ({ ...files, [result.id]: file }));
+                      void act(async () => {
+                        await uploadEvidenceFile(null, run.projectId!, file, result.id);
+                        if (alive.current) {
+                          setMessage("Evidencia enlazada al resultado.");
+                          onChanged(run);
+                        }
+                      });
                     }}
                   />
-                </label>
-                {evidence
-                  .filter((e) => e.related.split(", ").includes(result.id))
-                  .map((e) => (
-                    <p key={e.id}>
-                      {e.id} · {e.name}
-                      {e.hasFile && (
-                        <button
-                          type="button"
-                          className="workspace__secondary"
-                          disabled={busy}
-                          onClick={() =>
-                            void act(() => downloadEvidenceFile(e.id, run.projectId!, e.name))
-                          }
-                        >
-                          Descargar evidencia
-                        </button>
-                      )}
-                    </p>
-                  ))}
-                {result.status === "failed" && result.executedAt && (
-                  <>
-                    {bugs.some((b) => b.sourceResultId === result.id) ? (
-                      <p>Bug enlazado: {bugs.find((b) => b.sourceResultId === result.id)?.id}</p>
-                    ) : (
-                      <button
-                        type="button"
-                        className="workspace__secondary"
-                        disabled={busy || !permission.can("bugs.write")}
-                        onClick={() => {
-                          setFailureId(result.id);
-                          setBugKey(crypto.randomUUID());
-                        }}
-                      >
-                        Crear bug desde este fallo
-                      </button>
-                    )}
-                    {failureId === result.id && (
-                      <form
-                        className="quality__panel"
-                        onSubmit={(e) => {
-                          e.preventDefault();
-                          const f = new FormData(e.currentTarget);
-                          void act(async () => {
-                            const bug = await createBug(
-                              {
-                                projectId: run.projectId!,
-                                title: String(f.get("title")),
-                                description: String(f.get("description")),
-                                priority: "Media",
-                                severity: String(f.get("severity")) as Bug["priority"],
-                                environment: String(f.get("environment")),
-                                affectedVersion: String(f.get("affectedVersion")),
-                                sourceResultId: result.id,
-                              },
-                              bugKey,
-                            );
-                            if (alive.current) {
-                              setFailureId("");
-                              setMessage(
-                                `Bug ${bug.id} creado con caso, ejecución, pasos y evidencia enlazados.`,
-                              );
-                              onChanged(run);
-                            }
-                          });
-                        }}
-                      >
-                        <h4>Revisar bug del resultado {result.id}</h4>
-                        <p>
-                          Se enlazarán {result.caseId}, {run.id}, los pasos evaluados y las
-                          evidencias existentes.
-                        </p>
-                        <label className="workspace__field">
-                          Título
-                          <input
-                            name="title"
-                            required
-                            maxLength={200}
-                            defaultValue={`Fallo: ${result.title}`.slice(0, 200)}
-                          />
-                        </label>
-                        <label className="workspace__field">
-                          Descripción / resultado observado
-                          <RichTextarea
-                            name="description"
-                            required
-                            maxLength={5000}
-                            defaultValue={result.notes}
-                          />
-                        </label>
-                        <label className="workspace__field">
-                          Severidad
-                          <select name="severity" defaultValue="Media">
-                            {["Crítica", "Alta", "Media", "Baja"].map((v) => (
-                              <option key={v}>{v}</option>
-                            ))}
-                          </select>
-                        </label>
-                        <label className="workspace__field">
-                          Entorno
-                          <input name="environment" maxLength={100} />
-                        </label>
-                        <label className="workspace__field">
-                          Versión afectada
-                          <input name="affectedVersion" maxLength={100} />
-                        </label>
-                        <div className="quality__actions">
-                          <button className="button button-primary" disabled={busy}>
-                            Confirmar creación del bug
-                          </button>
+                  {evidence
+                    .filter((e) => e.related.split(", ").includes(result.id))
+                    .map((e) => (
+                      <p key={e.id}>
+                        {e.id} · {e.name}
+                        {e.hasFile && (
                           <button
                             type="button"
                             className="workspace__secondary"
                             disabled={busy}
-                            onClick={() => setFailureId("")}
+                            onClick={() =>
+                              void act(() => downloadEvidenceFile(e.id, run.projectId!, e.name))
+                            }
                           >
-                            Cancelar
+                            Descargar evidencia
                           </button>
-                        </div>
-                      </form>
-                    )}
-                  </>
-                )}
-              </div>
-            ))}
-            {run.status === "Completado" && (
-              <Alert tone="info">
-                Reabre la ejecución desde Editar para cambiar sus resultados.
-              </Alert>
-            )}
-          </>
-        )}
-        <CollaborationPanel
-          key={`${run.projectId}:${run.id}`}
-          projectId={run.projectId!}
-          target={{ kind: "run", id: run.id }}
-          userId={userId}
-        />
-        {busy && <p role="status">Guardando cambios…</p>}
-      </div>
+                        )}
+                      </p>
+                    ))}
+                  {result.status === "failed" && result.executedAt && (
+                    <>
+                      {bugs.some((b) => b.sourceResultId === result.id) ? (
+                        <p>Bug enlazado: {bugs.find((b) => b.sourceResultId === result.id)?.id}</p>
+                      ) : (
+                        <button
+                          type="button"
+                          className="workspace__secondary"
+                          disabled={busy || !permission.can("bugs.write")}
+                          onClick={() => {
+                            setFailureId(result.id);
+                            setBugKey(crypto.randomUUID());
+                          }}
+                        >
+                          Crear bug desde este fallo
+                        </button>
+                      )}
+                      {failureId === result.id && (
+                        <form
+                          className="quality__panel"
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            const f = new FormData(e.currentTarget);
+                            void act(async () => {
+                              const bug = await createBug(
+                                {
+                                  projectId: run.projectId!,
+                                  title: String(f.get("title")),
+                                  description: String(f.get("description")),
+                                  priority: "Media",
+                                  severity: String(f.get("severity")) as Bug["priority"],
+                                  environment: String(f.get("environment")),
+                                  affectedVersion: String(f.get("affectedVersion")),
+                                  sourceResultId: result.id,
+                                },
+                                bugKey,
+                              );
+                              if (alive.current) {
+                                setFailureId("");
+                                setMessage(
+                                  `Bug ${bug.id} creado con caso, ejecución, pasos y evidencia enlazados.`,
+                                );
+                                onChanged(run);
+                              }
+                            });
+                          }}
+                        >
+                          <h4>Revisar bug del resultado {result.id}</h4>
+                          <p>
+                            Se enlazarán {result.caseId}, {run.id}, los pasos evaluados y las
+                            evidencias existentes.
+                          </p>
+                          <label className="workspace__field">
+                            Título
+                            <input
+                              name="title"
+                              required
+                              maxLength={200}
+                              defaultValue={`Fallo: ${result.title}`.slice(0, 200)}
+                            />
+                          </label>
+                          <label className="workspace__field">
+                            Descripción / resultado observado
+                            <RichTextarea
+                              name="description"
+                              required
+                              maxLength={5000}
+                              defaultValue={result.notes}
+                            />
+                          </label>
+                          <label className="workspace__field">
+                            Severidad
+                            <select name="severity" defaultValue="Media">
+                              {["Crítica", "Alta", "Media", "Baja"].map((v) => (
+                                <option key={v}>{v}</option>
+                              ))}
+                            </select>
+                          </label>
+                          <label className="workspace__field">
+                            Entorno
+                            <input name="environment" maxLength={100} />
+                          </label>
+                          <label className="workspace__field">
+                            Versión afectada
+                            <input name="affectedVersion" maxLength={100} />
+                          </label>
+                          <div className="quality__actions">
+                            <button className="button button-primary" disabled={busy}>
+                              Confirmar creación del bug
+                            </button>
+                            <button
+                              type="button"
+                              className="workspace__secondary"
+                              disabled={busy}
+                              onClick={() => setFailureId("")}
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        </form>
+                      )}
+                    </>
+                  )}
+                </div>
+              ))}
+              {run.status === "Completado" && (
+                <Alert tone="info">
+                  Reabre la ejecución desde Editar para cambiar sus resultados.
+                </Alert>
+              )}
+            </>
+          )}
+          <CollaborationPanel
+            key={`${run.projectId}:${run.id}`}
+            projectId={run.projectId!}
+            target={{ kind: "run", id: run.id }}
+            userId={userId}
+          />
+          {busy && <p role="status">Guardando cambios…</p>}
+        </div>
+      </WorkItemLayout>
     </Dialog>
   );
 }

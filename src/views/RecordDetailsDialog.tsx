@@ -1,3 +1,4 @@
+import WorkItemLayout from "../components/WorkItemLayout";
 import FormattedText from "../components/FormattedText";
 import { usePermissions } from "../controllers/ProjectPermissions";
 import Dialog from "../Dialog";
@@ -26,32 +27,49 @@ export default function RecordDetailsDialog({
   const steps = testCase?.steps ?? [];
 
   return (
-    <Dialog wide title={isBug ? "Detalle del bug" : "Detalle del caso de prueba"} onClose={onClose}>
-      <article className={`record-view record-view--${detail.kind}`}>
-        <header className="record-view__hero">
-          <div className="record-view__identity">
-            <span className="record-view__id">{record.id}</span>
-            <h3 className="typography__heading">{record.title}</h3>
-            <span className="record-view__project">
-              {bug ? bug.project : testCase?.suite ? `Suite: ${testCase.suite}` : "Sin suite"}
-            </span>
-          </div>
-          <div className="record-view__badges">
-            <span
-              className={`record-view__status record-view__status--${record.status.toLowerCase().replaceAll(" ", "-")}`}
-            >
-              {record.status}
-            </span>
-            {bug && (
-              <span
-                className={`record-view__priority record-view__priority--${bug.priority.toLowerCase()}`}
-              >
-                {bug.priority}
-              </span>
-            )}
-          </div>
-        </header>
-
+    <Dialog
+      workItem
+      title={isBug ? "Detalle del bug" : "Detalle del caso de prueba"}
+      onClose={onClose}
+    >
+      <WorkItemLayout
+        kind={detail.kind}
+        id={record.id}
+        title={record.title}
+        status={record.status}
+        fields={[
+          { label: "Proyecto", value: bug?.project || `#${record.projectId}` },
+          { label: "Responsable", value: bug?.assignee || testCase?.assigneeName || "Sin asignar" },
+          ...(bug
+            ? [
+                { label: "Prioridad", value: bug.priority },
+                { label: "Severidad", value: bug.severity ?? "Media" },
+                { label: "Entorno", value: bug.environment || "Sin indicar" },
+                { label: "Versión afectada", value: bug.affectedVersion || "Sin indicar" },
+              ]
+            : [
+                { label: "Tipo de prueba", value: testCase?.testType ?? "Funcional" },
+                { label: "Ciclo documental", value: testCase?.lifecycle ?? "Borrador" },
+                { label: "Versión", value: testCase?.version ?? 1 },
+              ]),
+        ]}
+        anchors={[
+          { label: "Detalles", selector: ".record-view__section" },
+          { label: "Discusión", selector: ".collaboration" },
+          { label: "Historial", selector: ".collaboration__history" },
+          { label: "Evidencias", selector: ".work-item__evidence, .workspace__attachments" },
+        ]}
+        actions={
+          <button
+            type="button"
+            className="button button-primary"
+            disabled={!permission.can(isBug ? "bugs.write" : "cases.write")}
+            onClick={onEdit}
+          >
+            {isBug ? "Editar bug" : "Editar caso"}
+          </button>
+        }
+      >
         {bug ? (
           <section className="record-view__section">
             <h4>Descripción</h4>
@@ -158,16 +176,8 @@ export default function RecordDetailsDialog({
           <button type="button" className="workspace__secondary" onClick={onClose}>
             Cerrar
           </button>
-          <button
-            type="button"
-            className="button button-primary"
-            disabled={!permission.can(isBug ? "bugs.write" : "cases.write")}
-            onClick={onEdit}
-          >
-            {isBug ? "Editar bug" : "Editar caso"}
-          </button>
         </footer>
-      </article>
+      </WorkItemLayout>
     </Dialog>
   );
 }

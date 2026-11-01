@@ -32,6 +32,22 @@ export class AuthorizedRepository implements Repository {
     const base = this.base.collaboration;
     if (!base) return undefined;
     return {
+      auditSettings: async (p) => {
+        await this.projectIds(p);
+        return base.auditSettings(p);
+      },
+      saveAuditSettings: async (p, input) => {
+        await this.projectIds(p);
+        return base.saveAuditSettings(p, input);
+      },
+      createProjectUser: async (p, input, key) => {
+        await this.projectIds(p);
+        return base.createProjectUser(p, input, key);
+      },
+      readAllNotifications: async (p) => {
+        await this.projectIds(p);
+        return base.readAllNotifications(p);
+      },
       members: async (p, c) => {
         await this.projectIds(p);
         return base.members(p, c);
@@ -52,9 +68,9 @@ export class AuthorizedRepository implements Repository {
         await this.projectIds(p);
         return base.editComment(p, id, b, v, r);
       },
-      activity: async (p, t, b) => {
+      activity: async (p, t, b, filters) => {
         await this.projectIds(p);
-        return base.activity(p, t, b);
+        return base.activity(p, t, b, filters);
       },
       notifications: async (p) => {
         await this.projectIds(p);

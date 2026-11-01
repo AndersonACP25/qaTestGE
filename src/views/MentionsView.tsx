@@ -46,9 +46,18 @@ export default function MentionsView({
           <strong>{inbox.unread}</strong>
           <span>sin leer</span>
         </div>
-        <button className="workspace__secondary" disabled={inbox.loading} onClick={inbox.refresh}>
-          Actualizar menciones
-        </button>
+        <div className="mentions-view__header-actions">
+          <button
+            className="mentions-view__read-button"
+            disabled={inbox.loading || Boolean(inbox.busyId) || !inbox.rows.length}
+            onClick={() => void inbox.markAllRead()}
+          >
+            {inbox.busyId === "all" ? "Marcando…" : "Marcar todas como leídas"}
+          </button>
+          <button className="workspace__secondary" disabled={inbox.loading} onClick={inbox.refresh}>
+            Actualizar menciones
+          </button>
+        </div>
       </header>
       <div className="mentions-view__filters" role="group" aria-label="Filtrar menciones">
         {["Todas", "Sin leer", "Leídas"].map((value) => (
