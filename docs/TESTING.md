@@ -86,3 +86,5 @@ El mock no certifica la conectividad ni la ejecución SQL en PostgreSQL. Las pru
 Playwright conserva capturas y trazas de fallos en `test-results/`; además, las pruebas de listados y ejecuciones generan capturas para revisión visual. El informe está en `playwright-report/`. Ambas carpetas están ignoradas por Git, ESLint y Prettier. CI instala Chromium y ejecuta la suite, y conserva artefactos de fallos durante siete días.
 
 Configuración y aislamiento de red basados en la documentación oficial de [webServer](https://playwright.dev/docs/test-webserver) e [interceptación de red](https://playwright.dev/docs/network).
+
+`verify-administration.ts` forma parte de `test:db`: altas reales con login y roles, concurrencia/idempotencia, rechazo de correos existentes, ausencia de privilegios de equipo/proyectos hermanos, configuración de auditoría con conflicto de revisión, filtros/cursor/UTC y lectura masiva de más de 100 avisos con aislamiento de destinatario. Los recorridos `work-item-administration.spec.ts` revisan fallos/reintentos explícitos, filtros, navegación Work Item, Test Plan y arrastre de evidencia en escritorio/móvil. No añaden dependencias de producto.

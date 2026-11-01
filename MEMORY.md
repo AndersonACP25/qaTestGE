@@ -55,7 +55,7 @@
 - Roles: Admin configura y administra accesos; QA gestiona recursos de prueba; Dev gestiona bugs/evidencias/comentarios; Solo lectura consulta y descarga. El propietario tiene Admin implícito. Crear proyectos y administrar equipos sigue siendo del propietario.
 - Miembros anteriores reciben QA explícito en proyectos existentes. Invitaciones y proyectos nuevos no otorgan accesos automáticamente. Revocar conserva revisión con rol null; protege propietario, último Admin y asignaciones.
 - Las escrituras mantienen bloqueo compartido del proyecto; cambiar roles usa bloqueo exclusivo. Notificaciones y respuestas tardías conservan el alcance. Actividad global pagina de 50; conversación/avisos muestran últimos 100.
-- PR #24–#30 fusionados; este lote trabaja en fix/notificaciones-edicion-y-test-plan desde qa-env (b7c8619), con nuevo PR hacia qa-env.
+- PR #24–#31 fusionados; este lote trabaja en feat/work-items-auditoria-y-usuarios desde qa-env (e554fca), con nuevo PR hacia qa-env.
 
 ## Analítica, cobertura e importación (015)
 
@@ -74,7 +74,7 @@
 - Importar vive junto a Exportar tabla para Bugs/Casos/Tags. Los listados conservan su montaje durante recargas/fallos para mantener progreso y claves idempotentes. Acento verde común, descargas con estilo de acción, hover/foco sin subrayado y contador de tags a 14 px.
 - src/controls.css centraliza interacción de controles y respeta reducción de movimiento. AGENTS.md y docs/DESIGN.md exigen feedback accesible para acciones relevantes, sin alertas indiscriminadas por GET/200.
 - Configuración compone Proyectos, Equipos, Accesos al proyecto, Flujo de bugs y Actividad y auditoría con permisos originales; el lateral muestra badge de rol. Los formularios personales se desmontan en gestión. Componentes descartan respuestas tardías; Configuración no carga snapshot QA completo.
-- Auditoría presenta resumen de páginas cargadas, búsqueda local explícita, línea de eventos y cambios desplegables. No confundir cantidades cargadas con totales del proyecto.
+- Auditoría ofrece perfiles General/Calidad/Seguridad, filtros en servidor por recurso/operación/autor/fechas UTC/búsqueda y cursor descendente; conserva búsqueda local explícita. Configuración por proyecto (detalle y 25/50/100) con versión; solo Admin guarda. No suspende ni elimina eventos. Migración 017 requerida.
 - Confirmaciones en tags, flujo, requisitos/vínculos, accesos, comentarios, adjuntos, planes, invitaciones, importación y exportaciones. Scope guards impiden mensajes tardíos en otro proyecto. Las alertas de Tags ocupan su propia fila.
 - Cobertura usa tabla y botones consistentes, paginación/estados accesibles. Aplicar período mide 44 px y reaplica consultas aunque las fechas no cambien; Actualizar invalida también Reportes, Cobertura y actividad.
 
@@ -82,7 +82,7 @@
 - Dialog separa encabezado/cierre de cuerpo desplazable; foco/Escape intactos. Sidebar usa scrollbar nativo fino con alternativa en colores forzados. Comentarios separan contenido/acciones 16 px y tarjetas 24 px.
 - Wiki agrupa guías por categorías y búsqueda local sin perder contenido. Reportes renueva tarjetas, tendencias y ranking; valida fechas reales, Desde<=Hasta y máximo 366 días inclusivos antes de consultar.
 
-- Accesos: Admin gestiona altas/consulta/rol/retirada de integrantes activos del equipo con GET candidates/PUT role+revision existentes; no crea ni modifica cuentas globales. Protege propietario/último Admin, asignaciones y alcance. Feedback, bloqueo de escrituras, lecturas abortables y respuestas tardías descartadas por proyecto.
+- Accesos: Admin gestiona integrantes existentes y crea cuentas nuevas mediante POST /project-users idempotente. Alta transaccional de usuario/equipo miembro/rol solo en este proyecto; correo existente=409, sin takeover ni privilegios de equipo. Contraseña inicial 12–128, hash scrypt; no envío de correo/restablecimiento. Reintentos conservan clave/cuerpo; historial solo nombre/rol. Propietario/último Admin, asignaciones y scopes protegidos.
 - Dashboard es la primera opción; presenta 0/0% cuando no hay indicadores evaluables, sin cambiar null del servidor/Reportes. Paneles/tarjetas separan contenido y acciones 16–24 px; hidden se conserva.
 - Unitarias CORE por regla en AGENTS/TESTING: se retiran SSR/markup, tema, pluralización y conteos arbitrarios; se conservan auth/roles, reglas QA, contratos de datos, concurrencia, import/export y rollback. Validación de acceso de theme pasa a auth; diseñador conserva selección/cantidades. Sin filtros para ocultar fallos.
 
@@ -92,6 +92,6 @@
 
 ## Validación y entrega
 
-- Lote 2026-11-01: TypeScript, lint, formato, build frontend/API y 164 unitarias CORE aprobadas; 207 E2E aprobadas en escritorio, 375 y 425 px.
+- Lote actual: WorkItemLayout para Bugs/Casos/Runs/Evidencias con identidad, secciones y propiedades; formularios amplios y Test Plan con editor/catálogo. Campana a 560 px con scroll propio; contador de menciones a 20 px y lectura masiva atómica propia >100 con cantidad real, sin leer al abrir. FileDropzone también en alta/reemplazo y resultados.
 - PostgreSQL 18 efímero: instalación vacía y repetición; actualización 014→015 conserva bugs, baseline único y días sin historia. Integraciones de autenticación/calidad/colaboración/analítica aprobadas; reaperturas, reclasificación, aislamiento, snapshots y rollback/idempotencia de tags verificados.
-- Chromium 153 temporal para E2E, sin nuevas dependencias de producto. Entrega en fix/notificaciones-edicion-y-test-plan hacia qa-env; no fusionar sin instrucción. Navegador/API/PostgreSQL reales verifican publicación en Bugs. PostgreSQL efímero verifica publicación de borradores con clave v8, roles/accesos, menciones propias y ajenas en los tres recursos, privacidad, deduplicación y actualización 015→016 repetible.
+- Entrega actual en feat/work-items-auditoria-y-usuarios hacia qa-env, después de PR #31; no fusionar. Sin dependencias nuevas. PostgreSQL efímero: actualización 016→017, instalación vacía repetida y cinco integraciones verifican permisos, concurrencia/rollback, cuentas con login real, filtros UTC y lectura masiva aislada. TypeScript, lint, formato y build aprobados; 166 unitarias CORE y 234 E2E aprobadas (1440/375/425 px).

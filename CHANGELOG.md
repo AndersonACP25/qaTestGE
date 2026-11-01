@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-01 · Work Items y administración del proyecto
+
+- Unificar bugs, casos, ejecuciones y evidencias con identidad, navegación por secciones y propiedades al estilo Work Item; renovar Test Plan.
+- Ampliar notificaciones con scroll personalizado, reducir el contador y añadir lectura masiva explícita de menciones propias, incluidas las anteriores a los 100 avisos visibles.
+- Incorporar perfiles y configuración de auditoría (General/Calidad/Seguridad, detalle y paginación) con filtros en servidor; conservar todo el historial.
+- Permitir a Admin crear cuentas con roles del proyecto mediante altas transaccionales e idempotentes; no modificar cuentas existentes ni conceder administración del equipo.
+- Arrastrar archivos en alta/reemplazo de evidencia y resultados de Test Run. Mantener autorización, límites y descargas privadas.
+- Aplicar migración 017 con `pnpm db:migrate`. Sin dependencias nuevas. Validados 166 tests CORE, 234 E2E y cinco integraciones en PostgreSQL efímero.
+
 ## 2026-11-01 · Bandeja de notificaciones y gestión de registros
 
 - Renovar Mis menciones con filtros, marcado explícito y botón verde; abrir no marca leído. Campana compartida por proyecto en el navbar.
