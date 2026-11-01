@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import Alert from "../Alert";
 export default function FileDropzone({
   file,
@@ -6,15 +6,25 @@ export default function FileDropzone({
   label = "Archivo",
   accept,
   disabled = false,
+  name,
+  required = false,
 }: {
   file: File | null;
   onFile: (file: File) => void;
   label?: string;
   accept?: string;
   disabled?: boolean;
+  name?: string;
+  required?: boolean;
 }) {
   const id = useId();
   const input = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!input.current || !name) return;
+    const transfer = new DataTransfer();
+    if (file) transfer.items.add(file);
+    input.current.files = transfer.files;
+  }, [file, name]);
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState("");
   function receive(files: FileList | null) {
@@ -56,6 +66,8 @@ export default function FileDropzone({
         ref={input}
         className="file-dropzone__input"
         tabIndex={-1}
+        name={name}
+        required={required}
         type="file"
         accept={accept}
         disabled={disabled}

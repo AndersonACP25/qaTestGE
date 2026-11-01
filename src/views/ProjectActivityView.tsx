@@ -1,9 +1,20 @@
+import { useOperationScope } from "../controllers/useOperationScope";
+import AuditSettingsPanel from "./AuditSettingsPanel";
+import {
+  auditProfiles,
+  auditKinds,
+  auditFiltersSchema,
+  type AuditFilters,
+  type AuditSettings,
+} from "../../backend/src/models/audit.model";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import Alert from "../Alert";
 import { formatCount } from "../utils/pluralization";
 import type { Activity } from "../../backend/src/models/collaboration.model";
 const labels: Record<string, string> = {
+  project_audit_settings: "Configuración de auditoría",
+  users: "Usuario",
   requirements: "Requisito",
   requirement_cases: "Casos del requisito",
   bug_test_cases: "Vínculo caso/bug",
@@ -32,6 +43,9 @@ function fields(value: unknown): Record<string, unknown> {
     : {};
 }
 const fieldLabels: Record<string, string> = {
+  profile: "Perfil",
+  detail: "Detalle",
+  page_size: "Eventos por página",
   code: "Código",
   test_case_id: "Caso vinculado",
   bug_id: "Bug vinculado",
@@ -61,7 +75,13 @@ const fieldLabels: Record<string, string> = {
   assignee_user_id: "Responsable QA",
   user_id: "Integrante",
 };
-export default function ActivityList({ rows }: { rows: Activity[] }) {
+export default function ActivityList({
+  rows,
+  detailed = true,
+}: {
+  rows: Activity[];
+  detailed?: boolean;
+}) {
   return (
     <ul className="collaboration__activity">
       {[...rows]
@@ -81,7 +101,7 @@ export default function ActivityList({ rows }: { rows: Activity[] }) {
             <li className="project-activity__event" key={row.id}>
               <p className="project-activity__event-heading">
                 <strong>{row.actorName}</strong> · {labels[table] ?? "Registro"}{" "}
-                {operation === "insert"
+                {operation === "insert" || operation === "provision"
                   ? "creado"
                   : operation === "delete"
                     ? "eliminado"
@@ -91,7 +111,7 @@ export default function ActivityList({ rows }: { rows: Activity[] }) {
               <time className="project-activity__time" dateTime={row.createdAt}>
                 {new Date(row.createdAt).toLocaleString("es")}
               </time>
-              {keys.length > 0 && (
+              {detailed && keys.length > 0 && (
                 <details>
                   <summary>Ver cambios</summary>
                   <dl className="project-activity__changes">
@@ -141,6 +161,36 @@ export function ProjectActivityView({
   const [more, setMore] = useState(false);
   const [revision, setRevision] = useState(0);
   const [search, setSearch] = useState("");
+  const [settings, setSettings] = useState<AuditSettings | null>(null);
+  const [filters, setFilters] = useState<AuditFilters>({ profile: "General", limit: 50 });
+  const query = new URLSearchParams({ projectId });
+  for (const [key, value] of Object.entries(filters))
+    if (value !== undefined && value !== "") query.set(key, String(value));
+  const queryString = query.toString();
+  const captureScope = useOperationScope(
+    projectId,
+    `${queryString}:${revision}:${refreshRevision}`,
+  );
+  const [settingsRevision, setSettingsRevision] = useState(0);
+  useEffect(() => {
+    const abort = new AbortController();
+    void api<AuditSettings>(`/audit-settings?projectId=${encodeURIComponent(projectId)}`, {
+      signal: abort.signal,
+    })
+      .then((data) => {
+        if (!abort.signal.aborted) {
+          setSettings(data);
+          setFilters({ profile: data.profile, limit: data.pageSize });
+        }
+      })
+      .catch((cause: unknown) => {
+        if (!abort.signal.aborted) {
+          setError(cause instanceof Error ? cause.message : "No se pudo cargar la configuración.");
+          setLoading(false);
+        }
+      });
+    return () => abort.abort();
+  }, [projectId, settingsRevision]);
   const alive = useRef(true);
   useEffect(() => {
     alive.current = true;
@@ -149,17 +199,19 @@ export function ProjectActivityView({
     };
   }, []);
   useEffect(() => {
+    if (!settings) return;
+    setBusy(false);
     const abort = new AbortController();
     setLoading(true);
     setError("");
     setMessage("");
-    void api<Activity[]>(`/activity?projectId=${encodeURIComponent(projectId)}`, {
+    void api<Activity[]>(`/activity?${queryString}`, {
       signal: abort.signal,
     })
       .then((data) => {
         if (!abort.signal.aborted) {
           setRows(data);
-          setMore(data.length === 50);
+          setMore(data.length === filters.limit);
           if (revision) setMessage("Actividad actualizada.");
         }
       })
@@ -171,28 +223,27 @@ export function ProjectActivityView({
         if (!abort.signal.aborted) setLoading(false);
       });
     return () => abort.abort();
-  }, [projectId, revision, refreshRevision]);
+  }, [queryString, filters.limit, settings, revision, refreshRevision]);
   async function next() {
     if (busy || !rows.length) return;
+    const isCurrent = captureScope();
     setBusy(true);
     setError("");
     setMessage("");
     try {
-      const data = await api<Activity[]>(
-        `/activity?projectId=${encodeURIComponent(projectId)}&before=${rows.at(-1)!.id}`,
-      );
-      if (alive.current) {
+      const data = await api<Activity[]>(`/activity?${queryString}&before=${rows.at(-1)!.id}`);
+      if (alive.current && isCurrent()) {
         setRows((v) => [...v, ...data]);
-        setMore(data.length === 50);
+        setMore(data.length === filters.limit);
         setMessage(
           data.length ? "Actividad anterior cargada." : "Llegaste al inicio del historial.",
         );
       }
     } catch (e) {
-      if (alive.current)
+      if (alive.current && isCurrent())
         setError(e instanceof Error ? e.message : "No se pudo cargar la actividad.");
     } finally {
-      if (alive.current) setBusy(false);
+      if (alive.current && isCurrent()) setBusy(false);
     }
   }
   const visible = rows.filter((r) =>
@@ -218,6 +269,138 @@ export function ProjectActivityView({
           Actualizar actividad
         </button>
       </header>
+      {!settings && !loading && (
+        <button
+          className="workspace__secondary"
+          onClick={() => {
+            setLoading(true);
+            setError("");
+            setSettingsRevision((v) => v + 1);
+          }}
+        >
+          Reintentar configuración de auditoría
+        </button>
+      )}
+      {settings && (
+        <AuditSettingsPanel
+          key={projectId}
+          projectId={projectId}
+          value={settings}
+          onSaved={(saved) => {
+            setSettings(saved);
+            setFilters({ profile: saved.profile, limit: saved.pageSize });
+            setRevision((v) => v + 1);
+          }}
+        />
+      )}
+      <form
+        key={`${projectId}:${settings?.version ?? 0}`}
+        className="audit-filters layout__inset"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const form = new FormData(event.currentTarget);
+          const input = Object.fromEntries([...form.entries()].filter(([, value]) => value !== ""));
+          const parsed = auditFiltersSchema.safeParse({
+            ...input,
+            limit: settings?.pageSize ?? 50,
+          });
+          if (!parsed.success) {
+            setError(
+              "Revisa las fechas y el identificador del autor. Desde debe ser anterior o igual a Hasta.",
+            );
+            return;
+          }
+          setFilters(parsed.data);
+          setRevision((v) => v + 1);
+        }}
+      >
+        <h3 className="typography__heading">Filtrar historial</h3>
+        <div className="audit-filters__fields">
+          <label className="workspace__field">
+            Perfil de auditoría
+            <select name="profile" defaultValue={settings?.profile ?? "General"}>
+              {auditProfiles.map((v) => (
+                <option key={v}>{v}</option>
+              ))}
+            </select>
+          </label>
+          <label className="workspace__field">
+            Tipo de recurso
+            <select name="kind">
+              <option value="">Todos</option>
+              {auditKinds.map((v) => (
+                <option key={v} value={v}>
+                  {
+                    {
+                      bug: "Bug",
+                      case: "Caso de prueba",
+                      run: "Test Run",
+                      evidence: "Evidencia",
+                      plan: "Test Plan",
+                      requirement: "Requisito",
+                      tag: "Tag",
+                      workflow: "Flujo",
+                      access: "Acceso",
+                      "audit-config": "Configuración",
+                      user: "Usuario",
+                    }[v]
+                  }
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="workspace__field">
+            Operación
+            <select name="operation">
+              <option value="">Todas</option>
+              <option value="insert">Creación</option>
+              <option value="update">Actualización</option>
+              <option value="delete">Eliminación</option>
+              <option value="provision">Alta de usuario</option>
+            </select>
+          </label>
+          <label className="workspace__field">
+            ID del autor
+            <input name="actorId" inputMode="numeric" pattern="[1-9][0-9]*" />
+          </label>
+          <label className="workspace__field">
+            Desde (UTC)
+            <input type="date" name="from" />
+          </label>
+          <label className="workspace__field">
+            Hasta (UTC)
+            <input type="date" name="to" />
+          </label>
+          <label className="workspace__field">
+            Buscar en todo el historial
+            <input
+              name="search"
+              type="search"
+              maxLength={120}
+              placeholder="Autor, identificador o acción"
+            />
+          </label>
+        </div>
+        <div className="layout__actions">
+          <button className="button button-primary" disabled={loading || busy || !settings}>
+            Aplicar filtros
+          </button>
+          <button
+            type="reset"
+            className="workspace__secondary"
+            disabled={loading || busy || !settings}
+            onClick={() => {
+              setFilters({
+                profile: settings?.profile ?? "General",
+                limit: settings?.pageSize ?? 50,
+              });
+              setSearch("");
+            }}
+          >
+            Restablecer filtros
+          </button>
+        </div>
+      </form>
       <div className="project-activity__summary">
         <div>
           <span>Eventos cargados</span>
@@ -253,7 +436,7 @@ export function ProjectActivityView({
             {formatCount(visible.length, "evento visible", "eventos visibles")} · La búsqueda se
             limita a las páginas cargadas.
           </p>
-          <ActivityList rows={visible} />
+          <ActivityList rows={visible} detailed={settings?.detail !== "Resumen"} />
         </>
       )}
       {more && rows.length > 0 && (

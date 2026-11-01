@@ -7,12 +7,14 @@ export default function Dialog({
   onClose,
   wide = false,
   confirmation = false,
+  workItem = false,
 }: {
   title: string;
   children: ReactNode;
   onClose: () => void;
   wide?: boolean;
   confirmation?: boolean;
+  workItem?: boolean;
 }) {
   const titleId = useId();
   const panel = useRef<HTMLDivElement>(null);
@@ -63,7 +65,7 @@ export default function Dialog({
       }}
     >
       <div
-        className={`workspace__dialog${wide ? " workspace__dialog--wide" : ""}${confirmation ? " workspace__dialog--confirmation" : ""}`}
+        className={`workspace__dialog${wide ? " workspace__dialog--wide" : ""}${confirmation ? " workspace__dialog--confirmation" : ""}${workItem ? " workspace__dialog--work-item" : ""}`}
         ref={panel}
         role="dialog"
         aria-modal="true"

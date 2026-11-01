@@ -1,3 +1,4 @@
+import CreateProjectUserDialog from "./CreateProjectUserDialog";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api } from "../api";
 import Alert from "../Alert";
@@ -21,6 +22,7 @@ export default function ProjectAccessView({
   refreshRevision?: number;
 }) {
   const { can } = usePermissions();
+  const [creating, setCreating] = useState(false);
   const [members, setMembers] = useState<ProjectMember[]>([]);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -120,6 +122,20 @@ export default function ProjectAccessView({
     return <Alert tone="warning">Solo Admin puede administrar los accesos del proyecto.</Alert>;
   return (
     <section className="project-access layout__stack">
+      {creating && (
+        <CreateProjectUserDialog
+          key={projectId}
+          projectId={projectId}
+          onClose={() => setCreating(false)}
+          onCreated={(member) => {
+            if (!alive.current) return;
+            setCreating(false);
+            setMessage(`Usuario ${member.name} creado como ${member.role}.`);
+            setRevision((value) => value + 1);
+            onChanged();
+          }}
+        />
+      )}
       <header className="project-access__heading">
         <div className="layout__stack">
           <h2 className="typography__section">Accesos al proyecto</h2>
@@ -140,11 +156,19 @@ export default function ProjectAccessView({
       {error && !action && <Alert tone="error">{error}</Alert>}
       {message && <Alert tone="success">{message}</Alert>}
       {loading && <p role="status">Cargando accesos…</p>}
+      <button
+        type="button"
+        className="button button-primary"
+        disabled={busy}
+        onClick={() => setCreating(true)}
+      >
+        Crear usuario nuevo
+      </button>
       <form className="project-access__create layout__inset layout__stack" onSubmit={grant}>
         <h3 className="typography__heading">Agregar usuario al proyecto</h3>
         <p>
-          Selecciona un integrante registrado y activo del equipo. Los nuevos integrantes se
-          incorporan desde Equipos.
+          Selecciona un integrante existente del equipo o usa Crear usuario nuevo para registrar una
+          cuenta y asignarle un rol.
         </p>
         <div className="project-access__fields">
           <label className="workspace__field">

@@ -291,3 +291,34 @@
     max-height: calc(100dvh - 88px);
   }
 }
+
+.notification-bell__panel {
+  width: min(560px, calc(100vw - 32px));
+  scrollbar-width: thin;
+  scrollbar-color: var(--purple) var(--color-f7f8fa);
+}
+.notification-bell__panel::-webkit-scrollbar {
+  width: 8px;
+}
+.notification-bell__panel::-webkit-scrollbar-track {
+  background: var(--color-f7f8fa);
+}
+.notification-bell__panel::-webkit-scrollbar-thumb {
+  background: var(--purple);
+  border: 2px solid var(--color-f7f8fa);
+  border-radius: 8px;
+}
+.mentions-view__counter strong {
+  font-size: 20px;
+}
+.mentions-view__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+@media (max-width: 620px) {
+  .notification-bell__panel {
+    width: auto;
+  }
+}

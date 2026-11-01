@@ -1,3 +1,4 @@
+import { formatCount } from "../utils/pluralization";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { useOperationScope } from "./useOperationScope";
@@ -104,6 +105,48 @@ export function useMentionNotifications(userId: string, projectId: string) {
       if (isCurrent()) setReading((current) => ({ ...current, id: "" }));
     }
   }
+  async function markAllRead() {
+    if (pending.current.has(scopeKey)) return;
+    const ids = new Set(
+      state.scope === scopeKey ? state.rows.filter((row) => !row.readAt).map((row) => row.id) : [],
+    );
+    pending.current.add(scopeKey);
+    const isCurrent = captureScope();
+    setReading({ scope: scopeKey, id: "all", message: "" });
+    try {
+      const result = await api<{ updated: number; readAt: string }>(
+        `/mention-notifications/read-all?projectId=${encodeURIComponent(projectId)}`,
+        { method: "PATCH", body: "{}" },
+      );
+      if (!isCurrent()) return;
+      for (const id of ids) confirmed.current.set(scopeKey + id, result.readAt);
+      setRevision((value) => value + 1);
+      setState((current) =>
+        current.scope === scopeKey
+          ? {
+              ...current,
+              rows: current.rows.map((row) =>
+                ids.has(row.id) ? { ...row, readAt: row.readAt ?? result.readAt } : row,
+              ),
+            }
+          : current,
+      );
+      setReading({
+        scope: scopeKey,
+        id: "",
+        message: `${formatCount(result.updated, "mención marcada como leída", "menciones marcadas como leídas")}.`,
+      });
+    } catch (cause) {
+      if (isCurrent())
+        setState((current) => ({
+          ...current,
+          error: cause instanceof Error ? cause.message : "No se pudieron marcar las menciones.",
+        }));
+    } finally {
+      pending.current.delete(scopeKey);
+      if (isCurrent()) setReading((current) => ({ ...current, id: "" }));
+    }
+  }
   const rows = state.scope === scopeKey ? state.rows : [];
   return {
     rows,
@@ -114,6 +157,7 @@ export function useMentionNotifications(userId: string, projectId: string) {
     unread: rows.filter((row) => !row.readAt).length,
     refresh,
     markRead,
+    markAllRead,
   };
 }
 export type MentionInbox = ReturnType<typeof useMentionNotifications>;

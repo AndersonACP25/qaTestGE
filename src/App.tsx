@@ -1,3 +1,5 @@
+import EvidenceDetailsDialog from "./views/EvidenceDetailsDialog";
+import FileDropzone from "./components/FileDropzone";
 import EvidenceUploadDialog from "./views/EvidenceUploadDialog";
 import NotificationBell from "./components/NotificationBell";
 import { useMentionNotifications } from "./controllers/useMentionNotifications";
@@ -99,10 +101,6 @@ const navigation: {
   { section: "CUENTA", items: [{ id: "settings", label: "Configuración", icon: "settings" }] },
 ];
 
-function isTestCaseRecord(value: object): value is TestCase {
-  return "steps" in value && "suite" in value && "id" in value;
-}
-
 function App({
   user,
   onUserUpdated,
@@ -171,6 +169,7 @@ function App({
   const [deleteBugError, setDeleteBugError] = useState("");
   const [deleteBugBusy, setDeleteBugBusy] = useState(false);
   const [evidenceUploadTarget, setEvidenceUploadTarget] = useState("");
+  const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
   const [editingEvidence, setEditingEvidence] = useState<Evidence | null>(null);
   const [evidenceActionTarget, setEvidenceActionTarget] = useState<Evidence | null>(null);
   const [evidenceToDelete, setEvidenceToDelete] = useState<Evidence | null>(null);
@@ -357,6 +356,7 @@ function App({
     setMobileNav(false);
   }
   function openModal(value: string) {
+    setEvidenceFile(null);
     creationKey.current = crypto.randomUUID();
     setFormError("");
     setAssigneeUserId("");
@@ -549,7 +549,7 @@ function App({
     }
     if (modal === "upload-evidence") {
       if (!editingEvidence) return;
-      const file = form.get("file");
+      const file = evidenceFile ?? form.get("file");
       if (!(file instanceof File) || !file.name || file.size < 1 || file.size > 2 * 1024 * 1024) {
         setFormError("Selecciona un archivo válido de hasta 2 MiB.");
         return;
@@ -646,7 +646,7 @@ function App({
       };
     } else if (modal === "evidence") {
       path = "/evidence";
-      const file = form.get("file");
+      const file = evidenceFile ?? form.get("file");
       if (!(file instanceof File) || !file.name || file.size < 1 || file.size > 2 * 1024 * 1024) {
         setFormError("Selecciona un archivo válido de hasta 2 MiB.");
         return;
@@ -723,7 +723,7 @@ function App({
         });
         if (!isCurrent()) return;
       } else if (modal === "evidence") {
-        const file = form.get("file");
+        const file = evidenceFile ?? form.get("file");
         if (!(file instanceof File)) throw new Error("Selecciona un archivo de evidencia.");
         await uploadEvidenceFile(
           null,
@@ -751,13 +751,7 @@ function App({
               ? "evidence"
               : "bugs",
       );
-      notify(
-        path === "/evidence"
-          ? "Metadatos guardados. El archivo no se subió."
-          : modal === "evidence"
-            ? "Archivo guardado en PostgreSQL."
-            : "Registro guardado en PostgreSQL.",
-      );
+      notify(modal === "evidence" ? "Archivo de evidencia guardado." : "Registro guardado.");
     } catch (cause) {
       if (!isCurrent()) return;
       setFormError(cause instanceof Error ? cause.message : "No se pudo guardar.");
@@ -1055,7 +1049,7 @@ function App({
                   : activePage === "runs"
                     ? "Nueva ejecución"
                     : activePage === "evidence"
-                      ? "Registrar metadatos"
+                      ? "Subir evidencia"
                       : "Nuevo bug"}
               </button>
             )}
@@ -1445,6 +1439,7 @@ function App({
       {modal && (
         <Dialog
           wide
+          workItem={["bug", "edit-bug", "case", "edit-case", "run"].includes(modal)}
           title={
             modal === "bug"
               ? "Nuevo bug"
@@ -1460,7 +1455,7 @@ function App({
                         ? "Editar evidencia"
                         : modal === "upload-evidence"
                           ? `Archivo de ${editingEvidence?.id ?? "evidencia"}`
-                          : "Registrar metadatos"
+                          : "Subir evidencia"
           }
           onClose={() => {
             if (!saving) {
@@ -1876,10 +1871,13 @@ function App({
                     El archivo se almacena de forma privada en PostgreSQL y solo se descarga con
                     acceso al proyecto. Tamaño máximo: 2 MiB.
                   </p>
-                  <label className="workspace__field">
-                    Archivo
-                    <input name="file" type="file" required />
-                  </label>
+                  <FileDropzone
+                    file={evidenceFile}
+                    onFile={setEvidenceFile}
+                    name="file"
+                    required
+                    disabled={saving}
+                  />
                   <label className="workspace__field">
                     Vincular a
                     <select name="related">
@@ -1901,10 +1899,13 @@ function App({
                       : "El archivo se almacenará de forma privada y estará disponible para descarga autenticada."}{" "}
                     Máximo 2 MiB.
                   </p>
-                  <label className="workspace__field">
-                    Archivo
-                    <input name="file" type="file" required />
-                  </label>
+                  <FileDropzone
+                    file={evidenceFile}
+                    onFile={setEvidenceFile}
+                    name="file"
+                    required
+                    disabled={saving}
+                  />
                 </>
               )}
               {modal === "edit-evidence" && (
@@ -2054,7 +2055,7 @@ function App({
         >
           {recordDetail.kind === "bug" && (
             <>
-              <div className="quality__actions">
+              <div className="quality__actions work-item__evidence">
                 <button
                   type="button"
                   className="workspace__secondary"
@@ -2147,58 +2148,11 @@ function App({
         />
       )}
       {detail && (
-        <Dialog wide title="Detalle del registro" onClose={() => setDetail(null)}>
-          <dl className="workspace__detail">
-            {Object.entries(detail)
-              .filter(([key]) => !["color", "updated", "date", "cases", "size"].includes(key))
-              .map(([key, value]) => (
-                <React.Fragment key={key}>
-                  <dt>
-                    {(
-                      {
-                        title: "Título",
-                        description: "Descripción",
-                        status: "Estado",
-                        project: "Proyecto",
-                        projectId: "ID de proyecto",
-                        priority: "Prioridad",
-                        assignee: "Responsable",
-                        suite: "Suite",
-                        preconditions: "Precondiciones",
-                        steps: "Pasos",
-                        owner: "Responsable",
-                        caseIds: "Casos",
-                        caseCount: "Cantidad de casos",
-                        progress: "Progreso",
-                        name: "Nombre",
-                        type: "Tipo",
-                        related: "Vinculado a",
-                        sizeBytes: "Tamaño en bytes",
-                        createdAt: "Creación",
-                      } as Record<string, string>
-                    )[key] ?? key}
-                  </dt>
-                  <dd>
-                    {typeof value === "object" ? (
-                      <pre>{JSON.stringify(value, null, 2)}</pre>
-                    ) : (
-                      String(value ?? "—")
-                    )}
-                  </dd>
-                </React.Fragment>
-              ))}
-          </dl>
-          {"hasFile" in detail && detail.hasFile && (
-            <button
-              type="button"
-              className="workspace__secondary"
-              onClick={() => void downloadEvidence(detail)}
-            >
-              Descargar evidencia
-            </button>
-          )}
-          {isTestCaseRecord(detail) && <CaseAttachmentsPanel testCase={detail} />}
-        </Dialog>
+        <EvidenceDetailsDialog
+          evidence={detail}
+          onClose={() => setDetail(null)}
+          onDownload={() => void downloadEvidence(detail)}
+        />
       )}
       {evidenceActionTarget && (
         <Dialog title={evidenceActionTarget.name} onClose={() => setEvidenceActionTarget(null)}>
@@ -2221,6 +2175,7 @@ function App({
                 setEditingEvidence(evidenceActionTarget);
                 setEvidenceActionTarget(null);
                 setFormError("");
+                setEvidenceFile(null);
                 setModal("upload-evidence");
               }}
             >
