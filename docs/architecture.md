@@ -203,7 +203,7 @@ CaseDesignSettings permite editar y eliminar todos los tipos, incluidos los pred
 
 ### Diseñador local de bugs
 
-`BugDesignView` prepara título, descripción y prioridad a partir del texto y una plantilla personal cargada mediante el cliente central. Es una composición determinista, sin análisis semántico ni proveedor de IA. Reutiliza `TagPicker` con tags del proyecto. La creación exige revisar y marcar confirmación; llama a `createBug` una vez y bloquea una segunda creación de la misma vista previa tras el éxito. Los errores conservan el contenido editable.
+`BugDesignView` prepara título, descripción y prioridad a partir del texto y una plantilla personal cargada mediante el cliente central. Es una composición determinista, sin análisis semántico ni proveedor de IA. Reutiliza `TagPicker` con tags del proyecto. La creación exige revisión explícita mediante casilla o diálogo de confirmación; llama a `createBug` una vez y bloquea una segunda creación de la misma vista previa tras el éxito. Los errores conservan el contenido editable.
 
 `models/bugDesign.ts` mantiene borradores explícitos en localStorage bajo clave por usuario y proyecto; valida la forma del contenido al recuperarlo. No añade un estado Borrador al dominio ni una migración. Cada borrador conserva su propio ID y puede abrirse, actualizarse o eliminarse. Tras publicar se intenta retirar el borrador local; un fallo de limpieza se comunica sin volver a crear el bug. No hay sincronización entre navegadores, subida de archivos ni envío externo. El componente se monta con clave usuario/proyecto para aislar el estado. La preparación rechaza descripciones combinadas mayores a 5000 caracteres sin recortarlas silenciosamente.
 
@@ -283,7 +283,7 @@ Proyectos y Equipos también se componen como pestañas de AccountSettingsView; 
 
 Los comentarios convierten `@Nombre completo` en el token estable existente cuando corresponde exactamente a un único integrante activo con acceso. Nombres duplicados devuelven 400 y requieren seleccionar un ID en las sugerencias. No se interpretan correos ni prefijos de nombres. La normalización se verifica dentro de la misma transacción del comentario y conserva idempotencia sobre la solicitud original; no cambia el esquema. La entrega sigue siendo privada, deduplicada y sin avisos para el propio autor.
 
-Mis menciones consulta al montar, al recuperar foco/visibilidad y cada 15 segundos mientras la página está visible. Actualizar permite consulta manual; no hay WebSocket ni push. Las peticiones se abortan y descartan al desmontar/cambiar proyecto. Abrir registro recarga explícitamente el snapshot del proyecto para localizar recursos nuevos y solo marca leído después de abrirlo; esta lectura iniciada por la persona no afecta a las agregaciones del Dashboard/Reportes.
+`useMentionNotifications` comparte la bandeja y la campana del navbar por usuario/proyecto: consulta al montar, recuperar foco/visibilidad y cada 15 segundos visibles. Las lecturas se abortan y descartan al cambiar de alcance; las confirmaciones locales de lectura impiden que una respuesta anterior vuelva a mostrar el aviso pendiente. Solo el botón Marcar como leída envía PATCH. Abrir registro recarga el snapshot del proyecto sin cambiar el aviso. No hay WebSocket ni push; se mantiene el límite de los últimos 100 avisos.
 
 ### Accesos por proyecto y pruebas del CORE
 
@@ -298,3 +298,15 @@ Las unitarias se concentran en CORE: dominio QA, acceso/autenticación, contrato
 `RichTextarea` comparte la barra de formato y vista previa en todos los campos largos, conservando los formularios controlados y los basados en FormData. Se guarda texto Markdown en las mismas columnas y se mantienen los límites de longitud. `FormattedText` permite negrita, cursiva, tachado, código, listas y citas; no interpreta HTML, URLs ni imágenes. Las exportaciones conservan el texto fuente.
 
 El listado se conserva montado durante su recarga para que Importar, situado junto a Exportar tabla, mantenga las claves idempotentes y el progreso parcial. La exportación individual de runs utiliza el informe autenticado existente, con diálogo específico. La eliminación usa un diálogo compacto sin montar resultados o conversación; las relaciones siguen protegiéndose en servidor. Los proveedores visibles en Configuración son un catálogo de futuras integraciones, sin nuevas dependencias ni llamadas externas.
+
+## Interacción de registros y notificaciones
+
+La campana y Mis menciones comparten estado y errores seguros; el marcado es una acción explícita, idempotente y privada del destinatario con la API existente. No se modifica el servidor ni se añade una migración.
+
+Los borradores de bugs con ID UUID mantienen su clave existente; IDs locales antiguos se convierten en UUID v8 determinista mediante SHA-256 de usuario/proyecto/ID. Reintentar conserva la misma identidad y la huella de contenido sigue validándose en servidor. Publicar un bug sin borrador guardado evita una escritura local innecesaria; un fallo de limpieza de un borrador publicado no vuelve a crear el registro.
+
+El editor de pasos usa tarjetas y columnas adaptables en lugar de una tabla estrecha. RichTextarea ofrece un callback de selección para insertar menciones de identidad estable en comentarios. Dialog usa IDs accesibles únicos, restaura foco sin desplazar la página y deja el desplazamiento en el cuerpo sin reservar dos canales de scrollbar. EvidenceUploadDialog abre una carga privada enlazada al bug, con componentes por alcance. FileDropzone y la importación conservan los límites y la revisión antes de escribir.
+
+Los resultados del Test Run mantienen claves de React por ID; guardar no remonta su formulario ni desplaza el diálogo al inicio. El feedback y los errores de la mutación aparecen en el caso correspondiente y se conserva scrollTop. ActivityList ordena copias por fecha descendente e ID descendente en empates, sin numeración visible.
+
+Test Plan conserva contratos, IDs, revisiones y permisos de /test-plans. La vista incorpora búsquedas de planes/casos, detalle de los casos, alta/edición y creación explícita de un Test Run enlazado. Los casos ocultos por búsqueda conservan sus selecciones; no se incorporan casos obsoletos nuevos.

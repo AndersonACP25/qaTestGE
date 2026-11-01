@@ -24,7 +24,7 @@
 - El resultado histórico del caso (Pendiente/Aprobado/Fallido) permanece separado de su ciclo documental. Suite se conserva; solo categorías conocidas se infieren como tipo en el backfill inicial.
 - El trigger diferido captura caso/pasos/tags al confirmar. Formularios y diseñador envían expectedVersion; una edición concurrente antigua devuelve 409. No se reconstruye historial anterior a la migración.
 - Crear bug con sourceResultId exige fallo registrado del mismo proyecto y enlaza caso, run, snapshot y evidencias en una transacción. Solo un bug de origen por resultado. Nuevos adjuntos al resultado también se enlazan al bug.
-- Planes y ciclos permiten crear/editar grupos de casos e iniciar runs enlazados. Los planes con runs no se borran; cambios del plan afectan solo a ciclos nuevos.
+- Test Plan permite crear/editar/buscar planes, buscar y consultar sus casos e iniciar Test Runs enlazados. Los planes con runs no se borran; cambios del plan afectan solo a ciclos nuevos.
 - Clonar y reejecutar fallidos copia snapshots originales y reinicia notas/resultados/progreso. Conserva plan y origen; permite revisar versiones históricas aunque el caso luego quede obsoleto. No ejecuta pruebas automáticamente.
 - Casos obsoletos no se incorporan a nuevas selecciones de ejecución. Orígenes y resultados con bugs/evidencias no se borran ni se retiran silenciosamente.
 - Cada proyecto configura estados, transiciones, estado inicial y closedStates para métricas. Se comprueba revisión y no se retiran estados usados. Solo Admin configura el flujo; QA/Admin gestionan planes.
@@ -49,13 +49,13 @@
 ## Colaboración y permisos (014)
 
 - Comentarios en bugs/casos/runs, cuerpo de 1–5000 caracteres, UUID idempotente por actor/proyecto, revisión para editar/eliminar y control autor/Admin. Borrado lógico con contenido anterior en actividad.
-- @menciones mediante tokens de ID estable, máximo 20; @Nombre completo único también se resuelve transaccionalmente. Homónimos exigen selección; las automenciones generan avisos. Mis menciones consulta cada 15 s visibles y al recuperar foco, recarga el registro antes de marcar leído; avisos privados deduplicados, sin email ni push.
+- @menciones mediante tokens de ID estable, máximo 20; @Nombre completo único también se resuelve transaccionalmente. Homónimos exigen selección; las automenciones generan avisos. La campana y Mis menciones comparten consulta cada 15 s visibles y al recuperar foco; abrir no marca leído y el botón verde envía el PATCH explícito; avisos privados deduplicados, sin email ni push.
 - Activity registra cambios confirmados con actor, requestId y antes/después. Triggers niegan UPDATE/DELETE/TRUNCATE; no captura bytes, claves de almacenamiento ni idempotencia. No reconstruye historia anterior a 014 ni pretende resistir a un superusuario de BD.
 - actorDatabase vincula actor/requestId a cada transacción de auth/dominio con set_config local y restaura el pool al terminar. Los triggers validan capacidades; el decorador limita lecturas a proyectos vigentes.
 - Roles: Admin configura y administra accesos; QA gestiona recursos de prueba; Dev gestiona bugs/evidencias/comentarios; Solo lectura consulta y descarga. El propietario tiene Admin implícito. Crear proyectos y administrar equipos sigue siendo del propietario.
 - Miembros anteriores reciben QA explícito en proyectos existentes. Invitaciones y proyectos nuevos no otorgan accesos automáticamente. Revocar conserva revisión con rol null; protege propietario, último Admin y asignaciones.
 - Las escrituras mantienen bloqueo compartido del proyecto; cambiar roles usa bloqueo exclusivo. Notificaciones y respuestas tardías conservan el alcance. Actividad global pagina de 50; conversación/avisos muestran últimos 100.
-- PR #24–#29 fusionados; este lote trabaja en fix/usabilidad-menciones-exportacion desde qa-env (513b69b), conservando las mejoras del CORE y accesos.
+- PR #24–#30 fusionados; este lote trabaja en fix/notificaciones-edicion-y-test-plan desde qa-env (b7c8619), con nuevo PR hacia qa-env.
 
 ## Analítica, cobertura e importación (015)
 
@@ -86,12 +86,12 @@
 - Dashboard es la primera opción; presenta 0/0% cuando no hay indicadores evaluables, sin cambiar null del servidor/Reportes. Paneles/tarjetas separan contenido y acciones 16–24 px; hidden se conserva.
 - Unitarias CORE por regla en AGENTS/TESTING: se retiran SSR/markup, tema, pluralización y conteos arbitrarios; se conservan auth/roles, reglas QA, contratos de datos, concurrencia, import/export y rollback. Validación de acceso de theme pasa a auth; diseñador conserva selección/cantidades. Sin filtros para ocultar fallos.
 
-- RichTextarea comparte formato Markdown y vista previa en todos los campos largos; FormattedText usa React escapado, sin HTML, URLs ni imágenes. Exportaciones conservan texto fuente. mentionDraft conserva rangos/IDs mientras el editor muestra @Nombre y descarta selecciones modificadas.
-- Guardar en Bugs publica tras revisión; Ver en Bugs abre el mantenimiento. Runs exportan PDF desde fila/detalle y eliminar abre solo confirmación compacta. Evidencias con archivo descargan desde fila/detalle. Alertas inline <=560 px y toast <=360 px; fecha con inicial mayúscula, sin Cuenta de/datos del proyecto/PostgreSQL en pie.
+- RichTextarea comparte formato Markdown y vista previa, altura inicial >=160 px y selección de menciones en comentarios. Pasos en tarjetas adaptables; Lista/Cita sin iconos. ActivityList presenta fecha/ID descendente sin números. FormattedText usa React escapado, sin HTML, URLs ni imágenes. Exportaciones conservan texto fuente. mentionDraft conserva rangos/IDs mientras el editor muestra @Nombre y descarta selecciones modificadas.
+- Guardar en Bugs publica tras casilla de revisión o diálogo explícito; IDs locales antiguos derivan UUID v8 determinista por usuario/proyecto/borrador para idempotencia. Ver en Bugs abre el mantenimiento. Runs exportan PDF desde fila/detalle; guardado de resultados preserva formulario/scroll y muestra feedback en el caso. Eliminar abre confirmación compacta, sin doble gutter. Evidencias se descargan desde fila/detalle; el detalle del bug abre carga específica con selección/arrastre. Alertas inline <=560 px y toast <=360 px; fecha con inicial mayúscula, sin Cuenta de/datos del proyecto/PostgreSQL en pie.
 - Migración 016 repone automenciones previas de comentarios activos y usuarios con acceso, conserva fecha y lectura existentes. Requiere pnpm db:migrate. Proveedores de IA son catálogo futuro (OpenAI, Anthropic, Gemini, Azure OpenAI, Mistral, Ollama), sin conexiones ni claves.
 
 ## Validación y entrega
 
-- Lote 2026-11-01: TypeScript, lint, formato, build frontend/API y 163 unitarias CORE aprobadas; 180 E2E aprobadas en escritorio, 375 y 425 px.
+- Lote 2026-11-01: TypeScript, lint, formato, build frontend/API y 164 unitarias CORE aprobadas; 207 E2E aprobadas en escritorio, 375 y 425 px.
 - PostgreSQL 18 efímero: instalación vacía y repetición; actualización 014→015 conserva bugs, baseline único y días sin historia. Integraciones de autenticación/calidad/colaboración/analítica aprobadas; reaperturas, reclasificación, aislamiento, snapshots y rollback/idempotencia de tags verificados.
-- Chromium 153 temporal para E2E, sin nuevas dependencias de producto. Entrega en fix/usabilidad-menciones-exportacion hacia qa-env; no fusionar sin instrucción. PostgreSQL efímero verifica roles/accesos, menciones propias y ajenas en los tres recursos, privacidad, deduplicación y actualización 015→016 repetible.
+- Chromium 153 temporal para E2E, sin nuevas dependencias de producto. Entrega en fix/notificaciones-edicion-y-test-plan hacia qa-env; no fusionar sin instrucción. Navegador/API/PostgreSQL reales verifican publicación en Bugs. PostgreSQL efímero verifica publicación de borradores con clave v8, roles/accesos, menciones propias y ajenas en los tres recursos, privacidad, deduplicación y actualización 015→016 repetible.

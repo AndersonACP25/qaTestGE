@@ -14,10 +14,10 @@ Una plataforma para organizar el trabajo de QA de tu equipo: bugs, casos de prue
 
 - **Bugs y casos de prueba:** registra incidencias, documenta pasos, asigna responsables y organiza el trabajo con tags.
 - **Ejecuciones y evidencias:** registra resultados manuales, crea bugs enlazados desde fallos y adjunta archivos privados de hasta 2 MiB.
-- **Planes y ciclos:** agrupa casos, clona ejecuciones o reejecuta solo los fallidos conservando los pasos originales.
+- **Test Plan:** agrupa casos, clona ejecuciones o reejecuta solo los fallidos conservando los pasos originales.
 - **Casos versionados e importación:** tipo de prueba independiente, Borrador/Listo/Obsoleto, historial e importación revisada de CSV/Excel.
 - **Flujo de bugs por proyecto:** estados y transiciones configurables, severidad, entorno y versión afectada.
-- **Comentarios y menciones:** conversa en bugs, casos y ejecuciones; selecciona a la persona tras @ o escribe su nombre completo único. Mis menciones se actualiza cada 15 segundos mientras está visible y permite abrir el registro; también incluye menciones propias. Incluye historial de actividad.
+- **Comentarios y menciones:** conversa en bugs, casos y ejecuciones; selecciona a la persona tras @ o escribe su nombre completo único. Mis menciones y la campana del navbar comparten los avisos del proyecto. Abrir un registro no cambia su lectura: se marca explícitamente con el botón verde. Incluye automenciones, filtros e historial de actividad.
 - **Configuración:** reúne Proyectos, Equipos, Accesos al proyecto, Flujo de bugs y Actividad y auditoría con sus permisos vigentes; el rol del proyecto se identifica mediante un badge.
 - **Roles y auditoría:** Admin, QA, Dev y Solo lectura por proyecto, con registro persistente de cambios.
 - **Equipos y proyectos:** colabora mediante invitaciones de un solo uso.
@@ -25,7 +25,7 @@ Una plataforma para organizar el trabajo de QA de tu equipo: bugs, casos de prue
 - **Cobertura de requisitos:** vincula requisitos, casos y bugs en una matriz paginada.
 - **Importación Excel:** botón Importar en Bugs, Casos y Tags, vista previa, [plantilla](public/templates/plantilla-qaTestGE.xlsx) y [guía](public/templates/guia-importacion.md) descargables.
 - **Informes compartibles:** exporta cada ejecución desde su fila o detalle a PDF con sus snapshots, notas y referencias de evidencia.
-- **Diseñadores:** prepara casos a partir de ejemplos y bugs desde plantillas; revisa el contenido y usa **Guardar en Bugs** para crearlos en el mantenimiento.
+- **Diseñadores:** prepara casos a partir de ejemplos y bugs desde plantillas; revisa el contenido y confirma **Guardar en Bugs** para crearlos en el mantenimiento, incluidos borradores antiguos.
 - **Texto con formato:** los campos de texto largo incluyen negrita, cursiva, tachado, código, listas, citas y vista previa. Se conserva como Markdown y se representa sin HTML.
 
 La IA y el cambio de imagen de perfil siguen siendo maquetas. Las pruebas se ejecutan manualmente.
