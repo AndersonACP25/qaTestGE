@@ -1,3 +1,5 @@
+import { PostgresProjectAdministration } from "./project-administration.repository.js";
+import type { AuditFilters, AuditSettings, ProvisionUserInput } from "../models/audit.model.js";
 import { resolvePlainMentions } from "../models/plain-mentions.js";
 import { createHash } from "node:crypto";
 import type { DatabasePool, DatabaseClient } from "../auth/actor-database.js";
@@ -65,6 +67,29 @@ export class PostgresCollaborationRepository implements CollaborationRepository 
     private readonly pool: DatabasePool,
     private readonly actorId: string,
   ) {}
+  auditSettings(projectId: string) {
+    return new PostgresProjectAdministration(this.pool, this.actorId).settings(projectId);
+  }
+  saveAuditSettings(projectId: string, input: AuditSettings) {
+    return new PostgresProjectAdministration(this.pool, this.actorId).saveSettings(
+      projectId,
+      input,
+    );
+  }
+  createProjectUser(projectId: string, input: ProvisionUserInput, key: string) {
+    return new PostgresProjectAdministration(this.pool, this.actorId).createUser(
+      projectId,
+      input,
+      key,
+    );
+  }
+  async readAllNotifications(projectId: string) {
+    const result = await this.pool.query<{ updated: number; read_at: Date }>(
+      `WITH changed AS (UPDATE qa.mention_notifications n SET read_at=now() WHERE n.project_id=$1 AND n.user_id=$2 AND n.read_at IS NULL AND EXISTS(SELECT 1 FROM qa.comments c WHERE c.id=n.comment_id AND c.project_id=n.project_id AND c.deleted_at IS NULL) RETURNING id) SELECT count(*)::int AS updated, now() AS read_at FROM changed`,
+      [projectId, this.actorId],
+    );
+    return { updated: result.rows[0].updated, readAt: result.rows[0].read_at.toISOString() };
+  }
   private async transaction<T>(work: (client: DatabaseClient) => Promise<T>) {
     const c = await this.pool.connect();
     try {
@@ -289,7 +314,12 @@ export class PostgresCollaborationRepository implements CollaborationRepository 
       return toComment(updated.rows[0]);
     });
   }
-  async activity(projectId: string, target?: ResourceTarget, before?: string): Promise<Activity[]> {
+  async activity(
+    projectId: string,
+    target?: ResourceTarget,
+    before?: string,
+    filters?: AuditFilters,
+  ): Promise<Activity[]> {
     const r = await this.pool.query<{
       id: string;
       project_id: string;
@@ -303,7 +333,15 @@ export class PostgresCollaborationRepository implements CollaborationRepository 
       after_data: unknown;
       request_id: string | null;
     }>(
-      `SELECT a.*,a.id::text,a.project_id::text,a.actor_id::text,CASE WHEN a.actor_id IS NULL THEN 'Sistema' ELSE COALESCE(u.name,'Cuenta no disponible') END AS actor_name FROM qa.activity a LEFT JOIN qa.users u ON u.id=a.actor_id WHERE a.project_id=$1 AND ($2::text IS NULL OR (a.resource_kind=$2 AND a.resource_id=$3)) AND ($4::bigint IS NULL OR a.id<$4) ORDER BY a.id DESC LIMIT 50`,
+      `SELECT a.*,a.id::text,a.project_id::text,a.actor_id::text,CASE WHEN a.actor_id IS NULL THEN 'Sistema' ELSE COALESCE(u.name,'Cuenta no disponible') END AS actor_name FROM qa.activity a LEFT JOIN qa.users u ON u.id=a.actor_id WHERE a.project_id=$1 AND ($2::text IS NULL OR (a.resource_kind=$2 AND a.resource_id=$3)) AND ($4::bigint IS NULL OR a.id<$4)
+        AND ($5::text[] IS NULL OR a.resource_kind=ANY($5))
+        AND ($6::text IS NULL OR a.resource_kind=$6)
+        AND ($7::text IS NULL OR split_part(a.action,'.',2)=$7)
+        AND ($8::bigint IS NULL OR a.actor_id=$8)
+        AND ($9::date IS NULL OR a.created_at >= ($9::date::timestamp AT TIME ZONE 'UTC'))
+        AND ($10::date IS NULL OR a.created_at < (($10::date+1)::timestamp AT TIME ZONE 'UTC'))
+        AND ($11::text IS NULL OR concat_ws(' ',u.name,a.resource_id,a.action) ILIKE '%' || $11 || '%')
+        ORDER BY a.id DESC LIMIT $12`,
       [
         projectId,
         target?.kind ?? null,
@@ -311,6 +349,18 @@ export class PostgresCollaborationRepository implements CollaborationRepository 
           ? resourceId(prefixes[target.kind], parseReference(target.id, prefixes[target.kind])!)
           : null,
         before ?? null,
+        filters?.profile === "Calidad"
+          ? ["bug", "case", "run", "plan", "evidence", "requirement", "tag"]
+          : filters?.profile === "Seguridad"
+            ? ["access", "user", "audit-config", "workflow"]
+            : null,
+        filters?.kind ?? null,
+        filters?.operation ?? null,
+        filters?.actorId ?? null,
+        filters?.from ?? null,
+        filters?.to ?? null,
+        filters?.search || null,
+        filters?.limit ?? 50,
       ],
     );
     return r.rows.map((x) => ({

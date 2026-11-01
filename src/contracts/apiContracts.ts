@@ -1,3 +1,4 @@
+import { auditSettingsSchema } from "../../backend/src/models/audit.model";
 import {
   analyticsSchema,
   requirementSchema,
@@ -188,6 +189,10 @@ export function parseApiData(path: string, method: string, input: unknown): unkn
   else if (resource === "coverage-matrix") schema = coverageSchema;
   else if (resource === "imports" && action === "tags") schema = importResultSchema;
   else if (resource === "test-runs" && detail === "report") schema = runReportSchema;
+  else if (resource === "audit-settings") schema = auditSettingsSchema;
+  else if (resource === "project-users") schema = projectMember;
+  else if (resource === "mention-notifications" && url.pathname.endsWith("/read-all"))
+    schema = z.object({ updated: z.number().int().nonnegative(), readAt: text });
   else if (resource === "project-members") schema = z.array(projectMember);
   else if (resource === "comments") schema = method === "GET" ? z.array(comment) : comment;
   else if (resource === "activity") schema = z.array(activity);
