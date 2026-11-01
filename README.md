@@ -17,15 +17,16 @@ Una plataforma para organizar el trabajo de QA de tu equipo: bugs, casos de prue
 - **Planes y ciclos:** agrupa casos, clona ejecuciones o reejecuta solo los fallidos conservando los pasos originales.
 - **Casos versionados e importación:** tipo de prueba independiente, Borrador/Listo/Obsoleto, historial e importación revisada de CSV/Excel.
 - **Flujo de bugs por proyecto:** estados y transiciones configurables, severidad, entorno y versión afectada.
-- **Comentarios y menciones:** conversa en bugs, casos y ejecuciones; selecciona a la persona tras @ o escribe su nombre completo único. Mis menciones se actualiza cada 15 segundos mientras está visible y permite abrir el registro; no avisa sobre menciones propias. Incluye historial de actividad.
+- **Comentarios y menciones:** conversa en bugs, casos y ejecuciones; selecciona a la persona tras @ o escribe su nombre completo único. Mis menciones se actualiza cada 15 segundos mientras está visible y permite abrir el registro; también incluye menciones propias. Incluye historial de actividad.
 - **Configuración:** reúne Proyectos, Equipos, Accesos al proyecto, Flujo de bugs y Actividad y auditoría con sus permisos vigentes; el rol del proyecto se identifica mediante un badge.
 - **Roles y auditoría:** Admin, QA, Dev y Solo lectura por proyecto, con registro persistente de cambios.
 - **Equipos y proyectos:** colabora mediante invitaciones de un solo uso.
 - **Dashboard visual y analítica:** indicadores resumidos, tendencias de aprobación y bugs, fallos frecuentes y cobertura por tipo con agregaciones PostgreSQL.
 - **Cobertura de requisitos:** vincula requisitos, casos y bugs en una matriz paginada.
 - **Importación Excel:** botón Importar en Bugs, Casos y Tags, vista previa, [plantilla](public/templates/plantilla-qaTestGE.xlsx) y [guía](public/templates/guia-importacion.md) descargables.
-- **Informes compartibles:** exporta la ejecución a PDF con sus snapshots, notas y referencias de evidencia.
-- **Diseñadores:** prepara casos a partir de ejemplos y bugs desde plantillas; revisa el contenido antes de guardarlo.
+- **Informes compartibles:** exporta cada ejecución desde su fila o detalle a PDF con sus snapshots, notas y referencias de evidencia.
+- **Diseñadores:** prepara casos a partir de ejemplos y bugs desde plantillas; revisa el contenido y usa **Guardar en Bugs** para crearlos en el mantenimiento.
+- **Texto con formato:** los campos de texto largo incluyen negrita, cursiva, tachado, código, listas, citas y vista previa. Se conserva como Markdown y se representa sin HTML.
 
 La IA y el cambio de imagen de perfil siguen siendo maquetas. Las pruebas se ejecutan manualmente.
 
@@ -81,7 +82,7 @@ Abre **http://localhost:5173**, crea tu cuenta y empieza con tu primer proyecto.
 
 [Guía de uso](docs/USER_GUIDE.md) · [Desarrollo e instalación](docs/DEVELOPMENT.md) · [Arquitectura](docs/architecture.md) · [Contribuir](CONTRIBUTING.md) · [Seguridad](SECURITY.md)
 
-La migración **015** incorpora analítica y requisitos. Antes de iniciar una instalación existente ejecuta `pnpm db:migrate`. Consulta [definiciones y límites de las métricas](docs/analytics.md).
+La migración **015** incorpora analítica y requisitos; la **016** recupera avisos de automenciones existentes sin duplicarlos ni cambiar su estado de lectura. Antes de iniciar una instalación existente ejecuta `pnpm db:migrate`. Consulta [definiciones y límites de las métricas](docs/analytics.md).
 
 ## Accesos y verificación del CORE
 
