@@ -157,9 +157,12 @@ test("Admin cambia un rol y una mención abre el recurso", async ({ page }) => {
   await expect(member.locator(".role-badge")).toHaveText("Solo lectura");
   expect(current[1].role).toBe("Solo lectura");
   await navigate(page, "Mis menciones");
-  await expect(page.getByText(/Sin leer/)).toBeVisible();
+  await expect(page.locator(".mentions-view__state").filter({ hasText: "Sin leer" })).toBeVisible();
   await page.getByRole("button", { name: "Abrir registro", exact: true }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
+  expect(read).toBe(false);
+  await page.getByRole("button", { name: "Cerrar ventana", exact: true }).click();
+  await page.getByRole("button", { name: "Marcar como leída", exact: true }).click();
   await expect.poll(() => read).toBe(true);
   await noHorizontalOverflow(page);
 });

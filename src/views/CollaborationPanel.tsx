@@ -36,6 +36,9 @@ export default function CollaborationPanel({
   const [draft, setDraft] = useState(() => readMentionDraft(""));
   const body = draft.text;
   const setBody = (text: string) => setDraft((current) => editMentionDraft(current, text));
+  const [mentionRange, setMentionRange] = useState<{ start: number; end: number } | null>(null);
+  const [mentionSearch, setMentionSearch] = useState("");
+  const commentInputId = `comment-${target.kind}-${target.id}`;
   const [editing, setEditing] = useState<Comment | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -146,15 +149,90 @@ export default function CollaborationPanel({
             {editing ? "Editar comentario" : "Nuevo comentario"}
             <RichTextarea
               required
+              id={commentInputId}
+              onMention={(range) => {
+                setMentionSearch("");
+                setMentionRange(range);
+              }}
               aria-label={editing ? "Editar comentario" : "Nuevo comentario"}
               maxLength={5000}
               value={body}
               disabled={busy}
               placeholder="Escribe @ y selecciona un integrante para mencionarlo"
-              onChange={(e) => setBody(e.target.value)}
+              onChange={(e) => {
+                setMentionRange(null);
+                setBody(e.target.value);
+              }}
             />
           </label>
-          {suggestions.length > 0 && (
+          {mentionRange && (
+            <div
+              className="collaboration__mention-picker"
+              aria-label="Seleccionar usuario para mencionar"
+            >
+              <label className="workspace__field">
+                Buscar usuario para mencionar
+                <input
+                  type="search"
+                  value={mentionSearch}
+                  onChange={(e) => setMentionSearch(e.target.value)}
+                />
+              </label>
+              <div className="collaboration__suggestions">
+                {members
+                  .filter((member) =>
+                    member.name
+                      .toLocaleLowerCase("es")
+                      .includes(mentionSearch.toLocaleLowerCase("es")),
+                  )
+                  .map((member) => (
+                    <button
+                      type="button"
+                      className="workspace__secondary"
+                      key={member.id}
+                      disabled={busy}
+                      onClick={() => {
+                        const name = member.name.replace(/[\]\r\n]/g, " ");
+                        const { start, end } = mentionRange;
+                        const text = body.slice(0, start) + `@${name} ` + body.slice(end);
+                        const next = editMentionDraft(draft, text);
+                        setDraft({
+                          text,
+                          selections: [
+                            ...next.selections,
+                            { start, end: start + name.length + 1, name, id: member.id },
+                          ],
+                        });
+                        setMentionRange(null);
+                        requestAnimationFrame(() => {
+                          const field = document.getElementById(commentInputId);
+                          if (field instanceof HTMLTextAreaElement) {
+                            field.focus({ preventScroll: true });
+                            field.setSelectionRange(
+                              start + name.length + 2,
+                              start + name.length + 2,
+                            );
+                          }
+                        });
+                      }}
+                    >
+                      @{member.name}
+                    </button>
+                  ))}
+              </div>
+              {!members.some((member) =>
+                member.name.toLocaleLowerCase("es").includes(mentionSearch.toLocaleLowerCase("es")),
+              ) && <p>No hay integrantes que coincidan.</p>}
+              <button
+                type="button"
+                className="workspace__secondary"
+                onClick={() => setMentionRange(null)}
+              >
+                Cerrar sugerencias
+              </button>
+            </div>
+          )}
+          {!mentionRange && suggestions.length > 0 && (
             <div className="collaboration__suggestions" aria-label="Sugerencias de menciones">
               {suggestions.map((m) => (
                 <button

@@ -6,10 +6,15 @@ const actions = [
   { label: "Cursiva", text: "I", marker: "*" },
   { label: "Tachado", text: "S", marker: "~~" },
   { label: "Código en línea", text: "</>", marker: "`" },
-  { label: "Lista", text: "• Lista", marker: "- " },
-  { label: "Cita", text: "❯ Cita", marker: "> " },
+  { label: "Lista", text: "Lista", marker: "- " },
+  { label: "Cita", text: "Cita", marker: "> " },
 ];
-export default function RichTextarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+export default function RichTextarea({
+  onMention,
+  ...props
+}: TextareaHTMLAttributes<HTMLTextAreaElement> & {
+  onMention?: (range: { start: number; end: number }) => void;
+}) {
   const ariaLabel = props["aria-label"];
   const generatedId = useId();
   const id = props.id ?? generatedId;
@@ -71,6 +76,22 @@ export default function RichTextarea(props: TextareaHTMLAttributes<HTMLTextAreaE
             {text}
           </button>
         ))}
+        {onMention && (
+          <button
+            type="button"
+            className="rich-textarea__button"
+            aria-label="Mencionar usuario"
+            disabled={props.disabled || props.readOnly || preview}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => {
+              const field = input.current;
+              if (field && !field.matches(":disabled"))
+                onMention({ start: field.selectionStart, end: field.selectionEnd });
+            }}
+          >
+            @ Mencionar
+          </button>
+        )}
         <button
           type="button"
           className="rich-textarea__button"
@@ -83,6 +104,8 @@ export default function RichTextarea(props: TextareaHTMLAttributes<HTMLTextAreaE
       <textarea
         {...props}
         id={id}
+        rows={props.rows ?? 6}
+        className={`rich-textarea__input${props.className ? ` ${props.className}` : ""}`}
         ref={input}
         hidden={preview}
         onInvalid={(event) => {

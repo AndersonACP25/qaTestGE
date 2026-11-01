@@ -67,6 +67,11 @@ export default function TestRunDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [resultFeedback, setResultFeedback] = useState<{
+    id: string;
+    error: string;
+    message: string;
+  } | null>(null);
   const content = useRef<HTMLDivElement>(null);
   const pendingControl = useRef<HTMLSelectElement>(null);
   const pendingResultId = run.results?.find((result) => !result.executedAt)?.id;
@@ -78,9 +83,9 @@ export default function TestRunDialog({
     control.focus({ preventScroll: true });
   }, [initialAction, run.id, run.status]);
   useEffect(() => {
-    if (error || message)
+    if (error)
       content.current?.closest<HTMLElement>(".workspace__dialog-body")?.scrollTo({ top: 0 });
-  }, [error, message]);
+  }, [error]);
   async function act(operation: () => Promise<void>) {
     if (busy) return;
     setBusy(true);
@@ -349,24 +354,57 @@ export default function TestRunDialog({
               <p>Aún no hay casos. Edita la ejecución para seleccionarlos.</p>
             )}
             {run.results?.map((result) => (
-              <div key={`${result.id}:${result.executedAt}`} className="quality__panel">
+              <div key={result.id} className="quality__panel">
                 <form
                   className="test-run__result"
-                  key={`${result.id}:${result.executedAt}`}
                   onSubmit={(event) => {
                     event.preventDefault();
                     const form = new FormData(event.currentTarget);
+                    const scrollBody =
+                      event.currentTarget.closest<HTMLElement>(".workspace__dialog-body");
+                    const scrollTop = scrollBody?.scrollTop ?? 0;
                     void act(async () => {
-                      onChanged(
-                        await updateTestRunResult(run.id, result.id, run.projectId!, {
-                          status: String(form.get("status")) as ResultStatus,
-                          notes: String(form.get("notes")),
-                        }),
-                      );
-                      setMessage(`Resultado de ${result.caseId} guardado.`);
+                      setResultFeedback(null);
+                      try {
+                        const updated = await updateTestRunResult(
+                          run.id,
+                          result.id,
+                          run.projectId!,
+                          {
+                            status: String(form.get("status")) as ResultStatus,
+                            notes: String(form.get("notes")),
+                          },
+                        );
+                        if (!alive.current) return;
+                        onChanged(updated);
+                        setResultFeedback({
+                          id: result.id,
+                          error: "",
+                          message: `Resultado de ${result.caseId} guardado.`,
+                        });
+                      } catch (cause) {
+                        if (alive.current)
+                          setResultFeedback({
+                            id: result.id,
+                            error:
+                              cause instanceof Error
+                                ? cause.message
+                                : "No se pudo guardar el resultado.",
+                            message: "",
+                          });
+                      } finally {
+                        requestAnimationFrame(() => {
+                          if (alive.current && scrollBody) scrollBody.scrollTop = scrollTop;
+                        });
+                      }
                     });
                   }}
                 >
+                  {resultFeedback?.id === result.id && (
+                    <Alert tone={resultFeedback.error ? "error" : "success"}>
+                      {resultFeedback.error || resultFeedback.message}
+                    </Alert>
+                  )}
                   <h4>
                     {result.caseId} · {result.title} · versión {result.caseVersion ?? 1}
                   </h4>

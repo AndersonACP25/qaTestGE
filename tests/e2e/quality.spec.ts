@@ -75,12 +75,12 @@ test("crea plan e inicia ciclo con referencia al plan", async ({ page, workspace
     };
     await route.fulfill({ status: 201, json: { data: run } });
   });
-  await navigate(page, "Planes y ciclos");
+  await navigate(page, "Test Plan");
   await page.getByLabel("Nombre", { exact: true }).fill("Release 2");
   await page.getByRole("checkbox", { name: /TC-001/ }).check();
-  await page.getByRole("button", { name: "Guardar plan", exact: true }).click();
+  await page.getByRole("button", { name: "Guardar Test Plan", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Release 2", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Iniciar ciclo", exact: true }).click();
+  await page.getByRole("button", { name: "Iniciar Test Run", exact: true }).click();
   await expect(
     page.getByText("Ejecución RUN-001 creada. Ábrela en Test runs.", { exact: true }),
   ).toBeVisible();

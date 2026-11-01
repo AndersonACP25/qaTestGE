@@ -88,6 +88,32 @@ try {
   const bug = await dev.post("/api/bugs").send(bugInput);
   assert.equal(bug.status, 201);
   const bugId = bug.body.data.id;
+  // Same payload and UUID v8 used when publishing a legacy local bug draft.
+  const designerKey = "f517db43-22b5-8bfe-8149-ef3a6d2c237e";
+  const designerPayload = {
+    projectId,
+    title: "Bug desde diseñador",
+    description: "## Problema observado\n\nError revisado",
+    priority: "Media",
+    tagIds: [],
+  };
+  const published = await qa
+    .post("/api/bugs")
+    .set("Idempotency-Key", designerKey)
+    .send(designerPayload);
+  assert.equal(published.status, 201, JSON.stringify(published.body));
+  const repeatedPublish = await qa
+    .post("/api/bugs")
+    .set("Idempotency-Key", designerKey)
+    .send(designerPayload);
+  assert.equal(repeatedPublish.status, 201);
+  assert.equal(repeatedPublish.body.data.id, published.body.data.id);
+  const persistedBugs = (await qa.get("/api/bugs").query({ projectId })).body.data;
+  assert.equal(
+    persistedBugs.filter((item: { id: string }) => item.id === published.body.data.id).length,
+    1,
+  );
+
   assert.equal((await viewer.post("/api/bugs").send(bugInput)).status, 403);
   assert.equal(
     (await dev.post("/api/test-cases").send({ projectId, title: "No permitido" })).status,

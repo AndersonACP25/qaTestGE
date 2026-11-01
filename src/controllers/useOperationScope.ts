@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef } from "react";
 
 /** Tokens expire on scope changes, even if the user returns to the same project. */
 export function useOperationScope(userId: string, projectId: string) {
@@ -10,5 +10,5 @@ export function useOperationScope(userId: string, projectId: string) {
       active.current = null;
     };
   }, [token]);
-  return () => () => active.current === token;
+  return useCallback(() => () => active.current === token, [token]);
 }

@@ -229,11 +229,13 @@ export function CaseTable({
                 <TagBadges ids={item.tagIds ?? []} tags={tags} />
               </td>
               <td data-label="CLASIFICACIÓN">
-                <span className="suite-badge">{item.suite || "—"}</span>
-                <p>
-                  {item.testType ?? "Funcional"} · {item.lifecycle ?? "Borrador"} · v
-                  {item.version ?? 1}
-                </p>
+                <div className="case-table__classification">
+                  <span className="suite-badge">{item.suite || "—"}</span>
+                  <p>
+                    {item.testType ?? "Funcional"} · {item.lifecycle ?? "Borrador"} · v
+                    {item.version ?? 1}
+                  </p>
+                </div>
               </td>
               <td data-label="RESPONSABLE">{item.assigneeName || "Sin asignar"}</td>
               <td data-label="ESTADO">

@@ -1,3 +1,6 @@
+import EvidenceUploadDialog from "./views/EvidenceUploadDialog";
+import NotificationBell from "./components/NotificationBell";
+import { useMentionNotifications } from "./controllers/useMentionNotifications";
 import RichTextarea from "./components/RichTextarea";
 import { ProjectPermissionsProvider } from "./controllers/ProjectPermissions";
 import { can } from "../backend/src/models/collaboration.model";
@@ -86,7 +89,7 @@ const navigation: {
       { id: "cases", label: "Casos de prueba", icon: "check-square" },
       { id: "bug-builder", label: "Diseñar bugs", icon: "sparkle" },
       { id: "case-builder", label: "Diseñar test cases", icon: "sparkle" },
-      { id: "plans", label: "Planes y ciclos", icon: "calendar" },
+      { id: "plans", label: "Test Plan", icon: "calendar" },
       { id: "runs", label: "Test runs", icon: "play" },
       { id: "evidence", label: "Evidencias", icon: "image" },
       { id: "tags", label: "Tags", icon: "tag" },
@@ -117,6 +120,7 @@ function App({
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectId, setProjectId] = useState("");
   const captureScope = useOperationScope(user.id, projectId);
+  const mentionInbox = useMentionNotifications(user.id, projectId);
   const [tags, setTags] = useState<Tag[]>([]);
   const [tagError, setTagError] = useState("");
   const [revision, setRevision] = useState(0);
@@ -166,6 +170,7 @@ function App({
   const [deleteBugTarget, setDeleteBugTarget] = useState<Bug | null>(null);
   const [deleteBugError, setDeleteBugError] = useState("");
   const [deleteBugBusy, setDeleteBugBusy] = useState(false);
+  const [evidenceUploadTarget, setEvidenceUploadTarget] = useState("");
   const [editingEvidence, setEditingEvidence] = useState<Evidence | null>(null);
   const [evidenceActionTarget, setEvidenceActionTarget] = useState<Evidence | null>(null);
   const [evidenceToDelete, setEvidenceToDelete] = useState<Evidence | null>(null);
@@ -325,7 +330,7 @@ function App({
     mentions: "Mis menciones",
     coverage: "Cobertura y requisitos",
     overview: "Dashboard",
-    plans: "Planes y ciclos",
+    plans: "Test Plan",
     reports: "Reportes y métricas",
     bugs: "Bugs",
     cases: "Casos de prueba",
@@ -344,6 +349,7 @@ function App({
     toastTimer.current = setTimeout(() => setToast(""), 4000);
   };
   function navigate(page: NavigationPage) {
+    if (page === "mentions") mentionInbox.refresh();
     setActivePage(page);
     setTablePage(1);
     setSearch("");
@@ -970,6 +976,13 @@ function App({
             <strong>{pageTitle}</strong>
           </div>
           <div className="topbar-actions">
+            {projectId && (
+              <NotificationBell
+                key={`${user.id}:${projectId}`}
+                inbox={mentionInbox}
+                onViewAll={() => navigate("mentions")}
+              />
+            )}
             {themeControl}
             <button className="session__logout" onClick={onLogout}>
               Salir
@@ -1060,6 +1073,7 @@ function App({
                   setModal("");
                   setRunDetail(null);
                   setRecordDetail(null);
+                  setEvidenceUploadTarget("");
                   setDeleteBugTarget(null);
                   setDeleteCaseTarget(null);
                   setSaving(false);
@@ -1146,7 +1160,7 @@ function App({
             projectId && (
               <MentionsView
                 key={projectId}
-                projectId={projectId}
+                inbox={mentionInbox}
                 onOpen={async (target, signal) => {
                   const isCurrent = captureScope();
                   const loaded = await loadProject(projectId, signal);
@@ -1690,25 +1704,37 @@ function App({
                   />
                   <fieldset className="workspace__step-editor">
                     <legend>Pasos y resultados esperados · {caseSteps.length}/100</legend>
-                    <table className="workspace__steps-table">
-                      <thead>
-                        <tr>
-                          <th scope="col">Paso</th>
-                          <th scope="col">Acción</th>
-                          <th scope="col">Resultado esperado</th>
-                          <th scope="col">Acciones</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {caseSteps.map((step, index) => (
-                          <tr key={index}>
-                            <th scope="row">{index + 1}</th>
-                            <td data-label="Acción">
+                    <div className="case-steps__list">
+                      {caseSteps.map((step, index) => (
+                        <section
+                          className="case-steps__item"
+                          key={index}
+                          aria-label={`Paso ${index + 1}`}
+                        >
+                          <header className="case-steps__heading">
+                            <strong>Paso {index + 1}</strong>
+                            <button
+                              type="button"
+                              className="workspace__secondary"
+                              disabled={caseSteps.length <= 1}
+                              onClick={() =>
+                                setCaseSteps((steps) =>
+                                  steps.length <= 1
+                                    ? steps
+                                    : steps.filter((_item, stepIndex) => stepIndex !== index),
+                                )
+                              }
+                            >
+                              Eliminar paso
+                            </button>
+                          </header>
+                          <div className="case-steps__fields">
+                            <label className="workspace__field">
+                              Acción
                               <RichTextarea
                                 aria-label="Acción"
                                 name="action"
                                 maxLength={10000}
-                                rows={3}
                                 value={step.action}
                                 onChange={(event) =>
                                   setCaseSteps((current) =>
@@ -1720,13 +1746,13 @@ function App({
                                   )
                                 }
                               />
-                            </td>
-                            <td data-label="Resultado esperado">
+                            </label>
+                            <label className="workspace__field">
+                              Resultado esperado
                               <RichTextarea
                                 aria-label="Resultado esperado"
                                 name="expectedResult"
                                 maxLength={10000}
-                                rows={3}
                                 value={step.expectedResult}
                                 onChange={(event) =>
                                   setCaseSteps((current) =>
@@ -1738,27 +1764,11 @@ function App({
                                   )
                                 }
                               />
-                            </td>
-                            <td>
-                              <button
-                                type="button"
-                                className="workspace__secondary"
-                                disabled={caseSteps.length <= 1}
-                                onClick={() =>
-                                  setCaseSteps((steps) =>
-                                    steps.length <= 1
-                                      ? steps
-                                      : steps.filter((_item, stepIndex) => stepIndex !== index),
-                                  )
-                                }
-                              >
-                                Eliminar paso
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                            </label>
+                          </div>
+                        </section>
+                      ))}
+                    </div>
                     <button
                       type="button"
                       className="workspace__secondary"
@@ -2045,6 +2055,17 @@ function App({
           {recordDetail.kind === "bug" && (
             <>
               <div className="quality__actions">
+                <button
+                  type="button"
+                  className="workspace__secondary"
+                  disabled={!allowed("evidence.write")}
+                  onClick={() => {
+                    setEvidenceUploadTarget(recordDetail.record.id);
+                    setRecordDetail(null);
+                  }}
+                >
+                  Subir evidencia
+                </button>
                 {recordDetail.record.sourceRunId && (
                   <button
                     className="workspace__secondary"
@@ -2106,6 +2127,24 @@ function App({
             </>
           )}
         </RecordDetailsDialog>
+      )}
+      {evidenceUploadTarget && (
+        <EvidenceUploadDialog
+          key={`${user.id}:${projectId}:${evidenceUploadTarget}`}
+          projectId={projectId}
+          targetId={evidenceUploadTarget}
+          onClose={() => setEvidenceUploadTarget("")}
+          onSaved={(item) => {
+            if (!isRenderCurrent()) return;
+            setData((current) => ({
+              ...current,
+              evidence: [item, ...current.evidence.filter((evidence) => evidence.id !== item.id)],
+            }));
+            setEvidenceUploadTarget("");
+            setRevision((value) => value + 1);
+            notify(`Evidencia ${item.id} guardada.`);
+          }}
+        />
       )}
       {detail && (
         <Dialog wide title="Detalle del registro" onClose={() => setDetail(null)}>
@@ -2374,7 +2413,7 @@ function pageDescription(page: NavigationPage): string {
     mentions: "Consulta las menciones de tus compañeros dentro del proyecto.",
     coverage: "Conecta requisitos, casos y bugs del proyecto.",
     overview: "Aquí tienes el estado de calidad de tus proyectos.",
-    plans: "Agrupa casos y organiza ciclos de ejecución.",
+    plans: "Gestiona tus Test Plans, su alcance y los casos que los componen.",
     reports: "Consulta indicadores, estados y resultados del proyecto seleccionado.",
     bugs: "Registra, prioriza y da seguimiento a las incidencias de tus proyectos.",
     cases: "Organiza los escenarios que mantienen tu producto bajo control.",

@@ -6,6 +6,8 @@ import "./typography.css";
 import "./styles.css";
 import "./controls.css";
 import "./spacing.css";
+import "./views/inbox.css";
+import "./views/editor-layout.css";
 
 const rootElement = document.getElementById("root");
 

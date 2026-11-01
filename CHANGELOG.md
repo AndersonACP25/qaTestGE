@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-01 · Bandeja de notificaciones y gestión de registros
+
+- Renovar Mis menciones con filtros, marcado explícito y botón verde; abrir no marca leído. Campana compartida por proyecto en el navbar.
+- Ampliar textarea y añadir selector de menciones en comentarios. Corregir el editor de pasos, tamaño del ID, clasificación, scroll y confirmaciones sin doble relleno.
+- Importar por selección o arrastre; subir evidencia desde el detalle del bug en un diálogo específico.
+- Publicar bugs con confirmación accesible y claves compatibles con borradores antiguos. Verificado en navegador/API/PostgreSQL reales.
+- Renombrar Planes como Test Plan y mejorar búsqueda, consulta de casos y gestión. Historial descendente sin números. Sin migraciones ni dependencias nuevas.
+
 ## 2026-11-01 · Interacción, edición y menciones
 
 - Formato Markdown y vista previa en campos largos; menciones visibles como @Nombre con destinatarios estables.

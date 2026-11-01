@@ -39,7 +39,7 @@ test("Diseñar bugs conserva borradores y solo crea tras revisión", async ({
   );
   await page.getByLabel("Título del bug").fill("Error de acceso revisado");
   await page.getByRole("checkbox", { name: "Smoke demo", exact: true }).check();
-  await expect(page.getByRole("button", { name: "Guardar en Bugs" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Guardar en Bugs" })).toBeEnabled();
   await page.getByRole("button", { name: "Guardar borrador", exact: true }).click();
   expect(workspace.writes.filter((item) => item.path === "/bugs")).toHaveLength(0);
   await page.reload();
@@ -167,7 +167,7 @@ test("crear y editar un caso conserva todos los pasos y un solo modal", async ({
   await navigate(page, "Casos de prueba");
   await page.getByRole("button", { name: "Nuevo caso de prueba", exact: true }).click();
   const dialog = page.getByRole("dialog");
-  await expect(dialog.getByRole("table")).toBeVisible();
+  await expect(dialog.getByRole("region", { name: "Paso 1", exact: true })).toBeVisible();
   await dialog
     .getByRole("textbox", { name: "Título", exact: true })
     .fill("Caso con todos los pasos");

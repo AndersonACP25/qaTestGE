@@ -44,7 +44,7 @@ const guides = [
   },
   {
     title: "Comentarios, menciones y auditoría",
-    text: "Comenta en el detalle de bugs, casos y ejecuciones. Escribe @ y selecciona un integrante con acceso, o escribe su nombre completo si es único. Mis menciones se actualiza cada 15 segundos mientras está visible; también incluye tus propias menciones. El autor y los Admin pueden editar o eliminar comentarios, conservando el historial. En Configuración, la pestaña Actividad y auditoría muestra los cambios confirmados y sus actores desde que se habilitó el historial. No se envían correos.",
+    text: "Comenta en el detalle de bugs, casos y ejecuciones. Escribe @ y selecciona un integrante con acceso, o escribe su nombre completo si es único. La campana del navbar y Mis menciones se actualizan cada 15 segundos; abrir un registro no marca la mención como leída. Usa Marcar como leída; también incluye tus propias menciones. El autor y los Admin pueden editar o eliminar comentarios, conservando el historial. En Configuración, la pestaña Actividad y auditoría muestra los cambios confirmados y sus actores desde que se habilitó el historial. No se envían correos.",
   },
   {
     title: "Flujo de bugs en Configuración",

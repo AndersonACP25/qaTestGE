@@ -63,61 +63,67 @@ const fieldLabels: Record<string, string> = {
 };
 export default function ActivityList({ rows }: { rows: Activity[] }) {
   return (
-    <ol className="collaboration__activity">
-      {rows.map((row) => {
-        const [table, operation] = row.action.split(".");
-        const before = fields(row.before);
-        const after = fields(row.after);
-        const keys = [...new Set([...Object.keys(before), ...Object.keys(after)])].filter(
-          (k) => fieldLabels[k] && JSON.stringify(before[k]) !== JSON.stringify(after[k]),
-        );
-        return (
-          <li className="project-activity__event" key={row.id}>
-            <p className="project-activity__event-heading">
-              <strong>{row.actorName}</strong> · {labels[table] ?? "Registro"}{" "}
-              {operation === "insert"
-                ? "creado"
-                : operation === "delete"
-                  ? "eliminado"
-                  : "actualizado"}{" "}
-              · {row.resourceId}
-            </p>
-            <time className="project-activity__time" dateTime={row.createdAt}>
-              {new Date(row.createdAt).toLocaleString("es")}
-            </time>
-            {keys.length > 0 && (
-              <details>
-                <summary>Ver cambios</summary>
-                <dl className="project-activity__changes">
-                  {keys.map((k) => (
-                    <div className="collaboration__change" key={k}>
-                      <dt>{fieldLabels[k]}</dt>
-                      <dd>
-                        Antes:{" "}
-                        {before[k] === undefined
-                          ? "—"
-                          : typeof before[k] === "string"
-                            ? before[k]
-                            : JSON.stringify(before[k])}
-                      </dd>
-                      <dd>
-                        Después:{" "}
-                        {after[k] === undefined
-                          ? "—"
-                          : typeof after[k] === "string"
-                            ? after[k]
-                            : JSON.stringify(after[k])}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-              </details>
-            )}
-          </li>
-        );
-      })}
+    <ul className="collaboration__activity">
+      {[...rows]
+        .sort(
+          (a, b) =>
+            Date.parse(b.createdAt) - Date.parse(a.createdAt) ||
+            b.id.localeCompare(a.id, "es", { numeric: true }),
+        )
+        .map((row) => {
+          const [table, operation] = row.action.split(".");
+          const before = fields(row.before);
+          const after = fields(row.after);
+          const keys = [...new Set([...Object.keys(before), ...Object.keys(after)])].filter(
+            (k) => fieldLabels[k] && JSON.stringify(before[k]) !== JSON.stringify(after[k]),
+          );
+          return (
+            <li className="project-activity__event" key={row.id}>
+              <p className="project-activity__event-heading">
+                <strong>{row.actorName}</strong> · {labels[table] ?? "Registro"}{" "}
+                {operation === "insert"
+                  ? "creado"
+                  : operation === "delete"
+                    ? "eliminado"
+                    : "actualizado"}{" "}
+                · {row.resourceId}
+              </p>
+              <time className="project-activity__time" dateTime={row.createdAt}>
+                {new Date(row.createdAt).toLocaleString("es")}
+              </time>
+              {keys.length > 0 && (
+                <details>
+                  <summary>Ver cambios</summary>
+                  <dl className="project-activity__changes">
+                    {keys.map((k) => (
+                      <div className="collaboration__change" key={k}>
+                        <dt>{fieldLabels[k]}</dt>
+                        <dd>
+                          Antes:{" "}
+                          {before[k] === undefined
+                            ? "—"
+                            : typeof before[k] === "string"
+                              ? before[k]
+                              : JSON.stringify(before[k])}
+                        </dd>
+                        <dd>
+                          Después:{" "}
+                          {after[k] === undefined
+                            ? "—"
+                            : typeof after[k] === "string"
+                              ? after[k]
+                              : JSON.stringify(after[k])}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                </details>
+              )}
+            </li>
+          );
+        })}
       {!rows.length && <li>No hay actividad registrada.</li>}
-    </ol>
+    </ul>
   );
 }
 export function ProjectActivityView({
