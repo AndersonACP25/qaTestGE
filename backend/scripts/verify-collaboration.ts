@@ -1,4 +1,5 @@
 // Real PostgreSQL integration: explicitly selected ephemeral DB only; never loads .env.
+import { applyMigrations } from "../src/migrations.js";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import request from "supertest";
@@ -314,6 +315,56 @@ try {
     ).status,
     200,
   );
+
+  // Self-mentions and mentions on every QA resource create private, deduplicated notices.
+  for (const target of [
+    { kind: "bug", id: bugId },
+    { kind: "case", id: tc.body.data.id },
+    { kind: "run", id: run.body.data.id },
+  ]) {
+    const ownKey = randomUUID();
+    const input = { target, body: `Revisar @[QA](user:${users[1]}) y @[Dev](user:${users[2]})` };
+    const created = await qa
+      .post("/api/comments")
+      .query({ projectId })
+      .set("Idempotency-Key", ownKey)
+      .send(input);
+    assert.equal(created.status, 201, JSON.stringify(created.body));
+    const repeated = await qa
+      .post("/api/comments")
+      .query({ projectId })
+      .set("Idempotency-Key", ownKey)
+      .send(input);
+    assert.equal(repeated.body.data.id, created.body.data.id);
+    for (const agent of [qa, dev]) {
+      const notices = (await agent.get("/api/mention-notifications").query({ projectId })).body
+        .data;
+      const matching = notices.filter(
+        (n: { commentId: string }) => n.commentId === created.body.data.id,
+      );
+      assert.equal(matching.length, 1);
+      assert.deepEqual(matching[0].target, target);
+    }
+  }
+
+  const missing = await pool.query<{ id: string; comment_id: string }>(
+    "DELETE FROM qa.mention_notifications WHERE id=(SELECT n.id FROM qa.mention_notifications n JOIN qa.comments c ON c.id=n.comment_id WHERE n.project_id=$1 AND n.user_id=c.author_id LIMIT 1) RETURNING id::text,comment_id::text",
+    [projectId],
+  );
+  assert.equal(missing.rowCount, 1);
+  await pool.query("DELETE FROM qa.schema_migrations WHERE version='016_self_mentions'");
+  const migrationClient = await pool.connect();
+  try {
+    await applyMigrations(migrationClient, false);
+    await applyMigrations(migrationClient, false);
+  } finally {
+    migrationClient.release();
+  }
+  const restored = await pool.query(
+    "SELECT count(*)::int AS n FROM qa.mention_notifications WHERE comment_id=$1 AND user_id=$2",
+    [missing.rows[0].comment_id, users[1]],
+  );
+  assert.equal(restored.rows[0].n, 1);
 
   await assert.rejects(
     pool.query("UPDATE qa.activity SET action='forged' WHERE project_id=$1", [projectId]),

@@ -194,11 +194,10 @@ export class PostgresCollaborationRepository implements CollaborationRepository 
         "INSERT INTO qa.comment_mentions(project_id,comment_id,user_id) VALUES($1,$2,$3)",
         [projectId, commentId, id],
       );
-      if (id !== this.actorId)
-        await c.query(
-          "INSERT INTO qa.mention_notifications(project_id,comment_id,user_id) VALUES($1,$2,$3) ON CONFLICT(comment_id,user_id) DO NOTHING",
-          [projectId, commentId, id],
-        );
+      await c.query(
+        "INSERT INTO qa.mention_notifications(project_id,comment_id,user_id) VALUES($1,$2,$3) ON CONFLICT(comment_id,user_id) DO NOTHING",
+        [projectId, commentId, id],
+      );
     }
     await c.query(
       "DELETE FROM qa.mention_notifications WHERE comment_id=$1 AND project_id=$2 AND NOT(user_id=ANY($3::bigint[]))",

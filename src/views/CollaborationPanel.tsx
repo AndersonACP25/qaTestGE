@@ -1,3 +1,5 @@
+import FormattedText from "../components/FormattedText";
+import { readMentionDraft, editMentionDraft, writeMentionDraft } from "../models/mentionDraft";
 import RichTextarea from "../components/RichTextarea";
 import { resolvePlainMentions } from "../../backend/src/models/plain-mentions";
 import { useEffect, useRef, useState } from "react";
@@ -12,21 +14,10 @@ import type {
 import { usePermissions } from "../controllers/ProjectPermissions";
 import ActivityList from "./ProjectActivityView";
 export function MentionText({ comment }: { comment: Comment }) {
-  const parts = comment.body.split(/(@\[[^\]\r\n]{1,100}\]\(user:[1-9]\d{0,18}\))/g);
   return (
-    <p className="collaboration__body">
-      {parts.map((part, i) => {
-        const match = /^@\[([^\]]+)\]\(user:(\d+)\)$/.exec(part);
-        const member = match && comment.mentions.find((m) => m.id === match[2]);
-        return member ? (
-          <strong className="collaboration__mention" key={i}>
-            @{member.name}
-          </strong>
-        ) : (
-          part
-        );
-      })}
-    </p>
+    <div className="collaboration__body">
+      <FormattedText text={comment.body} />
+    </div>
   );
 }
 export default function CollaborationPanel({
@@ -42,7 +33,9 @@ export default function CollaborationPanel({
   const [comments, setComments] = useState<Comment[]>([]);
   const [members, setMembers] = useState<ProjectMember[]>([]);
   const [activity, setActivity] = useState<Activity[]>([]);
-  const [body, setBody] = useState("");
+  const [draft, setDraft] = useState(() => readMentionDraft(""));
+  const body = draft.text;
+  const setBody = (text: string) => setDraft((current) => editMentionDraft(current, text));
   const [editing, setEditing] = useState<Comment | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -127,7 +120,7 @@ export default function CollaborationPanel({
                   throw new Error(
                     "Selecciona el nombre completo en las sugerencias para enviar la mención.",
                   );
-                const resolved = resolvePlainMentions(body, members);
+                const resolved = resolvePlainMentions(writeMentionDraft(draft), members);
                 if (editing)
                   await api<Comment>(`/comments/${editing.id}?projectId=${projectId}`, {
                     method: "PATCH",
@@ -170,12 +163,19 @@ export default function CollaborationPanel({
                   key={m.id}
                   disabled={busy}
                   onClick={() =>
-                    setBody((v) =>
-                      v.replace(
-                        /@[^\]\n[]*$/,
-                        `@[${m.name.replace(/[\]\r\n]/g, " ")}](user:${m.id}) `,
-                      ),
-                    )
+                    setDraft((current) => {
+                      const start = current.text.lastIndexOf("@");
+                      const name = m.name.replace(/[\]\r\n]/g, " ");
+                      const text = current.text.slice(0, start) + `@${name} `;
+                      const next = editMentionDraft(current, text);
+                      return {
+                        text,
+                        selections: [
+                          ...next.selections,
+                          { start, end: start + name.length + 1, id: m.id, name },
+                        ],
+                      };
+                    })
                   }
                 >
                   @{m.name}
@@ -185,7 +185,7 @@ export default function CollaborationPanel({
           )}
           <p className="collaboration__help">
             Selecciona una sugerencia o escribe el nombre completo y único después de @. Los avisos
-            llegan a otras personas del proyecto; las automenciones no generan aviso.
+            aparecen en Mis menciones del destinatario, incluso si te mencionas a ti mismo.
           </p>
           <div className="collaboration__actions">
             <button className="button button-primary" disabled={busy}>
@@ -236,7 +236,7 @@ export default function CollaborationPanel({
                       disabled={busy}
                       onClick={() => {
                         setEditing(c);
-                        setBody(c.body);
+                        setDraft(readMentionDraft(c.body));
                       }}
                     >
                       Editar comentario
