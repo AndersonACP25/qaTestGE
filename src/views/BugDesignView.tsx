@@ -1,3 +1,4 @@
+import Dialog from "../Dialog";
 import RichTextarea from "../components/RichTextarea";
 import { withStorageLock } from "../models/storageLock";
 import { useEffect, useRef, useState } from "react";
@@ -9,6 +10,7 @@ import {
   loadBugDraftDocument,
   saveBugDraftDocument,
   bugDraftsKey,
+  bugDraftRequestKey,
   prepareBug,
   type BugDraft,
 } from "../models/bugDesign";
@@ -55,6 +57,7 @@ export default function BugDesignView({
   const [templatesLoading, setTemplatesLoading] = useState(true);
   const [templateError, setTemplateError] = useState("");
   const [preview, setPreview] = useState<BugDraft | null>(null);
+  const [confirmSave, setConfirmSave] = useState(false);
   const [reviewed, setReviewed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [savedId, setSavedId] = useState("");
@@ -120,8 +123,8 @@ export default function BugDesignView({
     window.addEventListener("storage", changed);
     return () => window.removeEventListener("storage", changed);
   }, [userId, projectId]);
-  async function publish() {
-    if (!preview || !reviewed || busy || savedId) return;
+  async function publish(confirmed = reviewed) {
+    if (!preview || !confirmed || busy || savedId) return;
     setBusy(true);
     setError("");
     setMessage("");
@@ -137,14 +140,16 @@ export default function BugDesignView({
           priority: preview.priority,
           tagIds: preview.tagIds,
         },
-        preview.id,
+        await bugDraftRequestKey(userId, projectId, preview.id),
       );
       if (!alive.current) return;
+      setConfirmSave(false);
       setSavedId(saved.id);
       setMessage(`Bug ${saved.id} guardado en Bugs.`);
       onSaved(saved);
       try {
-        await persist(drafts.filter(({ id }) => id !== preview.id));
+        if (drafts.some(({ id }) => id === preview.id))
+          await persist(drafts.filter(({ id }) => id !== preview.id));
       } catch {
         setError(
           "El bug se creó, pero no se pudo retirar su borrador local. Elimínalo de la lista antes de volver a usarlo.",
@@ -164,7 +169,7 @@ export default function BugDesignView({
         editable; no se analiza el problema ni se inventan pasos o resultados.
       </Alert>
       {initial.error && <Alert tone="error">{initial.error}</Alert>}
-      {error && <Alert tone="error">{error}</Alert>}
+      {error && !confirmSave && <Alert tone="error">{error}</Alert>}
       {message && (
         <Alert tone="success">
           <span>{message}</span>
@@ -298,7 +303,8 @@ export default function BugDesignView({
             <form
               onSubmit={(event) => {
                 event.preventDefault();
-                void publish();
+                if (reviewed) void publish();
+                else setConfirmSave(true);
               }}
             >
               <fieldset className="bug-design__editor" disabled={busy || Boolean(savedId)}>
@@ -381,7 +387,7 @@ export default function BugDesignView({
                   <button
                     className="button button-primary bug-design__primary"
                     type="submit"
-                    disabled={!reviewed || !preview.title.trim() || Boolean(tagError)}
+                    disabled={!preview.title.trim() || Boolean(tagError)}
                   >
                     Guardar en Bugs
                   </button>
@@ -393,6 +399,38 @@ export default function BugDesignView({
           )}
         </div>
       </div>
+      {confirmSave && preview && (
+        <Dialog
+          confirmation
+          title="Guardar bug en Bugs"
+          onClose={() => {
+            if (!busy) setConfirmSave(false);
+          }}
+        >
+          <p>
+            Confirma la creación de <strong>{preview.title}</strong> en este proyecto.
+          </p>
+          {error && <Alert tone="error">{error}</Alert>}
+          <div className="workspace__actions workspace__actions--confirmation">
+            <button
+              className="workspace__secondary"
+              type="button"
+              disabled={busy}
+              onClick={() => setConfirmSave(false)}
+            >
+              Cancelar
+            </button>
+            <button
+              className="button button-primary"
+              type="button"
+              disabled={busy}
+              onClick={() => void publish(true)}
+            >
+              {busy ? "Guardando…" : "Confirmar y guardar"}
+            </button>
+          </div>
+        </Dialog>
+      )}
     </section>
   );
 }

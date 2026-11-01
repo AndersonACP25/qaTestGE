@@ -129,3 +129,19 @@ export function saveBugDraftDocument(
   );
   return { revision, drafts };
 }
+
+/** Legacy local draft IDs were not necessarily UUIDs; derive a stable scoped request key. */
+export async function bugDraftRequestKey(userId: string, projectId: string, draftId: string) {
+  if (/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(draftId))
+    return draftId;
+  const digest = new Uint8Array(
+    await crypto.subtle.digest(
+      "SHA-256",
+      new TextEncoder().encode(JSON.stringify(["qaTestGE:bug", userId, projectId, draftId])),
+    ),
+  );
+  digest[6] = (digest[6] & 15) | 128;
+  digest[8] = (digest[8] & 63) | 128;
+  const hex = [...digest.slice(0, 16)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
