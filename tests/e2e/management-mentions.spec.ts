@@ -199,6 +199,9 @@ test("publicar @nombre completo entrega un aviso a la otra cuenta y mantiene sep
   await expect(page.getByText("QA Local te mencionó en BUG-001", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Abrir registro", exact: true }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
+  expect(read).toBe(false);
+  await page.getByRole("button", { name: "Cerrar ventana", exact: true }).click();
+  await page.getByRole("button", { name: "Marcar como leída", exact: true }).click();
   await expect.poll(() => read).toBe(true);
   await noHorizontalOverflow(page);
 });

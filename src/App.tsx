@@ -1,3 +1,5 @@
+import NotificationBell from "./components/NotificationBell";
+import { useMentionNotifications } from "./controllers/useMentionNotifications";
 import RichTextarea from "./components/RichTextarea";
 import { ProjectPermissionsProvider } from "./controllers/ProjectPermissions";
 import { can } from "../backend/src/models/collaboration.model";
@@ -117,6 +119,7 @@ function App({
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectId, setProjectId] = useState("");
   const captureScope = useOperationScope(user.id, projectId);
+  const mentionInbox = useMentionNotifications(user.id, projectId);
   const [tags, setTags] = useState<Tag[]>([]);
   const [tagError, setTagError] = useState("");
   const [revision, setRevision] = useState(0);
@@ -344,6 +347,7 @@ function App({
     toastTimer.current = setTimeout(() => setToast(""), 4000);
   };
   function navigate(page: NavigationPage) {
+    if (page === "mentions") mentionInbox.refresh();
     setActivePage(page);
     setTablePage(1);
     setSearch("");
@@ -970,6 +974,13 @@ function App({
             <strong>{pageTitle}</strong>
           </div>
           <div className="topbar-actions">
+            {projectId && (
+              <NotificationBell
+                key={`${user.id}:${projectId}`}
+                inbox={mentionInbox}
+                onViewAll={() => navigate("mentions")}
+              />
+            )}
             {themeControl}
             <button className="session__logout" onClick={onLogout}>
               Salir
@@ -1146,7 +1157,7 @@ function App({
             projectId && (
               <MentionsView
                 key={projectId}
-                projectId={projectId}
+                inbox={mentionInbox}
                 onOpen={async (target, signal) => {
                   const isCurrent = captureScope();
                   const loaded = await loadProject(projectId, signal);
