@@ -1,0 +1,251 @@
+.workspace__dialog--work-item {
+  width: min(1240px, 100%);
+}
+.workspace__dialog--work-item .workspace__dialog-body {
+  padding: 24px;
+}
+.work-item {
+  --work-item-accent: #287ab8;
+  min-width: 0;
+}
+.work-item--bug {
+  --work-item-accent: #d74b4b;
+}
+.work-item--case {
+  --work-item-accent: #25867a;
+}
+.work-item--run {
+  --work-item-accent: #426acb;
+}
+.work-item__heading {
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 24px;
+  border-top: 4px solid var(--work-item-accent);
+  background: var(--panel);
+}
+.work-item__identity {
+  min-width: 0;
+}
+.work-item__type {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-626678);
+}
+.work-item__type-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: var(--work-item-accent);
+}
+.work-item__heading h3 {
+  margin: 12px 0 0;
+  font-size: 24px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.work-item__id {
+  background: var(--color-f7f8fa);
+  color: var(--work-item-accent);
+}
+.work-item__actions {
+  display: flex;
+  gap: 12px;
+  flex-shrink: 0;
+}
+.work-item__navigation {
+  display: flex;
+  gap: 8px;
+  padding: 0 24px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+.work-item__navigation button {
+  min-height: 46px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  color: var(--color-626678);
+  font-size: 16px;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+.work-item__navigation button:hover,
+.work-item__navigation button:focus-visible {
+  color: var(--work-item-accent);
+  border-bottom-color: var(--work-item-accent);
+}
+.work-item__navigation button:focus-visible {
+  outline: 2px solid var(--purple);
+  outline-offset: -2px;
+}
+.work-item__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 270px;
+}
+.work-item__content {
+  display: grid;
+  gap: 24px;
+  align-content: start;
+  padding: 24px;
+  min-width: 0;
+}
+.work-item__content > section,
+.work-item__content .collaboration,
+.work-item__content .workspace__attachments {
+  scroll-margin-top: 16px;
+}
+.work-item__properties {
+  padding: 24px;
+  border-left: 1px solid var(--line);
+  background: var(--color-f7f8fa);
+  min-width: 0;
+}
+.work-item__properties h4 {
+  font-size: 18px;
+  margin: 0 0 24px;
+}
+.work-item__properties dl {
+  margin: 0;
+  display: grid;
+  gap: 24px;
+}
+.work-item__properties dt {
+  color: var(--color-626678);
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+.work-item__properties dd {
+  margin: 0;
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+.work-item__status {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 6px;
+}
+.work-item__content .record-view__section {
+  padding: 24px;
+}
+.work-item__content .record-view__metadata {
+  margin-top: 24px;
+}
+.workspace__dialog--work-item > .workspace__dialog-body > .workspace__form {
+  padding: 0;
+}
+@media (min-width: 1000px) {
+  .workspace__dialog--work-item .workspace__form > .workspace__fieldset {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px 24px;
+  }
+  .workspace__dialog--work-item .workspace__form > .workspace__fieldset > fieldset,
+  .workspace__dialog--work-item .workspace__form > .workspace__fieldset > .alert,
+  .workspace__dialog--work-item
+    .workspace__form
+    > .workspace__fieldset
+    > .workspace__image-dropzone {
+    grid-column: 1 / -1;
+  }
+  .workspace__dialog--work-item .workspace__form .workspace__field {
+    min-width: 0;
+  }
+}
+@media (max-width: 900px) {
+  .work-item__layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .work-item__properties {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+  .work-item__properties dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 620px) {
+  .work-item__heading {
+    padding: 16px;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .work-item__content,
+  .work-item__properties {
+    padding: 16px;
+  }
+  .work-item__navigation {
+    padding: 0 8px;
+    gap: 0;
+  }
+  .work-item__navigation button {
+    font-size: 14px;
+    padding: 8px;
+  }
+  .workspace__dialog--work-item .workspace__dialog-body {
+    padding: 16px;
+  }
+}
+.audit-settings,
+.audit-filters {
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  margin-block: 24px;
+}
+.audit-settings summary {
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.audit-settings__fields,
+.audit-filters__fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px 24px;
+  margin-block: 24px;
+}
+.audit-settings__fields button {
+  align-self: end;
+  justify-self: start;
+}
+.project-user__form {
+  display: grid;
+  gap: 24px;
+}
+.project-user__form p {
+  margin: 0;
+}
+.project-user__form fieldset {
+  display: grid;
+  gap: 24px;
+}
+@media (max-width: 800px) {
+  .audit-settings__fields,
+  .audit-filters__fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 620px) {
+  .audit-settings,
+  .audit-filters {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 620px) {
+  .work-item__content .record-view__section {
+    padding: 16px;
+  }
+}

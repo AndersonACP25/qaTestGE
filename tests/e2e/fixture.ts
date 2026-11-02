@@ -101,6 +101,8 @@ export const test = base.extend<{
           },
           revision: 1,
         };
+      else if (path === "/audit-settings")
+        data = { profile: "General", detail: "Detallado", pageSize: 50, version: 0 };
       else if (path === "/project-members")
         data = [{ id: "1", name: "QA Local", role: "Admin", owner: true, revision: 0 }];
       else if (path === "/teams" && method === "GET") data = state.teams;
@@ -264,7 +266,15 @@ export const test = base.extend<{
 export { expect };
 
 export async function navigate(page: Page, name: string) {
-  if (name === "Proyectos" || name === "Equipos") {
+  if (
+    [
+      "Proyectos",
+      "Equipos",
+      "Accesos al proyecto",
+      "Actividad y auditoría",
+      "Flujo de bugs",
+    ].includes(name)
+  ) {
     await navigate(page, "Configuración");
     await page.getByRole("button", { name, exact: true }).click();
     return;

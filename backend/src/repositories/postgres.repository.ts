@@ -82,6 +82,7 @@ const run = (r: RunRow) => ({
   ...common(r, "RUN"),
   title: r.title,
   owner: r.owner,
+  ownerUserId: r.owner_user_id?.toString() ?? null,
   planId: r.plan_id ? resourceId("PLAN", r.plan_id) : null,
   sourceRunId: r.source_run_id ? resourceId("RUN", r.source_run_id) : null,
   status: r.status,
@@ -574,13 +575,14 @@ export class PostgresRepository implements Repository {
           "Selecciona al menos un caso; no hay resultados elegibles para reejecutar.",
         );
       const { rows } = await client.query<RunRow>(
-        "INSERT INTO qa.test_runs(project_id,title,owner,plan_id,source_run_id) VALUES($1,$2,$3,$4,$5) RETURNING *",
+        "INSERT INTO qa.test_runs(project_id,title,owner,plan_id,source_run_id,owner_user_id) VALUES($1,$2,$3,$4,$5,$6) RETURNING *",
         [
           input.projectId,
           input.title.trim(),
           input.owner.trim(),
           sourcePlan ?? (input.planId ? parseReference(input.planId, "PLAN") : null),
           sourceId,
+          input.ownerUserId ?? null,
         ],
       );
       const id = rows[0].id;
@@ -674,8 +676,16 @@ export class PostgresRepository implements Repository {
           "Registra un resultado para cada caso antes de completar la ejecución.",
         );
       await client.query(
-        "UPDATE qa.test_runs SET title=$3,owner=$4,status=$5,completed_at=CASE WHEN $5='Completado' THEN COALESCE(completed_at,now()) ELSE NULL END WHERE id=$1 AND project_id=$2",
-        [id, projectId, input.title.trim(), input.owner.trim(), input.status],
+        "UPDATE qa.test_runs SET title=$3,owner=$4,status=$5,owner_user_id=CASE WHEN $6::boolean THEN $7::bigint ELSE owner_user_id END,completed_at=CASE WHEN $5='Completado' THEN COALESCE(completed_at,now()) ELSE NULL END WHERE id=$1 AND project_id=$2",
+        [
+          id,
+          projectId,
+          input.title.trim(),
+          input.owner.trim(),
+          input.status,
+          input.ownerUserId !== undefined,
+          input.ownerUserId ?? null,
+        ],
       );
       if (input.tagIds !== undefined)
         await this.replaceTags(

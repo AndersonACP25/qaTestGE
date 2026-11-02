@@ -228,6 +228,8 @@ export const analyticsPaths = {
         project,
         ...pagination,
         parameter("requirementId", { type: "string", pattern: "^REQ-[0-9]{1,19}$" }),
+        parameter("caseId", { type: "string", pattern: "^TC-[0-9]{1,19}$" }),
+        parameter("bugId", { type: "string", pattern: "^BUG-[0-9]{1,19}$" }),
       ],
     ),
   },

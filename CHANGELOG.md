@@ -1,8 +1,57 @@
 # Changelog
 
+## 2026-11-02 · Filtros, cobertura y confirmaciones
+
+- Colocar Ver todas las menciones arriba en notificaciones y sustituir la flecha de proyecto por un icono SVG.
+- Mantener cabecera y cierre de Test Run al navegar a Historial; desplazar solo su cuerpo y conservar las propiedades visibles en escritorio.
+- Rediseñar el buscador de casos/vínculos como filas seleccionables con metadatos. Enfocar y destacar la relación requisito ↔ caso ↔ bug confirmada, incluso desde páginas posteriores, con retorno a la matriz completa.
+- Agrupar búsqueda, estado, responsable y tags en Filtros de Bugs/Casos/Test Runs, con clasificación específica y limpieza de selección.
+- Mostrar éxitos arriba a la derecha, por encima de modales, con cierre y duración de cuatro segundos. Mantener errores en contexto y evitar avisos por lecturas automáticas.
+- Cerrar por defecto Evidencias opcionales en ambos diseñadores y ampliar las guías de Wiki. Sin migraciones ni dependencias nuevas.
+- Validación aprobada: 169 unitarias CORE, 285 E2E en escritorio/móvil y seis integraciones PostgreSQL efímeras; TypeScript, lint, formato y compilación correctos.
+
+## 2026-11-01 · Editores, asignaciones y evidencias del diseño
+
+- Unificar creación y edición de Bugs, Test Cases y Test Runs con cabecera editable, responsable, propiedades y contenido por secciones; selector de proyecto personalizado y contador de menciones a 16 px.
+- Incorporar Mis asignaciones con búsqueda, tipo, estado y paginación para los registros vinculados a la cuenta autenticada. Dar a Test Runs un responsable por ID de usuario y proteger accesos/membresías.
+- Permitir seleccionar evidencia en los diseñadores y anexarla explícitamente después de guardar el registro, sin enviar archivos a IA ni guardarlos en borradores locales.
+- Rediseñar Test Plan, su selección de casos y sus tarjetas; modernizar integrantes de equipos con búsqueda; mantener Descargar en una sola línea.
+- Paginar la tabla de auditoría y exportar su página visible a Excel, PDF o Markdown conservando los filtros.
+- Aplicar migración 018 mediante `pnpm db:migrate`; conserva registros y solo vincula responsables anteriores con coincidencia única. Sin dependencias nuevas.
+- Validación aprobada: 167 unitarias CORE, 264 E2E y seis integraciones PostgreSQL; actualización 017→018 repetida en una base efímera separada.
+
+## 2026-11-01 · Work Items y administración del proyecto
+
+- Unificar bugs, casos, ejecuciones y evidencias con identidad, navegación por secciones y propiedades al estilo Work Item; renovar Test Plan.
+- Ampliar notificaciones con scroll personalizado, reducir el contador y añadir lectura masiva explícita de menciones propias, incluidas las anteriores a los 100 avisos visibles.
+- Incorporar perfiles y configuración de auditoría (General/Calidad/Seguridad, detalle y paginación) con filtros en servidor; conservar todo el historial.
+- Permitir a Admin crear cuentas con roles del proyecto mediante altas transaccionales e idempotentes; no modificar cuentas existentes ni conceder administración del equipo.
+- Arrastrar archivos en alta/reemplazo de evidencia y resultados de Test Run. Mantener autorización, límites y descargas privadas.
+- Aplicar migración 017 con `pnpm db:migrate`. Sin dependencias nuevas. Validados 166 tests CORE, 234 E2E y cinco integraciones en PostgreSQL efímero.
+
+## 2026-11-01 · Bandeja de notificaciones y gestión de registros
+
+- Renovar Mis menciones con filtros, marcado explícito y botón verde; abrir no marca leído. Campana compartida por proyecto en el navbar.
+- Ampliar textarea y añadir selector de menciones en comentarios. Corregir el editor de pasos, tamaño del ID, clasificación, scroll y confirmaciones sin doble relleno.
+- Importar por selección o arrastre; subir evidencia desde el detalle del bug en un diálogo específico.
+- Publicar bugs con confirmación accesible y claves compatibles con borradores antiguos. Verificado en navegador/API/PostgreSQL reales.
+- Renombrar Planes como Test Plan y mejorar búsqueda, consulta de casos y gestión. Historial descendente sin números. Sin migraciones ni dependencias nuevas.
+
+## 2026-11-01 · Interacción, edición y menciones
+
+- Formato Markdown y vista previa en campos largos; menciones visibles como @Nombre con destinatarios estables.
+- Avisos en bugs/casos/runs incluidas automenciones; migración 016 recupera las existentes sin duplicar ni sobrescribir lecturas.
+- Importar junto a Exportar tabla; Guardar en Bugs y acceso al mantenimiento; exportación individual PDF de runs y descarga directa de evidencias.
+- Confirmaciones de eliminación compactas, alertas de ancho limitado, tags alineados, matriz con espacio y proyecto destacado en Configuración.
+- Catálogo de proveedores futuros de IA, sin conexiones activas. Verificados CORE, PostgreSQL efímero y escritorio/móvil.
+
 Todos los cambios importantes de qaTestGE se documentan aquí. El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y el versionado pretende seguir [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
+
+- Accesos al proyecto en Configuración, con alta de acceso para integrantes existentes, búsqueda, edición de rol y retirada por Admin; se conservan las protecciones de servidor y el alcance por proyecto.
+- Dashboard como primera opción del menú; indicadores vacíos en 0/0% y mayor separación dentro de tarjetas y paneles.
+- Unitarias centradas en CORE: se retiran comprobaciones de presentación y se documenta el criterio para próximas integraciones, preservando seguridad e integridad.
 
 - Proyectos y Equipos en Configuración; badge del rol y reglas/clases compartidas de espaciado interior.
 - Reportes con indicadores y rankings renovados; validación de Desde/Hasta antes de consultar.

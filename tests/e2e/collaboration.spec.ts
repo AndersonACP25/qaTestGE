@@ -67,7 +67,7 @@ test("publica comentario con mención, lo edita y consulta actividad", async ({ 
   await page.getByLabel("Nuevo comentario", { exact: true }).fill("Revisar @Mar");
   await page.getByRole("button", { name: "@María Dev", exact: true }).click();
   await expect(page.getByLabel("Nuevo comentario", { exact: true })).toHaveValue(
-    "Revisar @[María Dev](user:2) ",
+    "Revisar @María Dev ",
   );
   await page.getByRole("button", { name: "Publicar comentario", exact: true }).click();
   await expect(page.locator(".collaboration__mention")).toHaveText("@María Dev");
@@ -108,6 +108,7 @@ test("Solo lectura consulta sin controles de escritura", async ({ page }) => {
     page.getByText("Tu rol permite consultar esta conversación.", { exact: true }),
   ).toBeVisible();
   await page.keyboard.press("Escape");
+  await navigate(page, "Configuración");
   await expect(page.getByRole("button", { name: "Accesos al proyecto", exact: true })).toHaveCount(
     0,
   );
@@ -146,18 +147,22 @@ test("Admin cambia un rol y una mención abre el recurso", async ({ page }) => {
       });
   });
   await navigate(page, "Accesos al proyecto");
-  page.once("dialog", (dialog) => dialog.accept());
+  const member = page.getByRole("article", { name: "Acceso de María Dev", exact: true });
+  await member.getByRole("button", { name: "Editar rol", exact: true }).click();
   await page
     .getByRole("combobox", { name: "Rol de María Dev", exact: true })
     .selectOption("Solo lectura");
-  await expect(page.getByRole("combobox", { name: "Rol de María Dev", exact: true })).toHaveValue(
-    "Solo lectura",
-  );
+  await page.getByRole("button", { name: "Guardar rol", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(member.locator(".role-badge")).toHaveText("Solo lectura");
   expect(current[1].role).toBe("Solo lectura");
   await navigate(page, "Mis menciones");
-  await expect(page.getByText(/Sin leer/)).toBeVisible();
+  await expect(page.locator(".mentions-view__state").filter({ hasText: "Sin leer" })).toBeVisible();
   await page.getByRole("button", { name: "Abrir registro", exact: true }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
+  expect(read).toBe(false);
+  await page.getByRole("button", { name: "Cerrar ventana", exact: true }).click();
+  await page.getByRole("button", { name: "Marcar como leída", exact: true }).click();
   await expect.poll(() => read).toBe(true);
   await noHorizontalOverflow(page);
 });

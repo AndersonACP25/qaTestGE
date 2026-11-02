@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  bugDraftRequestKey,
   loadBugDrafts,
   prepareBug,
   saveBugDrafts,
@@ -7,6 +8,15 @@ import {
 } from "../../src/models/bugDesign";
 
 describe("diseño local de bugs", () => {
+  it("adapta claves antiguas sin cambiar su identidad entre intentos ni mezclar proyectos", async () => {
+    const key = await bugDraftRequestKey("u1", "p1", "borrador-173");
+    expect(key).toMatch(/^[a-f0-9]{8}-[a-f0-9]{4}-8[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/);
+    expect(await bugDraftRequestKey("u1", "p1", "borrador-173")).toBe(key);
+    expect(await bugDraftRequestKey("u1", "p2", "borrador-173")).not.toBe(key);
+    expect(await bugDraftRequestKey("u2", "p1", "borrador-173")).not.toBe(key);
+    const uuid = "f517db43-22b5-4bfe-8149-ef3a6d2c237e";
+    expect(await bugDraftRequestKey("u1", "p1", uuid)).toBe(uuid);
+  });
   it("conserva el problema y aplica la plantilla sin inventar información", () => {
     const result = prepareBug("  El acceso falla\nAl enviar el formulario  ", {
       id: "1",

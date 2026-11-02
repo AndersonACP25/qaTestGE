@@ -1,148 +1,142 @@
 import { useEffect, useRef, useState } from "react";
-import { api } from "../api";
 import Alert from "../Alert";
 import type {
   MentionNotification,
   ResourceTarget,
 } from "../../backend/src/models/collaboration.model";
+import type { MentionInbox } from "../controllers/useMentionNotifications";
 import { formatCount } from "../utils/pluralization";
+import { Icon } from "../components/RecordPrimitives";
+export const mentionKindLabels = { bug: "Bug", case: "Caso de prueba", run: "Test Run" };
 export default function MentionsView({
-  projectId,
+  inbox,
   onOpen,
 }: {
-  projectId: string;
+  inbox: MentionInbox;
   onOpen: (target: ResourceTarget, signal: AbortSignal) => Promise<boolean>;
 }) {
-  const [rows, setRows] = useState<MentionNotification[]>([]),
-    [revision, setRevision] = useState(0),
-    [error, setError] = useState(""),
-    [message, setMessage] = useState(""),
-    [loading, setLoading] = useState(true),
-    [busy, setBusy] = useState(false);
-  const alive = useRef(true),
-    manual = useRef(false),
-    opening = useRef<AbortController | null>(null);
-  useEffect(() => {
-    alive.current = true;
-    return () => {
-      alive.current = false;
-      opening.current?.abort();
-    };
-  }, []);
-  useEffect(() => {
-    const abort = new AbortController();
-    setLoading(true);
-    setError("");
-    void api<MentionNotification[]>(
-      `/mention-notifications?projectId=${encodeURIComponent(projectId)}`,
-      { signal: abort.signal },
-    )
-      .then((data) => {
-        if (!abort.signal.aborted) {
-          setRows(data);
-          if (manual.current) {
-            setMessage("Menciones actualizadas.");
-            manual.current = false;
-          }
-        }
-      })
-      .catch((e: unknown) => {
-        if (!abort.signal.aborted)
-          setError(e instanceof Error ? e.message : "No se pudieron cargar las menciones.");
-      })
-      .finally(() => {
-        if (!abort.signal.aborted) setLoading(false);
-      });
-    return () => abort.abort();
-  }, [projectId, revision]);
-  useEffect(() => {
-    const refresh = () => {
-      if (document.visibilityState === "visible") setRevision((v) => v + 1);
-    };
-    const timer = window.setInterval(refresh, 15000);
-    window.addEventListener("focus", refresh);
-    document.addEventListener("visibilitychange", refresh);
-    return () => {
-      window.clearInterval(timer);
-      window.removeEventListener("focus", refresh);
-      document.removeEventListener("visibilitychange", refresh);
-    };
-  }, [projectId]);
+  const [filter, setFilter] = useState("Todas");
+  const [openingId, setOpeningId] = useState("");
+  const [openError, setOpenError] = useState("");
+  const opening = useRef<AbortController | null>(null);
+  useEffect(() => () => opening.current?.abort(), []);
   async function open(row: MentionNotification) {
-    if (busy) return;
-    setBusy(true);
-    setError("");
-    setMessage("");
+    if (openingId) return;
     const controller = new AbortController();
     opening.current = controller;
+    setOpeningId(row.id);
+    setOpenError("");
     try {
-      const opened = await onOpen(row.target, controller.signal);
-      if (!opened || controller.signal.aborted || !alive.current) return;
-      await api<void>(
-        `/mention-notifications/${row.id}?projectId=${encodeURIComponent(projectId)}`,
-        { method: "PATCH", body: "{}", signal: controller.signal },
-      );
-      if (alive.current) {
-        setMessage("Mención marcada como leída.");
-        setRevision((v) => v + 1);
-      }
-    } catch (e) {
-      if (alive.current && !controller.signal.aborted)
-        setError(e instanceof Error ? e.message : "No se pudo abrir la mención.");
+      await onOpen(row.target, controller.signal);
+    } catch (cause) {
+      if (!controller.signal.aborted)
+        setOpenError(cause instanceof Error ? cause.message : "No se pudo abrir la mención.");
     } finally {
-      if (alive.current) setBusy(false);
+      if (!controller.signal.aborted) setOpeningId("");
     }
   }
+  const rows = inbox.rows.filter(
+    (row) => filter === "Todas" || (filter === "Sin leer" ? !row.readAt : Boolean(row.readAt)),
+  );
   return (
-    <section className="collaboration mentions-view layout__stack">
-      <div className="mentions-view__heading">
-        <div>
-          <h2 className="typography__section">Mis menciones</h2>
-          <p>
-            Avisos privados del proyecto. Se actualizan cada 15 segundos mientras esta vista está
-            visible.
-          </p>
+    <section className="mentions-view" aria-label="Bandeja de menciones">
+      <header className="mentions-view__header">
+        <div className="mentions-view__counter">
+          <Icon name="bell" size={24} />
+          <strong>{inbox.unread}</strong>
+          <span>sin leer</span>
         </div>
-        <button
-          className="workspace__secondary"
-          disabled={loading || busy}
-          onClick={() => {
-            manual.current = true;
-            setMessage("");
-            setRevision((v) => v + 1);
-          }}
-        >
-          Actualizar menciones
-        </button>
+        <div className="mentions-view__header-actions">
+          <button
+            className="mentions-view__read-button"
+            disabled={inbox.loading || Boolean(inbox.busyId) || !inbox.rows.length}
+            onClick={() => void inbox.markAllRead()}
+          >
+            {inbox.busyId === "all" ? "Marcando…" : "Marcar todas como leídas"}
+          </button>
+          <button className="workspace__secondary" disabled={inbox.loading} onClick={inbox.refresh}>
+            Actualizar menciones
+          </button>
+        </div>
+      </header>
+      <div className="mentions-view__filters" role="group" aria-label="Filtrar menciones">
+        {["Todas", "Sin leer", "Leídas"].map((value) => (
+          <button
+            type="button"
+            key={value}
+            aria-pressed={filter === value}
+            onClick={() => setFilter(value)}
+          >
+            {value}
+          </button>
+        ))}
+        <span>{formatCount(inbox.rows.length, "mención", "menciones")}</span>
       </div>
-      <p className="typography__caption">
-        {formatCount(
-          rows.filter((r) => !r.readAt).length,
-          "mención sin leer",
-          "menciones sin leer",
-        )}{" "}
-        · Se muestran los últimos 100 avisos. No se envían correos.
-      </p>
-      {error && <Alert tone="error">{error}</Alert>}
-      {message && <Alert tone="success">{message}</Alert>}
-      {loading && !rows.length ? (
+      {(inbox.error || openError) && <Alert tone="error">{inbox.error || openError}</Alert>}
+      {inbox.message && <Alert tone="success">{inbox.message}</Alert>}
+      {inbox.loading && !inbox.rows.length ? (
         <p role="status">Cargando menciones…</p>
       ) : (
-        rows.map((r) => (
-          <article className="collaboration__comment layout__panel layout__stack" key={r.id}>
-            <strong>
-              {r.authorName} te mencionó en {r.target.id}
-            </strong>
-            <p>
-              {new Date(r.createdAt).toLocaleString("es")} · {r.readAt ? "Leída" : "Sin leer"}
-            </p>
-            <button className="workspace__secondary" disabled={busy} onClick={() => void open(r)}>
-              {busy ? "Abriendo…" : "Abrir registro"}
-            </button>
-          </article>
-        ))
+        <div className="mentions-view__list">
+          {rows.map((row) => (
+            <article
+              className={`mentions-view__card${row.readAt ? " mentions-view__card--read" : ""}`}
+              key={row.id}
+            >
+              <span className="mentions-view__avatar" aria-hidden="true">
+                {row.authorName.slice(0, 2).toLocaleUpperCase("es")}
+              </span>
+              <div className="mentions-view__content">
+                <div className="mentions-view__meta">
+                  <span className="mentions-view__kind">{mentionKindLabels[row.target.kind]}</span>
+                  <span
+                    className={`mentions-view__state${row.readAt ? " mentions-view__state--read" : ""}`}
+                  >
+                    {row.readAt ? "Leída" : "Sin leer"}
+                  </span>
+                </div>
+                <strong>
+                  {row.authorName} te mencionó en {row.target.id}
+                </strong>
+                <time dateTime={row.createdAt}>{new Date(row.createdAt).toLocaleString("es")}</time>
+              </div>
+              <div className="mentions-view__actions">
+                <button
+                  type="button"
+                  className="workspace__secondary"
+                  disabled={Boolean(openingId)}
+                  onClick={() => void open(row)}
+                >
+                  {openingId === row.id ? "Abriendo…" : "Abrir registro"}
+                </button>
+                <button
+                  type="button"
+                  className="mentions-view__read-button"
+                  disabled={Boolean(inbox.busyId) || Boolean(row.readAt)}
+                  onClick={() => void inbox.markRead(row)}
+                >
+                  {inbox.busyId === row.id
+                    ? "Marcando…"
+                    : row.readAt
+                      ? "Leída"
+                      : "Marcar como leída"}
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
       )}
-      {!loading && !error && !rows.length && <p>No tienes menciones en este proyecto.</p>}
+      {!inbox.loading && !inbox.error && !rows.length && (
+        <div className="mentions-view__empty">
+          <Icon name="bell" size={32} />
+          <h2 className="typography__heading">
+            {inbox.rows.length
+              ? "Sin menciones en este filtro"
+              : "No tienes menciones en este proyecto."}
+          </h2>
+          <p>Las menciones a tu usuario aparecerán aquí.</p>
+        </div>
+      )}
     </section>
   );
 }

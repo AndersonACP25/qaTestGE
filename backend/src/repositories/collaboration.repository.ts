@@ -1,3 +1,6 @@
+import { assignedWorkPageSchema, type AssignedWorkFilters } from "../models/assigned-work.model.js";
+import { PostgresProjectAdministration } from "./project-administration.repository.js";
+import type { AuditFilters, AuditSettings, ProvisionUserInput } from "../models/audit.model.js";
 import { resolvePlainMentions } from "../models/plain-mentions.js";
 import { createHash } from "node:crypto";
 import type { DatabasePool, DatabaseClient } from "../auth/actor-database.js";
@@ -65,6 +68,55 @@ export class PostgresCollaborationRepository implements CollaborationRepository 
     private readonly pool: DatabasePool,
     private readonly actorId: string,
   ) {}
+  auditSettings(projectId: string) {
+    return new PostgresProjectAdministration(this.pool, this.actorId).settings(projectId);
+  }
+  saveAuditSettings(projectId: string, input: AuditSettings) {
+    return new PostgresProjectAdministration(this.pool, this.actorId).saveSettings(
+      projectId,
+      input,
+    );
+  }
+  createProjectUser(projectId: string, input: ProvisionUserInput, key: string) {
+    return new PostgresProjectAdministration(this.pool, this.actorId).createUser(
+      projectId,
+      input,
+      key,
+    );
+  }
+  async assignedWork(projectId: string, filters: AssignedWorkFilters) {
+    const result = await this.pool.query<{ items: unknown; total: number }>(
+      `
+      WITH assigned AS (
+        SELECT 'bug' AS kind,'BUG-' || lpad(id::text,greatest(3,length(id::text)),'0') AS id,title,status,priority AS classification,created_at AS "createdAt" FROM qa.bugs WHERE project_id=$1 AND assignee_user_id=$2
+        UNION ALL SELECT 'case','TC-' || lpad(id::text,greatest(3,length(id::text)),'0'),title,status,test_type,created_at FROM qa.test_cases WHERE project_id=$1 AND assignee_user_id=$2
+        UNION ALL SELECT 'run','RUN-' || lpad(id::text,greatest(3,length(id::text)),'0'),title,status,'Ejecución',created_at FROM qa.test_runs WHERE project_id=$1 AND owner_user_id=$2
+      ), filtered AS (SELECT * FROM assigned WHERE ($3::text IS NULL OR kind=$3) AND ($4::text IS NULL OR status=$4) AND ($5::text IS NULL OR concat_ws(' ',id,title,classification) ILIKE '%' || $5 || '%')),
+      paged AS (SELECT * FROM filtered ORDER BY "createdAt" DESC,kind,id DESC LIMIT $6 OFFSET $7)
+      SELECT (SELECT count(*)::int FROM filtered) AS total, COALESCE((SELECT jsonb_agg(to_jsonb(paged) ORDER BY "createdAt" DESC,kind,id DESC) FROM paged),'[]'::jsonb) AS items`,
+      [
+        projectId,
+        this.actorId,
+        filters.kind ?? null,
+        filters.status || null,
+        filters.search || null,
+        filters.pageSize,
+        (filters.page - 1) * filters.pageSize,
+      ],
+    );
+    return assignedWorkPageSchema.parse({
+      ...result.rows[0],
+      page: filters.page,
+      pageSize: filters.pageSize,
+    });
+  }
+  async readAllNotifications(projectId: string) {
+    const result = await this.pool.query<{ updated: number; read_at: Date }>(
+      `WITH changed AS (UPDATE qa.mention_notifications n SET read_at=now() WHERE n.project_id=$1 AND n.user_id=$2 AND n.read_at IS NULL AND EXISTS(SELECT 1 FROM qa.comments c WHERE c.id=n.comment_id AND c.project_id=n.project_id AND c.deleted_at IS NULL) RETURNING id) SELECT count(*)::int AS updated, now() AS read_at FROM changed`,
+      [projectId, this.actorId],
+    );
+    return { updated: result.rows[0].updated, readAt: result.rows[0].read_at.toISOString() };
+  }
   private async transaction<T>(work: (client: DatabaseClient) => Promise<T>) {
     const c = await this.pool.connect();
     try {
@@ -137,14 +189,14 @@ export class PostgresCollaborationRepository implements CollaborationRepository 
       }
       if (role === null) {
         const assigned = await c.query(
-          "SELECT 1 FROM qa.bugs WHERE project_id=$1 AND assignee_user_id=$2 UNION ALL SELECT 1 FROM qa.test_cases WHERE project_id=$1 AND assignee_user_id=$2 LIMIT 1",
+          "SELECT 1 FROM qa.bugs WHERE project_id=$1 AND assignee_user_id=$2 UNION ALL SELECT 1 FROM qa.test_cases WHERE project_id=$1 AND assignee_user_id=$2 UNION ALL SELECT 1 FROM qa.test_runs WHERE project_id=$1 AND owner_user_id=$2 LIMIT 1",
           [projectId, userId],
         );
         if (assigned.rowCount)
           throw new HttpError(
             409,
             "MEMBER_ASSIGNED",
-            "Reasigna sus bugs y casos antes de retirar el acceso.",
+            "Reasigna sus bugs, casos y ejecuciones antes de retirar el acceso.",
           );
         await c.query(
           "UPDATE qa.project_members SET role=NULL,revision=revision+1 WHERE project_id=$1 AND user_id=$2",
@@ -194,11 +246,10 @@ export class PostgresCollaborationRepository implements CollaborationRepository 
         "INSERT INTO qa.comment_mentions(project_id,comment_id,user_id) VALUES($1,$2,$3)",
         [projectId, commentId, id],
       );
-      if (id !== this.actorId)
-        await c.query(
-          "INSERT INTO qa.mention_notifications(project_id,comment_id,user_id) VALUES($1,$2,$3) ON CONFLICT(comment_id,user_id) DO NOTHING",
-          [projectId, commentId, id],
-        );
+      await c.query(
+        "INSERT INTO qa.mention_notifications(project_id,comment_id,user_id) VALUES($1,$2,$3) ON CONFLICT(comment_id,user_id) DO NOTHING",
+        [projectId, commentId, id],
+      );
     }
     await c.query(
       "DELETE FROM qa.mention_notifications WHERE comment_id=$1 AND project_id=$2 AND NOT(user_id=ANY($3::bigint[]))",
@@ -290,7 +341,12 @@ export class PostgresCollaborationRepository implements CollaborationRepository 
       return toComment(updated.rows[0]);
     });
   }
-  async activity(projectId: string, target?: ResourceTarget, before?: string): Promise<Activity[]> {
+  async activity(
+    projectId: string,
+    target?: ResourceTarget,
+    before?: string,
+    filters?: AuditFilters,
+  ): Promise<Activity[]> {
     const r = await this.pool.query<{
       id: string;
       project_id: string;
@@ -304,7 +360,15 @@ export class PostgresCollaborationRepository implements CollaborationRepository 
       after_data: unknown;
       request_id: string | null;
     }>(
-      `SELECT a.*,a.id::text,a.project_id::text,a.actor_id::text,CASE WHEN a.actor_id IS NULL THEN 'Sistema' ELSE COALESCE(u.name,'Cuenta no disponible') END AS actor_name FROM qa.activity a LEFT JOIN qa.users u ON u.id=a.actor_id WHERE a.project_id=$1 AND ($2::text IS NULL OR (a.resource_kind=$2 AND a.resource_id=$3)) AND ($4::bigint IS NULL OR a.id<$4) ORDER BY a.id DESC LIMIT 50`,
+      `SELECT a.*,a.id::text,a.project_id::text,a.actor_id::text,CASE WHEN a.actor_id IS NULL THEN 'Sistema' ELSE COALESCE(u.name,'Cuenta no disponible') END AS actor_name FROM qa.activity a LEFT JOIN qa.users u ON u.id=a.actor_id WHERE a.project_id=$1 AND ($2::text IS NULL OR (a.resource_kind=$2 AND a.resource_id=$3)) AND ($4::bigint IS NULL OR a.id<$4)
+        AND ($5::text[] IS NULL OR a.resource_kind=ANY($5))
+        AND ($6::text IS NULL OR a.resource_kind=$6)
+        AND ($7::text IS NULL OR split_part(a.action,'.',2)=$7)
+        AND ($8::bigint IS NULL OR a.actor_id=$8)
+        AND ($9::date IS NULL OR a.created_at >= ($9::date::timestamp AT TIME ZONE 'UTC'))
+        AND ($10::date IS NULL OR a.created_at < (($10::date+1)::timestamp AT TIME ZONE 'UTC'))
+        AND ($11::text IS NULL OR concat_ws(' ',u.name,a.resource_id,a.action) ILIKE '%' || $11 || '%')
+        ORDER BY a.id DESC LIMIT $12`,
       [
         projectId,
         target?.kind ?? null,
@@ -312,6 +376,18 @@ export class PostgresCollaborationRepository implements CollaborationRepository 
           ? resourceId(prefixes[target.kind], parseReference(target.id, prefixes[target.kind])!)
           : null,
         before ?? null,
+        filters?.profile === "Calidad"
+          ? ["bug", "case", "run", "plan", "evidence", "requirement", "tag"]
+          : filters?.profile === "Seguridad"
+            ? ["access", "user", "audit-config", "workflow"]
+            : null,
+        filters?.kind ?? null,
+        filters?.operation ?? null,
+        filters?.actorId ?? null,
+        filters?.from ?? null,
+        filters?.to ?? null,
+        filters?.search || null,
+        filters?.limit ?? 50,
       ],
     );
     return r.rows.map((x) => ({

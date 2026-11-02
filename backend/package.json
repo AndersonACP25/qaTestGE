@@ -9,7 +9,7 @@
     "db:check": "tsx src/check-database.ts",
     "db:migrate": "tsx src/migrate.ts",
     "db:setup": "tsx src/migrate.ts --initialize",
-    "test:db": "tsx scripts/verify-postgres.ts && tsx scripts/verify-quality.ts && tsx scripts/verify-collaboration.ts && tsx scripts/verify-analytics.ts",
+    "test:db": "tsx scripts/verify-postgres.ts && tsx scripts/verify-quality.ts && tsx scripts/verify-collaboration.ts && tsx scripts/verify-analytics.ts && tsx scripts/verify-administration.ts && tsx scripts/verify-assigned-work.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js"
   },

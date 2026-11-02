@@ -36,15 +36,15 @@ const guides = [
   },
   {
     title: "5. Guarda evidencias y clasifica",
-    text: "En Evidencias registra metadatos o carga archivos de hasta 2 MiB y relaciónalos con la actividad de QA. En Tags crea etiquetas por proyecto y asígnalas a bugs, casos o ejecuciones.",
+    text: "En Evidencias pulsa Subir evidencia para cargar archivos de hasta 2 MiB y relaciónalos con la actividad de QA. En Tags crea etiquetas por proyecto y asígnalas a bugs, casos o ejecuciones.",
   },
   {
     title: "Equipos y acceso",
-    text: "En Configuración → Equipos, crea equipos y selecciona el equipo propietario de cada proyecto. Una invitación es de un solo uso y permite unirte al equipo; después un Admin asigna tu acceso a cada proyecto. Para retirar a un integrante debes reasignar primero sus bugs y casos.",
+    text: "En Configuración → Equipos, crea equipos y selecciona el equipo propietario de cada proyecto. Una invitación es de un solo uso y permite unirte al equipo; después un Admin asigna tu acceso a cada proyecto. En Accesos al proyecto, un Admin puede crear cuentas nuevas y asignar roles en ese proyecto. Para retirar a un integrante debes reasignar primero sus bugs, casos y ejecuciones.",
   },
   {
     title: "Comentarios, menciones y auditoría",
-    text: "Comenta en el detalle de bugs, casos y ejecuciones. Escribe @ y selecciona un integrante con acceso, o escribe su nombre completo si es único. Mis menciones se actualiza cada 15 segundos mientras está visible; no genera avisos para tus propias menciones. El autor y los Admin pueden editar o eliminar comentarios, conservando el historial. En Configuración, la pestaña Actividad y auditoría muestra los cambios confirmados y sus actores desde que se habilitó el historial. No se envían correos.",
+    text: "Comenta en el detalle de bugs, casos y ejecuciones. Escribe @ y selecciona un integrante con acceso, o escribe su nombre completo si es único. La campana del navbar y Mis menciones se actualizan cada 15 segundos; abrir un registro no marca la mención como leída. Usa Marcar como leída o Marcar todas como leídas; también incluye tus propias menciones. El acceso Ver todas las menciones aparece arriba en la campana. El autor y los Admin pueden editar o eliminar comentarios, conservando el historial. En Configuración, la pestaña Actividad y auditoría muestra los cambios confirmados y sus actores desde que se habilitó el historial. No se envían correos.",
   },
   {
     title: "Flujo de bugs en Configuración",
@@ -53,6 +53,30 @@ const guides = [
   {
     title: "Diseñador y configuración",
     text: "El diseñador ofrece ejemplos ilustrativos que puedes editar, exportar y guardar explícitamente. No utiliza IA. En Configuración puedes administrar tu cuenta, plantillas de bugs y preferencias del diseñador; la conexión de IA es una maqueta.",
+  },
+  {
+    title: "Mis asignaciones",
+    text: "Consulta bugs, casos y Test Runs asignados a tu cuenta en el proyecto. Usa búsqueda, tipo y estado y navega con Anterior/Siguiente. Los responsables se identifican por su cuenta; los nombres históricos ambiguos de ejecuciones requieren una asignación explícita desde Editar ejecución.",
+  },
+  {
+    title: "Filtros de registros",
+    text: "En Bugs, Casos de prueba y Test runs, la sección Filtros combina búsqueda y estado con responsable y tags. Bugs añade prioridad/severidad; los casos permiten tipo y estado documental; las ejecuciones permiten Test Plan. Limpiar filtros restaura la vista. Los contadores y Exportar tabla corresponden al resultado filtrado y su página visible.",
+  },
+  {
+    title: "Gestionar Test Plan",
+    text: "Crea o edita el plan, busca casos y selecciona los visibles. Buscar conserva las selecciones anteriores. Las tarjetas muestran los casos incluidos y cuántos están Listos. Iniciar Test Run crea una ejecución vinculada; cambiar el plan afecta solo a ejecuciones nuevas.",
+  },
+  {
+    title: "Auditoría paginada y exportación",
+    text: "En Configuración → Actividad y auditoría aplica perfil, recurso, operación, autor, fechas UTC y búsqueda. Anterior/Siguiente navega por páginas; Exportar página genera Excel, PDF o Markdown de la página visible. Un Admin puede guardar el perfil, detalle y tamaño de página predeterminados. Esta configuración no elimina ni desactiva el historial.",
+  },
+  {
+    title: "Evidencias opcionales en diseñadores",
+    text: "Evidencias opcionales es una sección desplegable y cerrada inicialmente en Diseñar bugs y Diseñar test cases. Ábrela si necesitas anexar un archivo. Puedes seleccionarlo antes de guardar, pero Anexar evidencia se habilita cuando existe el registro. Los archivos no se guardan en los borradores locales ni se envían a IA.",
+  },
+  {
+    title: "Confirmaciones de acciones",
+    text: "Las alertas de éxito aparecen arriba a la derecha, incluso con un modal abierto. Puedes cerrarlas con Ocultar confirmación. Confirman acciones terminadas; consultar datos no genera un aviso de éxito por cada respuesta. Los errores y las advertencias se mantienen junto al formulario correspondiente.",
   },
 ];
 
@@ -70,6 +94,12 @@ const categories = [
   "Trabajo de QA",
   "Administración",
   "Administración",
+  "Trabajo de QA",
+  "Trabajo de QA",
+  "Trabajo de QA",
+  "Administración",
+  "Trabajo de QA",
+  "Primeros pasos",
 ];
 export default function WikiView() {
   const [category, setCategory] = useState("Todas"),

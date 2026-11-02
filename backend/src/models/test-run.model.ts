@@ -15,6 +15,7 @@ export interface TestRunResult {
 export interface UpdateTestRunInput {
   title: string;
   owner: string;
+  ownerUserId?: string | null;
   caseIds: string[];
   status: TestRunStatus;
   tagIds?: string[];
@@ -35,12 +36,14 @@ export interface TestRun {
   progress: number;
   status: TestRunStatus;
   owner: string;
+  ownerUserId?: string | null;
   createdAt: string;
   tagIds: string[];
   results: TestRunResult[];
 }
 
 export type CreateTestRunInput = Pick<TestRun, "title" | "owner" | "projectId"> & {
+  ownerUserId?: string | null;
   caseIds?: string[];
   planId?: string;
   sourceRunId?: string;

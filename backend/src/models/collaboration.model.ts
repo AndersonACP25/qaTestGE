@@ -1,3 +1,5 @@
+import type { AssignedWorkFilters, AssignedWorkPage } from "./assigned-work.model.js";
+import type { AuditFilters, AuditSettings, ProvisionUserInput } from "./audit.model.js";
 export const projectRoles = ["Admin", "QA", "Dev", "Solo lectura"] as const;
 export type ProjectRole = (typeof projectRoles)[number];
 export const permissions = [
@@ -66,6 +68,15 @@ export interface MentionNotification {
   readAt: string | null;
 }
 export interface CollaborationRepository {
+  assignedWork(projectId: string, filters: AssignedWorkFilters): Promise<AssignedWorkPage>;
+  auditSettings(projectId: string): Promise<AuditSettings>;
+  saveAuditSettings(projectId: string, input: AuditSettings): Promise<AuditSettings>;
+  createProjectUser(
+    projectId: string,
+    input: ProvisionUserInput,
+    key: string,
+  ): Promise<ProjectMember>;
+  readAllNotifications(projectId: string): Promise<{ updated: number; readAt: string }>;
   members(projectId: string, includeCandidates?: boolean): Promise<ProjectMember[]>;
   saveMember(
     projectId: string,
@@ -87,7 +98,12 @@ export interface CollaborationRepository {
     version: number,
     remove: boolean,
   ): Promise<Comment>;
-  activity(projectId: string, target?: ResourceTarget, before?: string): Promise<Activity[]>;
+  activity(
+    projectId: string,
+    target?: ResourceTarget,
+    before?: string,
+    filters?: AuditFilters,
+  ): Promise<Activity[]>;
   notifications(projectId: string): Promise<MentionNotification[]>;
   readNotification(projectId: string, id: string): Promise<void>;
 }

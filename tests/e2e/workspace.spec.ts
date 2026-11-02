@@ -39,7 +39,7 @@ test("Diseñar bugs conserva borradores y solo crea tras revisión", async ({
   );
   await page.getByLabel("Título del bug").fill("Error de acceso revisado");
   await page.getByRole("checkbox", { name: "Smoke demo", exact: true }).check();
-  await expect(page.getByRole("button", { name: "Guardar bug en el proyecto" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Guardar en Bugs" })).toBeEnabled();
   await page.getByRole("button", { name: "Guardar borrador", exact: true }).click();
   expect(workspace.writes.filter((item) => item.path === "/bugs")).toHaveLength(0);
   await page.reload();
@@ -50,11 +50,9 @@ test("Diseñar bugs conserva borradores y solo crea tras revisión", async ({
   await page
     .getByRole("checkbox", { name: "Revisé el contenido y confirmo la creación del bug." })
     .check();
-  await page.getByRole("button", { name: "Guardar bug en el proyecto" }).click();
-  await expect(
-    page.getByText("Bug BUG-002 guardado en el proyecto.", { exact: true }),
-  ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Guardar bug en el proyecto" })).toBeDisabled();
+  await page.getByRole("button", { name: "Guardar en Bugs" }).click();
+  await expect(page.getByText("Bug BUG-002 guardado en Bugs.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Guardar en Bugs" })).toBeDisabled();
   const writes = workspace.writes.filter((item) => item.path === "/bugs");
   expect(writes).toHaveLength(1);
   expect(writes[0].body).toMatchObject({
@@ -169,7 +167,7 @@ test("crear y editar un caso conserva todos los pasos y un solo modal", async ({
   await navigate(page, "Casos de prueba");
   await page.getByRole("button", { name: "Nuevo caso de prueba", exact: true }).click();
   const dialog = page.getByRole("dialog");
-  await expect(dialog.getByRole("table")).toBeVisible();
+  await expect(dialog.getByRole("region", { name: "Paso 1", exact: true })).toBeVisible();
   await dialog
     .getByRole("textbox", { name: "Título", exact: true })
     .fill("Caso con todos los pasos");
@@ -395,7 +393,7 @@ test("exporta solo registros filtrados y muestra la maqueta de perfil", async ({
     const download = page.waitForEvent("download");
     await page.getByRole("button", { name: "Exportar como Markdown", exact: true }).click();
     expect((await download).suggestedFilename()).toMatch(/\.md$/);
-    await page.getByRole("textbox", { name: "Buscar registros" }).fill("ninguna-coincidencia");
+    await page.getByLabel("Buscar registros", { exact: true }).fill("ninguna-coincidencia");
     await expect(button).toBeDisabled();
     await expect(page.locator(".workspace-table__footer")).toContainText("0 resultados");
     await noHorizontalOverflow(page);

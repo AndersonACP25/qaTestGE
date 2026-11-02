@@ -32,6 +32,26 @@ export class AuthorizedRepository implements Repository {
     const base = this.base.collaboration;
     if (!base) return undefined;
     return {
+      assignedWork: async (p, filters) => {
+        await this.projectIds(p);
+        return base.assignedWork(p, filters);
+      },
+      auditSettings: async (p) => {
+        await this.projectIds(p);
+        return base.auditSettings(p);
+      },
+      saveAuditSettings: async (p, input) => {
+        await this.projectIds(p);
+        return base.saveAuditSettings(p, input);
+      },
+      createProjectUser: async (p, input, key) => {
+        await this.projectIds(p);
+        return base.createProjectUser(p, input, key);
+      },
+      readAllNotifications: async (p) => {
+        await this.projectIds(p);
+        return base.readAllNotifications(p);
+      },
       members: async (p, c) => {
         await this.projectIds(p);
         return base.members(p, c);
@@ -52,9 +72,9 @@ export class AuthorizedRepository implements Repository {
         await this.projectIds(p);
         return base.editComment(p, id, b, v, r);
       },
-      activity: async (p, t, b) => {
+      activity: async (p, t, b, filters) => {
         await this.projectIds(p);
-        return base.activity(p, t, b);
+        return base.activity(p, t, b, filters);
       },
       notifications: async (p) => {
         await this.projectIds(p);
@@ -95,9 +115,9 @@ export class AuthorizedRepository implements Repository {
         await this.projectIds(p);
         return base.linkCaseBug(p, requirementId, caseId, bugId);
       },
-      coverage: async (p, limit, offset, requirementId) => {
+      coverage: async (p, limit, offset, requirementId, caseId, bugId) => {
         await this.projectIds(p);
-        return base.coverage(p, limit, offset, requirementId);
+        return base.coverage(p, limit, offset, requirementId, caseId, bugId);
       },
       runReport: async (p, id) => {
         await this.projectIds(p);
@@ -237,9 +257,13 @@ export class AuthorizedRepository implements Repository {
   async createRun(input: CreateTestRunInput, context?: CreationContext) {
     await this.projectIds(input.projectId);
     if (context && !this.actorId) throw new HttpError(401, "UNAUTHENTICATED", "Inicia sesión.");
+    const assigned = {
+      ...input,
+      ownerUserId: input.ownerUserId === undefined ? this.actorId : input.ownerUserId,
+    };
     return context
-      ? this.base.createRun(input, { ...context, actorId: this.actorId! })
-      : this.base.createRun(input);
+      ? this.base.createRun(assigned, { ...context, actorId: this.actorId! })
+      : this.base.createRun(assigned);
   }
   async updateRun(id: string, projectId: string, input: UpdateTestRunInput) {
     await this.projectIds(projectId);

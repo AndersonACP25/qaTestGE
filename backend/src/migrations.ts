@@ -14,6 +14,9 @@ export const migrationFiles = [
   "013_quality_workflows.sql",
   "014_collaboration_permissions.sql",
   "015_analytics_coverage.sql",
+  "016_self_mentions.sql",
+  "017_project_administration.sql",
+  "018_run_assignments.sql",
 ] as const;
 
 /** Initial install and upgrades share one ordered source; no seed or deletion. */
@@ -40,7 +43,14 @@ export async function applyMigrations(
       "SELECT p.id, o.id FROM qa.projects p JOIN qa.organizations o ON o.id = p.organization_id LIMIT 0",
     );
     for (const filename of migrationFiles) {
-      if (filename.startsWith("013") || filename.startsWith("014") || filename.startsWith("015")) {
+      if (
+        filename.startsWith("013") ||
+        filename.startsWith("014") ||
+        filename.startsWith("015") ||
+        filename.startsWith("016") ||
+        filename.startsWith("017") ||
+        filename.startsWith("018")
+      ) {
         const existing = await client.query<{ present: boolean }>(
           "SELECT EXISTS(SELECT 1 FROM qa.schema_migrations WHERE version=$1) AS present",
           [filename.replace(".sql", "")],

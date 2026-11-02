@@ -1,70 +1,11 @@
+import ResourceSearch from "../components/CoverageResourceSearch";
+import RichTextarea from "../components/RichTextarea";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import Alert from "../Alert";
 import { usePermissions } from "../controllers/ProjectPermissions";
 import type { CoveragePage, Requirement } from "../contracts/analyticsContracts";
-import type { ApiCase, ApiBug } from "../contracts/apiContracts";
 import { formatCount } from "../utils/pluralization";
-function ResourceSearch({
-  projectId,
-  kind,
-  onSelect,
-}: {
-  projectId: string;
-  kind: "test-cases" | "bugs";
-  onSelect: (id: string, title: string) => void;
-}) {
-  const [search, setSearch] = useState("");
-  const [items, setItems] = useState<{ id: string; title: string }[]>([]);
-  const [error, setError] = useState("");
-  useEffect(() => {
-    const abort = new AbortController();
-    const timer = setTimeout(() => {
-      void api<(ApiCase | ApiBug)[]>(
-        `/${kind}?projectId=${encodeURIComponent(projectId)}&limit=50&search=${encodeURIComponent(search)}`,
-        { signal: abort.signal },
-      )
-        .then((v) => {
-          if (!abort.signal.aborted) {
-            setItems(v);
-            setError("");
-          }
-        })
-        .catch((e: unknown) => {
-          if (!abort.signal.aborted) {
-            setItems([]);
-            setError(e instanceof Error ? e.message : "No se pudo buscar.");
-          }
-        });
-    }, 250);
-    return () => {
-      clearTimeout(timer);
-      abort.abort();
-    };
-  }, [projectId, kind, search]);
-  return (
-    <div>
-      <label className="workspace__field">
-        {kind === "bugs" ? "Buscar bug para vincular" : "Buscar caso para vincular"}
-        <input value={search} onChange={(e) => setSearch(e.target.value)} />
-      </label>
-      {error && <Alert tone="error">{error}</Alert>}
-      <div className="analytics__choices">
-        {items.map((i) => (
-          <button
-            type="button"
-            className="workspace__secondary"
-            key={i.id}
-            onClick={() => onSelect(i.id, i.title)}
-          >
-            {i.id} · {i.title}
-          </button>
-        ))}
-      </div>
-      <p className="typography__caption">Hasta 50 coincidencias. Refina la búsqueda por título.</p>
-    </div>
-  );
-}
 export default function CoverageView({
   projectId,
   refreshRevision = 0,
@@ -75,6 +16,12 @@ export default function CoverageView({
   const canWrite = usePermissions().can("cases.write");
   const [offset, setOffset] = useState(0),
     [revision, setRevision] = useState(0);
+  const [focus, setFocus] = useState<{
+    requirementId: string;
+    caseId: string;
+    bugId: string;
+  } | null>(null);
+  const [matrixLoading, setMatrixLoading] = useState(true);
   const [matrix, setMatrix] = useState<CoveragePage | null>(null);
   const [requirements, setRequirements] = useState<Requirement[]>([]);
   const [requirementTotal, setRequirementTotal] = useState(0);
@@ -99,10 +46,14 @@ export default function CoverageView({
   useEffect(() => {
     const abort = new AbortController();
     setMatrix(null);
+    setMatrixLoading(true);
     void Promise.all([
-      api<CoveragePage>(`/coverage-matrix?projectId=${projectId}&limit=50&offset=${offset}`, {
-        signal: abort.signal,
-      }),
+      api<CoveragePage>(
+        `/coverage-matrix?projectId=${projectId}&limit=50&offset=${offset}${focus ? `&requirementId=${encodeURIComponent(focus.requirementId)}&caseId=${encodeURIComponent(focus.caseId)}&bugId=${encodeURIComponent(focus.bugId)}` : ""}`,
+        {
+          signal: abort.signal,
+        },
+      ),
       api<{ items: Requirement[]; total: number }>(
         `/requirements?projectId=${projectId}&limit=50&offset=${reqOffset}`,
         { signal: abort.signal },
@@ -119,9 +70,12 @@ export default function CoverageView({
       .catch((e: unknown) => {
         if (!abort.signal.aborted)
           setError(e instanceof Error ? e.message : "No se pudo cargar la cobertura.");
+      })
+      .finally(() => {
+        if (!abort.signal.aborted) setMatrixLoading(false);
       });
     return () => abort.abort();
-  }, [projectId, offset, reqOffset, revision, refreshRevision]);
+  }, [projectId, offset, reqOffset, revision, refreshRevision, focus]);
   function reset() {
     setEditing(null);
     setCode("");
@@ -130,7 +84,7 @@ export default function CoverageView({
     setSelected([]);
     creationRequests.current.clear();
   }
-  async function act(work: () => Promise<void>, success: string) {
+  async function act(work: () => Promise<void>, success: string, preserveFocus = false) {
     if (busy) return;
     setBusy(true);
     setError("");
@@ -141,6 +95,7 @@ export default function CoverageView({
         setMessage(success);
         setRevision((v) => v + 1);
         setOffset(0);
+        if (!preserveFocus) setFocus(null);
       }
     } catch (e) {
       if (alive.current) setError(e instanceof Error ? e.message : "No se pudo guardar.");
@@ -210,7 +165,7 @@ export default function CoverageView({
             </label>
             <label className="workspace__field">
               Descripción
-              <textarea
+              <RichTextarea
                 maxLength={5000}
                 value={description}
                 disabled={busy}
@@ -220,6 +175,8 @@ export default function CoverageView({
             <ResourceSearch
               projectId={projectId}
               kind="test-cases"
+              disabled={busy}
+              selectedIds={selected.map((item) => item.id)}
               onSelect={(id, t) => {
                 if (!busy)
                   setSelected((v) =>
@@ -331,8 +288,35 @@ export default function CoverageView({
           Los vínculos de bug pertenecen al caso y se muestran en todos sus requisitos. La ausencia
           de bugs no equivale a ausencia de cobertura.
         </p>
+        {focus && (
+          <div className="coverage__focus">
+            <p>
+              Vínculo actualizado: {focus.requirementId} ↔ {focus.caseId} ↔ {focus.bugId}
+            </p>
+            <button
+              type="button"
+              className="workspace__secondary"
+              disabled={busy}
+              onClick={() => {
+                setFocus(null);
+                setOffset(0);
+              }}
+            >
+              Mostrar matriz completa
+            </button>
+          </div>
+        )}
         {!matrix ? (
-          <p role="status">Cargando matriz…</p>
+          matrixLoading ? (
+            <p role="status">Cargando matriz…</p>
+          ) : (
+            <button
+              className="workspace__secondary"
+              onClick={() => setRevision((value) => value + 1)}
+            >
+              Reintentar cobertura
+            </button>
+          )
         ) : (
           <>
             <div className="analytics__matrix coverage__matrix">
@@ -345,8 +329,11 @@ export default function CoverageView({
                   </tr>
                 </thead>
                 <tbody>
-                  {matrix.rows.map((r, i) => (
-                    <tr key={i}>
+                  {matrix.rows.map((r) => (
+                    <tr
+                      className={focus ? "coverage__row--updated" : ""}
+                      key={`${r.requirementId}:${r.caseId}:${r.bugId}`}
+                    >
                       <td>
                         {r.code} · {r.title}
                       </td>
@@ -356,6 +343,7 @@ export default function CoverageView({
                         {canWrite && r.caseId && (
                           <button
                             className="workspace__secondary coverage__link-button"
+                            disabled={busy}
                             onClick={() =>
                               setLink({ requirementId: r.requirementId, caseId: r.caseId! })
                             }
@@ -398,17 +386,30 @@ export default function CoverageView({
           <ResourceSearch
             projectId={projectId}
             kind="bugs"
+            disabled={busy}
+            selectedIds={
+              matrix?.rows
+                .filter((row) => row.caseId === link.caseId && row.bugId)
+                .map((row) => row.bugId!) ?? []
+            }
             onSelect={(id) => {
-              void act(async () => {
-                await api<void>(`/coverage-links?projectId=${projectId}`, {
-                  method: "POST",
-                  body: JSON.stringify({ ...link, bugId: id }),
-                });
-                if (alive.current) setLink(null);
-              }, "Bug vinculado al caso del requisito.");
+              void act(
+                async () => {
+                  await api<void>(`/coverage-links?projectId=${projectId}`, {
+                    method: "POST",
+                    body: JSON.stringify({ ...link, bugId: id }),
+                  });
+                  if (alive.current) {
+                    setFocus({ ...link, bugId: id });
+                    setLink(null);
+                  }
+                },
+                "Bug vinculado al caso del requisito.",
+                true,
+              );
             }}
           />
-          <button className="workspace__secondary" onClick={() => setLink(null)}>
+          <button className="workspace__secondary" disabled={busy} onClick={() => setLink(null)}>
             Cancelar vínculo
           </button>
         </section>

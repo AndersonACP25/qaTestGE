@@ -1,3 +1,4 @@
+import FileDropzone from "../components/FileDropzone";
 import { useEffect, useRef, useState } from "react";
 import Dialog from "../Dialog";
 import Alert from "../Alert";
@@ -45,6 +46,7 @@ function ImportDialog({
   onChanged: () => void;
   onClose: () => void;
 }) {
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<ResourcePreview | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -61,6 +63,8 @@ function ImportDialog({
     };
   }, []);
   async function read(file: File) {
+    if (busy || started) return;
+    setSelectedFile(file);
     setBusy(true);
     setError("");
     setPreview(null);
@@ -147,7 +151,19 @@ function ImportDialog({
       title={`Importar ${kind === "cases" ? "casos de prueba" : kind}`}
       onClose={onClose}
     >
-      <div className="analytics__form">
+      <div
+        className="analytics__form"
+        onDragOver={(event) => event.preventDefault()}
+        onDrop={(event) => {
+          event.preventDefault();
+          if (busy || started) return;
+          if (event.dataTransfer.files.length !== 1) {
+            setError("Arrastra un solo archivo.");
+            return;
+          }
+          void read(event.dataTransfer.files[0]);
+        }}
+      >
         <p>
           Selecciona la hoja correspondiente en un archivo Excel. Revisa la vista previa antes de
           confirmar. Se crean registros nuevos; no se actualizan los existentes.
@@ -164,18 +180,13 @@ function ImportDialog({
           Máximo 2 MiB, 1000 filas y 30 columnas. Solo texto, sin fórmulas. También puedes usar CSV.
           Elimina los ejemplos antes de llenar la plantilla.
         </p>
-        <label className="workspace__field">
-          Archivo Excel o CSV
-          <input
-            type="file"
-            accept=".xlsx,.csv"
-            disabled={busy || started}
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) void read(f);
-            }}
-          />
-        </label>
+        <FileDropzone
+          label="Archivo Excel o CSV"
+          accept=".xlsx,.csv"
+          file={selectedFile}
+          disabled={busy || started}
+          onFile={(file) => void read(file)}
+        />
         {error && <Alert tone="error">{error}</Alert>}
         {preview && (
           <>

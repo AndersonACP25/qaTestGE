@@ -142,8 +142,100 @@ function operation(
     },
   };
 }
+const auditSettings = {
+  type: "object",
+  required: ["profile", "detail", "pageSize", "version"],
+  properties: {
+    profile: { type: "string", enum: ["General", "Calidad", "Seguridad"] },
+    detail: { type: "string", enum: ["Resumen", "Detallado"] },
+    pageSize: { type: "integer", enum: [25, 50, 100] },
+    version: { type: "integer", minimum: 0 },
+  },
+};
 const path = (name: string) => ({ name, in: "path", required: true, schema: text });
 export const collaborationPaths = {
+  "/api/assigned-work": {
+    get: operation(
+      "Asignaciones de la cuenta autenticada en el proyecto; no admite elegir otro usuario",
+      {
+        type: "object",
+        required: ["items", "total", "page", "pageSize"],
+        properties: {
+          items: {
+            type: "array",
+            items: {
+              type: "object",
+              required: ["kind", "id", "title", "status", "classification", "createdAt"],
+              properties: {
+                kind: { type: "string", enum: ["bug", "case", "run"] },
+                id: text,
+                title: text,
+                status: text,
+                classification: text,
+                createdAt: { type: "string", format: "date-time" },
+              },
+            },
+          },
+          total: { type: "integer", minimum: 0 },
+          page: { type: "integer", minimum: 1 },
+          pageSize: { type: "integer", enum: [10, 25, 50] },
+        },
+      },
+      [
+        { name: "kind", in: "query", schema: { type: "string", enum: ["bug", "case", "run"] } },
+        { name: "status", in: "query", schema: { type: "string", maxLength: 60 } },
+        { name: "search", in: "query", schema: { type: "string", maxLength: 120 } },
+        {
+          name: "page",
+          in: "query",
+          schema: { type: "integer", minimum: 1, maximum: 100000, default: 1 },
+        },
+        {
+          name: "pageSize",
+          in: "query",
+          schema: { type: "integer", enum: [10, 25, 50], default: 25 },
+        },
+      ],
+    ),
+  },
+  "/api/audit-settings": {
+    get: operation(
+      "Configuración de vista de auditoría del proyecto; no altera el historial",
+      auditSettings,
+    ),
+    put: operation(
+      "Admin guarda perfil, detalle y paginación con revisión optimista; se audita el cambio",
+      auditSettings,
+      [],
+      auditSettings,
+    ),
+  },
+  "/api/project-users": {
+    post: operation(
+      "Admin crea cuenta local e integrante del equipo con rol únicamente en este proyecto. No envía correos. Clave y contenido deben conservarse al reintentar; correo existente genera 409 sin modificar la cuenta",
+      member,
+      [
+        {
+          name: "Idempotency-Key",
+          in: "header",
+          required: true,
+          schema: { type: "string", format: "uuid" },
+        },
+      ],
+      {
+        type: "object",
+        additionalProperties: false,
+        required: ["name", "email", "password", "role"],
+        properties: {
+          name: { type: "string", minLength: 1, maxLength: 100 },
+          email: { type: "string", format: "email", maxLength: 254 },
+          password: { type: "string", minLength: 12, maxLength: 128, writeOnly: true },
+          role: { type: "string", enum: ["Admin", "QA", "Dev", "Solo lectura"] },
+        },
+      },
+      true,
+    ),
+  },
   "/api/project-members": {
     get: operation(
       "Directorio de integrantes con acceso; candidates=true exige Admin",
@@ -170,7 +262,7 @@ export const collaborationPaths = {
       targetQuery,
     ),
     post: operation(
-      "Publicar comentario; menciones @[Nombre](user:ID) o @Nombre completo único, solo a integrantes activos con acceso. Nombres ambiguos requieren selección. Sin avisos para automenciones.",
+      "Publicar comentario; menciones @[Nombre](user:ID) o @Nombre completo único, solo a integrantes activos con acceso. Nombres ambiguos requieren selección. Las automenciones también generan avisos privados.",
       comment,
       [
         {
@@ -208,16 +300,66 @@ export const collaborationPaths = {
   },
   "/api/activity": {
     get: operation(
-      "Auditoría inmutable: hasta 50 cambios confirmados, cursor before descendente",
+      "Auditoría inmutable filtrada en servidor; fechas UTC inclusivas; cursor before descendente. resourceId requiere kind bug/case/run",
       array(activity),
       [
-        ...targetQuery.map((p) => ({ ...p, required: false })),
+        {
+          name: "kind",
+          in: "query",
+          schema: {
+            type: "string",
+            enum: [
+              "bug",
+              "case",
+              "run",
+              "evidence",
+              "plan",
+              "requirement",
+              "tag",
+              "workflow",
+              "access",
+              "audit-config",
+              "user",
+            ],
+          },
+        },
+        { ...targetQuery[1], required: false },
+        { name: "profile", in: "query", schema: auditSettings.properties.profile },
+        {
+          name: "operation",
+          in: "query",
+          schema: { type: "string", enum: ["insert", "update", "delete", "provision"] },
+        },
+        { name: "actorId", in: "query", schema: id },
+        { name: "from", in: "query", schema: { type: "string", format: "date" } },
+        { name: "to", in: "query", schema: { type: "string", format: "date" } },
+        { name: "search", in: "query", schema: { type: "string", maxLength: 120 } },
+        {
+          name: "limit",
+          in: "query",
+          schema: { type: "integer", enum: [25, 50, 100], default: 50 },
+        },
         { name: "before", in: "query", schema: id },
       ],
     ),
   },
   "/api/mention-notifications": {
     get: operation("Últimos 100 avisos propios visibles en el proyecto", array(notification)),
+  },
+  "/api/mention-notifications/read-all": {
+    patch: operation(
+      "Marca todos los avisos propios sin leer del proyecto, incluidos los anteriores a los 100 visibles; no marca menciones futuras",
+      {
+        type: "object",
+        required: ["updated", "readAt"],
+        properties: {
+          updated: { type: "integer", minimum: 0 },
+          readAt: { type: "string", format: "date-time" },
+        },
+      },
+      [],
+      { type: "object", properties: {} },
+    ),
   },
   "/api/mention-notifications/{notificationId}": {
     patch: operation(

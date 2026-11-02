@@ -80,6 +80,13 @@ const inputs = {
       projectId,
       title: text(200),
       owner: text(100),
+      ownerUserId: {
+        type: "string",
+        nullable: true,
+        pattern: "^[1-9][0-9]{0,18}$",
+        description:
+          "Responsable con acceso al proyecto. Omitido al crear: usuario autenticado. Omitido al editar: conservar; null: sin asignar. owner mantiene compatibilidad textual y se normaliza si hay ID.",
+      },
       caseIds,
       tagIds,
       planId: { type: "string", pattern: "^PLAN-[0-9]{1,19}$" },

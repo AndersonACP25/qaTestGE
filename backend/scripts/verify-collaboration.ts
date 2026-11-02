@@ -1,4 +1,5 @@
 // Real PostgreSQL integration: explicitly selected ephemeral DB only; never loads .env.
+import { applyMigrations } from "../src/migrations.js";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import request from "supertest";
@@ -87,6 +88,32 @@ try {
   const bug = await dev.post("/api/bugs").send(bugInput);
   assert.equal(bug.status, 201);
   const bugId = bug.body.data.id;
+  // Same payload and UUID v8 used when publishing a legacy local bug draft.
+  const designerKey = "f517db43-22b5-8bfe-8149-ef3a6d2c237e";
+  const designerPayload = {
+    projectId,
+    title: "Bug desde diseñador",
+    description: "## Problema observado\n\nError revisado",
+    priority: "Media",
+    tagIds: [],
+  };
+  const published = await qa
+    .post("/api/bugs")
+    .set("Idempotency-Key", designerKey)
+    .send(designerPayload);
+  assert.equal(published.status, 201, JSON.stringify(published.body));
+  const repeatedPublish = await qa
+    .post("/api/bugs")
+    .set("Idempotency-Key", designerKey)
+    .send(designerPayload);
+  assert.equal(repeatedPublish.status, 201);
+  assert.equal(repeatedPublish.body.data.id, published.body.data.id);
+  const persistedBugs = (await qa.get("/api/bugs").query({ projectId })).body.data;
+  assert.equal(
+    persistedBugs.filter((item: { id: string }) => item.id === published.body.data.id).length,
+    1,
+  );
+
   assert.equal((await viewer.post("/api/bugs").send(bugInput)).status, 403);
   assert.equal(
     (await dev.post("/api/test-cases").send({ projectId, title: "No permitido" })).status,
@@ -315,6 +342,56 @@ try {
     200,
   );
 
+  // Self-mentions and mentions on every QA resource create private, deduplicated notices.
+  for (const target of [
+    { kind: "bug", id: bugId },
+    { kind: "case", id: tc.body.data.id },
+    { kind: "run", id: run.body.data.id },
+  ]) {
+    const ownKey = randomUUID();
+    const input = { target, body: `Revisar @[QA](user:${users[1]}) y @[Dev](user:${users[2]})` };
+    const created = await qa
+      .post("/api/comments")
+      .query({ projectId })
+      .set("Idempotency-Key", ownKey)
+      .send(input);
+    assert.equal(created.status, 201, JSON.stringify(created.body));
+    const repeated = await qa
+      .post("/api/comments")
+      .query({ projectId })
+      .set("Idempotency-Key", ownKey)
+      .send(input);
+    assert.equal(repeated.body.data.id, created.body.data.id);
+    for (const agent of [qa, dev]) {
+      const notices = (await agent.get("/api/mention-notifications").query({ projectId })).body
+        .data;
+      const matching = notices.filter(
+        (n: { commentId: string }) => n.commentId === created.body.data.id,
+      );
+      assert.equal(matching.length, 1);
+      assert.deepEqual(matching[0].target, target);
+    }
+  }
+
+  const missing = await pool.query<{ id: string; comment_id: string }>(
+    "DELETE FROM qa.mention_notifications WHERE id=(SELECT n.id FROM qa.mention_notifications n JOIN qa.comments c ON c.id=n.comment_id WHERE n.project_id=$1 AND n.user_id=c.author_id LIMIT 1) RETURNING id::text,comment_id::text",
+    [projectId],
+  );
+  assert.equal(missing.rowCount, 1);
+  await pool.query("DELETE FROM qa.schema_migrations WHERE version='016_self_mentions'");
+  const migrationClient = await pool.connect();
+  try {
+    await applyMigrations(migrationClient, false);
+    await applyMigrations(migrationClient, false);
+  } finally {
+    migrationClient.release();
+  }
+  const restored = await pool.query(
+    "SELECT count(*)::int AS n FROM qa.mention_notifications WHERE comment_id=$1 AND user_id=$2",
+    [missing.rows[0].comment_id, users[1]],
+  );
+  assert.equal(restored.rows[0].n, 1);
+
   await assert.rejects(
     pool.query("UPDATE qa.activity SET action='forged' WHERE project_id=$1", [projectId]),
     (e: { code: string }) => e.code === "42501",
@@ -385,6 +462,52 @@ try {
         .send({ role: "Admin", revision: qaAccess.revision })
     ).status,
     204,
+  );
+  // An Admin who does not own the team manages only project memberships.
+  const candidates = (await qa.get("/api/project-members").query({ projectId, candidates: true }))
+    .body.data;
+  const managed = candidates.find((m: { id: string }) => m.id === users[3]);
+  assert.equal(
+    (
+      await qa
+        .put(`/api/project-members/${users[3]}`)
+        .query({ projectId })
+        .send({ role: null, revision: managed.revision })
+    ).status,
+    204,
+  );
+  assert.equal((await viewer.get("/api/bugs").query({ projectId })).status, 404);
+  assert.equal(
+    (
+      await qa
+        .put(`/api/project-members/${users[3]}`)
+        .query({ projectId })
+        .send({ role: "Dev", revision: managed.revision + 1 })
+    ).status,
+    204,
+  );
+  assert.equal((await viewer.get("/api/bugs").query({ projectId })).status, 200);
+  assert.equal(
+    (
+      await qa
+        .put(`/api/project-members/${users[3]}`)
+        .query({ projectId })
+        .send({ role: "Solo lectura", revision: managed.revision + 2 })
+    ).status,
+    204,
+  );
+  assert.equal(
+    (
+      await qa
+        .put(`/api/project-members/${users[0]}`)
+        .query({ projectId })
+        .send({ role: null, revision: 0 })
+    ).status,
+    409,
+  );
+  assert.equal(
+    (await qa.get("/api/project-members").query({ projectId: other, candidates: true })).status,
+    404,
   );
   await pool.query("UPDATE qa.users SET is_active=false WHERE id=$1", [users[0]]);
   assert.equal(

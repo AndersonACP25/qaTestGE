@@ -79,3 +79,76 @@ describe("filterEvidence", () => {
     expect(filterEvidence(evidence, { search: "  " })).toEqual(evidence);
   });
 });
+
+describe("combinación de filtros por identidad y clasificación", () => {
+  it("combina prioridad, severidad, responsable y tag sin confundir nombres ni mutar registros", () => {
+    const items = [
+      {
+        id: "BUG-1",
+        title: "Fallo",
+        project: "QA",
+        status: "Abierto",
+        priority: "Alta",
+        severity: "Crítica",
+        assigneeUserId: "7",
+        tagIds: ["2"],
+      },
+      {
+        id: "BUG-2",
+        title: "Fallo",
+        project: "QA",
+        status: "Abierto",
+        priority: "Alta",
+        severity: "Crítica",
+        assigneeUserId: "8",
+        tagIds: ["2"],
+      },
+    ];
+    expect(
+      filterBugs(items, {
+        priority: "Alta",
+        severity: "Crítica",
+        assignee: "7",
+        tag: "2",
+        statusFilter: "Abierto",
+      }),
+    ).toEqual([items[0]]);
+    expect(filterBugs(items, { assignee: "Sin asignar" })).toEqual([]);
+    expect(items).toHaveLength(2);
+  });
+  it("reconoce casos sin asignar/sin tags y combina Test Plan con responsable estable", () => {
+    const cases = [
+      {
+        id: "TC-1",
+        title: "Caso",
+        suite: "",
+        status: "Pendiente",
+        assigneeUserId: null,
+        tagIds: [],
+      },
+    ];
+    expect(filterCases(cases, { assignee: "Sin asignar", tag: "Sin tags" })).toEqual(cases);
+    const runs = [
+      {
+        id: "RUN-1",
+        title: "Uno",
+        status: "En curso",
+        owner: "Mismo nombre",
+        ownerUserId: "7",
+        tagIds: ["2"],
+        planId: "PLAN-1",
+      },
+      {
+        id: "RUN-2",
+        title: "Dos",
+        status: "En curso",
+        owner: "Mismo nombre",
+        ownerUserId: "8",
+        tagIds: [],
+        planId: null,
+      },
+    ];
+    expect(filterRuns(runs, { assignee: "7", plan: "PLAN-1", tag: "2" })).toEqual([runs[0]]);
+    expect(filterRuns(runs, { plan: "Sin plan", tag: "Sin tags" })).toEqual([runs[1]]);
+  });
+});
