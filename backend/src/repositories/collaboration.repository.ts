@@ -1,3 +1,4 @@
+import { assignedWorkPageSchema, type AssignedWorkFilters } from "../models/assigned-work.model.js";
 import { PostgresProjectAdministration } from "./project-administration.repository.js";
 import type { AuditFilters, AuditSettings, ProvisionUserInput } from "../models/audit.model.js";
 import { resolvePlainMentions } from "../models/plain-mentions.js";
@@ -83,6 +84,32 @@ export class PostgresCollaborationRepository implements CollaborationRepository 
       key,
     );
   }
+  async assignedWork(projectId: string, filters: AssignedWorkFilters) {
+    const result = await this.pool.query<{ items: unknown; total: number }>(
+      `
+      WITH assigned AS (
+        SELECT 'bug' AS kind,'BUG-' || lpad(id::text,greatest(3,length(id::text)),'0') AS id,title,status,priority AS classification,created_at AS "createdAt" FROM qa.bugs WHERE project_id=$1 AND assignee_user_id=$2
+        UNION ALL SELECT 'case','TC-' || lpad(id::text,greatest(3,length(id::text)),'0'),title,status,test_type,created_at FROM qa.test_cases WHERE project_id=$1 AND assignee_user_id=$2
+        UNION ALL SELECT 'run','RUN-' || lpad(id::text,greatest(3,length(id::text)),'0'),title,status,'Ejecución',created_at FROM qa.test_runs WHERE project_id=$1 AND owner_user_id=$2
+      ), filtered AS (SELECT * FROM assigned WHERE ($3::text IS NULL OR kind=$3) AND ($4::text IS NULL OR status=$4) AND ($5::text IS NULL OR concat_ws(' ',id,title,classification) ILIKE '%' || $5 || '%')),
+      paged AS (SELECT * FROM filtered ORDER BY "createdAt" DESC,kind,id DESC LIMIT $6 OFFSET $7)
+      SELECT (SELECT count(*)::int FROM filtered) AS total, COALESCE((SELECT jsonb_agg(to_jsonb(paged) ORDER BY "createdAt" DESC,kind,id DESC) FROM paged),'[]'::jsonb) AS items`,
+      [
+        projectId,
+        this.actorId,
+        filters.kind ?? null,
+        filters.status || null,
+        filters.search || null,
+        filters.pageSize,
+        (filters.page - 1) * filters.pageSize,
+      ],
+    );
+    return assignedWorkPageSchema.parse({
+      ...result.rows[0],
+      page: filters.page,
+      pageSize: filters.pageSize,
+    });
+  }
   async readAllNotifications(projectId: string) {
     const result = await this.pool.query<{ updated: number; read_at: Date }>(
       `WITH changed AS (UPDATE qa.mention_notifications n SET read_at=now() WHERE n.project_id=$1 AND n.user_id=$2 AND n.read_at IS NULL AND EXISTS(SELECT 1 FROM qa.comments c WHERE c.id=n.comment_id AND c.project_id=n.project_id AND c.deleted_at IS NULL) RETURNING id) SELECT count(*)::int AS updated, now() AS read_at FROM changed`,
@@ -162,14 +189,14 @@ export class PostgresCollaborationRepository implements CollaborationRepository 
       }
       if (role === null) {
         const assigned = await c.query(
-          "SELECT 1 FROM qa.bugs WHERE project_id=$1 AND assignee_user_id=$2 UNION ALL SELECT 1 FROM qa.test_cases WHERE project_id=$1 AND assignee_user_id=$2 LIMIT 1",
+          "SELECT 1 FROM qa.bugs WHERE project_id=$1 AND assignee_user_id=$2 UNION ALL SELECT 1 FROM qa.test_cases WHERE project_id=$1 AND assignee_user_id=$2 UNION ALL SELECT 1 FROM qa.test_runs WHERE project_id=$1 AND owner_user_id=$2 LIMIT 1",
           [projectId, userId],
         );
         if (assigned.rowCount)
           throw new HttpError(
             409,
             "MEMBER_ASSIGNED",
-            "Reasigna sus bugs y casos antes de retirar el acceso.",
+            "Reasigna sus bugs, casos y ejecuciones antes de retirar el acceso.",
           );
         await c.query(
           "UPDATE qa.project_members SET role=NULL,revision=revision+1 WHERE project_id=$1 AND user_id=$2",

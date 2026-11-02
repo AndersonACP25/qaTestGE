@@ -1,3 +1,4 @@
+import { assignedWorkFiltersSchema } from "../models/assigned-work.model.js";
 import {
   auditSettingsSchema,
   auditFiltersSchema,
@@ -34,6 +35,11 @@ function parse<T>(schema: z.ZodType<T>, input: unknown): T {
     );
   return r.data;
 }
+router.get("/assigned-work", async (req, res) => {
+  res.json({
+    data: await collab(req).assignedWork(project(req), parse(assignedWorkFiltersSchema, req.query)),
+  });
+});
 router.get("/audit-settings", async (req, res) => {
   res.json({ data: await collab(req).auditSettings(project(req)) });
 });

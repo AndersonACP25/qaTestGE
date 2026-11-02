@@ -46,6 +46,8 @@ function valid(body: unknown): body is CreateTestRunInput {
   )
     return false;
   if (!validTagIds(body.tagIds)) return false;
+  if (body.ownerUserId !== undefined && body.ownerUserId !== null && !isId(body.ownerUserId))
+    return false;
   if (body.planId !== undefined && !parseReference(body.planId, "PLAN")) return false;
   if (body.sourceRunId !== undefined && !parseReference(body.sourceRunId, "RUN")) return false;
   if (body.failedOnly !== undefined && typeof body.failedOnly !== "boolean") return false;

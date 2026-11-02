@@ -54,3 +54,7 @@ Aplicar con `pnpm db:migrate`. Añade accesos por proyecto, comentarios/versione
 ### 017 · Administración de usuarios y auditoría
 
 Ejecuta `pnpm db:migrate`. Añade configuración de vista de auditoría por proyecto con revisión y control Admin, registro idempotente de altas de cuentas y un índice de filtros de actividad. Conserva todos los eventos existentes; no introduce retención ni desactivación del registro. Las cuentas creadas reciben membresía de equipo sin administración y el rol seleccionado solo en el proyecto actual. No modifica cuentas con un correo ya registrado.
+
+### 018 · Responsables de Test Run
+
+Ejecuta `pnpm db:migrate` antes de iniciar. Añade la referencia estable del responsable al usuario y su membresía, un índice de asignaciones y un trigger que valida el proyecto y normaliza el nombre. Conserva los registros anteriores; solo vincula nombres con una coincidencia activa única. Los demás se asignan explícitamente desde Editar ejecución. La baja de integrantes o la revocación de acceso también protege las ejecuciones asignadas. `verify-run-upgrade.ts` exige una base efímera nueva y vacía; nunca borra un esquema existente.

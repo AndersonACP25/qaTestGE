@@ -41,6 +41,7 @@ export interface CaseRow extends BaseRow {
 export interface RunRow extends BaseRow {
   title: string;
   owner: string;
+  owner_user_id?: string | null;
   plan_id?: string | null;
   source_run_id?: string | null;
   status: TestRunStatus;

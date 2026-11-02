@@ -1,3 +1,4 @@
+import type { AssignedWorkFilters, AssignedWorkPage } from "./assigned-work.model.js";
 import type { AuditFilters, AuditSettings, ProvisionUserInput } from "./audit.model.js";
 export const projectRoles = ["Admin", "QA", "Dev", "Solo lectura"] as const;
 export type ProjectRole = (typeof projectRoles)[number];
@@ -67,6 +68,7 @@ export interface MentionNotification {
   readAt: string | null;
 }
 export interface CollaborationRepository {
+  assignedWork(projectId: string, filters: AssignedWorkFilters): Promise<AssignedWorkPage>;
   auditSettings(projectId: string): Promise<AuditSettings>;
   saveAuditSettings(projectId: string, input: AuditSettings): Promise<AuditSettings>;
   createProjectUser(

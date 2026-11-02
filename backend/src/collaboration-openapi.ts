@@ -154,6 +154,50 @@ const auditSettings = {
 };
 const path = (name: string) => ({ name, in: "path", required: true, schema: text });
 export const collaborationPaths = {
+  "/api/assigned-work": {
+    get: operation(
+      "Asignaciones de la cuenta autenticada en el proyecto; no admite elegir otro usuario",
+      {
+        type: "object",
+        required: ["items", "total", "page", "pageSize"],
+        properties: {
+          items: {
+            type: "array",
+            items: {
+              type: "object",
+              required: ["kind", "id", "title", "status", "classification", "createdAt"],
+              properties: {
+                kind: { type: "string", enum: ["bug", "case", "run"] },
+                id: text,
+                title: text,
+                status: text,
+                classification: text,
+                createdAt: { type: "string", format: "date-time" },
+              },
+            },
+          },
+          total: { type: "integer", minimum: 0 },
+          page: { type: "integer", minimum: 1 },
+          pageSize: { type: "integer", enum: [10, 25, 50] },
+        },
+      },
+      [
+        { name: "kind", in: "query", schema: { type: "string", enum: ["bug", "case", "run"] } },
+        { name: "status", in: "query", schema: { type: "string", maxLength: 60 } },
+        { name: "search", in: "query", schema: { type: "string", maxLength: 120 } },
+        {
+          name: "page",
+          in: "query",
+          schema: { type: "integer", minimum: 1, maximum: 100000, default: 1 },
+        },
+        {
+          name: "pageSize",
+          in: "query",
+          schema: { type: "integer", enum: [10, 25, 50], default: 25 },
+        },
+      ],
+    ),
+  },
   "/api/audit-settings": {
     get: operation(
       "Configuración de vista de auditoría del proyecto; no altera el historial",
