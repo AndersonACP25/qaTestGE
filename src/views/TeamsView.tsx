@@ -6,6 +6,7 @@ type Team = { id: string; name: string; role: "owner" | "member" };
 type Member = { id: string; name: string; role: "owner" | "member" };
 
 export default function TeamsView({ onChanged }: { onChanged: () => void }) {
+  const [memberSearch, setMemberSearch] = useState("");
   const [teams, setTeams] = useState<Team[]>([]);
   const [selected, setSelected] = useState("");
   const [members, setMembers] = useState<Member[]>([]);
@@ -24,6 +25,7 @@ export default function TeamsView({ onChanged }: { onChanged: () => void }) {
     const abort = new AbortController();
     void api<Team[]>("/teams", { signal: abort.signal })
       .then((items) => {
+        if (abort.signal.aborted) return;
         setTeams(items);
         setSelected((id) => (items.some((item) => item.id === id) ? id : (items[0]?.id ?? "")));
       })
@@ -40,7 +42,9 @@ export default function TeamsView({ onChanged }: { onChanged: () => void }) {
     }
     const abort = new AbortController();
     void api<Member[]>(`/teams/${encodeURIComponent(selected)}/members`, { signal: abort.signal })
-      .then(setMembers)
+      .then((items) => {
+        if (!abort.signal.aborted) setMembers(items);
+      })
       .catch((cause: unknown) => {
         if (!abort.signal.aborted)
           setError(
@@ -276,55 +280,94 @@ export default function TeamsView({ onChanged }: { onChanged: () => void }) {
             )}
           </>
         )}
-        <h3 className="typography__heading">Integrantes</h3>
-        {members.map((member) => (
-          <article className="projects-view__item" key={member.id}>
-            <div>
-              {member.name} · {member.role === "owner" ? "Propietario" : "Integrante"}
-            </div>
-            {team?.role === "owner" && member.role === "member" && (
-              <button
-                type="button"
-                className="workspace__danger"
-                disabled={busy}
-                onClick={() => setRemoving(member)}
-              >
-                Quitar integrante
-              </button>
-            )}
-            {removing?.id === member.id && (
-              <div>
-                <p>¿Quitar a {member.name}? Perderá acceso a todos los proyectos del espacio.</p>
-                <button
-                  type="button"
-                  className="workspace__danger"
-                  disabled={busy}
-                  onClick={() =>
-                    void act(async () => {
-                      await api(
-                        `/teams/${encodeURIComponent(selected)}/members/${encodeURIComponent(member.id)}`,
-                        { method: "DELETE", body: "{}" },
-                      );
-                      setRemoving(null);
-                      setMessage("Integrante retirado.");
-                      refresh();
-                    })
-                  }
+        <header className="team-roster__heading">
+          <h3 className="typography__heading">Integrantes</h3>
+          <label className="workspace__field">
+            Buscar integrante
+            <input
+              type="search"
+              value={memberSearch}
+              onChange={(event) => setMemberSearch(event.target.value)}
+            />
+          </label>
+        </header>
+        <div className="team-roster">
+          {members
+            .filter((member) =>
+              member.name
+                .toLocaleLowerCase("es")
+                .includes(memberSearch.trim().toLocaleLowerCase("es")),
+            )
+            .map((member) => (
+              <article className="team-roster__member" key={member.id}>
+                <span className="team-roster__avatar" aria-hidden="true">
+                  {member.name
+                    .split(/\s+/)
+                    .map((part) => part[0])
+                    .slice(0, 2)
+                    .join("")
+                    .toLocaleUpperCase("es")}
+                </span>
+                <div className="team-roster__identity">
+                  <strong>{member.name}</strong>
+                  <span>ID de usuario: {member.id}</span>
+                </div>
+                <span
+                  className={`role-badge ${member.role === "owner" ? "" : "role-badge--reader"}`}
                 >
-                  Confirmar
-                </button>
-                <button
-                  type="button"
-                  className="workspace__secondary"
-                  onClick={() => setRemoving(null)}
-                  disabled={busy}
-                >
-                  Cancelar
-                </button>
-              </div>
-            )}
-          </article>
-        ))}
+                  {member.role === "owner" ? "Propietario" : "Integrante"}
+                </span>
+                {team?.role === "owner" && member.role === "member" && (
+                  <button
+                    type="button"
+                    className="workspace__danger"
+                    disabled={busy}
+                    onClick={() => setRemoving(member)}
+                  >
+                    Quitar integrante
+                  </button>
+                )}
+                {removing?.id === member.id && (
+                  <div>
+                    <p>
+                      ¿Quitar a {member.name}? Perderá acceso a todos los proyectos del espacio.
+                    </p>
+                    <button
+                      type="button"
+                      className="workspace__danger"
+                      disabled={busy}
+                      onClick={() =>
+                        void act(async () => {
+                          await api(
+                            `/teams/${encodeURIComponent(selected)}/members/${encodeURIComponent(member.id)}`,
+                            { method: "DELETE", body: "{}" },
+                          );
+                          setRemoving(null);
+                          setMessage("Integrante retirado.");
+                          refresh();
+                        })
+                      }
+                    >
+                      Confirmar
+                    </button>
+                    <button
+                      type="button"
+                      className="workspace__secondary"
+                      onClick={() => setRemoving(null)}
+                      disabled={busy}
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                )}
+              </article>
+            ))}
+          {!members.some((member) =>
+            member.name
+              .toLocaleLowerCase("es")
+              .includes(memberSearch.trim().toLocaleLowerCase("es")),
+          ) && <p>No hay integrantes que coincidan.</p>}
+        </div>
       </section>
     </div>
   );

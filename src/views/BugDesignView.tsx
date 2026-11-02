@@ -1,3 +1,4 @@
+import DesignEvidencePanel from "./DesignEvidencePanel";
 import Dialog from "../Dialog";
 import RichTextarea from "../components/RichTextarea";
 import { withStorageLock } from "../models/storageLock";
@@ -393,6 +394,11 @@ export default function BugDesignView({
                   </button>
                 </div>
               </fieldset>
+              <DesignEvidencePanel
+                key={preview.id}
+                projectId={projectId}
+                targetId={savedId || undefined}
+              />
               {busy && <p role="status">Guardando bug…</p>}
               {savedId && <p>Ya se creó {savedId}. Prepara otro bug para continuar.</p>}
             </form>

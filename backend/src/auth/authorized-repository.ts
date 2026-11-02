@@ -32,6 +32,10 @@ export class AuthorizedRepository implements Repository {
     const base = this.base.collaboration;
     if (!base) return undefined;
     return {
+      assignedWork: async (p, filters) => {
+        await this.projectIds(p);
+        return base.assignedWork(p, filters);
+      },
       auditSettings: async (p) => {
         await this.projectIds(p);
         return base.auditSettings(p);
@@ -253,9 +257,13 @@ export class AuthorizedRepository implements Repository {
   async createRun(input: CreateTestRunInput, context?: CreationContext) {
     await this.projectIds(input.projectId);
     if (context && !this.actorId) throw new HttpError(401, "UNAUTHENTICATED", "Inicia sesión.");
+    const assigned = {
+      ...input,
+      ownerUserId: input.ownerUserId === undefined ? this.actorId : input.ownerUserId,
+    };
     return context
-      ? this.base.createRun(input, { ...context, actorId: this.actorId! })
-      : this.base.createRun(input);
+      ? this.base.createRun(assigned, { ...context, actorId: this.actorId! })
+      : this.base.createRun(assigned);
   }
   async updateRun(id: string, projectId: string, input: UpdateTestRunInput) {
     await this.projectIds(projectId);

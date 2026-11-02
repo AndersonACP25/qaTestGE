@@ -55,6 +55,11 @@ jobs:
           pnpm db:setup
           pnpm db:migrate
           pnpm --dir backend test:db
+      - name: Verify upgrade from 017 without ambiguous assignments
+        run: |
+          dropdb -h localhost -U ci qa_test_ge
+          createdb -h localhost -U ci qa_test_ge
+          pnpm --dir backend exec tsx scripts/verify-run-upgrade.ts
   validate:
     runs-on: ubuntu-latest
     steps:

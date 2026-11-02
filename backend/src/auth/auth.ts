@@ -269,7 +269,7 @@ export class PostgresAuth implements AuthProvider {
         throw new HttpError(
           409,
           "MEMBER_ASSIGNED",
-          "El integrante tiene bugs o casos asignados. Reasígnalos antes de retirarlo.",
+          "El integrante tiene bugs, casos o ejecuciones asignados. Reasígnalos antes de retirarlo.",
         );
       throw error;
     }

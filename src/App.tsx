@@ -1,3 +1,6 @@
+import WorkItemEditor from "./components/WorkItemEditor";
+import ProjectPicker from "./components/ProjectPicker";
+import AssignedWorkView from "./views/AssignedWorkView";
 import EvidenceDetailsDialog from "./views/EvidenceDetailsDialog";
 import FileDropzone from "./components/FileDropzone";
 import EvidenceUploadDialog from "./views/EvidenceUploadDialog";
@@ -84,6 +87,7 @@ const navigation: {
     section: "WORKSPACE",
     items: [
       { id: "overview", label: "Dashboard", icon: "grid" },
+      { id: "assignments", label: "Mis asignaciones", icon: "check-square" },
       { id: "mentions", label: "Mis menciones", icon: "bell" },
       { id: "coverage", label: "Cobertura y requisitos", icon: "check-square" },
       { id: "reports", label: "Reportes y métricas", icon: "chart" },
@@ -132,7 +136,7 @@ function App({
   } = useProjectData(
     projectId,
     revision,
-    !["overview", "reports", "coverage", "settings"].includes(activePage),
+    !["overview", "reports", "coverage", "settings", "assignments"].includes(activePage),
   );
   const error = projectError || resourceError;
   const { workflow, error: workflowError } = useBugWorkflow(projectId, revision);
@@ -222,7 +226,9 @@ function App({
       `/project-members?projectId=${encodeURIComponent(project.id)}`,
       { signal: abort.signal },
     )
-      .then(setTeamMembers)
+      .then((items) => {
+        if (!abort.signal.aborted) setTeamMembers(items);
+      })
       .catch((cause: unknown) => {
         if (!abort.signal.aborted)
           setTeamMemberError(
@@ -326,6 +332,7 @@ function App({
     visibleRuns = slicePage(filteredRuns),
     visibleEvidence = slicePage(filteredEvidence);
   const pageTitle = {
+    assignments: "Mis asignaciones",
     mentions: "Mis menciones",
     coverage: "Cobertura y requisitos",
     overview: "Dashboard",
@@ -641,6 +648,7 @@ function App({
         projectId,
         title,
         owner: user.name,
+        ownerUserId: assigneeUserId || user.id,
         caseIds: form.getAll("caseIds"),
         tagIds: selectedTagIds,
       };
@@ -876,6 +884,7 @@ function App({
   const isListing = ["bugs", "cases", "runs", "evidence"].includes(activePage);
   const isRenderCurrent = captureScope();
   const total = matchedTotal;
+  const WorkInbox = activePage === "assignments" ? AssignedWorkView : MentionsView;
   const workspace = (
     <div className="app-shell workspace">
       <aside className={`sidebar${mobileNav ? " sidebar-open" : ""}`}>
@@ -1055,37 +1064,26 @@ function App({
             )}
           </div>
           <div className="workspace__toolbar">
-            <label>
-              Proyecto
-              <select
-                disabled={saving}
-                value={projectId}
-                onChange={(event) => {
-                  setData({ bugs: [], cases: [], runs: [], evidence: [] });
-                  setLoading(true);
-                  setProjectId(event.target.value);
-                  setModal("");
-                  setRunDetail(null);
-                  setRecordDetail(null);
-                  setEvidenceUploadTarget("");
-                  setDeleteBugTarget(null);
-                  setDeleteCaseTarget(null);
-                  setSaving(false);
-                  setUpdatingStatus("");
-                  setDeleteBugBusy(false);
-                  setDeleteCaseBusy(false);
-                }}
-              >
-                <option value="" disabled>
-                  Selecciona un proyecto
-                </option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} · #{p.id}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <ProjectPicker
+              projects={projects}
+              value={projectId}
+              disabled={saving}
+              onChange={(event) => {
+                setData({ bugs: [], cases: [], runs: [], evidence: [] });
+                setLoading(true);
+                setProjectId(event.target.value);
+                setModal("");
+                setRunDetail(null);
+                setRecordDetail(null);
+                setEvidenceUploadTarget("");
+                setDeleteBugTarget(null);
+                setDeleteCaseTarget(null);
+                setSaving(false);
+                setUpdatingStatus("");
+                setDeleteBugBusy(false);
+                setDeleteCaseBusy(false);
+              }}
+            />
             <div className="workspace__toolbar-actions">
               <button
                 className="workspace__secondary"
@@ -1150,9 +1148,12 @@ function App({
               existente.
             </p>
           )}
-          {activePage === "mentions" ? (
+          {activePage === "mentions" || activePage === "assignments" ? (
             projectId && (
-              <MentionsView
+              <WorkInbox
+                projectId={projectId}
+                userName={user.name}
+                refreshRevision={revision}
                 key={projectId}
                 inbox={mentionInbox}
                 onOpen={async (target, signal) => {
@@ -1166,8 +1167,7 @@ function App({
                       : target.kind === "case"
                         ? cases.some((c) => c.id === target.id)
                         : runs.some((r) => r.id === target.id);
-                  if (!exists)
-                    throw new Error("El registro de esta mención ya no está disponible.");
+                  if (!exists) throw new Error("El registro ya no está disponible.");
                   setData(loaded);
                   if (target.kind === "bug") {
                     const record = bugs.find((b) => b.id === target.id);
@@ -1471,518 +1471,545 @@ function App({
             aria-busy={saving}
           >
             <fieldset disabled={saving} className="workspace__fieldset">
-              <label className="workspace__field">
-                Proyecto
-                <input value={project?.name ?? ""} readOnly />
-              </label>
-              {modal === "bug" && (
-                <label className="workspace__field">
-                  Cargar plantilla
-                  {bugTemplatesLoading ? (
-                    <span className="workspace__notice">Cargando plantillas…</span>
-                  ) : (
-                    <select
-                      value={selectedBugTemplateId}
-                      onChange={(event) => applyBugTemplate(event.target.value)}
-                    >
-                      <option value="">Sin plantilla</option>
-                      {bugTemplates.map((template) => (
-                        <option key={template.id} value={template.id}>
-                          {template.name}
-                        </option>
-                      ))}
-                    </select>
-                  )}
+              <WorkItemEditor
+                enabled={["bug", "edit-bug", "case", "edit-case", "run"].includes(modal)}
+                kind={modal.includes("bug") ? "bug" : modal.includes("case") ? "case" : "run"}
+                id={editingBug?.id ?? editingCase?.id ?? "Nuevo"}
+              >
+                <label className="workspace__field" data-editor-property="true">
+                  Proyecto
+                  <input value={project?.name ?? ""} readOnly />
                 </label>
-              )}
-              {modal !== "evidence" && modal !== "edit-evidence" && modal !== "upload-evidence" && (
-                <label className="workspace__field">
-                  Título
-                  {modal === "bug" || modal === "edit-bug" ? (
-                    <input
-                      name="title"
-                      value={bugForm.title}
-                      onChange={(event) => setBugForm({ ...bugForm, title: event.target.value })}
-                      maxLength={200}
-                      required
-                    />
-                  ) : (
-                    <input
-                      name="title"
-                      maxLength={200}
-                      defaultValue={editingCase?.title ?? ""}
-                      required
-                    />
-                  )}
-                </label>
-              )}
-              {(modal === "bug" || modal === "edit-bug") && (
-                <>
-                  {modal === "bug" && bugTemplatesError && (
-                    <Alert tone="error">{bugTemplatesError}</Alert>
-                  )}
-                  <label className="workspace__field">
-                    Descripción
-                    <RichTextarea
-                      name="description"
-                      value={bugForm.description}
-                      onChange={(event) =>
-                        setBugForm({ ...bugForm, description: event.target.value })
-                      }
-                      maxLength={5000}
-                      rows={6}
-                    />
-                  </label>
-                  <label className="workspace__field">
-                    Prioridad
-                    <select
-                      name="priority"
-                      value={bugForm.priority}
-                      onChange={(event) =>
-                        setBugForm({
-                          ...bugForm,
-                          priority: event.target.value as BugTemplatePriority,
-                        })
-                      }
-                    >
-                      <option>Crítica</option>
-                      <option>Alta</option>
-                      <option>Media</option>
-                      <option>Baja</option>
-                    </select>
-                  </label>
-                  <TagPicker
-                    tags={tags}
-                    error={tagError}
-                    selectedIds={selectedTagIds}
-                    onChange={setSelectedTagIds}
-                  />
-                  {modal === "edit-bug" && (
-                    <>
-                      <label className="workspace__field">
-                        Estado
-                        <select
-                          name="status"
-                          value={bugForm.status}
-                          onChange={(event) =>
-                            setBugForm({ ...bugForm, status: event.target.value as BugStatus })
-                          }
-                        >
-                          {[bugForm.status, ...(workflow?.transitions[bugForm.status] ?? [])]
-                            .filter((v, i, a) => a.indexOf(v) === i)
-                            .map((status) => (
-                              <option key={status}>{status}</option>
-                            ))}
-                        </select>
-                      </label>
-                      <label className="workspace__field">
-                        Responsable anterior (texto)
-                        <input
-                          name="assignee"
-                          value={bugForm.assignee}
-                          onChange={(event) =>
-                            setBugForm({ ...bugForm, assignee: event.target.value })
-                          }
-                          maxLength={100}
-                        />
-                      </label>
-                    </>
-                  )}
-                </>
-              )}
-              {(modal === "bug" || modal === "edit-bug") && (
-                <>
-                  <label className="workspace__field">
-                    Severidad
-                    <select name="severity" defaultValue={editingBug?.severity ?? "Media"}>
-                      {["Crítica", "Alta", "Media", "Baja"].map((v) => (
-                        <option key={v}>{v}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="workspace__field">
-                    Entorno
-                    <input
-                      name="environment"
-                      maxLength={100}
-                      defaultValue={editingBug?.environment ?? ""}
-                    />
-                  </label>
-                  <label className="workspace__field">
-                    Versión afectada
-                    <input
-                      name="affectedVersion"
-                      maxLength={100}
-                      defaultValue={editingBug?.affectedVersion ?? ""}
-                    />
-                  </label>
-                </>
-              )}
-              {["bug", "edit-bug", "case", "edit-case"].includes(modal) && (
-                <>
-                  {teamMemberError && <Alert tone="error">{teamMemberError}</Alert>}
-                  <label className="workspace__field">
-                    Responsable QA
-                    <select
-                      value={assigneeUserId}
-                      onChange={(event) => setAssigneeUserId(event.target.value)}
-                      disabled={Boolean(teamMemberError)}
-                    >
-                      <option value="">Sin asignar</option>
-                      {assigneeUserId &&
-                        !teamMembers.some((member) => member.id === assigneeUserId) && (
-                          <option value={assigneeUserId}>
-                            Responsable inactivo o no disponible
+                {modal === "bug" && (
+                  <label className="workspace__field" data-editor-property="true">
+                    Cargar plantilla
+                    {bugTemplatesLoading ? (
+                      <span className="workspace__notice">Cargando plantillas…</span>
+                    ) : (
+                      <select
+                        value={selectedBugTemplateId}
+                        onChange={(event) => applyBugTemplate(event.target.value)}
+                      >
+                        <option value="">Sin plantilla</option>
+                        {bugTemplates.map((template) => (
+                          <option key={template.id} value={template.id}>
+                            {template.name}
                           </option>
-                        )}
-                      {teamMembers.map((member) => (
-                        <option key={member.id} value={member.id}>
-                          {member.name}
-                        </option>
-                      ))}
-                    </select>
+                        ))}
+                      </select>
+                    )}
                   </label>
-                </>
-              )}
-              {(modal === "case" || modal === "edit-case") && (
-                <>
-                  <label className="workspace__field">
-                    Tipo de prueba
-                    <input
-                      name="testType"
-                      required
-                      maxLength={100}
-                      list="case-types"
-                      defaultValue={editingCase?.testType ?? "Funcional"}
-                    />
-                    <datalist id="case-types">
-                      {[
-                        "Funcional",
-                        "Regresión",
-                        "Seguridad",
-                        "Smoke",
-                        "Sanity",
-                        "API",
-                        "UAT",
-                        "Exploratorias",
-                        "Edge",
-                      ].map((t) => (
-                        <option key={t} value={t} />
-                      ))}
-                    </datalist>
-                  </label>
-                  <label className="workspace__field">
-                    Estado del caso
-                    <select name="lifecycle" defaultValue={editingCase?.lifecycle ?? "Borrador"}>
-                      {["Borrador", "Listo", "Obsoleto"].map((t) => (
-                        <option key={t}>{t}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="workspace__field">
-                    Suite (opcional)
-                    <input name="suite" maxLength={100} defaultValue={editingCase?.suite ?? ""} />
-                  </label>
-                  <label className="workspace__field">
-                    Precondiciones
-                    <RichTextarea
-                      name="preconditions"
-                      maxLength={10000}
-                      defaultValue={editingCase?.preconditions ?? ""}
-                    />
-                  </label>
-                  <TagPicker
-                    tags={tags}
-                    error={tagError}
-                    selectedIds={selectedTagIds}
-                    onChange={setSelectedTagIds}
-                  />
-                  <fieldset className="workspace__step-editor">
-                    <legend>Pasos y resultados esperados · {caseSteps.length}/100</legend>
-                    <div className="case-steps__list">
-                      {caseSteps.map((step, index) => (
-                        <section
-                          className="case-steps__item"
-                          key={index}
-                          aria-label={`Paso ${index + 1}`}
-                        >
-                          <header className="case-steps__heading">
-                            <strong>Paso {index + 1}</strong>
-                            <button
-                              type="button"
-                              className="workspace__secondary"
-                              disabled={caseSteps.length <= 1}
-                              onClick={() =>
-                                setCaseSteps((steps) =>
-                                  steps.length <= 1
-                                    ? steps
-                                    : steps.filter((_item, stepIndex) => stepIndex !== index),
-                                )
-                              }
-                            >
-                              Eliminar paso
-                            </button>
-                          </header>
-                          <div className="case-steps__fields">
-                            <label className="workspace__field">
-                              Acción
-                              <RichTextarea
-                                aria-label="Acción"
-                                name="action"
-                                maxLength={10000}
-                                value={step.action}
-                                onChange={(event) =>
-                                  setCaseSteps((current) =>
-                                    current.map((item, stepIndex) =>
-                                      stepIndex === index
-                                        ? { ...item, action: event.target.value }
-                                        : item,
-                                    ),
-                                  )
-                                }
-                              />
-                            </label>
-                            <label className="workspace__field">
-                              Resultado esperado
-                              <RichTextarea
-                                aria-label="Resultado esperado"
-                                name="expectedResult"
-                                maxLength={10000}
-                                value={step.expectedResult}
-                                onChange={(event) =>
-                                  setCaseSteps((current) =>
-                                    current.map((item, stepIndex) =>
-                                      stepIndex === index
-                                        ? { ...item, expectedResult: event.target.value }
-                                        : item,
-                                    ),
-                                  )
-                                }
-                              />
-                            </label>
-                          </div>
-                        </section>
-                      ))}
-                    </div>
-                    <button
-                      type="button"
-                      className="workspace__secondary"
-                      disabled={caseSteps.length >= 100}
-                      onClick={() =>
-                        setCaseSteps((steps) =>
-                          steps.length >= 100
-                            ? steps
-                            : [...steps, { action: "", expectedResult: "" }],
-                        )
-                      }
-                    >
-                      Añadir paso
-                    </button>
-                  </fieldset>
-                  <label className="workspace__field">
-                    Enlaces relacionados (uno por línea)
-                    <RichTextarea
-                      name="attachmentLinks"
-                      rows={3}
-                      placeholder="https://docs.example.com/especificacion"
-                    />
-                  </label>
-                  <div
-                    className={`workspace__image-dropzone${caseImageDragging ? " workspace__image-dropzone--active" : ""}`}
-                    onDragOver={(event) => {
-                      event.preventDefault();
-                      setCaseImageDragging(true);
-                    }}
-                    onDragLeave={(event) => {
-                      if (event.currentTarget === event.target) setCaseImageDragging(false);
-                    }}
-                    onDrop={(event) => {
-                      event.preventDefault();
-                      setCaseImageDragging(false);
-                      addCaseImages(event.dataTransfer.files);
-                    }}
-                  >
-                    <strong>Imágenes del caso</strong>
-                    <span>
-                      Arrastra imágenes aquí o selecciónalas desde tu dispositivo. PNG, JPEG, GIF o
-                      WebP; máximo 2 MB cada una y 5 por operación.
-                    </span>
-                    <label className="workspace__secondary workspace__image-picker">
-                      Seleccionar imágenes
-                      <input
-                        type="file"
-                        accept="image/png,image/jpeg,image/gif,image/webp"
-                        multiple
-                        onChange={(event) => {
-                          if (event.target.files) addCaseImages(event.target.files);
-                          event.currentTarget.value = "";
-                        }}
+                )}
+                {modal !== "evidence" &&
+                  modal !== "edit-evidence" &&
+                  modal !== "upload-evidence" && (
+                    <label className="workspace__field">
+                      Título
+                      {modal === "bug" || modal === "edit-bug" ? (
+                        <input
+                          name="title"
+                          value={bugForm.title}
+                          onChange={(event) =>
+                            setBugForm({ ...bugForm, title: event.target.value })
+                          }
+                          maxLength={200}
+                          required
+                        />
+                      ) : (
+                        <input
+                          name="title"
+                          maxLength={200}
+                          defaultValue={editingCase?.title ?? ""}
+                          required
+                        />
+                      )}
+                    </label>
+                  )}
+                {(modal === "bug" || modal === "edit-bug") && (
+                  <>
+                    {modal === "bug" && bugTemplatesError && (
+                      <Alert tone="error">{bugTemplatesError}</Alert>
+                    )}
+                    <label className="workspace__field">
+                      Descripción
+                      <RichTextarea
+                        name="description"
+                        value={bugForm.description}
+                        onChange={(event) =>
+                          setBugForm({ ...bugForm, description: event.target.value })
+                        }
+                        maxLength={5000}
+                        rows={6}
                       />
                     </label>
-                    {caseImageFiles.map((file, index) => (
-                      <div
-                        className="workspace__image-file"
-                        key={`${file.name}:${file.lastModified}:${index}`}
+                    <label className="workspace__field">
+                      Prioridad
+                      <select
+                        name="priority"
+                        value={bugForm.priority}
+                        onChange={(event) =>
+                          setBugForm({
+                            ...bugForm,
+                            priority: event.target.value as BugTemplatePriority,
+                          })
+                        }
                       >
-                        <span>
-                          {file.name} · {(file.size / 1024).toFixed(0)} KB
-                        </span>
-                        <button
-                          type="button"
-                          className="workspace__secondary"
-                          onClick={() =>
-                            setCaseImageFiles((current) =>
-                              current.filter((_item, fileIndex) => fileIndex !== index),
-                            )
-                          }
-                        >
-                          Quitar
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-              {modal === "run" && (
-                <>
-                  <TagPicker
-                    tags={tags}
-                    error={tagError}
-                    selectedIds={selectedTagIds}
-                    onChange={setSelectedTagIds}
-                  />
-                  <fieldset className="workspace__fieldset">
-                    <legend>Casos de este proyecto</legend>
-                    {cases.map((c) => (
-                      <label className="workspace__check" key={c.id}>
-                        <input type="checkbox" name="caseIds" value={c.id} />
-                        {c.id} · {c.title}
-                      </label>
-                    ))}
-                    {!cases.length && (
-                      <p>Crea primero tus casos de prueba o guarda una ejecución vacía.</p>
+                        <option>Crítica</option>
+                        <option>Alta</option>
+                        <option>Media</option>
+                        <option>Baja</option>
+                      </select>
+                    </label>
+                    <TagPicker
+                      tags={tags}
+                      error={tagError}
+                      selectedIds={selectedTagIds}
+                      onChange={setSelectedTagIds}
+                    />
+                    {modal === "edit-bug" && (
+                      <>
+                        <label className="workspace__field">
+                          Estado
+                          <select
+                            name="status"
+                            value={bugForm.status}
+                            onChange={(event) =>
+                              setBugForm({ ...bugForm, status: event.target.value as BugStatus })
+                            }
+                          >
+                            {[bugForm.status, ...(workflow?.transitions[bugForm.status] ?? [])]
+                              .filter((v, i, a) => a.indexOf(v) === i)
+                              .map((status) => (
+                                <option key={status}>{status}</option>
+                              ))}
+                          </select>
+                        </label>
+                        <label className="workspace__field">
+                          Responsable anterior (texto)
+                          <input
+                            name="assignee"
+                            value={bugForm.assignee}
+                            onChange={(event) =>
+                              setBugForm({ ...bugForm, assignee: event.target.value })
+                            }
+                            maxLength={100}
+                          />
+                        </label>
+                      </>
                     )}
-                  </fieldset>
-                </>
-              )}
-              {modal === "evidence" && (
-                <>
-                  <p className="workspace__notice">
-                    El archivo se almacena de forma privada en PostgreSQL y solo se descarga con
-                    acceso al proyecto. Tamaño máximo: 2 MiB.
-                  </p>
-                  <FileDropzone
-                    file={evidenceFile}
-                    onFile={setEvidenceFile}
-                    name="file"
-                    required
-                    disabled={saving}
-                  />
-                  <label className="workspace__field">
-                    Vincular a
-                    <select name="related">
-                      <option value="">Sin vincular</option>
-                      {[...bugs, ...cases, ...runs].map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.id} · {item.title}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </>
-              )}
-              {modal === "upload-evidence" && (
-                <>
-                  <p className="workspace__notice">
-                    {editingEvidence?.hasFile
-                      ? "Subir un archivo reemplazará el contenido actual. La descarga seguirá protegida por sesión y proyecto."
-                      : "El archivo se almacenará de forma privada y estará disponible para descarga autenticada."}{" "}
-                    Máximo 2 MiB.
-                  </p>
-                  <FileDropzone
-                    file={evidenceFile}
-                    onFile={setEvidenceFile}
-                    name="file"
-                    required
-                    disabled={saving}
-                  />
-                </>
-              )}
-              {modal === "edit-evidence" && (
-                <>
-                  <p className="workspace__notice">
-                    Se editarán los metadatos. Usa las acciones de evidencia para subir o descargar
-                    su archivo. Si no cambias el vínculo, se conservarán todas las referencias
-                    actuales.
-                  </p>
-                  <label className="workspace__field">
-                    Nombre
-                    <input
-                      name="name"
-                      value={evidenceForm.name}
-                      onChange={(event) =>
-                        setEvidenceForm({ ...evidenceForm, name: event.target.value })
-                      }
-                      maxLength={255}
-                      required
+                  </>
+                )}
+                {(modal === "bug" || modal === "edit-bug") && (
+                  <>
+                    <label className="workspace__field">
+                      Severidad
+                      <select name="severity" defaultValue={editingBug?.severity ?? "Media"}>
+                        {["Crítica", "Alta", "Media", "Baja"].map((v) => (
+                          <option key={v}>{v}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="workspace__field">
+                      Entorno
+                      <input
+                        name="environment"
+                        maxLength={100}
+                        defaultValue={editingBug?.environment ?? ""}
+                      />
+                    </label>
+                    <label className="workspace__field">
+                      Versión afectada
+                      <input
+                        name="affectedVersion"
+                        maxLength={100}
+                        defaultValue={editingBug?.affectedVersion ?? ""}
+                      />
+                    </label>
+                  </>
+                )}
+                {["bug", "edit-bug", "case", "edit-case"].includes(modal) && (
+                  <>
+                    {teamMemberError && <Alert tone="error">{teamMemberError}</Alert>}
+                    <label className="workspace__field" data-editor-property="assignee">
+                      Responsable QA
+                      <select
+                        value={assigneeUserId}
+                        onChange={(event) => setAssigneeUserId(event.target.value)}
+                        disabled={Boolean(teamMemberError)}
+                      >
+                        <option value="">Sin asignar</option>
+                        {assigneeUserId &&
+                          !teamMembers.some((member) => member.id === assigneeUserId) && (
+                            <option value={assigneeUserId}>
+                              Responsable inactivo o no disponible
+                            </option>
+                          )}
+                        {teamMembers.map((member) => (
+                          <option key={member.id} value={member.id}>
+                            {member.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </>
+                )}
+                {(modal === "case" || modal === "edit-case") && (
+                  <>
+                    <label className="workspace__field">
+                      Tipo de prueba
+                      <input
+                        name="testType"
+                        required
+                        maxLength={100}
+                        list="case-types"
+                        defaultValue={editingCase?.testType ?? "Funcional"}
+                      />
+                      <datalist id="case-types">
+                        {[
+                          "Funcional",
+                          "Regresión",
+                          "Seguridad",
+                          "Smoke",
+                          "Sanity",
+                          "API",
+                          "UAT",
+                          "Exploratorias",
+                          "Edge",
+                        ].map((t) => (
+                          <option key={t} value={t} />
+                        ))}
+                      </datalist>
+                    </label>
+                    <label className="workspace__field">
+                      Estado del caso
+                      <select name="lifecycle" defaultValue={editingCase?.lifecycle ?? "Borrador"}>
+                        {["Borrador", "Listo", "Obsoleto"].map((t) => (
+                          <option key={t}>{t}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="workspace__field">
+                      Suite (opcional)
+                      <input name="suite" maxLength={100} defaultValue={editingCase?.suite ?? ""} />
+                    </label>
+                    <label className="workspace__field">
+                      Precondiciones
+                      <RichTextarea
+                        name="preconditions"
+                        maxLength={10000}
+                        defaultValue={editingCase?.preconditions ?? ""}
+                      />
+                    </label>
+                    <TagPicker
+                      tags={tags}
+                      error={tagError}
+                      selectedIds={selectedTagIds}
+                      onChange={setSelectedTagIds}
                     />
-                  </label>
-                  <label className="workspace__field">
-                    Tipo
-                    <select
-                      name="type"
-                      value={evidenceForm.type}
-                      onChange={(event) =>
-                        setEvidenceForm({
-                          ...evidenceForm,
-                          type: event.target.value as Evidence["type"],
-                        })
-                      }
-                      disabled={editingEvidence?.hasFile}
-                    >
-                      <option>Imagen</option>
-                      <option>Video</option>
-                      <option>Archivo</option>
-                    </select>
-                  </label>
-                  <label className="workspace__field">
-                    Tamaño en bytes
-                    <input
-                      name="sizeBytes"
-                      type="number"
-                      min={0}
-                      step={1}
-                      value={evidenceForm.sizeBytes}
-                      onChange={(event) =>
-                        setEvidenceForm({
-                          ...evidenceForm,
-                          sizeBytes: event.target.valueAsNumber,
-                        })
-                      }
-                      disabled={editingEvidence?.hasFile}
-                      required
-                    />
-                  </label>
-                  <label className="workspace__field">
-                    Vincular a
-                    <select
-                      name="related"
-                      value={evidenceForm.related}
-                      onChange={(event) => {
-                        setEvidenceForm({ ...evidenceForm, related: event.target.value });
-                        setEvidenceRelatedChanged(true);
+                    <fieldset className="workspace__step-editor">
+                      <legend>Pasos y resultados esperados · {caseSteps.length}/100</legend>
+                      <div className="case-steps__list">
+                        {caseSteps.map((step, index) => (
+                          <section
+                            className="case-steps__item"
+                            key={index}
+                            aria-label={`Paso ${index + 1}`}
+                          >
+                            <header className="case-steps__heading">
+                              <strong>Paso {index + 1}</strong>
+                              <button
+                                type="button"
+                                className="workspace__secondary"
+                                disabled={caseSteps.length <= 1}
+                                onClick={() =>
+                                  setCaseSteps((steps) =>
+                                    steps.length <= 1
+                                      ? steps
+                                      : steps.filter((_item, stepIndex) => stepIndex !== index),
+                                  )
+                                }
+                              >
+                                Eliminar paso
+                              </button>
+                            </header>
+                            <div className="case-steps__fields">
+                              <label className="workspace__field">
+                                Acción
+                                <RichTextarea
+                                  aria-label="Acción"
+                                  name="action"
+                                  maxLength={10000}
+                                  value={step.action}
+                                  onChange={(event) =>
+                                    setCaseSteps((current) =>
+                                      current.map((item, stepIndex) =>
+                                        stepIndex === index
+                                          ? { ...item, action: event.target.value }
+                                          : item,
+                                      ),
+                                    )
+                                  }
+                                />
+                              </label>
+                              <label className="workspace__field">
+                                Resultado esperado
+                                <RichTextarea
+                                  aria-label="Resultado esperado"
+                                  name="expectedResult"
+                                  maxLength={10000}
+                                  value={step.expectedResult}
+                                  onChange={(event) =>
+                                    setCaseSteps((current) =>
+                                      current.map((item, stepIndex) =>
+                                        stepIndex === index
+                                          ? { ...item, expectedResult: event.target.value }
+                                          : item,
+                                      ),
+                                    )
+                                  }
+                                />
+                              </label>
+                            </div>
+                          </section>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        className="workspace__secondary"
+                        disabled={caseSteps.length >= 100}
+                        onClick={() =>
+                          setCaseSteps((steps) =>
+                            steps.length >= 100
+                              ? steps
+                              : [...steps, { action: "", expectedResult: "" }],
+                          )
+                        }
+                      >
+                        Añadir paso
+                      </button>
+                    </fieldset>
+                    <label className="workspace__field">
+                      Enlaces relacionados (uno por línea)
+                      <RichTextarea
+                        name="attachmentLinks"
+                        rows={3}
+                        placeholder="https://docs.example.com/especificacion"
+                      />
+                    </label>
+                    <div
+                      className={`workspace__image-dropzone${caseImageDragging ? " workspace__image-dropzone--active" : ""}`}
+                      onDragOver={(event) => {
+                        event.preventDefault();
+                        setCaseImageDragging(true);
+                      }}
+                      onDragLeave={(event) => {
+                        if (event.currentTarget === event.target) setCaseImageDragging(false);
+                      }}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        setCaseImageDragging(false);
+                        addCaseImages(event.dataTransfer.files);
                       }}
                     >
-                      <option value="">Sin vincular</option>
-                      {[...bugs, ...cases, ...runs].map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.id} · {item.title}
-                        </option>
+                      <strong>Imágenes del caso</strong>
+                      <span>
+                        Arrastra imágenes aquí o selecciónalas desde tu dispositivo. PNG, JPEG, GIF
+                        o WebP; máximo 2 MB cada una y 5 por operación.
+                      </span>
+                      <label className="workspace__secondary workspace__image-picker">
+                        Seleccionar imágenes
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/gif,image/webp"
+                          multiple
+                          onChange={(event) => {
+                            if (event.target.files) addCaseImages(event.target.files);
+                            event.currentTarget.value = "";
+                          }}
+                        />
+                      </label>
+                      {caseImageFiles.map((file, index) => (
+                        <div
+                          className="workspace__image-file"
+                          key={`${file.name}:${file.lastModified}:${index}`}
+                        >
+                          <span>
+                            {file.name} · {(file.size / 1024).toFixed(0)} KB
+                          </span>
+                          <button
+                            type="button"
+                            className="workspace__secondary"
+                            onClick={() =>
+                              setCaseImageFiles((current) =>
+                                current.filter((_item, fileIndex) => fileIndex !== index),
+                              )
+                            }
+                          >
+                            Quitar
+                          </button>
+                        </div>
                       ))}
-                    </select>
-                  </label>
-                </>
-              )}
+                    </div>
+                  </>
+                )}
+                {modal === "run" && (
+                  <>
+                    <label className="workspace__field">
+                      Responsable de ejecución
+                      <select
+                        name="ownerUserId"
+                        value={assigneeUserId || user.id}
+                        onChange={(event) => setAssigneeUserId(event.target.value)}
+                      >
+                        <option value={user.id}>{user.name}</option>
+                        {teamMembers
+                          .filter((member) => member.id !== user.id)
+                          .map((member) => (
+                            <option key={member.id} value={member.id}>
+                              {member.name}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
+                    <TagPicker
+                      tags={tags}
+                      error={tagError}
+                      selectedIds={selectedTagIds}
+                      onChange={setSelectedTagIds}
+                    />
+                    <fieldset className="workspace__fieldset">
+                      <legend>Casos de este proyecto</legend>
+                      {cases.map((c) => (
+                        <label className="workspace__check" key={c.id}>
+                          <input type="checkbox" name="caseIds" value={c.id} />
+                          {c.id} · {c.title}
+                        </label>
+                      ))}
+                      {!cases.length && (
+                        <p>Crea primero tus casos de prueba o guarda una ejecución vacía.</p>
+                      )}
+                    </fieldset>
+                  </>
+                )}
+                {modal === "evidence" && (
+                  <>
+                    <p className="workspace__notice">
+                      El archivo se almacena de forma privada en PostgreSQL y solo se descarga con
+                      acceso al proyecto. Tamaño máximo: 2 MiB.
+                    </p>
+                    <FileDropzone
+                      file={evidenceFile}
+                      onFile={setEvidenceFile}
+                      name="file"
+                      required
+                      disabled={saving}
+                    />
+                    <label className="workspace__field">
+                      Vincular a
+                      <select name="related">
+                        <option value="">Sin vincular</option>
+                        {[...bugs, ...cases, ...runs].map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.id} · {item.title}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </>
+                )}
+                {modal === "upload-evidence" && (
+                  <>
+                    <p className="workspace__notice">
+                      {editingEvidence?.hasFile
+                        ? "Subir un archivo reemplazará el contenido actual. La descarga seguirá protegida por sesión y proyecto."
+                        : "El archivo se almacenará de forma privada y estará disponible para descarga autenticada."}{" "}
+                      Máximo 2 MiB.
+                    </p>
+                    <FileDropzone
+                      file={evidenceFile}
+                      onFile={setEvidenceFile}
+                      name="file"
+                      required
+                      disabled={saving}
+                    />
+                  </>
+                )}
+                {modal === "edit-evidence" && (
+                  <>
+                    <p className="workspace__notice">
+                      Se editarán los metadatos. Usa las acciones de evidencia para subir o
+                      descargar su archivo. Si no cambias el vínculo, se conservarán todas las
+                      referencias actuales.
+                    </p>
+                    <label className="workspace__field">
+                      Nombre
+                      <input
+                        name="name"
+                        value={evidenceForm.name}
+                        onChange={(event) =>
+                          setEvidenceForm({ ...evidenceForm, name: event.target.value })
+                        }
+                        maxLength={255}
+                        required
+                      />
+                    </label>
+                    <label className="workspace__field">
+                      Tipo
+                      <select
+                        name="type"
+                        value={evidenceForm.type}
+                        onChange={(event) =>
+                          setEvidenceForm({
+                            ...evidenceForm,
+                            type: event.target.value as Evidence["type"],
+                          })
+                        }
+                        disabled={editingEvidence?.hasFile}
+                      >
+                        <option>Imagen</option>
+                        <option>Video</option>
+                        <option>Archivo</option>
+                      </select>
+                    </label>
+                    <label className="workspace__field">
+                      Tamaño en bytes
+                      <input
+                        name="sizeBytes"
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={evidenceForm.sizeBytes}
+                        onChange={(event) =>
+                          setEvidenceForm({
+                            ...evidenceForm,
+                            sizeBytes: event.target.valueAsNumber,
+                          })
+                        }
+                        disabled={editingEvidence?.hasFile}
+                        required
+                      />
+                    </label>
+                    <label className="workspace__field">
+                      Vincular a
+                      <select
+                        name="related"
+                        value={evidenceForm.related}
+                        onChange={(event) => {
+                          setEvidenceForm({ ...evidenceForm, related: event.target.value });
+                          setEvidenceRelatedChanged(true);
+                        }}
+                      >
+                        <option value="">Sin vincular</option>
+                        {[...bugs, ...cases, ...runs].map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.id} · {item.title}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </>
+                )}
+              </WorkItemEditor>
             </fieldset>
             {formError && <Alert tone="error">{formError}</Alert>}
             <div className="workspace__actions">
@@ -2365,6 +2392,7 @@ function App({
 
 function pageDescription(page: NavigationPage): string {
   return {
+    assignments: "Consulta y filtra los registros asignados a tu cuenta en el proyecto.",
     mentions: "Consulta las menciones de tus compañeros dentro del proyecto.",
     coverage: "Conecta requisitos, casos y bugs del proyecto.",
     overview: "Aquí tienes el estado de calidad de tus proyectos.",
