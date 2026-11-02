@@ -393,7 +393,7 @@ test("exporta solo registros filtrados y muestra la maqueta de perfil", async ({
     const download = page.waitForEvent("download");
     await page.getByRole("button", { name: "Exportar como Markdown", exact: true }).click();
     expect((await download).suggestedFilename()).toMatch(/\.md$/);
-    await page.getByRole("textbox", { name: "Buscar registros" }).fill("ninguna-coincidencia");
+    await page.getByLabel("Buscar registros", { exact: true }).fill("ninguna-coincidencia");
     await expect(button).toBeDisabled();
     await expect(page.locator(".workspace-table__footer")).toContainText("0 resultados");
     await noHorizontalOverflow(page);

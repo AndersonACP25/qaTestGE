@@ -310,7 +310,7 @@ test("guardar un resultado de Test Run conserva la posición del caso ejecutado"
     before = await body.evaluate((node) => node.scrollTop);
   expect(before).toBeGreaterThan(300);
   await button.click();
-  await expect(result.getByText("Resultado de TC-4 guardado.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Resultado de TC-4 guardado.", { exact: true })).toBeVisible();
   await expect
     .poll(() => body.evaluate((node, original) => Math.abs(node.scrollTop - original), before))
     .toBeLessThan(80);
