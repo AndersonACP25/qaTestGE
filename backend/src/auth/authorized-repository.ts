@@ -115,9 +115,9 @@ export class AuthorizedRepository implements Repository {
         await this.projectIds(p);
         return base.linkCaseBug(p, requirementId, caseId, bugId);
       },
-      coverage: async (p, limit, offset, requirementId) => {
+      coverage: async (p, limit, offset, requirementId, caseId, bugId) => {
         await this.projectIds(p);
-        return base.coverage(p, limit, offset, requirementId);
+        return base.coverage(p, limit, offset, requirementId, caseId, bugId);
       },
       runReport: async (p, id) => {
         await this.projectIds(p);

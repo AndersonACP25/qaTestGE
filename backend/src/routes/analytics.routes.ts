@@ -94,7 +94,20 @@ router.get("/coverage-matrix", async (req, res) => {
     req.query.requirementId === undefined
       ? undefined
       : parseReference(valid(ref("REQ"), req.query.requirementId), "REQ")!;
-  res.json({ data: await analytics(req).coverage(project(req), p.limit, p.offset, id) });
+  res.json({
+    data: await analytics(req).coverage(
+      project(req),
+      p.limit,
+      p.offset,
+      id,
+      req.query.caseId === undefined
+        ? undefined
+        : parseReference(valid(ref("TC"), req.query.caseId), "TC")!,
+      req.query.bugId === undefined
+        ? undefined
+        : parseReference(valid(ref("BUG"), req.query.bugId), "BUG")!,
+    ),
+  });
 });
 router.post("/coverage-links", async (req, res) => {
   const b = valid(

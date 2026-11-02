@@ -294,6 +294,38 @@ try {
   a = await metrics();
   assert.equal(a.bugTrend[0].open, 0);
   assert.equal(a.bugTrend[0].closed, 1);
+  // Manual links refresh as an exact requirement/case/bug result, regardless of the previous page.
+  const manual = await owner
+    .post("/api/bugs")
+    .send({ projectId, title: "Bug manual de cobertura", priority: "Media" });
+  assert.equal(manual.status, 201);
+  const linkInput = { requirementId: requirement.id, caseId, bugId: manual.body.data.id };
+  for (let attempt = 0; attempt < 2; attempt++)
+    assert.equal(
+      (await owner.post("/api/coverage-links").query({ projectId }).send(linkInput)).status,
+      204,
+    );
+  const focused = await viewer
+    .get("/api/coverage-matrix")
+    .query({ projectId, ...linkInput, limit: 50 });
+  assert.equal(focused.status, 200);
+  assert.equal(focused.body.data.total, 1);
+  assert.equal(focused.body.data.rows[0].bugId, manual.body.data.id);
+  assert.equal(
+    (
+      await viewer.get("/api/coverage-matrix").query({
+        projectId,
+        requirementId: requirement.id,
+        caseId: foreignCase,
+        bugId: manual.body.data.id,
+      })
+    ).body.data.total,
+    0,
+  );
+  assert.equal(
+    (await viewer.get("/api/coverage-matrix").query({ projectId, caseId: "BUG-1" })).status,
+    400,
+  );
   console.info(
     "Analítica: agregaciones, transiciones, reaperturas, reclasificación, cobertura, permisos, snapshots e importación idempotente verificados.",
   );
