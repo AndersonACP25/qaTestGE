@@ -249,12 +249,16 @@ export class PostgresAnalyticsRepository implements AnalyticsRepository {
     limit: number,
     offset: number,
     requirementId?: string,
+    caseId?: string,
+    bugId?: string,
   ): Promise<CoveragePage> {
     return this.transaction(async (c) => {
-      const base = `FROM qa.requirements r LEFT JOIN qa.requirement_cases rc ON rc.requirement_id=r.id LEFT JOIN qa.test_cases tc ON tc.id=rc.test_case_id LEFT JOIN qa.bug_test_cases bc ON bc.test_case_id=tc.id LEFT JOIN qa.bugs b ON b.id=bc.bug_id WHERE r.project_id=$1 AND ($2::bigint IS NULL OR r.id=$2)`;
+      const base = `FROM qa.requirements r LEFT JOIN qa.requirement_cases rc ON rc.requirement_id=r.id LEFT JOIN qa.test_cases tc ON tc.id=rc.test_case_id LEFT JOIN qa.bug_test_cases bc ON bc.test_case_id=tc.id LEFT JOIN qa.bugs b ON b.id=bc.bug_id WHERE r.project_id=$1 AND ($2::bigint IS NULL OR r.id=$2) AND ($3::bigint IS NULL OR tc.id=$3) AND ($4::bigint IS NULL OR b.id=$4)`;
       const count = await c.query<{ total: number }>(`SELECT count(*)::int AS total ${base}`, [
         projectId,
         requirementId ?? null,
+        caseId ?? null,
+        bugId ?? null,
       ]);
       const r = await c.query<{
         requirement_id: string;
@@ -265,8 +269,8 @@ export class PostgresAnalyticsRepository implements AnalyticsRepository {
         bug_id: string | null;
         bug_title: string | null;
       }>(
-        `SELECT r.id::text AS requirement_id,r.code,r.title,tc.id::text AS case_id,tc.title AS case_title,b.id::text AS bug_id,b.title AS bug_title ${base} ORDER BY r.id,tc.id,b.id LIMIT $3 OFFSET $4`,
-        [projectId, requirementId ?? null, limit, offset],
+        `SELECT r.id::text AS requirement_id,r.code,r.title,tc.id::text AS case_id,tc.title AS case_title,b.id::text AS bug_id,b.title AS bug_title ${base} ORDER BY r.id,tc.id,b.id LIMIT $5 OFFSET $6`,
+        [projectId, requirementId ?? null, caseId ?? null, bugId ?? null, limit, offset],
       );
       return {
         rows: r.rows.map((x): CoverageRow => ({

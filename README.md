@@ -89,6 +89,14 @@ La migración **015** incorpora analítica y requisitos; la **016** recupera avi
 
 ## Accesos y verificación del CORE
 
-En Configuración → Accesos al proyecto, un Admin puede agregar integrantes registrados y activos del equipo, consultar/buscar usuarios con acceso, editar su rol (Admin, QA, Dev o Solo lectura) y retirar su acceso a ese proyecto. Los nuevos integrantes se incorporan desde Equipos; esta pantalla no crea ni modifica cuentas globales. El propietario conserva su acceso; antes de retirar a un responsable hay que reasignar sus bugs/casos. Los cambios concurrentes exigen actualizar la lista.
+En Configuración → Accesos al proyecto, un Admin puede agregar integrantes registrados y activos del equipo, consultar/buscar usuarios con acceso, editar su rol (Admin, QA, Dev o Solo lectura) y retirar su acceso a ese proyecto. Los nuevos integrantes se incorporan desde Equipos; Admin también puede crear una cuenta nueva con rol delimitado a este proyecto; un correo registrado devuelve conflicto y no modifica la cuenta existente. El propietario conserva su acceso; antes de retirar a un responsable hay que reasignar sus bugs/casos/ejecuciones. Los cambios concurrentes exigen actualizar la lista.
 
 Dashboard encabeza el menú lateral y presenta 0/0% cuando no hay indicadores evaluables, sin convertir fechas desconocidas en datos históricos. Las tarjetas separan encabezados, contenido y acciones. Las pruebas unitarias priorizan reglas del CORE, seguridad e integridad; [TESTING](docs/TESTING.md) y AGENTS.md describen qué validar y qué revisar en navegador.
+
+## Filtros, cobertura y confirmaciones
+
+Bugs, Casos de prueba y Test Runs reúnen búsqueda, estado, responsable y tags en **Filtros**. Bugs añade prioridad/severidad, casos añade tipo/ciclo documental y ejecuciones añade Test Plan. **Limpiar filtros** restaura la lista; cambiar de ventana o proyecto también reinicia la selección. La paginación y exportación conservan el conjunto filtrado.
+
+Cobertura y requisitos ofrece un buscador de casos en filas seleccionables con ID, título y clasificación. Tras vincular un bug, la matriz enfoca la relación confirmada; **Mostrar matriz completa** devuelve la consulta general. Las evidencias de **Diseñar bugs** y **Diseñar test case** están en **Evidencias opcionales**, cerrada por defecto; se anexan explícitamente después de guardar el registro.
+
+Las confirmaciones de éxito aparecen arriba a la derecha, por encima de los modales, se pueden cerrar y desaparecen a los cuatro segundos. Errores y advertencias conservan su contexto. La campana sitúa **Ver todas las menciones** en la parte superior; abrir un aviso sigue sin marcarlo leído. La Wiki incluye estas acciones y las guías de asignaciones, Test Plan y auditoría.

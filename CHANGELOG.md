@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-11-02 · Filtros, cobertura y confirmaciones
+
+- Colocar Ver todas las menciones arriba en notificaciones y sustituir la flecha de proyecto por un icono SVG.
+- Mantener cabecera y cierre de Test Run al navegar a Historial; desplazar solo su cuerpo y conservar las propiedades visibles en escritorio.
+- Rediseñar el buscador de casos/vínculos como filas seleccionables con metadatos. Enfocar y destacar la relación requisito ↔ caso ↔ bug confirmada, incluso desde páginas posteriores, con retorno a la matriz completa.
+- Agrupar búsqueda, estado, responsable y tags en Filtros de Bugs/Casos/Test Runs, con clasificación específica y limpieza de selección.
+- Mostrar éxitos arriba a la derecha, por encima de modales, con cierre y duración de cuatro segundos. Mantener errores en contexto y evitar avisos por lecturas automáticas.
+- Cerrar por defecto Evidencias opcionales en ambos diseñadores y ampliar las guías de Wiki. Sin migraciones ni dependencias nuevas.
+- Validación aprobada: 169 unitarias CORE, 285 E2E en escritorio/móvil y seis integraciones PostgreSQL efímeras; TypeScript, lint, formato y compilación correctos.
+
 ## 2026-11-01 · Editores, asignaciones y evidencias del diseño
 
 - Unificar creación y edición de Bugs, Test Cases y Test Runs con cabecera editable, responsable, propiedades y contenido por secciones; selector de proyecto personalizado y contador de menciones a 16 px.

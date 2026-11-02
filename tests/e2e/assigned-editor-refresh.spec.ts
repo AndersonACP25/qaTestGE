@@ -64,7 +64,7 @@ for (const [section, button, kind] of [
         animations: "disabled",
       });
       await edit.getByRole("button", { name: "Guardar ejecución", exact: true }).click();
-      await expect(edit.getByText("Ejecución actualizada.", { exact: true })).toBeVisible();
+      await expect(page.getByText("Ejecución actualizada.", { exact: true })).toBeVisible();
     }
     expect(errors).toEqual([]);
     await noHorizontalOverflow(page);
@@ -212,6 +212,8 @@ for (const kind of ["bug", "case"] as const)
       await page.getByRole("button", { name: /^Mostrar tabla de ejemplo/ }).click();
     }
     const panel = page.locator(".design-evidence").first();
+    await expect(panel).not.toHaveAttribute("open", "");
+    await panel.locator("summary").click();
     await panel.getByLabel("Archivo de evidencia del diseño", { exact: true }).setInputFiles({
       name: "detalle.txt",
       mimeType: "text/plain",

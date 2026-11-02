@@ -128,6 +128,8 @@ export interface AnalyticsRepository {
     limit: number,
     offset: number,
     requirementId?: string,
+    caseId?: string,
+    bugId?: string,
   ): Promise<CoveragePage>;
   runReport(projectId: string, id: string): Promise<RunReport>;
   importTags(

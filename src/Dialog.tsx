@@ -35,6 +35,9 @@ export default function Dialog({
         ...(panel.current?.querySelectorAll<HTMLElement>(
           'button:not(:disabled),input:not(:disabled),textarea:not(:disabled),select:not(:disabled),[tabindex="0"]',
         ) ?? []),
+        ...document.querySelectorAll<HTMLElement>(
+          ".success-alerts button:not(:disabled),.success-alerts a[href]",
+        ),
       ].filter((item) => item.getClientRects().length > 0 && !item.matches(":disabled"));
       if (!items.length) {
         event.preventDefault();

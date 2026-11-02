@@ -74,6 +74,16 @@ export default function NotificationBell({
               ×
             </button>
           </header>
+          <button
+            className="notification-bell__view-all"
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              onViewAll();
+            }}
+          >
+            Ver todas las menciones →
+          </button>
           {inbox.error && <Alert tone="error">{inbox.error}</Alert>}
           {inbox.loading && !inbox.rows.length && <p role="status">Cargando…</p>}
           {!inbox.loading && !inbox.rows.length && <p>No tienes notificaciones.</p>}
@@ -101,16 +111,6 @@ export default function NotificationBell({
               </article>
             ))}
           </div>
-          <button
-            className="notification-bell__view-all"
-            type="button"
-            onClick={() => {
-              setOpen(false);
-              onViewAll();
-            }}
-          >
-            Ver todas las menciones →
-          </button>
         </section>
       )}
     </div>

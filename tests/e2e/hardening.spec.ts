@@ -23,7 +23,7 @@ test("pagina las tablas y exporta solo la página visible", async ({ page, works
   await page.getByRole("button", { name: "Exportar tabla de Bugs", exact: true }).click();
   await expect(page.getByRole("dialog")).toContainText("5 registros de la página visible");
   await page.keyboard.press("Escape");
-  await page.getByRole("textbox", { name: "Buscar registros" }).fill("Bug tabla 55");
+  await page.getByLabel("Buscar registros", { exact: true }).fill("Bug tabla 55");
   await expect(page.locator(".workspace-table__table tbody tr")).toHaveCount(1);
   await expect(page.locator(".workspace-table__footer")).toContainText("Página 1 de 1");
   await noHorizontalOverflow(page);
@@ -120,10 +120,7 @@ test("los tipos incluidos se editan y eliminan desde su fila", async ({
   await navigate(page, "Bugs");
   const tab = page.getByRole("button", { name: "Todos", exact: true });
   await expect(tab).toHaveCSS("font-size", "14px");
-  await expect(page.getByRole("textbox", { name: "Buscar registros" })).toHaveCSS(
-    "font-size",
-    "14px",
-  );
+  await expect(page.getByLabel("Buscar registros", { exact: true })).toHaveCSS("font-size", "14px");
   await noHorizontalOverflow(page);
   await page.screenshot({ path: testInfo.outputPath("filtros-ampliados.png"), fullPage: true });
 });
