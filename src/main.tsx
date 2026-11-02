@@ -1,3 +1,4 @@
+import { SuccessAlertsProvider } from "./components/SuccessAlerts";
 import ErrorBoundary from "./ErrorBoundary";
 import React from "react";
 import { createRoot } from "react-dom/client";
@@ -10,6 +11,7 @@ import "./views/inbox.css";
 import "./views/editor-layout.css";
 import "./views/work-items.css";
 import "./views/workspace-refresh.css";
+import "./views/interaction-refinements.css";
 
 const rootElement = document.getElementById("root");
 
@@ -20,7 +22,9 @@ if (!rootElement) {
 createRoot(rootElement).render(
   <React.StrictMode>
     <ErrorBoundary>
-      <Session />
+      <SuccessAlertsProvider>
+        <Session />
+      </SuccessAlertsProvider>
     </ErrorBoundary>
   </React.StrictMode>,
 );

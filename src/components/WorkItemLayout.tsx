@@ -1,4 +1,4 @@
-import { useRef, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 const labels = { bug: "Bug", case: "Test Case", run: "Test Run", evidence: "Evidencia" };
 export default function WorkItemLayout({
   kind,
@@ -22,6 +22,13 @@ export default function WorkItemLayout({
   editing?: boolean;
 }) {
   const content = useRef<HTMLDivElement>(null);
+  const frame = useRef<number>();
+  useEffect(
+    () => () => {
+      if (frame.current !== undefined) cancelAnimationFrame(frame.current);
+    },
+    [],
+  );
   return (
     <article className={`work-item work-item--${kind}${editing ? " work-item--editing" : ""}`}>
       <header className="work-item__heading">
@@ -43,11 +50,21 @@ export default function WorkItemLayout({
             onClick={() => {
               const section = content.current?.querySelector<HTMLElement>(anchor.selector);
               if (section instanceof HTMLDetailsElement) section.open = true;
-              section?.scrollIntoView({
-                block: "start",
-                behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
-                  ? "instant"
-                  : "smooth",
+              if (frame.current !== undefined) cancelAnimationFrame(frame.current);
+              frame.current = requestAnimationFrame(() => {
+                const body = content.current?.closest<HTMLElement>(".workspace__dialog-body");
+                if (!section || !body || !section.isConnected) return;
+                const top =
+                  body.scrollTop +
+                  section.getBoundingClientRect().top -
+                  body.getBoundingClientRect().top -
+                  16;
+                body.scrollTo({
+                  top: Math.max(0, Math.min(top, body.scrollHeight - body.clientHeight)),
+                  behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+                    ? "instant"
+                    : "smooth",
+                });
               });
             }}
           >

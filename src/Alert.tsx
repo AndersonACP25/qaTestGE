@@ -1,5 +1,15 @@
-import type { ReactNode } from "react";
+import { FloatingSuccess } from "./components/SuccessAlerts";
+import { Children, isValidElement, type ReactNode } from "react";
 
+function contentKey(children: ReactNode): string {
+  return Children.toArray(children)
+    .map((child) =>
+      isValidElement<{ children?: ReactNode }>(child)
+        ? contentKey(child.props.children)
+        : String(child ?? ""),
+    )
+    .join("|");
+}
 export type AlertTone = "success" | "error" | "warning" | "info";
 
 export default function Alert({
@@ -35,7 +45,7 @@ export default function Alert({
     );
   };
 
-  return (
+  const alert = (
     <div
       className={`alert alert--${tone}${className ? ` ${className}` : ""}`}
       role={tone === "error" || tone === "warning" ? "alert" : "status"}
@@ -48,7 +58,7 @@ export default function Alert({
         <strong className="alert__title">{label}</strong>
         <div className="alert__message">{children}</div>
       </div>
-      {onDismiss && (
+      {onDismiss && tone !== "success" && (
         <button
           className="alert__dismiss"
           type="button"
@@ -59,5 +69,12 @@ export default function Alert({
         </button>
       )}
     </div>
+  );
+  return tone === "success" ? (
+    <FloatingSuccess key={`${label}:${contentKey(children)}`} onDismiss={onDismiss}>
+      {alert}
+    </FloatingSuccess>
+  ) : (
+    alert
   );
 }
