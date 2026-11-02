@@ -1,3 +1,4 @@
+import ListingFilters, { defaultListingFilters } from "./components/ListingFilters";
 import WorkItemEditor from "./components/WorkItemEditor";
 import ProjectPicker from "./components/ProjectPicker";
 import AssignedWorkView from "./views/AssignedWorkView";
@@ -141,8 +142,7 @@ function App({
   const error = projectError || resourceError;
   const { workflow, error: workflowError } = useBugWorkflow(projectId, revision);
   const projectBugStatuses = workflow?.states ?? bugStatuses;
-  const [typeFilter, setTypeFilter] = useState("Todos");
-  const [lifecycleFilter, setLifecycleFilter] = useState("Todos");
+
   const creationKey = useRef(crypto.randomUUID());
   const [saving, setSaving] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState("");
@@ -199,8 +199,15 @@ function App({
   const [exportingRecord, setExportingRecord] = useState(false);
   const [formError, setFormError] = useState("");
   const [tablePage, setTablePage] = useState(1);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("Todos");
+  const [listingFilters, setListingFilters] = useState(defaultListingFilters);
+  const { search, typeFilter, lifecycleFilter } = listingFilters;
+  const setSearch = (search: string) => setListingFilters((current) => ({ ...current, search }));
+  const setStatusFilter = (statusFilter: string) =>
+    setListingFilters((current) => ({ ...current, statusFilter }));
+  useEffect(() => {
+    setListingFilters(defaultListingFilters);
+    setTablePage(1);
+  }, [projectId, activePage]);
   const [mobileNav, setMobileNav] = useState(false);
   const [toast, setToast] = useState("");
   const [toastTone, setToastTone] = useState<AlertTone>("success");
@@ -211,6 +218,10 @@ function App({
   const [detail, setDetail] = useState<Evidence | null>(null);
   const [recordDetail, setRecordDetail] = useState<RecordDetail | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => {
+    setToast("");
+    clearTimeout(toastTimer.current);
+  }, [user.id, projectId]);
   const project = projects.find((p) => p.id === projectId);
   const role = project?.role ?? "Solo lectura";
   const allowed = (permission: Parameters<typeof can>[1]) => can(role, permission);
@@ -298,23 +309,17 @@ function App({
       });
     return () => abort.abort();
   }, [projectId, revision]);
-  const filteredBugs = useMemo(
-    () => filterBugs(bugs, { search, statusFilter }),
-    [bugs, search, statusFilter],
-  );
+  const filteredBugs = useMemo(() => filterBugs(bugs, listingFilters), [bugs, listingFilters]);
   const filteredCases = useMemo(
     () =>
-      filterCases(cases, { search, statusFilter }).filter(
+      filterCases(cases, listingFilters).filter(
         (c) =>
           (typeFilter === "Todos" || (c.testType ?? "Funcional") === typeFilter) &&
           (lifecycleFilter === "Todos" || (c.lifecycle ?? "Borrador") === lifecycleFilter),
       ),
-    [cases, search, statusFilter, typeFilter, lifecycleFilter],
+    [cases, listingFilters, typeFilter, lifecycleFilter],
   );
-  const filteredRuns = useMemo(
-    () => filterRuns(runs, { search, statusFilter }),
-    [runs, search, statusFilter],
-  );
+  const filteredRuns = useMemo(() => filterRuns(runs, listingFilters), [runs, listingFilters]);
   const filteredEvidence = useMemo(() => filterEvidence(evidence, { search }), [evidence, search]);
   const matchedTotal =
     activePage === "bugs"
@@ -1106,41 +1111,6 @@ function App({
           )}
           {error && <Alert tone="error">{error}</Alert>}
           {workflowError && <Alert tone="error">{workflowError}</Alert>}
-          {activePage === "cases" && projectId && (
-            <>
-              <div className="quality__filters">
-                <label className="workspace__field">
-                  Tipo de prueba
-                  <select
-                    value={typeFilter}
-                    onChange={(e) => {
-                      setTypeFilter(e.target.value);
-                      setTablePage(1);
-                    }}
-                  >
-                    <option>Todos</option>
-                    {[...new Set(cases.map((c) => c.testType ?? "Funcional"))].sort().map((t) => (
-                      <option key={t}>{t}</option>
-                    ))}
-                  </select>
-                </label>
-                <label className="workspace__field">
-                  Estado del caso
-                  <select
-                    value={lifecycleFilter}
-                    onChange={(e) => {
-                      setLifecycleFilter(e.target.value);
-                      setTablePage(1);
-                    }}
-                  >
-                    {["Todos", "Borrador", "Listo", "Obsoleto"].map((t) => (
-                      <option key={t}>{t}</option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-            </>
-          )}
           {preferencesError && <Alert tone="error">{preferencesError}</Alert>}
           {!loading && !error && !projectId && activePage !== "settings" && (
             <p className="workspace__notice">
@@ -1306,21 +1276,7 @@ function App({
               />
             ) : isListing ? (
               <section className="listing-card">
-                <div className="listing-toolbar listing-filters">
-                  <div className="listing-filters__tabs">
-                    {filters.map((filter) => (
-                      <button
-                        key={filter}
-                        className={`listing-filters__tab${statusFilter === filter ? " listing-filters__tab--active" : ""}`}
-                        onClick={() => {
-                          setStatusFilter(filter);
-                          setTablePage(1);
-                        }}
-                      >
-                        {filter}
-                      </button>
-                    ))}
-                  </div>
+                {activePage === "evidence" ? (
                   <label className="search-field">
                     <Icon name="search" />
                     <input
@@ -1330,10 +1286,32 @@ function App({
                         setSearch(event.target.value);
                         setTablePage(1);
                       }}
-                      placeholder={`Buscar ${pageTitle.toLowerCase()}…`}
+                      placeholder="Buscar evidencias…"
                     />
                   </label>
-                </div>
+                ) : (
+                  <ListingFilters
+                    kind={
+                      activePage === "bugs" ? "bugs" : activePage === "cases" ? "cases" : "runs"
+                    }
+                    statuses={filters}
+                    values={listingFilters}
+                    onChange={(patch) => {
+                      setListingFilters((current) => ({ ...current, ...patch }));
+                      setTablePage(1);
+                    }}
+                    onClear={() => {
+                      setListingFilters(defaultListingFilters);
+                      setTablePage(1);
+                    }}
+                    members={teamMembers}
+                    tags={tags}
+                    types={[...new Set(cases.map((item) => item.testType ?? "Funcional"))].sort()}
+                    plans={[
+                      ...new Set(runs.flatMap((item) => (item.planId ? [item.planId] : []))),
+                    ].sort()}
+                  />
+                )}
                 {activePage !== "evidence" && (
                   <div className="workspace-table__toolbar">
                     {projectId &&
