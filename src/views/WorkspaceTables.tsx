@@ -435,7 +435,7 @@ export function EvidenceTable({
                 {item.hasFile && (
                   <button
                     type="button"
-                    className="workspace__secondary"
+                    className="workspace__secondary workspace-table__action--download"
                     aria-label={`Descargar ${item.name}`}
                     onClick={(event) => {
                       event.stopPropagation();

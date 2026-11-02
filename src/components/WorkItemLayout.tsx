@@ -9,6 +9,7 @@ export default function WorkItemLayout({
   anchors,
   actions,
   children,
+  editing = false,
 }: {
   kind: keyof typeof labels;
   id: string;
@@ -18,10 +19,11 @@ export default function WorkItemLayout({
   anchors: { label: string; selector: string }[];
   actions?: ReactNode;
   children: ReactNode;
+  editing?: boolean;
 }) {
   const content = useRef<HTMLDivElement>(null);
   return (
-    <article className={`work-item work-item--${kind}`}>
+    <article className={`work-item work-item--${kind}${editing ? " work-item--editing" : ""}`}>
       <header className="work-item__heading">
         <div className="work-item__identity">
           <div className="work-item__type">

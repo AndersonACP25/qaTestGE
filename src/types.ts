@@ -1,6 +1,7 @@
 export type NavigationPage =
   | "coverage"
   | "overview"
+  | "assignments"
   | "mentions"
   | "reports"
   | "plans"
@@ -82,6 +83,7 @@ export interface TestRun {
   progress: number;
   status: "En curso" | "Completado";
   owner: string;
+  ownerUserId?: string | null;
   projectId?: string;
   tagIds?: string[];
   caseIds?: string[];

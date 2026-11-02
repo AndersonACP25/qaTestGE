@@ -1,3 +1,4 @@
+import DesignEvidencePanel from "./DesignEvidencePanel";
 import RichTextarea from "../components/RichTextarea";
 import type { CaseDesignController } from "../controllers/useCaseDesignController";
 import { formatCount } from "../utils/pluralization";
@@ -258,6 +259,10 @@ export default function CaseDesignView({
                         </fieldset>
                       ))}
                     </div>
+                    <DesignEvidencePanel
+                      projectId={projectId}
+                      targetId={savedCases[`${testCase.categoryId}:${testCase.caseNumber}`]?.id}
+                    />
                     <button
                       type="button"
                       className="case-builder__add-step"

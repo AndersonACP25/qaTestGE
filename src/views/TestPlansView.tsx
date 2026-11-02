@@ -19,6 +19,7 @@ export default function TestPlansView({
 }) {
   const readOnly = !usePermissions().can("plans.write");
   const [search, setSearch] = useState("");
+  const [selectedCaseIds, setSelectedCaseIds] = useState<string[]>([]);
   const [caseSearch, setCaseSearch] = useState("");
   const [formRevision, setFormRevision] = useState(0);
   const [plans, setPlans] = useState<TestPlan[]>([]);
@@ -112,6 +113,7 @@ export default function TestPlansView({
               if (alive.current) {
                 planKey.current = crypto.randomUUID();
                 setEditing(null);
+                setSelectedCaseIds([]);
                 setCaseSearch("");
                 setFormRevision((value) => value + 1);
                 setMessage("Test Plan guardado.");
@@ -145,26 +147,75 @@ export default function TestPlansView({
                   onChange={(event) => setCaseSearch(event.target.value)}
                 />
               </label>
-              {cases.map((c) => (
-                <label
-                  className="quality__choice"
-                  key={c.id}
-                  hidden={
-                    !`${c.id} ${c.title}`
-                      .toLocaleLowerCase("es")
-                      .includes(caseSearch.trim().toLocaleLowerCase("es"))
-                  }
-                >
-                  <input
-                    type="checkbox"
-                    name="caseIds"
-                    value={c.id}
-                    defaultChecked={editing?.caseIds.includes(c.id)}
-                    disabled={c.lifecycle === "Obsoleto" && !editing?.caseIds.includes(c.id)}
-                  />
-                  {c.id} · {c.title} · {c.lifecycle ?? "Borrador"}
-                </label>
-              ))}
+              <div className="test-plan__case-toolbar">
+                <span>
+                  {formatCount(selectedCaseIds.length, "caso seleccionado", "casos seleccionados")}
+                </span>
+                <div className="layout__actions">
+                  <button
+                    type="button"
+                    className="workspace__secondary"
+                    onClick={() =>
+                      setSelectedCaseIds((current) => [
+                        ...new Set([
+                          ...current,
+                          ...cases
+                            .filter(
+                              (item) =>
+                                item.lifecycle !== "Obsoleto" &&
+                                `${item.id} ${item.title}`
+                                  .toLocaleLowerCase("es")
+                                  .includes(caseSearch.trim().toLocaleLowerCase("es")),
+                            )
+                            .map((item) => item.id),
+                        ]),
+                      ])
+                    }
+                  >
+                    Seleccionar visibles
+                  </button>
+                  <button
+                    type="button"
+                    className="workspace__secondary"
+                    onClick={() => setSelectedCaseIds([])}
+                  >
+                    Quitar selección
+                  </button>
+                </div>
+              </div>
+              <div className="test-plan__case-list">
+                {cases.map((c) => (
+                  <label
+                    className={`test-plan__case-choice${selectedCaseIds.includes(c.id) ? " test-plan__case-choice--selected" : ""}`}
+                    key={c.id}
+                    hidden={
+                      !`${c.id} ${c.title}`
+                        .toLocaleLowerCase("es")
+                        .includes(caseSearch.trim().toLocaleLowerCase("es"))
+                    }
+                  >
+                    <input
+                      type="checkbox"
+                      name="caseIds"
+                      value={c.id}
+                      checked={selectedCaseIds.includes(c.id)}
+                      onChange={(event) =>
+                        setSelectedCaseIds((current) =>
+                          event.target.checked
+                            ? [...current, c.id]
+                            : current.filter((id) => id !== c.id),
+                        )
+                      }
+                      disabled={c.lifecycle === "Obsoleto" && !editing?.caseIds.includes(c.id)}
+                    />
+                    <span className="test-plan__case-identity">
+                      <strong>{c.id}</strong>
+                      <span>{c.title}</span>
+                    </span>
+                    <span className="test-plan__case-state">{c.lifecycle ?? "Borrador"}</span>
+                  </label>
+                ))}
+              </div>
             </fieldset>
             <div className="quality__actions">
               <button className="button button-primary" disabled={busy || readOnly}>
@@ -176,6 +227,7 @@ export default function TestPlansView({
                   type="button"
                   onClick={() => {
                     setEditing(null);
+                    setSelectedCaseIds([]);
                     setCaseSearch("");
                   }}
                 >
@@ -203,95 +255,128 @@ export default function TestPlansView({
                 .toLocaleLowerCase("es")
                 .includes(search.trim().toLocaleLowerCase("es")),
             ) && <p>No hay Test Plans que coincidan.</p>}
-          {plans
-            .filter((plan) =>
-              `${plan.name} ${plan.id} ${plan.description}`
-                .toLocaleLowerCase("es")
-                .includes(search.trim().toLocaleLowerCase("es")),
-            )
-            .map((plan) => (
-              <article className="quality__panel test-plan__card" key={plan.id}>
-                <div className="test-plan__card-meta">
-                  <span>TEST PLAN</span>
-                  <strong>{plan.id}</strong>
-                  <span>Revisión {plan.revision}</span>
-                </div>
-                <h3 className="typography__heading">{plan.name}</h3>
-                <FormattedText text={plan.description || "Sin descripción."} />
-                <p>{formatCount(plan.caseIds.length, "caso incluido", "casos incluidos")}</p>
-                <details>
-                  <summary>Ver casos del Test Plan</summary>
-                  <ul>
-                    {plan.caseIds.map((id) => (
-                      <li key={id}>
-                        {id} · {cases.find((item) => item.id === id)?.title ?? "Caso no disponible"}
-                      </li>
-                    ))}
-                  </ul>
-                </details>
-                <div className="quality__actions">
-                  <button
-                    className="workspace__secondary"
-                    disabled={busy || readOnly}
-                    onClick={() => {
-                      setEditing(plan);
-                      setCaseSearch("");
-                    }}
-                  >
-                    Editar Test Plan
-                  </button>
-                  <button
-                    className="button button-primary"
-                    disabled={busy || readOnly}
-                    onClick={() =>
-                      void act(async () => {
-                        let pending = cycles.current.get(plan.id);
-                        if (!pending) {
-                          pending = {
-                            key: crypto.randomUUID(),
-                            body: JSON.stringify({
-                              projectId,
-                              title: `${plan.name} · Test Run`.slice(0, 200),
-                              owner: "QA",
-                              planId: plan.id,
-                            }),
-                          };
-                          cycles.current.set(plan.id, pending);
-                        }
-                        const run = toRun(
-                          await api<ApiRun>("/test-runs", {
-                            method: "POST",
-                            headers: { "Idempotency-Key": pending.key },
-                            body: pending.body,
-                          }),
-                        );
-                        cycles.current.delete(plan.id);
-                        if (alive.current)
-                          setMessage(`Ejecución ${run.id} creada. Ábrela en Test runs.`);
-                      })
-                    }
-                  >
-                    Iniciar Test Run
-                  </button>
-                  <button
-                    className="workspace__danger"
-                    disabled={busy || readOnly}
-                    onClick={() => {
-                      if (window.confirm(`¿Eliminar el Test Plan ${plan.name}?`))
+          <div className="test-plan__cards">
+            {plans
+              .filter((plan) =>
+                `${plan.name} ${plan.id} ${plan.description}`
+                  .toLocaleLowerCase("es")
+                  .includes(search.trim().toLocaleLowerCase("es")),
+              )
+              .map((plan) => (
+                <article className="quality__panel test-plan__card" key={plan.id}>
+                  <header className="test-plan__card-header">
+                    <span className="test-plan__icon" aria-hidden="true">
+                      ▤
+                    </span>
+                    <div className="test-plan__card-meta">
+                      <span>TEST PLAN</span>
+                      <strong>{plan.id}</strong>
+                      <span>Revisión {plan.revision}</span>
+                    </div>
+                    <h3 className="typography__heading">{plan.name}</h3>
+                  </header>
+                  <FormattedText text={plan.description || "Sin descripción."} />
+                  <div className="test-plan__coverage">
+                    <span>
+                      {formatCount(plan.caseIds.length, "caso incluido", "casos incluidos")}
+                    </span>
+                    <span>
+                      {formatCount(
+                        plan.caseIds.filter(
+                          (id) => cases.find((item) => item.id === id)?.lifecycle === "Listo",
+                        ).length,
+                        "caso listo",
+                        "casos listos",
+                      )}
+                    </span>
+                    <progress
+                      aria-label={`Preparación de ${plan.name}`}
+                      value={
+                        plan.caseIds.filter(
+                          (id) => cases.find((item) => item.id === id)?.lifecycle === "Listo",
+                        ).length
+                      }
+                      max={Math.max(1, plan.caseIds.length)}
+                    />
+                  </div>
+                  <details>
+                    <summary>Ver casos del Test Plan</summary>
+                    <ul>
+                      {plan.caseIds.map((id) => (
+                        <li key={id}>
+                          <strong>{id}</strong>
+                          <span>
+                            {cases.find((item) => item.id === id)?.title ?? "Caso no disponible"}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                  <div className="quality__actions">
+                    <button
+                      className="workspace__secondary"
+                      disabled={busy || readOnly}
+                      onClick={() => {
+                        setEditing(plan);
+                        setSelectedCaseIds(plan.caseIds);
+                        setCaseSearch("");
+                      }}
+                    >
+                      Editar Test Plan
+                    </button>
+                    <button
+                      className="button button-primary"
+                      disabled={busy || readOnly}
+                      onClick={() =>
                         void act(async () => {
-                          await api<void>(`/test-plans/${plan.id}?projectId=${projectId}`, {
-                            method: "DELETE",
-                            body: "{}",
+                          let pending = cycles.current.get(plan.id);
+                          if (!pending) {
+                            pending = {
+                              key: crypto.randomUUID(),
+                              body: JSON.stringify({
+                                projectId,
+                                title: `${plan.name} · Test Run`.slice(0, 200),
+                                owner: "QA",
+                                planId: plan.id,
+                              }),
+                            };
+                            cycles.current.set(plan.id, pending);
+                          }
+                          const run = toRun(
+                            await api<ApiRun>("/test-runs", {
+                              method: "POST",
+                              headers: { "Idempotency-Key": pending.key },
+                              body: pending.body,
+                            }),
+                          );
+                          cycles.current.delete(plan.id);
+                          if (alive.current)
+                            setMessage(`Ejecución ${run.id} creada. Ábrela en Test runs.`);
+                        })
+                      }
+                    >
+                      Iniciar Test Run
+                    </button>
+                    <button
+                      className="workspace__danger"
+                      disabled={busy || readOnly}
+                      onClick={() => {
+                        if (window.confirm(`¿Eliminar el Test Plan ${plan.name}?`))
+                          void act(async () => {
+                            await api<void>(`/test-plans/${plan.id}?projectId=${projectId}`, {
+                              method: "DELETE",
+                              body: "{}",
+                            });
+                            if (alive.current) setMessage("Test Plan eliminado.");
                           });
-                          if (alive.current) setMessage("Test Plan eliminado.");
-                        });
-                    }}
-                  >
-                    Eliminar
-                  </button>
-                </div>
-              </article>
-            ))}
+                      }}
+                    >
+                      Eliminar
+                    </button>
+                  </div>
+                </article>
+              ))}
+          </div>
         </div>
       </div>
     </section>

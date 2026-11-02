@@ -1,3 +1,6 @@
+import AuditTable from "./AuditTable";
+import { exportTable } from "../utils/exportTable";
+import type { ExportFormat } from "../utils/exportRecord";
 import { useOperationScope } from "../controllers/useOperationScope";
 import AuditSettingsPanel from "./AuditSettingsPanel";
 import {
@@ -153,6 +156,9 @@ export function ProjectActivityView({
   projectId: string;
   refreshRevision?: number;
 }) {
+  const [pages, setPages] = useState<Activity[][]>([]);
+  const [pageIndex, setPageIndex] = useState(0);
+  const [exporting, setExporting] = useState(false);
   const [rows, setRows] = useState<Activity[]>([]);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -211,6 +217,8 @@ export function ProjectActivityView({
       .then((data) => {
         if (!abort.signal.aborted) {
           setRows(data);
+          setPages([data]);
+          setPageIndex(0);
           setMore(data.length === filters.limit);
           if (revision) setMessage("Actividad actualizada.");
         }
@@ -226,6 +234,11 @@ export function ProjectActivityView({
   }, [queryString, filters.limit, settings, revision, refreshRevision]);
   async function next() {
     if (busy || !rows.length) return;
+    if (pageIndex + 1 < pages.length) {
+      setPageIndex(pageIndex + 1);
+      setRows(pages[pageIndex + 1]);
+      return;
+    }
     const isCurrent = captureScope();
     setBusy(true);
     setError("");
@@ -233,7 +246,11 @@ export function ProjectActivityView({
     try {
       const data = await api<Activity[]>(`/activity?${queryString}&before=${rows.at(-1)!.id}`);
       if (alive.current && isCurrent()) {
-        setRows((v) => [...v, ...data]);
+        if (data.length) {
+          setPages((current) => [...current, data]);
+          setPageIndex((current) => current + 1);
+          setRows(data);
+        }
         setMore(data.length === filters.limit);
         setMessage(
           data.length ? "Actividad anterior cargada." : "Llegaste al inicio del historial.",
@@ -244,6 +261,41 @@ export function ProjectActivityView({
         setError(e instanceof Error ? e.message : "No se pudo cargar la actividad.");
     } finally {
       if (alive.current && isCurrent()) setBusy(false);
+    }
+  }
+  async function download(format: ExportFormat) {
+    if (exporting || loading || busy) return;
+    const isCurrent = captureScope();
+    setExporting(true);
+    setError("");
+    setMessage("");
+    try {
+      await exportTable(format, {
+        title: "Auditoría",
+        filename: `auditoria-proyecto-${projectId}-pagina-${pageIndex + 1}`,
+        headers: [
+          "Fecha UTC",
+          "Autor",
+          "Recurso",
+          "Operación",
+          ...(settings?.detail === "Resumen" ? [] : ["Antes", "Después"]),
+        ],
+        rows: visible.map((row) => [
+          row.createdAt,
+          row.actorName,
+          row.resourceId,
+          row.action,
+          ...(settings?.detail === "Resumen"
+            ? []
+            : [JSON.stringify(row.before), JSON.stringify(row.after)]),
+        ]),
+      });
+      if (isCurrent()) setMessage("Página de auditoría exportada.");
+    } catch (cause) {
+      if (isCurrent())
+        setError(cause instanceof Error ? cause.message : "No se pudo exportar la auditoría.");
+    } finally {
+      if (alive.current) setExporting(false);
     }
   }
   const visible = rows.filter((r) =>
@@ -404,7 +456,7 @@ export function ProjectActivityView({
       <div className="project-activity__summary">
         <div>
           <span>Eventos cargados</span>
-          <strong>{rows.length}</strong>
+          <strong>{pages.reduce((total, page) => total + page.length, 0)}</strong>
         </div>
         <div>
           <span>Participantes en esta vista</span>
@@ -434,20 +486,45 @@ export function ProjectActivityView({
         <>
           <p className="typography__caption">
             {formatCount(visible.length, "evento visible", "eventos visibles")} · La búsqueda se
-            limita a las páginas cargadas.
+            limita a la página actual.
           </p>
-          <ActivityList rows={visible} detailed={settings?.detail !== "Resumen"} />
+          <div className="audit-table__exports layout__actions">
+            {(["xlsx", "pdf", "md"] as const).map((format) => (
+              <button
+                className="workspace__secondary"
+                disabled={exporting || !visible.length || busy}
+                key={format}
+                onClick={() => void download(format)}
+              >
+                {exporting
+                  ? "Exportando…"
+                  : `Exportar página ${format === "xlsx" ? "Excel" : format === "md" ? "Markdown" : "PDF"}`}
+              </button>
+            ))}
+          </div>
+          <AuditTable rows={visible} detailed={settings?.detail !== "Resumen"} />
         </>
       )}
-      {more && rows.length > 0 && (
+      <nav className="audit-table__pagination layout__actions" aria-label="Paginación de auditoría">
         <button
           className="workspace__secondary"
-          disabled={busy || loading}
+          disabled={busy || loading || pageIndex === 0}
+          onClick={() => {
+            setPageIndex((current) => current - 1);
+            setRows(pages[pageIndex - 1]);
+          }}
+        >
+          Anterior
+        </button>
+        <span>Página {pageIndex + 1}</span>
+        <button
+          className="workspace__secondary"
+          disabled={busy || loading || (!more && pageIndex === pages.length - 1) || !rows.length}
           onClick={() => void next()}
         >
-          {busy ? "Cargando…" : "Cargar actividad anterior"}
+          {busy ? "Cargando…" : "Siguiente"}
         </button>
-      )}
+      </nav>
     </section>
   );
 }

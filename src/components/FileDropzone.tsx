@@ -71,7 +71,10 @@ export default function FileDropzone({
         type="file"
         accept={accept}
         disabled={disabled}
-        onChange={(event) => receive(event.target.files)}
+        onChange={(event) => {
+          receive(event.target.files);
+          if (!name) event.currentTarget.value = "";
+        }}
       />
       <button
         className="workspace__secondary import-panel__trigger"

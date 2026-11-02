@@ -1,3 +1,5 @@
+import WorkItemEditor from "../components/WorkItemEditor";
+import type { ProjectMember } from "../../backend/src/models/collaboration.model";
 import FileDropzone from "../components/FileDropzone";
 import WorkItemLayout from "../components/WorkItemLayout";
 import RichTextarea from "../components/RichTextarea";
@@ -53,6 +55,25 @@ export default function TestRunDialog({
   initialAction?: "view" | "edit" | "delete" | "execute" | "export";
 }) {
   const permission = usePermissions();
+  const [ownerUserId, setOwnerUserId] = useState(run.ownerUserId ?? "");
+  const [members, setMembers] = useState<ProjectMember[]>([]);
+  useEffect(() => {
+    const abort = new AbortController();
+    void api<ProjectMember[]>(
+      `/project-members?projectId=${encodeURIComponent(run.projectId ?? "")}`,
+      { signal: abort.signal },
+    )
+      .then((value) => {
+        if (!abort.signal.aborted) setMembers(value);
+      })
+      .catch((cause: unknown) => {
+        if (!abort.signal.aborted)
+          setError(
+            cause instanceof Error ? cause.message : "No se pudieron cargar los responsables.",
+          );
+      });
+    return () => abort.abort();
+  }, [run.projectId]);
   const readOnly = !permission.can("runs.write");
   const [evidenceFiles, setEvidenceFiles] = useState<Record<string, File>>({});
   const [failureId, setFailureId] = useState("");
@@ -193,6 +214,7 @@ export default function TestRunDialog({
     >
       <WorkItemLayout
         kind="run"
+        editing={editing}
         id={run.id}
         title={run.title}
         status={run.status}
@@ -289,6 +311,7 @@ export default function TestRunDialog({
                   const updated = await updateTestRun(run.id, run.projectId!, {
                     title: String(form.get("title")),
                     owner: String(form.get("owner")),
+                    ownerUserId: String(form.get("ownerUserId") ?? "") || null,
                     caseIds: form.getAll("caseIds") as string[],
                     status: String(form.get("status")) as TestRunStatus,
                     tagIds: run.tagIds ?? [],
@@ -301,49 +324,66 @@ export default function TestRunDialog({
             >
               <fieldset className="test-run__fields" disabled={readOnly || busy}>
                 <legend>Editar ejecución</legend>
-                <label className="workspace__field">
-                  Título
-                  <input name="title" defaultValue={run.title} required maxLength={200} />
-                </label>
-                <label className="workspace__field">
-                  Responsable
-                  <input name="owner" defaultValue={run.owner} required maxLength={100} />
-                </label>
-                <label className="workspace__field">
-                  Estado
-                  <select name="status" defaultValue={run.status}>
-                    <option>En curso</option>
-                    <option>Completado</option>
-                  </select>
-                </label>
-                <p>
-                  Para completar, registra un resultado para cada caso. Los resultados existentes se
-                  conservan al mantener el caso seleccionado.
-                </p>
-                <fieldset className="test-run__selection">
-                  <legend>Casos de la ejecución</legend>
-                  {cases.map((item) => (
-                    <label key={item.id}>
-                      <input
-                        type="checkbox"
-                        name="caseIds"
-                        value={item.id}
-                        defaultChecked={run.caseIds?.includes(item.id)}
-                      />
-                      {item.id} · {item.title}
-                    </label>
-                  ))}
-                </fieldset>
-                <div className="test-run__actions">
-                  <button
-                    className="workspace__secondary"
-                    type="button"
-                    onClick={() => setEditing(false)}
-                  >
-                    Cancelar edición
-                  </button>
-                  <button className="button button-primary">Guardar ejecución</button>
-                </div>
+                <WorkItemEditor kind="run" id={run.id}>
+                  <label className="workspace__field">
+                    Título
+                    <input name="title" defaultValue={run.title} required maxLength={200} />
+                  </label>
+                  <input name="owner" type="hidden" value={run.owner} />
+                  <label className="workspace__field">
+                    Responsable de ejecución
+                    <select
+                      name="ownerUserId"
+                      value={ownerUserId}
+                      onChange={(event) => setOwnerUserId(event.target.value)}
+                    >
+                      <option value="">Sin asignar</option>
+                      {ownerUserId && !members.some((member) => member.id === ownerUserId) && (
+                        <option value={ownerUserId}>{run.owner}</option>
+                      )}
+                      {members.map((member) => (
+                        <option key={member.id} value={member.id}>
+                          {member.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="workspace__field">
+                    Estado
+                    <select name="status" defaultValue={run.status}>
+                      <option>En curso</option>
+                      <option>Completado</option>
+                    </select>
+                  </label>
+                  <p>
+                    Para completar, registra un resultado para cada caso. Los resultados existentes
+                    se conservan al mantener el caso seleccionado.
+                  </p>
+                  <fieldset className="test-run__selection">
+                    <legend>Casos de la ejecución</legend>
+                    {cases.map((item) => (
+                      <label key={item.id}>
+                        <input
+                          type="checkbox"
+                          name="caseIds"
+                          value={item.id}
+                          defaultChecked={run.caseIds?.includes(item.id)}
+                        />
+                        {item.id} · {item.title}
+                      </label>
+                    ))}
+                  </fieldset>
+                  <div className="test-run__actions">
+                    <button
+                      className="workspace__secondary"
+                      type="button"
+                      onClick={() => setEditing(false)}
+                    >
+                      Cancelar edición
+                    </button>
+                    <button className="button button-primary">Guardar ejecución</button>
+                  </div>
+                </WorkItemEditor>
               </fieldset>
             </form>
           ) : (
@@ -353,6 +393,7 @@ export default function TestRunDialog({
                   className="workspace__secondary"
                   disabled={readOnly || busy}
                   onClick={() => {
+                    setOwnerUserId(run.ownerUserId ?? "");
                     setEditing(true);
                     setConfirmDelete(false);
                   }}

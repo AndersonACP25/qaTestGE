@@ -9,6 +9,7 @@ import "./spacing.css";
 import "./views/inbox.css";
 import "./views/editor-layout.css";
 import "./views/work-items.css";
+import "./views/workspace-refresh.css";
 
 const rootElement = document.getElementById("root");
 
