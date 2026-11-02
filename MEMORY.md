@@ -55,7 +55,7 @@
 - Roles: Admin configura y administra accesos; QA gestiona recursos de prueba; Dev gestiona bugs/evidencias/comentarios; Solo lectura consulta y descarga. El propietario tiene Admin implícito. Crear proyectos y administrar equipos sigue siendo del propietario.
 - Miembros anteriores reciben QA explícito en proyectos existentes. Invitaciones y proyectos nuevos no otorgan accesos automáticamente. Revocar conserva revisión con rol null; protege propietario, último Admin y asignaciones.
 - Las escrituras mantienen bloqueo compartido del proyecto; cambiar roles usa bloqueo exclusivo. Notificaciones y respuestas tardías conservan el alcance. Actividad global pagina de 50; conversación/avisos muestran últimos 100.
-- PR #24–#31 fusionados; este lote trabaja en feat/work-items-auditoria-y-usuarios desde qa-env (e554fca), con nuevo PR hacia qa-env.
+- PR #24–#32 fusionados; este lote trabaja en feat/asignaciones-editores-y-evidencias desde qa-env (12cd6a3), con nuevo PR hacia qa-env.
 
 ## Analítica, cobertura e importación (015)
 
@@ -74,7 +74,7 @@
 - Importar vive junto a Exportar tabla para Bugs/Casos/Tags. Los listados conservan su montaje durante recargas/fallos para mantener progreso y claves idempotentes. Acento verde común, descargas con estilo de acción, hover/foco sin subrayado y contador de tags a 14 px.
 - src/controls.css centraliza interacción de controles y respeta reducción de movimiento. AGENTS.md y docs/DESIGN.md exigen feedback accesible para acciones relevantes, sin alertas indiscriminadas por GET/200.
 - Configuración compone Proyectos, Equipos, Accesos al proyecto, Flujo de bugs y Actividad y auditoría con permisos originales; el lateral muestra badge de rol. Los formularios personales se desmontan en gestión. Componentes descartan respuestas tardías; Configuración no carga snapshot QA completo.
-- Auditoría ofrece perfiles General/Calidad/Seguridad, filtros en servidor por recurso/operación/autor/fechas UTC/búsqueda y cursor descendente; conserva búsqueda local explícita. Configuración por proyecto (detalle y 25/50/100) con versión; solo Admin guarda. No suspende ni elimina eventos. Migración 017 requerida.
+- Auditoría ofrece perfiles General/Calidad/Seguridad y filtros en servidor con cursor descendente. Tabla con Anterior/Siguiente y páginas previas en memoria; búsqueda local sobre la página actual. Exporta solo la página visible (Excel/PDF/Markdown); Resumen omite antes/después. Cambiar filtros/actualizar vuelve al inicio. Configuración versionada solo Admin (017), sin suspender ni eliminar eventos.
 - Confirmaciones en tags, flujo, requisitos/vínculos, accesos, comentarios, adjuntos, planes, invitaciones, importación y exportaciones. Scope guards impiden mensajes tardíos en otro proyecto. Las alertas de Tags ocupan su propia fila.
 - Cobertura usa tabla y botones consistentes, paginación/estados accesibles. Aplicar período mide 44 px y reaplica consultas aunque las fechas no cambien; Actualizar invalida también Reportes, Cobertura y actividad.
 
@@ -92,6 +92,6 @@
 
 ## Validación y entrega
 
-- Lote actual: WorkItemLayout para Bugs/Casos/Runs/Evidencias con identidad, secciones y propiedades; formularios amplios y Test Plan con editor/catálogo. Campana a 560 px con scroll propio; contador de menciones a 20 px y lectura masiva atómica propia >100 con cantidad real, sin leer al abrir. FileDropzone también en alta/reemplazo y resultados.
-- PostgreSQL 18 efímero: instalación vacía y repetición; actualización 014→015 conserva bugs, baseline único y días sin historia. Integraciones de autenticación/calidad/colaboración/analítica aprobadas; reaperturas, reclasificación, aislamiento, snapshots y rollback/idempotencia de tags verificados.
-- Entrega actual en feat/work-items-auditoria-y-usuarios hacia qa-env, después de PR #31; no fusionar. Sin dependencias nuevas. PostgreSQL efímero: actualización 016→017, instalación vacía repetida y cinco integraciones verifican permisos, concurrencia/rollback, cuentas con login real, filtros UTC y lectura masiva aislada. TypeScript, lint, formato y build aprobados; 166 unitarias CORE y 234 E2E aprobadas (1440/375/425 px).
+- WorkItemEditor comparte cabecera editable con título/responsable, propiedades y cuerpo al crear/editar bugs/casos/runs, conservando claves y formularios. Test Plan rediseña tarjetas, casos, preparación y selección por búsqueda. ProjectPicker conserva select nativo con estilo propio. Equipos ofrece tarjetas/búsqueda; Descargar no parte el texto. Contador de menciones a 16 px; campana 560 px y lectura masiva propia >100 intactas.
+- PostgreSQL efímero: instalación vacía/repetición y seis integraciones aprobadas (auth, calidad, colaboración, analítica, administración, asignaciones). Actualización 017→018 repetida preserva registros y evita atribuir homónimos; CI la verifica en otra base vacía. Reglas CORE y permisos conservados; 167 unitarias y 264 E2E aprobadas (1440/375/425 px), con TypeScript, lint, formato y build aprobados.
+- Entrega actual en feat/asignaciones-editores-y-evidencias hacia qa-env, después de PR #32; no fusionar. Sin dependencias nuevas. Mis asignaciones usa GET /assigned-work: cuenta autenticada, filtros/paginación SQL, bugs/casos por assignee y runs por ownerUserId. Migración 018 vincula solo responsables heredados con coincidencia única, valida acceso y protege retiradas de equipo/proyecto. DesignEvidencePanel selecciona File en memoria y lo anexa explícitamente tras guardar el bug/caso, sin borradores binarios ni IA.

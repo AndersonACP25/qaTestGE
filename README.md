@@ -19,9 +19,10 @@ Una plataforma para organizar el trabajo de QA de tu equipo: bugs, casos de prue
 - **Flujo de bugs por proyecto:** estados y transiciones configurables, severidad, entorno y versión afectada.
 - **Comentarios y menciones:** conversa en bugs, casos y ejecuciones; selecciona a la persona tras @ o escribe su nombre completo único. Mis menciones y la campana del navbar comparten los avisos del proyecto. Abrir un registro no cambia su lectura: se marca explícitamente con el botón verde. Incluye automenciones, filtros, lectura masiva de todos los avisos propios e historial de actividad.
 - **Configuración:** reúne Proyectos, Equipos, Accesos al proyecto, Flujo de bugs y Actividad y auditoría con sus permisos vigentes; el rol del proyecto se identifica mediante un badge.
-- **Roles y auditoría:** Admin, QA, Dev y Solo lectura por proyecto, con registro persistente de cambios. Admin puede crear cuentas y asignarles un rol únicamente en el proyecto actual. Auditoría ofrece perfiles General/Calidad/Seguridad y filtros en servidor.
-- **Work Items:** detalles de bugs, casos, ejecuciones y evidencias con identidad, navegación por secciones y panel de propiedades. Test Plan separa planificación y catálogo.
-- **Evidencias:** selecciona o arrastra archivos al registro, al bug o al resultado de una ejecución; máximo 2 MiB y descarga privada.
+- **Roles y auditoría:** Admin, QA, Dev y Solo lectura por proyecto, con registro persistente de cambios. Admin puede crear cuentas y asignarles un rol únicamente en el proyecto actual. Auditoría ofrece perfiles General/Calidad/Seguridad, filtros en servidor, navegación entre páginas y exportación de la página visible a Excel, PDF o Markdown.
+- **Work Items:** creación y edición con identidad, título y responsable en cabecera, propiedades compactas y contenido por secciones; detalles con navegación y propiedades. Test Plan ofrece tarjetas, preparación de casos y selección por búsqueda.
+- **Mis asignaciones:** consulta tus bugs, casos y Test Runs por cuenta, con búsqueda, tipo, estado y paginación. Los responsables de ejecuciones se vinculan a usuarios con acceso al proyecto.
+- **Evidencias:** selecciona o arrastra archivos al registro, al bug o al resultado de una ejecución; máximo 2 MiB y descarga privada. En los diseñadores puedes seleccionar el archivo antes de guardar y anexarlo al registro creado.
 - **Equipos y proyectos:** colabora mediante invitaciones de un solo uso.
 - **Dashboard visual y analítica:** indicadores resumidos, tendencias de aprobación y bugs, fallos frecuentes y cobertura por tipo con agregaciones PostgreSQL.
 - **Cobertura de requisitos:** vincula requisitos, casos y bugs en una matriz paginada.

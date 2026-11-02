@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-11-01 · Editores, asignaciones y evidencias del diseño
+
+- Unificar creación y edición de Bugs, Test Cases y Test Runs con cabecera editable, responsable, propiedades y contenido por secciones; selector de proyecto personalizado y contador de menciones a 16 px.
+- Incorporar Mis asignaciones con búsqueda, tipo, estado y paginación para los registros vinculados a la cuenta autenticada. Dar a Test Runs un responsable por ID de usuario y proteger accesos/membresías.
+- Permitir seleccionar evidencia en los diseñadores y anexarla explícitamente después de guardar el registro, sin enviar archivos a IA ni guardarlos en borradores locales.
+- Rediseñar Test Plan, su selección de casos y sus tarjetas; modernizar integrantes de equipos con búsqueda; mantener Descargar en una sola línea.
+- Paginar la tabla de auditoría y exportar su página visible a Excel, PDF o Markdown conservando los filtros.
+- Aplicar migración 018 mediante `pnpm db:migrate`; conserva registros y solo vincula responsables anteriores con coincidencia única. Sin dependencias nuevas.
+- Validación aprobada: 167 unitarias CORE, 264 E2E y seis integraciones PostgreSQL; actualización 017→018 repetida en una base efímera separada.
+
 ## 2026-11-01 · Work Items y administración del proyecto
 
 - Unificar bugs, casos, ejecuciones y evidencias con identidad, navegación por secciones y propiedades al estilo Work Item; renovar Test Plan.
