@@ -105,6 +105,38 @@ try {
     ).status,
     200,
   );
+  const pendingCase = await agent
+    .post("/api/test-cases")
+    .send({ ...caseInput, title: "Caso pendiente para retirar" });
+  assert.equal(pendingCase.status, 201);
+  const pendingId = pendingCase.body.data.id;
+  const editRun = {
+    projectId,
+    title: "Ciclo editado",
+    owner: "QA",
+    status: "En curso",
+  };
+  const editable = await agent
+    .patch(`/api/test-runs/${run.id}`)
+    .send({ ...editRun, caseIds: [tc.id, pendingId] });
+  assert.equal(editable.status, 200);
+  const blockedRemoval = await agent
+    .patch(`/api/test-runs/${run.id}`)
+    .send({ ...editRun, title: "No debe guardarse", caseIds: [pendingId] });
+  assert.equal(blockedRemoval.status, 409);
+  assert.equal(blockedRemoval.body.error.code, "RUN_RESULT_RECORDED");
+  const unchanged = await agent.get("/api/test-runs").query({ projectId });
+  assert.equal(unchanged.status, 200);
+  const unchangedRun = unchanged.body.data.find((row: { id: string }) => row.id === run.id);
+  assert.equal(unchangedRun.title, editRun.title);
+  assert.deepEqual(unchangedRun.results, editable.body.data.results);
+  const removedPending = await agent
+    .patch(`/api/test-runs/${run.id}`)
+    .send({ ...editRun, caseIds: [tc.id] });
+  assert.equal(removedPending.status, 200);
+  assert.deepEqual(removedPending.body.data.caseIds, [tc.id]);
+  assert.equal(removedPending.body.data.results[0].id, result.id);
+  assert.equal(removedPending.body.data.results[0].notes, "Respuesta incorrecta");
   const evidence = await agent
     .post("/api/evidence")
     .send({ projectId, name: "Captura", type: "Imagen", sizeBytes: 1, related: result.id });

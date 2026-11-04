@@ -25,7 +25,7 @@
 - Crear bug con sourceResultId exige fallo registrado del mismo proyecto y enlaza caso, run, snapshot y evidencias en una transacción. Solo un bug de origen por resultado. Nuevos adjuntos al resultado también se enlazan al bug.
 - Test Plan permite crear/editar/buscar planes, buscar y consultar sus casos e iniciar Test Runs enlazados. Los planes con runs no se borran; cambios del plan afectan solo a ciclos nuevos.
 - Clonar y reejecutar fallidos copia snapshots originales y reinicia notas/resultados/progreso. Conserva plan y origen; permite revisar versiones históricas aunque el caso luego quede obsoleto. No ejecuta pruebas automáticamente.
-- Casos obsoletos no se incorporan a nuevas selecciones de ejecución. Orígenes y resultados con bugs/evidencias no se borran ni se retiran silenciosamente.
+- Casos obsoletos no se incorporan a nuevas selecciones de ejecución. Editar un run permite retirar casos pendientes sin vínculos, pero protege los resultados registrados y los vinculados a bugs o evidencias.
 - Cada proyecto configura estados, transiciones, estado inicial y closedStates para métricas. Se comprueba revisión y no se retiran estados usados. Solo Admin configura el flujo; QA/Admin gestionan planes.
 - Bugs tienen severidad independiente de prioridad, entorno y versión afectada; las exportaciones individuales incluyen estos campos y los IDs del origen.
 - Tipo de prueba real desde el diseñador/formulario, filtros por tipo y ciclo documental, cobertura por tipo en Reportes. Cobertura por tipo = casos vigentes distintos con algún resultado registrado; la matriz de requisitos es una capacidad separada.

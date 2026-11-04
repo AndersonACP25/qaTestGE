@@ -648,6 +648,18 @@ export class PostgresRepository implements Repository {
           "RUN_REFERENCED",
           "El resultado tiene un bug vinculado; conserva su referencia.",
         );
+      const recordedRemoval = await client.query(
+        `SELECT 1 FROM qa.test_run_results
+        WHERE test_run_id=$1 AND project_id=$2 AND NOT(test_case_id=ANY($3::bigint[]))
+          AND (executed_at IS NOT NULL OR status <> 'skipped' OR notes <> '') LIMIT 1`,
+        [id, projectId, caseIds],
+      );
+      if (recordedRemoval.rowCount)
+        throw new HttpError(
+          409,
+          "RUN_RESULT_RECORDED",
+          "No puedes retirar un caso con un resultado registrado en esta ejecución.",
+        );
       // Preserve existing results and snapshots for cases that remain selected.
       await client.query(
         "DELETE FROM qa.test_run_results WHERE test_run_id=$1 AND project_id=$2 AND NOT(test_case_id=ANY($3::bigint[]))",

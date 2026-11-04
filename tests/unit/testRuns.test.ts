@@ -25,6 +25,7 @@ function setup({ completed = false, pending = false, linked = false, count = 1 }
       sql.includes("SELECT 1 FROM qa.test_runs WHERE source_run_id")
     )
       return { rows: [], rowCount: 0 };
+    if (sql.startsWith("SELECT 1 FROM qa.test_run_results")) return { rows: [], rowCount: 0 };
     if (sql.includes("qa.evidence_links"))
       return { rows: linked ? [{}] : [], rowCount: linked ? 1 : 0 };
     if (sql.startsWith("SELECT id,executed_at"))

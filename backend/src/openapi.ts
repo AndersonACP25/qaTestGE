@@ -1004,7 +1004,7 @@ export const openApiDocument = {
           "401": errorResponse("UNAUTHENTICATED"),
           "403": errorResponse("INVALID_CSRF o INVALID_ORIGIN"),
           "404": errorResponse("TEST_RUN_NOT_FOUND o PROJECT_NOT_FOUND"),
-          "409": errorResponse("RUN_INCOMPLETE o RUN_REFERENCED"),
+          "409": errorResponse("RUN_INCOMPLETE, RUN_REFERENCED o RUN_RESULT_RECORDED"),
           "503": unavailable,
         },
       },
