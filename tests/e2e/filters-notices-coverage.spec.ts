@@ -445,3 +445,33 @@ test("Mis menciones conserva el contador global y pagina el filtro en servidor",
     queries.some((query) => query.get("read") === "false" && query.get("before") === notice.id),
   ).toBe(true);
 });
+
+test("una ejecución de Playwright muestra su origen y conserva el historial", async ({
+  page,
+  workspace,
+}) => {
+  prepareRun(workspace);
+  const [run] = workspace.runs;
+  run.status = "Completado";
+  run.playwright = {
+    key: "automation:1:1",
+    suite: "smoke",
+    environment: "QA",
+    branch: "main",
+    commit: "a".repeat(40),
+    runUrl: "https://github.com/owner/automation/actions/runs/1/attempts/1",
+    unknownCaseIds: ["TC-900"],
+    unmappedCount: 1,
+  };
+  await page.goto("/");
+  await navigate(page, "Test runs");
+  await expect(page.getByRole("cell", { name: /Playwright/ })).toBeVisible();
+  await page.getByRole("button", { name: run.title, exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByText("Playwright · smoke · QA")).toBeVisible();
+  await expect(
+    dialog.getByRole("link", { name: "Abrir ejecución en GitHub Actions" }),
+  ).toHaveAttribute("href", run.playwright.runUrl);
+  await expect(dialog.getByText(/TC-900/)).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Editar ejecución" })).toBeDisabled();
+});

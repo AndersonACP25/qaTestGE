@@ -334,6 +334,7 @@ export function RunTable({
                     {item.status === "Completado" ? "Ver resultados" : "Ejecutar"}
                   </button>
                 </div>
+                {item.playwright && <span className="muted-cell">Playwright</span>}
                 <TagBadges ids={item.tagIds ?? []} tags={tags} />
               </td>
               <td data-label="CASOS" className="muted-cell">
@@ -356,8 +357,10 @@ export function RunTable({
               <td data-label="Acciones">
                 <RowActions
                   id={item.id}
-                  onEdit={readOnly ? undefined : () => onSelect(item, "edit")}
-                  onDelete={readOnly ? undefined : () => onSelect(item, "delete")}
+                  onEdit={readOnly || item.playwright ? undefined : () => onSelect(item, "edit")}
+                  onDelete={
+                    readOnly || item.playwright ? undefined : () => onSelect(item, "delete")
+                  }
                 />
                 <button
                   type="button"

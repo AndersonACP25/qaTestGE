@@ -1,6 +1,6 @@
 // Requires an explicitly selected ephemeral PostgreSQL database, never loads .env.
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import request from "supertest";
 import { createPool } from "../src/database.js";
 import { createApp } from "../src/app.js";
@@ -288,6 +288,67 @@ try {
   };
   assert.equal(
     (await agent.put("/api/bug-workflow").query({ projectId }).send(forbiddenRemoval)).status,
+    409,
+  );
+  const publishToken = randomBytes(32).toString("hex");
+  const pilotSettings = {
+    PLAYWRIGHT_TOKEN_SHA256: createHash("sha256").update(publishToken).digest("hex"),
+    PLAYWRIGHT_ACTOR_ID: userIds[0],
+    PLAYWRIGHT_PROJECT_ID: projectId,
+  };
+  const original = Object.fromEntries(
+    Object.keys(pilotSettings).map((key) => [key, process.env[key]]),
+  );
+  Object.assign(process.env, pilotSettings);
+  const publisher = request(createApp(new PostgresRepository(pool), new PostgresAuth(pool)));
+  for (const [key, value] of Object.entries(original))
+    if (value === undefined) delete process.env[key];
+    else process.env[key] = value;
+  const report = {
+    key: "owner/automation:123:1:chromium:smoke:QA",
+    suite: "smoke",
+    environment: "QA",
+    commit: "a".repeat(40),
+    branch: "main",
+    runUrl: "https://github.com/owner/automation/actions/runs/123/attempts/1",
+    unmappedCount: 1,
+    results: [
+      { caseId: tc.id, attempts: ["failed", "passed"] },
+      { caseId: foreignCase.id, attempts: ["passed"] },
+    ],
+  };
+  const publish = (input: typeof report) =>
+    publisher
+      .post("/api/integrations/playwright")
+      .set("Authorization", `Bearer ${publishToken}`)
+      .send(input);
+  assert.equal((await publisher.post("/api/integrations/playwright").send(report)).status, 401);
+  assert.equal(
+    (await publish({ ...report, key: "foreign", results: [report.results[1]] })).status,
+    422,
+  );
+  const [published, repeated] = await Promise.all([publish(report), publish(report)]);
+  assert.equal(published.status, 200);
+  assert.equal(repeated.status, 200);
+  assert.equal(published.body.data.id, repeated.body.data.id);
+  assert.deepEqual(published.body.data.unknownCaseIds, [foreignCase.id]);
+  assert.equal((await publish({ ...report, unmappedCount: 2 })).status, 409);
+  const imported = await agent
+    .get("/api/test-runs")
+    .query({ projectId, runId: published.body.data.id });
+  const importedRun = imported.body.data[0];
+  assert.equal(importedRun.status, "Completado");
+  assert.equal(importedRun.results.length, 1);
+  assert.equal(importedRun.results[0].status, "passed");
+  assert.match(importedRun.results[0].notes, /failed → passed/);
+  assert.equal(importedRun.playwright.runUrl, report.runUrl);
+  assert.equal(
+    (await agent.delete(`/api/test-runs/${importedRun.id}`).query({ projectId }).send({})).status,
+    409,
+  );
+  assert.equal(
+    (await agent.patch(`/api/test-runs/${importedRun.id}`).send({ ...editRun, caseIds: [tc.id] }))
+      .status,
     409,
   );
   const obsolete = await agent

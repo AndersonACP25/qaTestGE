@@ -6,7 +6,7 @@
 - React + TypeScript + Vite; Express MVC en backend/; PostgreSQL mediante pg, sin fallback en memoria.
 - Las cuentas representan personas; la membresía y el rol explícito delimitan cada proyecto. Los responsables QA deben ser miembros activos con acceso al proyecto.
 - Mantener relaciones explícitas por ID y claves compuestas de proyecto. Las escrituras de pasos, snapshots y vínculos son transaccionales.
-- IA e imagen de perfil siguen siendo maquetas. No hay proveedores externos reales; futuras integraciones viven en servicios/.
+- IA e imagen de perfil siguen siendo maquetas. El piloto Playwright publica resultados normalizados desde GitHub Actions; el cliente vive en servicios/playwright/.
 
 - Comentarios y Mis menciones usan páginas por cursor y el contador de no leídas abarca todo el proyecto. Test Runs filtra y pagina resúmenes en servidor, carga snapshots al abrir y exporta la página visible.
 
@@ -16,7 +16,7 @@
 - Validar pnpm typecheck, pnpm lint, pnpm test, pnpm format:check y pnpm build.
 - Nunca usar la BD personal para integración destructiva. TEST_DATABASE_URL selecciona una base efímera explícita.
 - Instalación: base qa_test_ge vacía + pnpm db:setup. Actualización: pnpm db:migrate. No reimportar 001 sobre una instalación existente.
-- El catálogo compartido backend/src/migrations.ts instala 001 y aplica 004–018; no carga seed automáticamente.
+- El catálogo compartido backend/src/migrations.ts instala 001 y aplica 004–019; no carga seed automáticamente.
 - CI comprueba PostgreSQL efímero, frontend/API y E2E. Push a main genera artefactos; no hay despliegue automático.
 
 ## Flujos implementados al 2026-11-01
@@ -96,4 +96,4 @@
 
 - WorkItemEditor comparte cabecera editable con título/responsable, propiedades y cuerpo al crear/editar bugs/casos/runs, conservando claves y formularios. Test Plan rediseña tarjetas, casos, preparación y selección por búsqueda. ProjectPicker conserva select nativo con estilo propio. Equipos ofrece tarjetas/búsqueda; Descargar no parte el texto. Contador de menciones a 16 px; campana 560 px y lectura masiva propia >100 intactas.
 - PostgreSQL efímero: instalación vacía/repetición y seis integraciones aprobadas (auth, calidad, colaboración, analítica, administración, asignaciones). Actualización 017→018 repetida preserva registros y evita atribuir homónimos; CI la verifica en otra base vacía. Reglas CORE y permisos conservados; 169 unitarias CORE y 285 E2E aprobadas (1440/375/425 px), con TypeScript, lint, formato y build aprobados.
-- Entrega actual en fix/filtros-cobertura-y-alertas hacia qa-env, después de PR #33; no fusionar. Sin dependencias nuevas. Mis asignaciones usa GET /assigned-work: cuenta autenticada, filtros/paginación SQL, bugs/casos por assignee y runs por ownerUserId. Migración 018 vincula solo responsables heredados con coincidencia única, valida acceso y protege retiradas de equipo/proyecto. DesignEvidencePanel cerrado por defecto selecciona File en memoria y lo anexa explícitamente tras guardar el bug/caso, sin borradores binarios ni IA.
+- Migración 019 agrega procedencia de Playwright e identidad única por proyecto. El piloto exige credencial SHA-256 ligada a proyecto y cuenta QA/Admin, registra intentos y conserva ejecuciones publicadas. Configuración en docs/PLAYWRIGHT_PILOT.md.
