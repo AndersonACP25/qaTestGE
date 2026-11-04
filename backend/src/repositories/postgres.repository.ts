@@ -92,6 +92,8 @@ const run = (r: RunRow) => ({
   planId: r.plan_id ? resourceId("PLAN", r.plan_id) : null,
   sourceRunId: r.source_run_id ? resourceId("RUN", r.source_run_id) : null,
   playwright: r.playwright ?? null,
+  releaseVersion: r.release_version ?? null,
+  environment: r.execution_environment ?? null,
   status: r.status,
   caseIds: r.case_ids.map((id) => resourceId("TC", id)),
   caseCount: r.case_ids.length,
@@ -632,6 +634,8 @@ export class PostgresRepository implements Repository {
         caseIds,
         owner: "Playwright",
         ownerUserId: actorId,
+        releaseVersion: metadata.releaseVersion,
+        environment: metadata.environment,
         title: `[Playwright] ${metadata.suite} · ${metadata.environment}`.slice(0, 200),
       });
       const normalized = results
@@ -687,15 +691,23 @@ export class PostgresRepository implements Repository {
   private async insertRun(client: DatabaseClient, input: CreateTestRunInput) {
     let selectedIds = input.caseIds ?? [];
     let sourcePlan: string | null = null;
+    let releaseVersion = input.releaseVersion?.trim() || null;
+    let environment = input.environment?.trim() || null;
     const sourceId = input.sourceRunId ? parseReference(input.sourceRunId, "RUN") : null;
     if (sourceId) {
-      const source = await client.query<{ plan_id: string | null }>(
-        "SELECT plan_id::text FROM qa.test_runs WHERE id=$1 AND project_id=$2 FOR UPDATE",
+      const source = await client.query<{
+        plan_id: string | null;
+        release_version: string | null;
+        execution_environment: string | null;
+      }>(
+        "SELECT plan_id::text,release_version,execution_environment FROM qa.test_runs WHERE id=$1 AND project_id=$2 FOR UPDATE",
         [sourceId, input.projectId],
       );
       if (!source.rows[0])
         throw new HttpError(404, "RUN_NOT_FOUND", "Ejecución de origen no disponible.");
       sourcePlan = source.rows[0].plan_id;
+      if (input.releaseVersion === undefined) releaseVersion = source.rows[0].release_version;
+      if (input.environment === undefined) environment = source.rows[0].execution_environment;
       const results = await client.query<{ test_case_id: string }>(
         "SELECT test_case_id::text FROM qa.test_run_results WHERE test_run_id=$1 AND project_id=$2 AND (NOT $3::boolean OR (status='failed' AND executed_at IS NOT NULL)) ORDER BY test_case_id",
         [sourceId, input.projectId, input.failedOnly ?? false],
@@ -721,7 +733,7 @@ export class PostgresRepository implements Repository {
         "Selecciona al menos un caso; no hay resultados elegibles para reejecutar.",
       );
     const { rows } = await client.query<RunRow>(
-      "INSERT INTO qa.test_runs(project_id,title,owner,plan_id,source_run_id,owner_user_id) VALUES($1,$2,$3,$4,$5,$6) RETURNING *",
+      "INSERT INTO qa.test_runs(project_id,title,owner,plan_id,source_run_id,owner_user_id,release_version,execution_environment) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *",
       [
         input.projectId,
         input.title.trim(),
@@ -729,6 +741,8 @@ export class PostgresRepository implements Repository {
         sourcePlan ?? (input.planId ? parseReference(input.planId, "PLAN") : null),
         sourceId,
         input.ownerUserId ?? null,
+        releaseVersion,
+        environment,
       ],
     );
     const id = rows[0].id;
@@ -837,7 +851,7 @@ export class PostgresRepository implements Repository {
           "Registra un resultado para cada caso antes de completar la ejecución.",
         );
       await client.query(
-        "UPDATE qa.test_runs SET title=$3,owner=$4,status=$5,owner_user_id=CASE WHEN $6::boolean THEN $7::bigint ELSE owner_user_id END,completed_at=CASE WHEN $5='Completado' THEN COALESCE(completed_at,now()) ELSE NULL END WHERE id=$1 AND project_id=$2",
+        "UPDATE qa.test_runs SET title=$3,owner=$4,status=$5,owner_user_id=CASE WHEN $6::boolean THEN $7::bigint ELSE owner_user_id END,completed_at=CASE WHEN $5='Completado' THEN COALESCE(completed_at,now()) ELSE NULL END,release_version=CASE WHEN $8::boolean THEN $9::varchar ELSE release_version END,execution_environment=CASE WHEN $10::boolean THEN $11::varchar ELSE execution_environment END WHERE id=$1 AND project_id=$2",
         [
           id,
           projectId,
@@ -846,6 +860,10 @@ export class PostgresRepository implements Repository {
           input.status,
           input.ownerUserId !== undefined,
           input.ownerUserId ?? null,
+          input.releaseVersion !== undefined,
+          input.releaseVersion?.trim() || null,
+          input.environment !== undefined,
+          input.environment?.trim() || null,
         ],
       );
       if (input.tagIds !== undefined)

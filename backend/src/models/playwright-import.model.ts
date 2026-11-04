@@ -1,7 +1,12 @@
 import { z } from "zod";
 import { parseReference, resourceId } from "../validation.js";
 
-const label = z.string().trim().min(1).max(100);
+const label = z
+  .string()
+  .trim()
+  .min(1)
+  .max(100)
+  .refine((value) => !value.includes("\0"));
 const caseId = z.string().transform((value, context) => {
   const id = parseReference(value, "TC");
   if (id) return resourceId("TC", id);
@@ -12,6 +17,7 @@ export const playwrightMetadataSchema = z.object({
   key: z.string().regex(/^[a-zA-Z0-9._:/-]{1,240}$/),
   suite: label,
   environment: label,
+  releaseVersion: label.optional(),
   commit: z.string().regex(/^[a-f0-9]{40}$/),
   branch: z.string().trim().min(1).max(200),
   runUrl: z

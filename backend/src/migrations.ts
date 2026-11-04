@@ -18,6 +18,7 @@ export const migrationFiles = [
   "017_project_administration.sql",
   "018_run_assignments.sql",
   "019_playwright_import.sql",
+  "020_run_release_context.sql",
 ] as const;
 
 /** Initial install and upgrades share one ordered source; no seed or deletion. */
@@ -51,7 +52,8 @@ export async function applyMigrations(
         filename.startsWith("016") ||
         filename.startsWith("017") ||
         filename.startsWith("018") ||
-        filename.startsWith("019")
+        filename.startsWith("019") ||
+        filename.startsWith("020")
       ) {
         const existing = await client.query<{ present: boolean }>(
           "SELECT EXISTS(SELECT 1 FROM qa.schema_migrations WHERE version=$1) AS present",

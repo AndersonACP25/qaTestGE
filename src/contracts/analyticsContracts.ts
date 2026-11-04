@@ -25,6 +25,7 @@ export const releaseReadinessSchema = z.object({
         createdAt: text,
         origin: z.enum(["manual", "playwright"]),
         environment: text.nullable(),
+        releaseVersion: text.nullable(),
       }),
     )
     .max(25),

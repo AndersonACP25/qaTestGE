@@ -64,6 +64,7 @@ async function main(env, [reportPath, project, suite, environment]) {
   const {
     QATESTGE_URL,
     QATESTGE_PLAYWRIGHT_TOKEN,
+    QATESTGE_RELEASE_VERSION,
     GITHUB_REPOSITORY,
     GITHUB_RUN_ID,
     GITHUB_RUN_ATTEMPT,
@@ -88,6 +89,9 @@ async function main(env, [reportPath, project, suite, environment]) {
   const report = JSON.parse(await readFile(reportPath, "utf8"));
   const payload = {
     ...collectResults(report, project),
+    ...(QATESTGE_RELEASE_VERSION?.trim()
+      ? { releaseVersion: QATESTGE_RELEASE_VERSION.trim() }
+      : {}),
     key: `${GITHUB_REPOSITORY}:${GITHUB_RUN_ID}:${GITHUB_RUN_ATTEMPT}:${encodeKey(project)}:${encodeKey(suite)}:${encodeKey(environment)}`,
     suite,
     environment,

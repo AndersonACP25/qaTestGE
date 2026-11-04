@@ -38,9 +38,6 @@ const bug = z.object({
   sourceResultId: id.nullable().optional(),
   sourceCaseId: id.nullable().optional(),
   sourceRunId: id.nullable().optional(),
-  playwright: playwrightMetadataSchema
-    .extend({ unknownCaseIds: z.array(id), unmappedCount: z.number().int().nonnegative() })
-    .nullish(),
   sourceSteps: z.array(z.object({ action: text, expectedResult: text })).optional(),
   assignee: text.nullable(),
   assigneeUserId: id.nullable().optional(),
@@ -78,6 +75,8 @@ const run = z.object({
   ownerUserId: id.nullish(),
   planId: id.nullable().optional(),
   sourceRunId: id.nullable().optional(),
+  releaseVersion: z.string().max(100).nullish(),
+  environment: z.string().max(100).nullish(),
   playwright: playwrightMetadataSchema
     .extend({ unknownCaseIds: z.array(id), unmappedCount: z.number().int().nonnegative() })
     .nullish(),

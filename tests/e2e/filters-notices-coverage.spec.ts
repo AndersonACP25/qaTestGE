@@ -501,7 +501,8 @@ test("Preparación de release compara orígenes y abre la ejecución filtrada", 
               id: run.id,
               title: run.title,
               origin: "manual",
-              environment: null,
+              environment: "QA",
+              releaseVersion: "2.0",
               createdAt: stamp,
             },
           ],
@@ -514,6 +515,11 @@ test("Preparación de release compara orígenes y abre la ejecución filtrada", 
   await page.getByRole("button", { name: "Preparación de release", exact: true }).click();
   const panel = page.getByRole("region", { name: "Preparación de release" });
   await expect(panel.getByRole("button", { name: "Playwright · Aprobados · 1" })).toBeVisible();
+  await panel.getByLabel("Filtrar por versión").fill("2.0");
+  await panel.getByLabel("Filtrar por entorno").fill("QA");
+  await panel.getByRole("button", { name: "Aplicar versión y entorno" }).click();
+  await expect.poll(() => requested.at(-1)?.get("releaseVersion")).toBe("2.0");
+  expect(requested.at(-1)?.get("environment")).toBe("QA");
   await panel.getByRole("button", { name: "Manual · Fallidos · 1" }).click();
   await expect.poll(() => requested.at(-1)?.get("outcome")).toBe("failed");
   expect(requested.at(-1)?.get("origin")).toBe("manual");

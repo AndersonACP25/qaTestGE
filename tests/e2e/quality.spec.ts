@@ -80,11 +80,18 @@ test("crea plan e inicia ciclo con referencia al plan", async ({ page, workspace
   await page.getByRole("checkbox", { name: /TC-001/ }).check();
   await page.getByRole("button", { name: "Guardar Test Plan", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Release 2", exact: true })).toBeVisible();
+  await page.getByText("Versión y entorno (opcional)", { exact: true }).click();
+  await page.getByLabel("Versión del release (opcional)").fill("2.0");
+  await page.getByLabel("Entorno de ejecución (opcional)").fill("UAT");
   await page.getByRole("button", { name: "Iniciar Test Run", exact: true }).click();
   await expect(
     page.getByText("Ejecución RUN-001 creada. Ábrela en Test runs.", { exact: true }),
   ).toBeVisible();
-  expect(workspace.writes.find((w) => w.path === "/test-runs")?.body.planId).toBe("PLAN-001");
+  expect(workspace.writes.find((w) => w.path === "/test-runs")?.body).toMatchObject({
+    planId: "PLAN-001",
+    releaseVersion: "2.0",
+    environment: "UAT",
+  });
   await noHorizontalOverflow(page);
 });
 

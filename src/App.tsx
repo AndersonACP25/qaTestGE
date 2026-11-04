@@ -64,6 +64,7 @@ import type { BugTemplate, BugTemplatePriority, Project, User } from "./api";
 import AccountSettingsView from "./views/AccountSettingsView";
 import WikiView from "./views/WikiView";
 import TagsView from "./views/TagsView";
+import RunReleaseFields from "./components/RunReleaseFields";
 import ReportsView from "./views/ReportsView";
 import RecordDetailsDialog, { type RecordDetail } from "./views/RecordDetailsDialog";
 import { exportRecord, recordExportFormats } from "./utils/exportRecord";
@@ -744,6 +745,8 @@ function App({
         owner: user.name,
         ownerUserId: assigneeUserId || user.id,
         caseIds: form.getAll("caseIds"),
+        releaseVersion: String(form.get("releaseVersion") ?? "").trim() || null,
+        environment: String(form.get("environment") ?? "").trim() || null,
         tagIds: selectedTagIds,
       };
     } else if (modal === "evidence") {
@@ -1936,6 +1939,7 @@ function App({
                 )}
                 {modal === "run" && (
                   <>
+                    <RunReleaseFields />
                     <label className="workspace__field">
                       Responsable de ejecución
                       <select

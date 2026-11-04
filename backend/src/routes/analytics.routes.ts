@@ -65,6 +65,20 @@ router.get("/release-readiness", async (req, res) => {
       origin: z.enum(["manual", "playwright"]).optional(),
       outcome: z.enum(["pending", "passed", "failed", "blocked", "skipped"]).optional(),
       offset: page.shape.offset,
+      releaseVersion: z
+        .string()
+        .trim()
+        .min(1)
+        .max(100)
+        .refine((v) => !v.includes("\0"))
+        .optional(),
+      environment: z
+        .string()
+        .trim()
+        .min(1)
+        .max(100)
+        .refine((v) => !v.includes("\0"))
+        .optional(),
     }),
     req.query,
   );

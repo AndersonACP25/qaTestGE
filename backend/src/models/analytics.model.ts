@@ -109,6 +109,8 @@ export interface ReleaseQuery extends AnalyticsRange {
   origin?: ReleaseOrigin;
   outcome?: ReleaseOutcome;
   offset: number;
+  releaseVersion?: string;
+  environment?: string;
 }
 export type ReleaseCounts = Record<ReleaseOutcome, number> & { runs: number };
 export interface ReleaseReadiness {
@@ -122,6 +124,7 @@ export interface ReleaseReadiness {
     origin: ReleaseOrigin;
     createdAt: string;
     environment: string | null;
+    releaseVersion: string | null;
   })[];
 }
 export interface AnalyticsRepository {

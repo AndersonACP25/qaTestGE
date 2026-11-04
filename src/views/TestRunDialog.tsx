@@ -1,3 +1,4 @@
+import RunReleaseFields from "../components/RunReleaseFields";
 import { formatCount } from "../utils/pluralization";
 import WorkItemEditor from "../components/WorkItemEditor";
 import type { ProjectMember } from "../../backend/src/models/collaboration.model";
@@ -221,6 +222,8 @@ export default function TestRunDialog({
         status={run.status}
         fields={[
           { label: "Responsable", value: run.owner },
+          { label: "Versión del release", value: run.releaseVersion ?? "Sin registrar" },
+          { label: "Entorno", value: run.environment ?? "Sin registrar" },
           { label: "Test Plan", value: run.planId || "Sin plan" },
           { label: "Progreso", value: `${run.progress}%` },
           { label: "Casos", value: run.caseIds?.length ?? 0 },
@@ -347,6 +350,8 @@ export default function TestRunDialog({
                     owner: String(form.get("owner")),
                     ownerUserId: String(form.get("ownerUserId") ?? "") || null,
                     caseIds: form.getAll("caseIds") as string[],
+                    releaseVersion: String(form.get("releaseVersion") ?? "").trim() || null,
+                    environment: String(form.get("environment") ?? "").trim() || null,
                     status: String(form.get("status")) as TestRunStatus,
                     tagIds: run.tagIds ?? [],
                   });
@@ -363,6 +368,10 @@ export default function TestRunDialog({
                     Título
                     <input name="title" defaultValue={run.title} required maxLength={200} />
                   </label>
+                  <RunReleaseFields
+                    releaseVersion={run.releaseVersion}
+                    environment={run.environment}
+                  />
                   <input name="owner" type="hidden" value={run.owner} />
                   <label className="workspace__field">
                     Responsable de ejecución

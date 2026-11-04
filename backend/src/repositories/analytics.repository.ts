@@ -75,6 +75,8 @@ export class PostgresAnalyticsRepository implements AnalyticsRepository {
         `WITH period_runs AS (
           SELECT * FROM qa.test_runs
           WHERE project_id=$1 AND created_at >= $2::date AND created_at < ($3::date+1)
+            AND ($8::text IS NULL OR lower(release_version)=lower($8))
+            AND ($9::text IS NULL OR lower(execution_environment)=lower($9))
         ), eligible_cases AS (
           SELECT c.id FROM qa.test_cases c WHERE c.project_id=$1 AND c.lifecycle<>'Obsoleto'
             AND ($4::bigint IS NULL OR EXISTS (
@@ -102,12 +104,12 @@ export class PostgresAnalyticsRepository implements AnalyticsRepository {
           SELECT b.id,b.title FROM qa.bugs b
           JOIN qa.project_bug_workflows w ON w.project_id=b.project_id
           WHERE b.project_id=$1 AND b.severity='Crítica' AND NOT(w.closed_states ? b.status)
-            AND (b.source_result_id IN (SELECT id FROM scoped_results) OR EXISTS (
+            AND (b.source_result_id IN (SELECT id FROM scoped_results) OR ((($8::text IS NULL AND $9::text IS NULL) OR b.source_result_id IS NULL) AND EXISTS (
               SELECT 1 FROM qa.bug_test_cases bc WHERE bc.project_id=$1 AND bc.bug_id=b.id
                 AND bc.test_case_id IN (SELECT test_case_id FROM scoped_results)
-            ))
+            )))
         ), runs AS (
-          SELECT r.id,r.title,r.created_at AS "createdAt",r.playwright->>'environment' AS environment,
+          SELECT r.id,r.title,r.created_at AS "createdAt",r.execution_environment AS environment,r.release_version AS "releaseVersion",
             CASE WHEN r.playwright IS NULL THEN 'manual' ELSE 'playwright' END AS origin,
             count(rr.id) FILTER (WHERE rr.executed_at IS NULL)::int AS pending,
             count(*) FILTER (WHERE rr.executed_at IS NOT NULL AND rr.status='passed')::int AS passed,
@@ -116,7 +118,7 @@ export class PostgresAnalyticsRepository implements AnalyticsRepository {
             count(*) FILTER (WHERE rr.executed_at IS NOT NULL AND rr.status='skipped')::int AS skipped
           FROM period_runs r
           LEFT JOIN scoped_results rr ON rr.project_id=r.project_id AND rr.test_run_id=r.id
-          GROUP BY r.id,r.title,r.created_at,r.playwright
+          GROUP BY r.id,r.title,r.created_at,r.playwright,r.execution_environment,r.release_version
           HAVING $4::bigint IS NULL OR count(rr.id)>0
         ), totals AS (
           SELECT origin,count(*)::int AS runs,sum(pending)::int AS pending,sum(passed)::int AS passed,
@@ -128,7 +130,7 @@ export class PostgresAnalyticsRepository implements AnalyticsRepository {
               WHEN 'failed' THEN failed>0 WHEN 'blocked' THEN blocked>0 WHEN 'skipped' THEN skipped>0 ELSE true END
         ), items AS (
           SELECT 'RUN-' || lpad(id::text,greatest(3,length(id::text)),'0') AS id,
-            title,"createdAt",environment,origin,pending,passed,failed,blocked,skipped,id AS sort
+            title,"createdAt",environment,"releaseVersion",origin,pending,passed,failed,blocked,skipped,id AS sort
           FROM filtered ORDER BY sort DESC LIMIT 25 OFFSET $7
         )
         SELECT coalesce((SELECT jsonb_object_agg(origin,to_jsonb(totals)-'origin') FROM totals),'{}') AS totals,
@@ -149,6 +151,8 @@ export class PostgresAnalyticsRepository implements AnalyticsRepository {
           query.origin ?? null,
           query.outcome ?? null,
           query.offset,
+          query.releaseVersion ?? null,
+          query.environment ?? null,
         ],
       );
       const empty: ReleaseCounts = {

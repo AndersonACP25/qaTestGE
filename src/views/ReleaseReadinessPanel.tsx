@@ -35,6 +35,7 @@ export default function ReleaseReadinessPanel({
 }) {
   const [plans, setPlans] = useState<{ id: string; name: string }[]>([]);
   const [planError, setPlanError] = useState("");
+  const [context, setContext] = useState({ releaseVersion: "", environment: "" });
   const [filters, setFilters] = useState({ plan: "", origin: "", outcome: "", page: 1 });
   const [state, setState] = useState<{ key: string; data?: Data; error?: string }>({ key: "" });
   useEffect(() => {
@@ -62,6 +63,8 @@ export default function ReleaseReadinessPanel({
     ...range,
     offset: String((filters.page - 1) * pageSize),
   });
+  if (context.releaseVersion) query.set("releaseVersion", context.releaseVersion);
+  if (context.environment) query.set("environment", context.environment);
   if (filters.plan) query.set("plan", filters.plan);
   if (filters.origin) query.set("origin", filters.origin);
   if (filters.outcome) query.set("outcome", filters.outcome);
@@ -96,6 +99,30 @@ export default function ReleaseReadinessPanel({
         Ejecuciones iniciadas en el período aplicado (UTC). El plan delimita sus casos actuales,
         incluidos los ejecutados en Playwright.
       </p>
+      <form
+        className="analytics__period"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const form = new FormData(event.currentTarget);
+          setContext({
+            releaseVersion: String(form.get("releaseVersion") ?? "").trim(),
+            environment: String(form.get("environment") ?? "").trim(),
+          });
+          setFilters((current) => ({ ...current, page: 1 }));
+        }}
+      >
+        <label className="workspace__field">
+          Filtrar por versión
+          <input name="releaseVersion" maxLength={100} />
+        </label>
+        <label className="workspace__field">
+          Filtrar por entorno
+          <input name="environment" maxLength={100} />
+        </label>
+        <button className="workspace__secondary" type="submit">
+          Aplicar versión y entorno
+        </button>
+      </form>
       <div className="analytics__period">
         <label className="workspace__field">
           Casos del Test Plan
@@ -144,6 +171,9 @@ export default function ReleaseReadinessPanel({
       )}
       {data && (
         <>
+          <p aria-live="polite">
+            Versión: {context.releaseVersion || "Todas"} · Entorno: {context.environment || "Todos"}
+          </p>
           <h3 className="typography__heading">Validación de requisitos</h3>
           <p>
             Un requisito se considera aprobado cuando el último resultado evaluable de cada caso
@@ -240,6 +270,7 @@ export default function ReleaseReadinessPanel({
                   <tr>
                     <th>Ejecución</th>
                     <th>Origen</th>
+                    <th>Versión</th>
                     <th>Entorno</th>
                     {Object.values(outcomes).map((label) => (
                       <th key={label}>{label}</th>
@@ -260,6 +291,7 @@ export default function ReleaseReadinessPanel({
                         </button>
                       </td>
                       <td data-label="Origen">{origins[run.origin]}</td>
+                      <td data-label="Versión">{run.releaseVersion ?? "Sin registrar"}</td>
                       <td data-label="Entorno">{run.environment ?? "Sin registrar"}</td>
                       {(Object.keys(outcomes) as (keyof typeof outcomes)[]).map((outcome) => (
                         <td key={outcome} data-label={outcomes[outcome]}>
