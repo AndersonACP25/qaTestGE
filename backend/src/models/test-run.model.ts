@@ -1,3 +1,5 @@
+import type { PlaywrightMetadata } from "./playwright-import.model.js";
+
 export const testRunStatuses = ["En curso", "Completado"] as const;
 export type TestRunStatus = (typeof testRunStatuses)[number];
 export const resultStatuses = ["passed", "failed", "blocked", "skipped"] as const;
@@ -31,6 +33,7 @@ export interface TestRun {
   caseIds: string[];
   planId?: string | null;
   sourceRunId?: string | null;
+  playwright?: PlaywrightMetadata | null;
   title: string;
   caseCount: number;
   progress: number;

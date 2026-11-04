@@ -3,7 +3,13 @@ import { PostgresCollaborationRepository } from "./collaboration.repository.js";
 import { actorDatabase } from "../auth/actor-database.js";
 import type { DatabasePool, DatabaseClient } from "../auth/actor-database.js";
 import { PostgresQualityRepository } from "./quality.repository.js";
-import { previousCreation, rememberCreation, requireCreatedRow } from "./creation-request.js";
+import type { PlaywrightImport } from "../models/playwright-import.model.js";
+import {
+  creationHash,
+  previousCreation,
+  rememberCreation,
+  requireCreatedRow,
+} from "./creation-request.js";
 import type { CreationContext } from "./creation-request.js";
 import { listSql } from "./list-query.js";
 import type { ListQuery, RunListQuery } from "./list-query.js";
@@ -85,6 +91,7 @@ const run = (r: RunRow) => ({
   ownerUserId: r.owner_user_id?.toString() ?? null,
   planId: r.plan_id ? resourceId("PLAN", r.plan_id) : null,
   sourceRunId: r.source_run_id ? resourceId("RUN", r.source_run_id) : null,
+  playwright: r.playwright ?? null,
   status: r.status,
   caseIds: r.case_ids.map((id) => resourceId("TC", id)),
   caseCount: r.case_ids.length,
@@ -581,6 +588,86 @@ export class PostgresRepository implements Repository {
     const { rows } = await this.pool.query<RunRow>(`${runsSql} ${query.sql}`, query.values);
     return rows.map(run);
   }
+  async importPlaywright(projectId: string, actorId: string, input: PlaywrightImport) {
+    return this.transaction(async (client) => {
+      await client.query("SELECT qa.require_permission($1, 'runs.write')", [projectId]);
+      const { results, ...metadata } = input;
+      const fingerprint = creationHash({
+        ...metadata,
+        results: [...results].sort((a, b) => a.caseId.localeCompare(b.caseId)),
+      });
+      await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [
+        `playwright:${projectId}:${metadata.key}`,
+      ]);
+      const existing = await client.query<RunRow & { playwright_import_hash: string }>(
+        `${runsSql} WHERE r.project_id=$1 AND r.playwright->>'key'=$2 AND r.playwright IS NOT NULL`,
+        [projectId, metadata.key],
+      );
+      if (existing.rows[0]) {
+        if (existing.rows[0].playwright_import_hash !== fingerprint)
+          throw new HttpError(
+            409,
+            "PLAYWRIGHT_IMPORT_CONFLICT",
+            "Ya existe un reporte distinto para esta ejecución de CI.",
+          );
+        return run(existing.rows[0]);
+      }
+      const selected = await client.query<{ id: string }>(
+        "SELECT id::text FROM qa.test_cases WHERE project_id=$1 AND id=ANY($2::bigint[]) AND lifecycle <> 'Obsoleto' ORDER BY id FOR SHARE",
+        [projectId, results.map((row) => parseReference(row.caseId, "TC"))],
+      );
+      const caseIds = selected.rows.map((row) => resourceId("TC", row.id));
+      const known = new Set(caseIds);
+      const unknownCaseIds = results
+        .filter((row) => !known.has(row.caseId))
+        .map((row) => row.caseId);
+      if (!caseIds.length)
+        throw new HttpError(
+          422,
+          "PLAYWRIGHT_NO_CASES",
+          "El reporte no contiene casos vigentes de este proyecto.",
+        );
+      const runId = await this.insertRun(client, {
+        projectId,
+        caseIds,
+        owner: "Playwright",
+        ownerUserId: actorId,
+        title: `[Playwright] ${metadata.suite} · ${metadata.environment}`.slice(0, 200),
+      });
+      const normalized = results
+        .filter((row) => known.has(row.caseId))
+        .map(({ caseId, attempts }) => {
+          const last = attempts.at(-1);
+          return {
+            case_id: parseReference(caseId, "TC"),
+            status:
+              last === "passed"
+                ? "passed"
+                : last === "skipped"
+                  ? "skipped"
+                  : last === "interrupted"
+                    ? "blocked"
+                    : "failed",
+            notes: `Playwright · intentos: ${attempts.join(" → ")}`,
+          };
+        });
+      await client.query(
+        `UPDATE qa.test_run_results rr SET status=i.status, notes=i.notes, executed_at=now()
+         FROM jsonb_to_recordset($3::jsonb) i(case_id bigint,status text,notes text)
+         WHERE rr.project_id=$1 AND rr.test_run_id=$2 AND rr.test_case_id=i.case_id`,
+        [projectId, runId, JSON.stringify(normalized)],
+      );
+      await client.query(
+        "UPDATE qa.test_runs SET status='Completado',completed_at=now(),playwright=$3,playwright_import_hash=$4 WHERE project_id=$1 AND id=$2",
+        [projectId, runId, JSON.stringify({ ...metadata, unknownCaseIds }), fingerprint],
+      );
+      const saved = await client.query<RunRow>(`${runsSql} WHERE r.id=$1 AND r.project_id=$2`, [
+        runId,
+        projectId,
+      ]);
+      return run(saved.rows[0]);
+    });
+  }
   async createRun(input: CreateTestRunInput, context?: CreationContext) {
     return this.transaction(async (client) => {
       const previous = await previousCreation(client, "run", input.projectId, input, context);
@@ -591,93 +678,103 @@ export class PostgresRepository implements Repository {
         ]);
         return run(requireCreatedRow(result.rows[0]));
       }
-      let selectedIds = input.caseIds ?? [];
-      let sourcePlan: string | null = null;
-      const sourceId = input.sourceRunId ? parseReference(input.sourceRunId, "RUN") : null;
-      if (sourceId) {
-        const source = await client.query<{ plan_id: string | null }>(
-          "SELECT plan_id::text FROM qa.test_runs WHERE id=$1 AND project_id=$2 FOR UPDATE",
-          [sourceId, input.projectId],
-        );
-        if (!source.rows[0])
-          throw new HttpError(404, "RUN_NOT_FOUND", "Ejecución de origen no disponible.");
-        sourcePlan = source.rows[0].plan_id;
-        const results = await client.query<{ test_case_id: string }>(
-          "SELECT test_case_id::text FROM qa.test_run_results WHERE test_run_id=$1 AND project_id=$2 AND (NOT $3::boolean OR (status='failed' AND executed_at IS NOT NULL)) ORDER BY test_case_id",
-          [sourceId, input.projectId, input.failedOnly ?? false],
-        );
-        selectedIds = results.rows.map((r) => resourceId("TC", r.test_case_id));
-      } else if (input.planId) {
-        const planId = parseReference(input.planId, "PLAN");
-        const plan = await client.query(
-          "SELECT id FROM qa.test_plans WHERE id=$1 AND project_id=$2 FOR SHARE",
-          [planId, input.projectId],
-        );
-        if (!plan.rowCount) throw new HttpError(404, "PLAN_NOT_FOUND", "Plan no disponible.");
-        const members = await client.query<{ test_case_id: string }>(
-          "SELECT test_case_id::text FROM qa.test_plan_cases WHERE plan_id=$1 AND project_id=$2 ORDER BY test_case_id",
-          [planId, input.projectId],
-        );
-        selectedIds = members.rows.map((r) => resourceId("TC", r.test_case_id));
-      }
-      if (!selectedIds.length)
-        throw new HttpError(
-          400,
-          "EMPTY_RUN",
-          "Selecciona al menos un caso; no hay resultados elegibles para reejecutar.",
-        );
-      const { rows } = await client.query<RunRow>(
-        "INSERT INTO qa.test_runs(project_id,title,owner,plan_id,source_run_id,owner_user_id) VALUES($1,$2,$3,$4,$5,$6) RETURNING *",
-        [
-          input.projectId,
-          input.title.trim(),
-          input.owner.trim(),
-          sourcePlan ?? (input.planId ? parseReference(input.planId, "PLAN") : null),
-          sourceId,
-          input.ownerUserId ?? null,
-        ],
-      );
-      const id = rows[0].id;
-      await this.replaceTags(
-        "qa.test_run_tags",
-        "test_run_id",
-        id,
-        input.projectId,
-        input.tagIds,
-        client,
-      );
-      const caseIds = selectedIds.map((value) => parseReference(value, "TC")!);
-      const inserted = sourceId
-        ? await client.query(
-            `INSERT INTO qa.test_run_results(project_id,test_run_id,test_case_id,steps_snapshot,title_snapshot,case_version)
-       SELECT project_id,$2,test_case_id,steps_snapshot,title_snapshot,case_version FROM qa.test_run_results WHERE project_id=$1 AND test_run_id=$4 AND test_case_id=ANY($3::bigint[])`,
-            [input.projectId, id, caseIds, sourceId],
-          )
-        : await client.query(
-            `INSERT INTO qa.test_run_results(project_id,test_run_id,test_case_id,steps_snapshot,title_snapshot,case_version)
-        SELECT $1,$2,c.id,COALESCE((SELECT jsonb_agg(jsonb_build_object('action',s.action,'expected_result',s.expected_result) ORDER BY s.position)
-        FROM qa.test_case_steps s WHERE s.test_case_id=c.id),'[]'::jsonb),c.title,c.version
-        FROM qa.test_cases c WHERE c.project_id=$1 AND c.id=ANY($3::bigint[]) AND c.lifecycle <> 'Obsoleto'`,
-            [input.projectId, id, caseIds],
-          );
-      if (inserted.rowCount !== caseIds.length)
-        throw new HttpError(
-          400,
-          "INVALID_REFERENCE",
-          "Los casos deben existir y pertenecer al proyecto de la ejecución.",
-        );
+      const id = await this.insertRun(client, input);
       const result = await client.query<RunRow>(`${runsSql} WHERE r.id=$1`, [id]);
       await rememberCreation(client, "run", input.projectId, id, input, context);
       return run(result.rows[0]);
     });
   }
+  private async insertRun(client: DatabaseClient, input: CreateTestRunInput) {
+    let selectedIds = input.caseIds ?? [];
+    let sourcePlan: string | null = null;
+    const sourceId = input.sourceRunId ? parseReference(input.sourceRunId, "RUN") : null;
+    if (sourceId) {
+      const source = await client.query<{ plan_id: string | null }>(
+        "SELECT plan_id::text FROM qa.test_runs WHERE id=$1 AND project_id=$2 FOR UPDATE",
+        [sourceId, input.projectId],
+      );
+      if (!source.rows[0])
+        throw new HttpError(404, "RUN_NOT_FOUND", "Ejecución de origen no disponible.");
+      sourcePlan = source.rows[0].plan_id;
+      const results = await client.query<{ test_case_id: string }>(
+        "SELECT test_case_id::text FROM qa.test_run_results WHERE test_run_id=$1 AND project_id=$2 AND (NOT $3::boolean OR (status='failed' AND executed_at IS NOT NULL)) ORDER BY test_case_id",
+        [sourceId, input.projectId, input.failedOnly ?? false],
+      );
+      selectedIds = results.rows.map((r) => resourceId("TC", r.test_case_id));
+    } else if (input.planId) {
+      const planId = parseReference(input.planId, "PLAN");
+      const plan = await client.query(
+        "SELECT id FROM qa.test_plans WHERE id=$1 AND project_id=$2 FOR SHARE",
+        [planId, input.projectId],
+      );
+      if (!plan.rowCount) throw new HttpError(404, "PLAN_NOT_FOUND", "Plan no disponible.");
+      const members = await client.query<{ test_case_id: string }>(
+        "SELECT test_case_id::text FROM qa.test_plan_cases WHERE plan_id=$1 AND project_id=$2 ORDER BY test_case_id",
+        [planId, input.projectId],
+      );
+      selectedIds = members.rows.map((r) => resourceId("TC", r.test_case_id));
+    }
+    if (!selectedIds.length)
+      throw new HttpError(
+        400,
+        "EMPTY_RUN",
+        "Selecciona al menos un caso; no hay resultados elegibles para reejecutar.",
+      );
+    const { rows } = await client.query<RunRow>(
+      "INSERT INTO qa.test_runs(project_id,title,owner,plan_id,source_run_id,owner_user_id) VALUES($1,$2,$3,$4,$5,$6) RETURNING *",
+      [
+        input.projectId,
+        input.title.trim(),
+        input.owner.trim(),
+        sourcePlan ?? (input.planId ? parseReference(input.planId, "PLAN") : null),
+        sourceId,
+        input.ownerUserId ?? null,
+      ],
+    );
+    const id = rows[0].id;
+    await this.replaceTags(
+      "qa.test_run_tags",
+      "test_run_id",
+      id,
+      input.projectId,
+      input.tagIds,
+      client,
+    );
+    const caseIds = selectedIds.map((value) => parseReference(value, "TC")!);
+    const inserted = sourceId
+      ? await client.query(
+          `INSERT INTO qa.test_run_results(project_id,test_run_id,test_case_id,steps_snapshot,title_snapshot,case_version)
+       SELECT project_id,$2,test_case_id,steps_snapshot,title_snapshot,case_version FROM qa.test_run_results WHERE project_id=$1 AND test_run_id=$4 AND test_case_id=ANY($3::bigint[])`,
+          [input.projectId, id, caseIds, sourceId],
+        )
+      : await client.query(
+          `INSERT INTO qa.test_run_results(project_id,test_run_id,test_case_id,steps_snapshot,title_snapshot,case_version)
+        SELECT $1,$2,c.id,COALESCE((SELECT jsonb_agg(jsonb_build_object('action',s.action,'expected_result',s.expected_result) ORDER BY s.position)
+        FROM qa.test_case_steps s WHERE s.test_case_id=c.id),'[]'::jsonb),c.title,c.version
+        FROM qa.test_cases c WHERE c.project_id=$1 AND c.id=ANY($3::bigint[]) AND c.lifecycle <> 'Obsoleto'`,
+          [input.projectId, id, caseIds],
+        );
+    if (inserted.rowCount !== caseIds.length)
+      throw new HttpError(
+        400,
+        "INVALID_REFERENCE",
+        "Los casos deben existir y pertenecer al proyecto de la ejecución.",
+      );
+    return id;
+  }
   async updateRun(id: string, projectId: string, input: UpdateTestRunInput) {
     return this.transaction(async (client) => {
       const locked = await client.query(
-        "SELECT id FROM qa.test_runs WHERE id=$1 AND project_id=$2 FOR UPDATE",
+        "SELECT id,playwright FROM qa.test_runs WHERE id=$1 AND project_id=$2 FOR UPDATE",
         [id, projectId],
       );
       if (!locked.rowCount) return null;
+      if (locked.rows[0].playwright)
+        throw new HttpError(
+          409,
+          "PLAYWRIGHT_RUN_IMMUTABLE",
+          "La ejecución publicada por Playwright conserva su historial de CI.",
+        );
       const caseIds = input.caseIds.map((value) => parseReference(value, "TC")!);
       const linkedRemoval = await client.query(
         `SELECT 1 FROM qa.evidence_links l JOIN qa.test_run_results rr ON rr.id=l.test_run_result_id AND rr.project_id=l.project_id
@@ -800,10 +897,16 @@ export class PostgresRepository implements Repository {
   async deleteRun(id: string, projectId: string) {
     return this.transaction(async (client) => {
       const locked = await client.query(
-        "SELECT id FROM qa.test_runs WHERE id=$1 AND project_id=$2 FOR UPDATE",
+        "SELECT id,playwright FROM qa.test_runs WHERE id=$1 AND project_id=$2 FOR UPDATE",
         [id, projectId],
       );
       if (!locked.rowCount) return false;
+      if (locked.rows[0].playwright)
+        throw new HttpError(
+          409,
+          "PLAYWRIGHT_RUN_IMMUTABLE",
+          "La ejecución publicada por Playwright conserva su historial de CI.",
+        );
       const linked = await client.query(
         `SELECT 1 FROM qa.evidence_links WHERE project_id=$2 AND (test_run_id=$1 OR test_run_result_id IN
         (SELECT id FROM qa.test_run_results WHERE test_run_id=$1 AND project_id=$2)) LIMIT 1`,

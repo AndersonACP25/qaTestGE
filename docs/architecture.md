@@ -38,7 +38,7 @@ Este documento combina la arquitectura objetivo de la v1.0 con el estado real de
 - La carga general de evidencias acepta archivos de hasta 2 MiB. Los adjuntos de casos admiten imágenes PNG/JPEG/GIF/WebP de hasta 2 MiB y enlaces HTTP(S).
 - La IA se integra mediante un servicio de aplicación y adaptadores de proveedores intercambiables. La configuración de IA es opcional.
 - Las recomendaciones de IA requieren revisión humana antes de modificar registros.
-- La v1.0 no incluye ejecución automatizada de pruebas, agentes con capacidad de actuar sin aprobación, ni entrenamiento de modelos con datos del cliente.
+- GitHub Actions ejecuta las pruebas del piloto Playwright y publica resultados normalizados mediante una credencial limitada a un proyecto y a la ruta de publicación. La API crea la ejecución y sus snapshots en una transacción. Véase [Piloto Playwright](PLAYWRIGHT_PILOT.md).
 
 ## Componentes lógicos
 

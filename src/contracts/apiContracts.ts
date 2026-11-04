@@ -1,3 +1,4 @@
+import { playwrightMetadataSchema } from "../../backend/src/models/playwright-import.model";
 import { assignedWorkPageSchema } from "../../backend/src/models/assigned-work.model";
 import { auditSettingsSchema } from "../../backend/src/models/audit.model";
 import {
@@ -36,6 +37,9 @@ const bug = z.object({
   sourceResultId: id.nullable().optional(),
   sourceCaseId: id.nullable().optional(),
   sourceRunId: id.nullable().optional(),
+  playwright: playwrightMetadataSchema
+    .extend({ unknownCaseIds: z.array(id), unmappedCount: z.number().int().nonnegative() })
+    .nullish(),
   sourceSteps: z.array(z.object({ action: text, expectedResult: text })).optional(),
   assignee: text.nullable(),
   assigneeUserId: id.nullable().optional(),
@@ -73,6 +77,9 @@ const run = z.object({
   ownerUserId: id.nullish(),
   planId: id.nullable().optional(),
   sourceRunId: id.nullable().optional(),
+  playwright: playwrightMetadataSchema
+    .extend({ unknownCaseIds: z.array(id), unmappedCount: z.number().int().nonnegative() })
+    .nullish(),
   caseIds: z.array(id),
   caseCount: z.number().int().nonnegative(),
   progress: z.number().min(0).max(100),

@@ -137,6 +137,17 @@ const project = object(
 );
 const unavailable = errorResponse("DATABASE_UNAVAILABLE: PostgreSQL no disponible.");
 
+const playwrightFields = {
+  key: { type: "string", maxLength: 240 },
+  suite: text(100),
+  environment: text(100),
+  branch: text(200),
+  commit: { type: "string", pattern: "^[a-f0-9]{40}$" },
+  runUrl: { type: "string", format: "uri", maxLength: 500 },
+  unmappedCount: { type: "integer", minimum: 0, maximum: 100000 },
+};
+const unknownPlaywrightCases = { type: "array", items: { type: "string" } };
+
 export const openApiDocument = {
   openapi: "3.0.3",
   info: {
@@ -148,6 +159,66 @@ export const openApiDocument = {
   servers: [{ url: "/", description: "Servidor actual (directo o proxy /api)" }],
   security: [{ sessionCookie: [] as string[] }],
   paths: {
+    "/api/integrations/playwright": {
+      post: {
+        summary: "Publicar resultados normalizados de Playwright en el proyecto configurado",
+        security: [{ playwrightBearer: [] }],
+        requestBody: {
+          required: true,
+          content: json(
+            object(
+              {
+                ...playwrightFields,
+                results: {
+                  type: "array",
+                  minItems: 1,
+                  maxItems: 1000,
+                  items: object(
+                    {
+                      caseId: { type: "string", pattern: "^TC-[0-9]{1,19}$" },
+                      attempts: {
+                        type: "array",
+                        minItems: 1,
+                        maxItems: 20,
+                        items: {
+                          type: "string",
+                          enum: ["passed", "failed", "timedOut", "skipped", "interrupted"],
+                        },
+                      },
+                    },
+                    ["caseId", "attempts"],
+                  ),
+                },
+              },
+              [...Object.keys(playwrightFields), "results"],
+            ),
+          ),
+        },
+        responses: {
+          "200": {
+            description: "Ejecución publicada o recuperada al repetir el reporte",
+            content: json(
+              envelope(
+                object(
+                  {
+                    id: { type: "string" },
+                    unknownCaseIds: unknownPlaywrightCases,
+                    unmappedCount: playwrightFields.unmappedCount,
+                  },
+                  ["id", "unknownCaseIds", "unmappedCount"],
+                ),
+              ),
+            ),
+          },
+          "400": errorResponse("INVALID_PLAYWRIGHT_REPORT"),
+          "401": errorResponse("INVALID_PLAYWRIGHT_TOKEN"),
+          "403": errorResponse("FORBIDDEN"),
+          "404": errorResponse("PLAYWRIGHT_DISABLED o PROJECT_NOT_FOUND"),
+          "409": errorResponse("PLAYWRIGHT_IMPORT_CONFLICT"),
+          "422": errorResponse("PLAYWRIGHT_NO_CASES"),
+        },
+      },
+    },
     ...analyticsPaths,
     ...qualityPaths,
     ...collaborationPaths,
@@ -1004,7 +1075,9 @@ export const openApiDocument = {
           "401": errorResponse("UNAUTHENTICATED"),
           "403": errorResponse("INVALID_CSRF o INVALID_ORIGIN"),
           "404": errorResponse("TEST_RUN_NOT_FOUND o PROJECT_NOT_FOUND"),
-          "409": errorResponse("RUN_INCOMPLETE, RUN_REFERENCED o RUN_RESULT_RECORDED"),
+          "409": errorResponse(
+            "RUN_INCOMPLETE, RUN_REFERENCED, RUN_RESULT_RECORDED o PLAYWRIGHT_RUN_IMMUTABLE",
+          ),
           "503": unavailable,
         },
       },
@@ -1027,7 +1100,7 @@ export const openApiDocument = {
           "401": errorResponse("UNAUTHENTICATED"),
           "403": errorResponse("INVALID_CSRF o INVALID_ORIGIN"),
           "404": errorResponse("TEST_RUN_NOT_FOUND o PROJECT_NOT_FOUND"),
-          "409": errorResponse("RUN_REFERENCED"),
+          "409": errorResponse("RUN_REFERENCED o PLAYWRIGHT_RUN_IMMUTABLE"),
           "503": unavailable,
         },
       },
@@ -1206,6 +1279,7 @@ export const openApiDocument = {
   },
   components: {
     securitySchemes: {
+      playwrightBearer: { type: "http", scheme: "bearer" },
       sessionCookie: { type: "apiKey", in: "cookie", name: "qa_session" },
       csrfToken: {
         type: "apiKey",
@@ -1385,6 +1459,13 @@ export const openApiDocument = {
           caseCount: { type: "integer", minimum: 0 },
           progress: { type: "number", minimum: 0, maximum: 100 },
           results: { type: "array", items: ref("TestRunResult") },
+          playwright: {
+            ...object({ ...playwrightFields, unknownCaseIds: unknownPlaywrightCases }, [
+              ...Object.keys(playwrightFields),
+              "unknownCaseIds",
+            ]),
+            nullable: true,
+          },
           status: { type: "string", enum: ["En curso", "Completado"] },
           tagIds,
         },

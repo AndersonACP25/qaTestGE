@@ -266,6 +266,15 @@ export class AuthorizedRepository implements Repository {
     await this.projectIds(projectId);
     return this.base.deleteCaseAttachment(id, attachmentId, projectId);
   }
+  async importPlaywright(
+    projectId: string,
+    _actorId: string,
+    input: import("../models/playwright-import.model.js").PlaywrightImport,
+  ) {
+    await this.projectIds(projectId);
+    if (!this.actorId) throw new HttpError(401, "UNAUTHENTICATED", "Inicia sesión.");
+    return this.base.importPlaywright(projectId, this.actorId, input);
+  }
   async createRun(input: CreateTestRunInput, context?: CreationContext) {
     await this.projectIds(input.projectId);
     if (context && !this.actorId) throw new HttpError(401, "UNAUTHENTICATED", "Inicia sesión.");

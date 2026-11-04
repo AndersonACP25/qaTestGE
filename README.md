@@ -31,7 +31,7 @@ Una plataforma para organizar el trabajo de QA de tu equipo: bugs, casos de prue
 - **Diseñadores:** prepara casos a partir de ejemplos y bugs desde plantillas; revisa el contenido y confirma **Guardar en Bugs** para crearlos en el mantenimiento, incluidos borradores antiguos.
 - **Texto con formato:** los campos de texto largo incluyen negrita, cursiva, tachado, código, listas, citas y vista previa. Se conserva como Markdown y se representa sin HTML.
 
-La IA y el cambio de imagen de perfil siguen siendo maquetas. Las pruebas se ejecutan manualmente.
+La IA y el cambio de imagen de perfil siguen siendo maquetas. Además de las ejecuciones manuales, el [piloto Playwright](docs/PLAYWRIGHT_PILOT.md) permite publicar resultados desde GitHub Actions.
 
 ## Stack tecnológico
 

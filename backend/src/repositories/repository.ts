@@ -62,6 +62,11 @@ export interface Repository {
   ): Promise<{ rows: TestRun[]; total: number }>;
   findRun(id: string, projectId: string): Promise<TestRun | null>;
   listRuns(projectId?: string, options?: ListQuery): Promise<TestRun[]>;
+  importPlaywright(
+    projectId: string,
+    actorId: string,
+    input: import("../models/playwright-import.model.js").PlaywrightImport,
+  ): Promise<TestRun>;
   createRun(input: CreateTestRunInput, context?: CreationContext): Promise<TestRun>;
   updateRun(id: string, projectId: string, input: UpdateTestRunInput): Promise<TestRun | null>;
   deleteRun(id: string, projectId: string): Promise<boolean>;

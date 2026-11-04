@@ -75,6 +75,7 @@ export interface TestCaseAttachment {
 }
 
 export interface TestRun {
+  playwright?: import("../backend/src/models/playwright-import.model").PlaywrightMetadata | null;
   id: string;
   title: string;
   cases: string;
