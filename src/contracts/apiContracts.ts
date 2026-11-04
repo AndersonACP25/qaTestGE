@@ -3,6 +3,7 @@ import { assignedWorkPageSchema } from "../../backend/src/models/assigned-work.m
 import { auditSettingsSchema } from "../../backend/src/models/audit.model";
 import {
   analyticsSchema,
+  releaseReadinessSchema,
   requirementSchema,
   requirementsSchema,
   coverageSchema,
@@ -193,6 +194,7 @@ export function parseApiData(path: string, method: string, input: unknown): unkn
   const [resource, action, detail] = parts;
   let schema: z.ZodType;
   if (resource === "analytics") schema = analyticsSchema;
+  else if (resource === "release-readiness") schema = releaseReadinessSchema;
   else if (resource === "requirements")
     schema = method === "GET" ? requirementsSchema : requirementSchema;
   else if (resource === "coverage-matrix") schema = coverageSchema;

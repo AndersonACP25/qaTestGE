@@ -94,6 +94,10 @@ export class AuthorizedRepository implements Repository {
     const base = this.base.analytics;
     if (!base) return undefined;
     return {
+      releaseReadiness: async (p, query) => {
+        await this.projectIds(p);
+        return base.releaseReadiness(p, query);
+      },
       overview: async (p, range) => {
         await this.projectIds(p);
         return base.overview(p, range);

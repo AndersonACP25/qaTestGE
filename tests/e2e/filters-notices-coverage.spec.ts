@@ -475,3 +475,49 @@ test("una ejecución de Playwright muestra su origen y conserva el historial", a
   await expect(dialog.getByText(/TC-900/)).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Editar ejecución" })).toBeDisabled();
 });
+
+test("Preparación de release compara orígenes y abre la ejecución filtrada", async ({
+  page,
+  workspace,
+}) => {
+  prepareRun(workspace);
+  const [run] = workspace.runs;
+  const manual = { runs: 1, pending: 0, passed: 0, failed: 1, blocked: 0, skipped: 0 };
+  const playwright = { ...manual, failed: 0, passed: 1 };
+  const requested: URLSearchParams[] = [];
+  await page.route("**/api/release-readiness?*", (route) => {
+    const query = new URL(route.request().url()).searchParams;
+    requested.push(query);
+    return route.fulfill({
+      json: {
+        data: {
+          totals: { manual, playwright },
+          coverage: { requirements: 1, linked: 1, executed: 1, passed: 1 },
+          criticalBugs: { total: 0, rows: [] },
+          total: 1,
+          rows: [
+            {
+              ...manual,
+              id: run.id,
+              title: run.title,
+              origin: "manual",
+              environment: null,
+              createdAt: stamp,
+            },
+          ],
+        },
+      },
+    });
+  });
+  await page.goto("/");
+  await navigate(page, "Reportes y métricas");
+  await page.getByRole("button", { name: "Preparación de release", exact: true }).click();
+  const panel = page.getByRole("region", { name: "Preparación de release" });
+  await expect(panel.getByRole("button", { name: "Playwright · Aprobados · 1" })).toBeVisible();
+  await panel.getByRole("button", { name: "Manual · Fallidos · 1" }).click();
+  await expect.poll(() => requested.at(-1)?.get("outcome")).toBe("failed");
+  expect(requested.at(-1)?.get("origin")).toBe("manual");
+  await panel.getByRole("button", { name: `${run.id} · ${run.title}` }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await noHorizontalOverflow(page);
+});

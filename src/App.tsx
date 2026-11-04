@@ -369,14 +369,39 @@ function App({
     setOpeningRun(true);
     setOpenRunError("");
     try {
-      const run = await loadRunDetail(projectId, id, controller.signal);
+      const [run, resources] = await Promise.all([
+        loadRunDetail(projectId, id, controller.signal),
+        activePage === "reports" ? loadProject(projectId, controller.signal, false) : null,
+      ]);
       if (!isCurrent() || controller.signal.aborted) return;
+      if (resources) setData((current) => ({ ...resources, runs: current.runs }));
       if (closeRecord) setRecordDetail(null);
       setRunAction(action);
       setRunDetail(run);
     } catch (cause) {
       if (isCurrent() && !controller.signal.aborted)
         setOpenRunError(cause instanceof Error ? cause.message : "No se pudo abrir la ejecución.");
+    } finally {
+      if (isCurrent() && !controller.signal.aborted) setOpeningRun(false);
+    }
+  }
+  async function openReleaseBug(id: string) {
+    runRequest.current?.abort();
+    const controller = new AbortController();
+    runRequest.current = controller;
+    const isCurrent = captureScope();
+    setOpeningRun(true);
+    setOpenRunError("");
+    try {
+      const resources = await loadProject(projectId, controller.signal, false);
+      if (!isCurrent() || controller.signal.aborted) return;
+      const record = resources.bugs.find((bug) => bug.id === id);
+      if (!record) throw new Error("El bug ya no está disponible.");
+      setData((current) => ({ ...resources, runs: current.runs }));
+      setRecordDetail({ kind: "bug", record });
+    } catch (cause) {
+      if (isCurrent() && !controller.signal.aborted)
+        setOpenRunError(cause instanceof Error ? cause.message : "No se pudo abrir el bug.");
     } finally {
       if (isCurrent() && !controller.signal.aborted) setOpeningRun(false);
     }
@@ -1329,6 +1354,10 @@ function App({
                 projectId={projectId}
                 projectName={project?.name ?? "Proyecto"}
                 refreshRevision={revision}
+                onOpenRun={(id) => void openRun(id, "view")}
+                onOpenBug={(id) => void openReleaseBug(id)}
+                openingRun={openingRun}
+                openRunError={openRunError}
               />
             )
           ) : (

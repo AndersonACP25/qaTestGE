@@ -351,6 +351,49 @@ try {
       .status,
     409,
   );
+  const requirement = await agent
+    .post("/api/requirements")
+    .set("Idempotency-Key", randomUUID())
+    .send({
+      projectId,
+      code: "REQ-RELEASE",
+      title: "Acceso",
+      description: "",
+      caseIds: [tc.id],
+    });
+  assert.equal(requirement.status, 201);
+  const today = new Date().toISOString().slice(0, 10);
+  const releaseQuery = { projectId, from: today, to: today, plan: plan.body.data.id };
+  const readiness = await agent.get("/api/release-readiness").query(releaseQuery);
+  assert.equal(readiness.status, 200);
+  assert.equal(readiness.body.data.totals.manual.failed, 1);
+  assert.equal(readiness.body.data.totals.manual.pending, 1);
+  assert.equal(readiness.body.data.totals.playwright.passed, 1);
+  assert.deepEqual(readiness.body.data.coverage, {
+    requirements: 1,
+    linked: 1,
+    executed: 1,
+    passed: 1,
+  });
+  assert.equal(readiness.body.data.criticalBugs.total, 1);
+  assert.equal(readiness.body.data.criticalBugs.rows[0].id, bug.body.data.id);
+  const releaseFailed = await agent
+    .get("/api/release-readiness")
+    .query({ ...releaseQuery, origin: "manual", outcome: "failed" });
+  assert.equal(releaseFailed.body.data.total, 1);
+  assert.equal(releaseFailed.body.data.rows[0].id, run.id);
+  assert.equal(releaseFailed.body.data.totals.playwright.passed, 1);
+  const beyondRelease = await agent
+    .get("/api/release-readiness")
+    .query({ ...releaseQuery, offset: 25 });
+  assert.deepEqual(beyondRelease.body.data.rows, []);
+  assert.equal(beyondRelease.body.data.total, readiness.body.data.total);
+  assert.equal((await other.get("/api/release-readiness").query(releaseQuery)).status, 404);
+  assert.equal(
+    (await agent.get("/api/release-readiness").query({ ...releaseQuery, plan: "PLAN-999999" }))
+      .status,
+    404,
+  );
   const obsolete = await agent
     .patch(`/api/test-cases/${tc.id}`)
     .send({ ...caseInput, lifecycle: "Obsoleto", expectedVersion: 2 });
@@ -390,6 +433,7 @@ try {
       "test_runs",
       "test_plan_cases",
       "test_plans",
+      "requirements",
       "test_case_steps",
       "test_cases",
       "project_bug_workflows",

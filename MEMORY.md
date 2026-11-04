@@ -8,7 +8,7 @@
 - Mantener relaciones explícitas por ID y claves compuestas de proyecto. Las escrituras de pasos, snapshots y vínculos son transaccionales.
 - IA e imagen de perfil siguen siendo maquetas. El piloto Playwright publica resultados normalizados desde GitHub Actions; el cliente vive en servicios/playwright/.
 
-- Comentarios y Mis menciones usan páginas por cursor y el contador de no leídas abarca todo el proyecto. Test Runs filtra y pagina resúmenes en servidor, carga snapshots al abrir y exporta la página visible.
+- Comentarios y Mis menciones paginan por cursor. Test Runs pagina resúmenes y carga snapshots al abrir. Reportes incluye preparación de release por período UTC y casos vigentes del plan, con resultados por origen, requisitos y bugs críticos vinculados.
 
 ## Operación
 

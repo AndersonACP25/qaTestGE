@@ -3,6 +3,32 @@ const text = z.string().max(10000),
   id = z.string().min(1).max(120),
   count = z.number().int().nonnegative(),
   rate = count.max(100).nullable();
+const releaseOutcomes = {
+  pending: count,
+  passed: count,
+  failed: count,
+  blocked: count,
+  skipped: count,
+};
+const releaseTotals = z.object({ ...releaseOutcomes, runs: count });
+export const releaseReadinessSchema = z.object({
+  totals: z.object({ manual: releaseTotals, playwright: releaseTotals }),
+  coverage: z.object({ requirements: count, linked: count, executed: count, passed: count }),
+  criticalBugs: z.object({ total: count, rows: z.array(z.object({ id, title: text })).max(10) }),
+  total: count,
+  rows: z
+    .array(
+      z.object({
+        ...releaseOutcomes,
+        id,
+        title: text,
+        createdAt: text,
+        origin: z.enum(["manual", "playwright"]),
+        environment: text.nullable(),
+      }),
+    )
+    .max(25),
+});
 const summary = z.object({
   bugs: count,
   openBugs: count,

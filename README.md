@@ -33,6 +33,8 @@ Una plataforma para organizar el trabajo de QA de tu equipo: bugs, casos de prue
 
 La IA y el cambio de imagen de perfil siguen siendo maquetas. Además de las ejecuciones manuales, el [piloto Playwright](docs/PLAYWRIGHT_PILOT.md) permite publicar resultados desde GitHub Actions.
 
+En **Reportes y métricas → Preparación de release** puedes comparar ejecuciones manuales y Playwright, validar requisitos del alcance y abrir los bugs críticos vinculados.
+
 ## Stack tecnológico
 
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)
