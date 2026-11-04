@@ -79,7 +79,7 @@ export async function checkDatabase(pool: pg.Pool): Promise<void> {
     "SELECT project_id,actor_id,request_key,request_hash,user_id FROM qa.project_user_requests LIMIT 0",
   );
   await pool.query(
-    "SELECT owner_user_id,playwright,playwright_import_hash FROM qa.test_runs LIMIT 0",
+    "SELECT owner_user_id,playwright,playwright_import_hash,release_version,execution_environment FROM qa.test_runs LIMIT 0",
   );
   await pool.query("SELECT 1");
   await pool.query(

@@ -118,3 +118,13 @@ En Importar, pulsa **Subir archivo** o arrastra un CSV/Excel al modal; revisa la
 **Test Plan** permite crear, buscar, consultar y editar planes con su descripción y casos. Puedes buscar casos dentro del formulario y consultar los incluidos en cada plan. **Iniciar Test Run** crea una ejecución vinculada; los planes ya utilizados siguen protegidos frente al borrado.
 
 Al ejecutar un Test Run, guardar un resultado conserva la posición del caso y muestra la confirmación junto a él. El historial de actividad se presenta sin numeración, del cambio más reciente al más antiguo.
+
+## Preparación de release
+
+En **Reportes y métricas**, aplica el período UTC y abre **Preparación de release**. El panel compara ejecuciones iniciadas en ese período. **Casos del Test Plan** delimita los casos vigentes del plan y puede incluir resultados de Playwright aunque la ejecución automática no tenga un plan asignado. La fecha es la de creación del Test Run.
+
+Selecciona un total de pendientes, aprobados, fallidos, bloqueados u omitidos para filtrar la tabla y abrir la ejecución. Los indicadores comparativos conservan ambos orígenes. En **Versión del release** y **Entorno de ejecución** puedes registrar valores al crear o editar un Test Run manual, también al iniciarlo desde un Test Plan. Clonar o reejecutar fallidos conserva ambos datos del origen. Los campos vacíos aparecen como **Sin registrar**.
+
+En el panel, **Aplicar versión y entorno** delimita la comparación, la validación de requisitos y los bugs críticos. Los filtros comparan el valor completo sin distinguir mayúsculas. Un campo vacío deja esa dimensión abierta. Las ejecuciones publicadas por Playwright toman el entorno del publicador y la versión de `QATESTGE_RELEASE_VERSION` si se configuró.
+
+La validación de requisitos considera el último resultado evaluable de cada caso vigente. Un requisito queda aprobado si todos sus casos del alcance aprobaron. Los bugs críticos abiertos se identifican según la severidad, el flujo configurado y su vínculo a un caso o resultado de las ejecuciones del período. La lista muestra los diez más recientes y permite abrir el detalle.

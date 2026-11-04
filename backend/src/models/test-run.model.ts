@@ -14,7 +14,11 @@ export interface TestRunResult {
   executedAt: string | null;
   steps: { action: string; expectedResult: string }[];
 }
-export interface UpdateTestRunInput {
+export interface RunReleaseContext {
+  releaseVersion?: string | null;
+  environment?: string | null;
+}
+export interface UpdateTestRunInput extends RunReleaseContext {
   title: string;
   owner: string;
   ownerUserId?: string | null;
@@ -27,7 +31,7 @@ export interface UpdateRunResultInput {
   notes: string;
 }
 
-export interface TestRun {
+export interface TestRun extends RunReleaseContext {
   id: string;
   projectId: string;
   caseIds: string[];
@@ -45,11 +49,12 @@ export interface TestRun {
   results: TestRunResult[];
 }
 
-export type CreateTestRunInput = Pick<TestRun, "title" | "owner" | "projectId"> & {
-  ownerUserId?: string | null;
-  caseIds?: string[];
-  planId?: string;
-  sourceRunId?: string;
-  failedOnly?: boolean;
-  tagIds?: string[];
-};
+export type CreateTestRunInput = Pick<TestRun, "title" | "owner" | "projectId"> &
+  RunReleaseContext & {
+    ownerUserId?: string | null;
+    caseIds?: string[];
+    planId?: string;
+    sourceRunId?: string;
+    failedOnly?: boolean;
+    tagIds?: string[];
+  };

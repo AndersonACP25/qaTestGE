@@ -102,7 +102,33 @@ export interface RunReport {
     evidence: { id: string; name: string }[];
   }[];
 }
+export type ReleaseOrigin = "manual" | "playwright";
+export type ReleaseOutcome = "pending" | "passed" | "failed" | "blocked" | "skipped";
+export interface ReleaseQuery extends AnalyticsRange {
+  plan?: string;
+  origin?: ReleaseOrigin;
+  outcome?: ReleaseOutcome;
+  offset: number;
+  releaseVersion?: string;
+  environment?: string;
+}
+export type ReleaseCounts = Record<ReleaseOutcome, number> & { runs: number };
+export interface ReleaseReadiness {
+  totals: Record<ReleaseOrigin, ReleaseCounts>;
+  coverage: { requirements: number; linked: number; executed: number; passed: number };
+  criticalBugs: { total: number; rows: { id: string; title: string }[] };
+  total: number;
+  rows: (Omit<ReleaseCounts, "runs"> & {
+    id: string;
+    title: string;
+    origin: ReleaseOrigin;
+    createdAt: string;
+    environment: string | null;
+    releaseVersion: string | null;
+  })[];
+}
 export interface AnalyticsRepository {
+  releaseReadiness(projectId: string, query: ReleaseQuery): Promise<ReleaseReadiness>;
   overview(projectId: string, range: AnalyticsRange): Promise<AnalyticsData>;
   requirements(
     projectId: string,

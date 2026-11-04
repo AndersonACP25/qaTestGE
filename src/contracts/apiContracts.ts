@@ -3,6 +3,7 @@ import { assignedWorkPageSchema } from "../../backend/src/models/assigned-work.m
 import { auditSettingsSchema } from "../../backend/src/models/audit.model";
 import {
   analyticsSchema,
+  releaseReadinessSchema,
   requirementSchema,
   requirementsSchema,
   coverageSchema,
@@ -37,9 +38,6 @@ const bug = z.object({
   sourceResultId: id.nullable().optional(),
   sourceCaseId: id.nullable().optional(),
   sourceRunId: id.nullable().optional(),
-  playwright: playwrightMetadataSchema
-    .extend({ unknownCaseIds: z.array(id), unmappedCount: z.number().int().nonnegative() })
-    .nullish(),
   sourceSteps: z.array(z.object({ action: text, expectedResult: text })).optional(),
   assignee: text.nullable(),
   assigneeUserId: id.nullable().optional(),
@@ -77,6 +75,8 @@ const run = z.object({
   ownerUserId: id.nullish(),
   planId: id.nullable().optional(),
   sourceRunId: id.nullable().optional(),
+  releaseVersion: z.string().max(100).nullish(),
+  environment: z.string().max(100).nullish(),
   playwright: playwrightMetadataSchema
     .extend({ unknownCaseIds: z.array(id), unmappedCount: z.number().int().nonnegative() })
     .nullish(),
@@ -193,6 +193,7 @@ export function parseApiData(path: string, method: string, input: unknown): unkn
   const [resource, action, detail] = parts;
   let schema: z.ZodType;
   if (resource === "analytics") schema = analyticsSchema;
+  else if (resource === "release-readiness") schema = releaseReadinessSchema;
   else if (resource === "requirements")
     schema = method === "GET" ? requirementsSchema : requirementSchema;
   else if (resource === "coverage-matrix") schema = coverageSchema;

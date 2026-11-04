@@ -81,13 +81,20 @@ try {
       .status,
     409,
   );
-  const runResponse = await agent
-    .post("/api/test-runs")
-    .send({ projectId, title: "Ciclo uno", owner: "QA", planId: plan.body.data.id });
+  const runResponse = await agent.post("/api/test-runs").send({
+    projectId,
+    title: "Ciclo uno",
+    owner: "QA",
+    planId: plan.body.data.id,
+    releaseVersion: " 2.0 ",
+    environment: "UAT",
+  });
   assert.equal(runResponse.status, 201);
   const run = runResponse.body.data;
   assert.equal(run.caseCount, 1);
   assert.equal(run.planId, plan.body.data.id);
+  assert.equal(run.releaseVersion, "2.0");
+  assert.equal(run.environment, "UAT");
   const result = run.results[0];
   assert.equal(
     (
@@ -232,6 +239,8 @@ try {
   assert.equal(copy.status, 201);
   assert.equal(copy.body.data.progress, 0);
   assert.equal(copy.body.data.sourceRunId, run.id);
+  assert.equal(copy.body.data.releaseVersion, "2.0");
+  assert.equal(copy.body.data.environment, "UAT");
   assert.equal(copy.body.data.results[0].executedAt, null);
   assert.equal(copy.body.data.results[0].title, "Acceso original");
   assert.equal(copy.body.data.results[0].caseVersion, 1);
@@ -308,6 +317,7 @@ try {
     key: "owner/automation:123:1:chromium:smoke:QA",
     suite: "smoke",
     environment: "QA",
+    releaseVersion: "2.0",
     commit: "a".repeat(40),
     branch: "main",
     runUrl: "https://github.com/owner/automation/actions/runs/123/attempts/1",
@@ -351,6 +361,76 @@ try {
       .status,
     409,
   );
+  const requirement = await agent
+    .post("/api/requirements")
+    .set("Idempotency-Key", randomUUID())
+    .send({
+      projectId,
+      code: "REQ-RELEASE",
+      title: "Acceso",
+      description: "",
+      caseIds: [tc.id],
+    });
+  assert.equal(requirement.status, 201);
+  const today = new Date().toISOString().slice(0, 10);
+  const releaseQuery = { projectId, from: today, to: today, plan: plan.body.data.id };
+  const readiness = await agent.get("/api/release-readiness").query(releaseQuery);
+  assert.equal(readiness.status, 200);
+  assert.equal(readiness.body.data.totals.manual.failed, 1);
+  assert.equal(readiness.body.data.totals.manual.pending, 1);
+  assert.equal(readiness.body.data.totals.playwright.passed, 1);
+  assert.deepEqual(readiness.body.data.coverage, {
+    requirements: 1,
+    linked: 1,
+    executed: 1,
+    passed: 1,
+  });
+  assert.equal(readiness.body.data.criticalBugs.total, 1);
+  assert.equal(readiness.body.data.criticalBugs.rows[0].id, bug.body.data.id);
+  const releaseFailed = await agent
+    .get("/api/release-readiness")
+    .query({ ...releaseQuery, origin: "manual", outcome: "failed" });
+  assert.equal(releaseFailed.body.data.total, 1);
+  assert.equal(releaseFailed.body.data.rows[0].id, run.id);
+  assert.equal(releaseFailed.body.data.totals.playwright.passed, 1);
+  const beyondRelease = await agent
+    .get("/api/release-readiness")
+    .query({ ...releaseQuery, offset: 25 });
+  assert.deepEqual(beyondRelease.body.data.rows, []);
+  assert.equal(beyondRelease.body.data.total, readiness.body.data.total);
+  assert.equal((await other.get("/api/release-readiness").query(releaseQuery)).status, 404);
+  assert.equal(
+    (await agent.get("/api/release-readiness").query({ ...releaseQuery, plan: "PLAN-999999" }))
+      .status,
+    404,
+  );
+  const qaRelease = await agent
+    .get("/api/release-readiness")
+    .query({ ...releaseQuery, releaseVersion: "2.0", environment: " qa " });
+  assert.equal(qaRelease.status, 200);
+  assert.equal(qaRelease.body.data.totals.manual.runs, 0);
+  assert.equal(qaRelease.body.data.totals.playwright.passed, 1);
+  assert.equal(qaRelease.body.data.rows[0].releaseVersion, "2.0");
+  assert.equal(qaRelease.body.data.criticalBugs.total, 0);
+  const uatRelease = await agent
+    .get("/api/release-readiness")
+    .query({ ...releaseQuery, environment: "UAT", releaseVersion: "2.0" });
+  assert.equal(uatRelease.body.data.totals.manual.failed, 1);
+  assert.equal(uatRelease.body.data.totals.playwright.runs, 0);
+  assert.equal(uatRelease.body.data.coverage.passed, 0);
+  assert.equal(uatRelease.body.data.criticalBugs.total, 1);
+  const nonexistent = await agent
+    .get("/api/release-readiness")
+    .query({ ...releaseQuery, releaseVersion: "3.0" });
+  assert.equal(nonexistent.body.data.total, 0);
+  const editedContext = await agent.patch(`/api/test-runs/${copy.body.data.id}`).send({
+    ...editRun,
+    caseIds: [tc.id],
+    environment: null,
+  });
+  assert.equal(editedContext.status, 200);
+  assert.equal(editedContext.body.data.releaseVersion, "2.0");
+  assert.equal(editedContext.body.data.environment, null);
   const obsolete = await agent
     .patch(`/api/test-cases/${tc.id}`)
     .send({ ...caseInput, lifecycle: "Obsoleto", expectedVersion: 2 });
@@ -390,6 +470,7 @@ try {
       "test_runs",
       "test_plan_cases",
       "test_plans",
+      "requirements",
       "test_case_steps",
       "test_cases",
       "project_bug_workflows",

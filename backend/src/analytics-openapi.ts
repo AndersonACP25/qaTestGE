@@ -180,7 +180,50 @@ function operation(
   };
 }
 const reqPath = parameter("id", { type: "string", pattern: "^REQ-[0-9]{1,19}$" }, true, "path");
+const releaseOutcomes = {
+  pending: count,
+  passed: count,
+  failed: count,
+  blocked: count,
+  skipped: count,
+};
+const releaseCounts = object({ runs: count, ...releaseOutcomes });
+const releaseOrigin = { type: "string", enum: ["manual", "playwright"] };
 export const analyticsPaths = {
+  "/api/release-readiness": {
+    get: operation(
+      "Compara ejecuciones por origen, validación de requisitos y bugs críticos del alcance.",
+      object({
+        totals: object({ manual: releaseCounts, playwright: releaseCounts }),
+        coverage: object({ requirements: count, linked: count, executed: count, passed: count }),
+        criticalBugs: object({ total: count, rows: array(object({ id: text, title: text }), 10) }),
+        total: count,
+        rows: array(
+          object({
+            id: text,
+            title: text,
+            origin: releaseOrigin,
+            environment: { type: "string", nullable: true },
+            releaseVersion: { type: "string", nullable: true },
+            createdAt: { type: "string", format: "date-time" },
+            ...releaseOutcomes,
+          }),
+          25,
+        ),
+      }),
+      [
+        project,
+        parameter("from", { type: "string", format: "date" }, true),
+        parameter("to", { type: "string", format: "date" }, true),
+        parameter("plan", { type: "string", pattern: "^PLAN-[0-9]{1,19}$" }),
+        parameter("origin", releaseOrigin),
+        parameter("releaseVersion", { type: "string", maxLength: 100 }),
+        parameter("environment", { type: "string", maxLength: 100 }),
+        parameter("outcome", { type: "string", enum: Object.keys(releaseOutcomes) }),
+        parameter("offset", { type: "integer", minimum: 0, maximum: 10000000 }),
+      ],
+    ),
+  },
   "/api/analytics": {
     get: operation(
       "Agregados por proyecto y rango UTC inclusivo (máximo 366 días). Tasa excluye omitidos y pendientes. Estado de bugs histórico desde migración 015; días previos son null. Hasta 60 ejecuciones por fecha de creación.",

@@ -64,6 +64,7 @@ import type { BugTemplate, BugTemplatePriority, Project, User } from "./api";
 import AccountSettingsView from "./views/AccountSettingsView";
 import WikiView from "./views/WikiView";
 import TagsView from "./views/TagsView";
+import RunReleaseFields from "./components/RunReleaseFields";
 import ReportsView from "./views/ReportsView";
 import RecordDetailsDialog, { type RecordDetail } from "./views/RecordDetailsDialog";
 import { exportRecord, recordExportFormats } from "./utils/exportRecord";
@@ -369,14 +370,39 @@ function App({
     setOpeningRun(true);
     setOpenRunError("");
     try {
-      const run = await loadRunDetail(projectId, id, controller.signal);
+      const [run, resources] = await Promise.all([
+        loadRunDetail(projectId, id, controller.signal),
+        activePage === "reports" ? loadProject(projectId, controller.signal, false) : null,
+      ]);
       if (!isCurrent() || controller.signal.aborted) return;
+      if (resources) setData((current) => ({ ...resources, runs: current.runs }));
       if (closeRecord) setRecordDetail(null);
       setRunAction(action);
       setRunDetail(run);
     } catch (cause) {
       if (isCurrent() && !controller.signal.aborted)
         setOpenRunError(cause instanceof Error ? cause.message : "No se pudo abrir la ejecución.");
+    } finally {
+      if (isCurrent() && !controller.signal.aborted) setOpeningRun(false);
+    }
+  }
+  async function openReleaseBug(id: string) {
+    runRequest.current?.abort();
+    const controller = new AbortController();
+    runRequest.current = controller;
+    const isCurrent = captureScope();
+    setOpeningRun(true);
+    setOpenRunError("");
+    try {
+      const resources = await loadProject(projectId, controller.signal, false);
+      if (!isCurrent() || controller.signal.aborted) return;
+      const record = resources.bugs.find((bug) => bug.id === id);
+      if (!record) throw new Error("El bug ya no está disponible.");
+      setData((current) => ({ ...resources, runs: current.runs }));
+      setRecordDetail({ kind: "bug", record });
+    } catch (cause) {
+      if (isCurrent() && !controller.signal.aborted)
+        setOpenRunError(cause instanceof Error ? cause.message : "No se pudo abrir el bug.");
     } finally {
       if (isCurrent() && !controller.signal.aborted) setOpeningRun(false);
     }
@@ -719,6 +745,8 @@ function App({
         owner: user.name,
         ownerUserId: assigneeUserId || user.id,
         caseIds: form.getAll("caseIds"),
+        releaseVersion: String(form.get("releaseVersion") ?? "").trim() || null,
+        environment: String(form.get("environment") ?? "").trim() || null,
         tagIds: selectedTagIds,
       };
     } else if (modal === "evidence") {
@@ -1329,6 +1357,10 @@ function App({
                 projectId={projectId}
                 projectName={project?.name ?? "Proyecto"}
                 refreshRevision={revision}
+                onOpenRun={(id) => void openRun(id, "view")}
+                onOpenBug={(id) => void openReleaseBug(id)}
+                openingRun={openingRun}
+                openRunError={openRunError}
               />
             )
           ) : (
@@ -1907,6 +1939,7 @@ function App({
                 )}
                 {modal === "run" && (
                   <>
+                    <RunReleaseFields />
                     <label className="workspace__field">
                       Responsable de ejecución
                       <select

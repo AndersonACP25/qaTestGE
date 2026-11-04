@@ -80,6 +80,8 @@ const inputs = {
       projectId,
       title: text(200),
       owner: text(100),
+      releaseVersion: { ...text(100), nullable: true },
+      environment: { ...text(100), nullable: true },
       ownerUserId: {
         type: "string",
         nullable: true,
@@ -169,6 +171,7 @@ export const openApiDocument = {
             object(
               {
                 ...playwrightFields,
+                releaseVersion: text(100),
                 results: {
                   type: "array",
                   minItems: 1,
@@ -1460,10 +1463,14 @@ export const openApiDocument = {
           progress: { type: "number", minimum: 0, maximum: 100 },
           results: { type: "array", items: ref("TestRunResult") },
           playwright: {
-            ...object({ ...playwrightFields, unknownCaseIds: unknownPlaywrightCases }, [
-              ...Object.keys(playwrightFields),
-              "unknownCaseIds",
-            ]),
+            ...object(
+              {
+                ...playwrightFields,
+                releaseVersion: text(100),
+                unknownCaseIds: unknownPlaywrightCases,
+              },
+              [...Object.keys(playwrightFields), "unknownCaseIds"],
+            ),
             nullable: true,
           },
           status: { type: "string", enum: ["En curso", "Completado"] },

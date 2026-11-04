@@ -78,6 +78,13 @@ function valid(body: unknown): body is CreateTestRunInput {
     "caseCount" in body
   )
     return false;
+  if (
+    [body.releaseVersion, body.environment].some(
+      (value) =>
+        value != null && (typeof value !== "string" || value.length > 100 || value.includes("\0")),
+    )
+  )
+    return false;
   if (!validTagIds(body.tagIds)) return false;
   if (body.ownerUserId !== undefined && body.ownerUserId !== null && !isId(body.ownerUserId))
     return false;

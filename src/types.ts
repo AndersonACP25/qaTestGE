@@ -1,3 +1,4 @@
+import type { RunReleaseContext } from "../backend/src/models/test-run.model";
 export type NavigationPage =
   | "coverage"
   | "overview"
@@ -74,7 +75,7 @@ export interface TestCaseAttachment {
   createdAt: string;
 }
 
-export interface TestRun {
+export interface TestRun extends RunReleaseContext {
   playwright?: import("../backend/src/models/playwright-import.model").PlaywrightMetadata | null;
   id: string;
   title: string;

@@ -4,7 +4,7 @@ La suite se ejecuta en el repositorio de automatización. qaTestGE recibe los es
 
 ## Preparar qaTestGE
 
-1. Ejecuta `pnpm db:migrate` para aplicar la migración 019.
+1. Ejecuta `pnpm db:migrate` para aplicar las migraciones pendientes, incluidas 019 y 020.
 2. Designa una cuenta con rol QA o Admin del proyecto piloto. Configura `PLAYWRIGHT_PROJECT_ID` y `PLAYWRIGHT_ACTOR_ID` con sus identificadores numéricos.
 3. Genera un secreto aleatorio de 32 bytes en hexadecimal. Configura su SHA-256 en hexadecimal como `PLAYWRIGHT_TOKEN_SHA256` en el servidor. Reinicia el backend para activar, rotar o revocar la credencial.
 4. En el repositorio de automatización guarda el secreto original como `QATESTGE_PLAYWRIGHT_TOKEN`. Configura la URL HTTPS de qaTestGE como variable `QATESTGE_URL`. Habilita estos pasos en ramas de confianza que tengan acceso a ese entorno.
@@ -30,6 +30,7 @@ Copia `servicios/playwright/publish.mjs` al repositorio de automatización y añ
   env:
     QATESTGE_URL: ${{ vars.QATESTGE_URL }}
     QATESTGE_PLAYWRIGHT_TOKEN: ${{ secrets.QATESTGE_PLAYWRIGHT_TOKEN }}
+    QATESTGE_RELEASE_VERSION: ${{ vars.QATESTGE_RELEASE_VERSION }}
 ```
 
 El publicador transmite IDs, estados y metadatos. El reporte JSON completo, los mensajes de error, trazas y evidencias se quedan en el repositorio de automatización. Los casos inexistentes, obsoletos o ajenos al proyecto se identifican como pendientes de conciliación. Si no queda ningún caso vigente, la API devuelve 422 y no crea una ejecución.
@@ -37,3 +38,5 @@ El publicador transmite IDs, estados y metadatos. El reporte JSON completo, los 
 El último intento determina el estado registrado. Un timeout se registra como fallido, una interrupción como bloqueada y una prueba omitida como omitida. Las notas conservan la secuencia de intentos, incluso cuando un reintento termina aprobado. Los intentos de GitHub Actions son ejecuciones distintas. Repetir la publicación del mismo reporte del mismo intento conserva el ID de qaTestGE. Si cambian sus resultados, la API devuelve 409.
 
 Una ejecución publicada conserva el historial de CI. QA puede crear bugs vinculados desde resultados fallidos y clonar ejecuciones para seguimiento manual.
+
+`QATESTGE_RELEASE_VERSION` es opcional. Asigna allí la versión que validó la suite para compararla con Test Runs manuales en Preparación de release. Mantén el valor al repetir la publicación del mismo intento. La migración 020 recupera el entorno de las ejecuciones automáticas existentes. Las versiones históricas sin registro aparecen como **Sin registrar**.

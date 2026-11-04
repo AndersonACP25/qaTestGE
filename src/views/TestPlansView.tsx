@@ -1,3 +1,4 @@
+import RunReleaseFields from "../components/RunReleaseFields";
 import FormattedText from "../components/FormattedText";
 import RichTextarea from "../components/RichTextarea";
 import { usePermissions } from "../controllers/ProjectPermissions";
@@ -324,22 +325,29 @@ export default function TestPlansView({
                     >
                       Editar Test Plan
                     </button>
-                    <button
-                      className="button button-primary"
-                      disabled={busy || readOnly}
-                      onClick={() =>
+                    <form
+                      className="layout__stack"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        const form = new FormData(event.currentTarget);
+                        const releaseVersion = String(form.get("releaseVersion") ?? "").trim();
+                        const environment = String(form.get("environment") ?? "").trim();
                         void act(async () => {
+                          const body = JSON.stringify({
+                            projectId,
+                            title: `${plan.name} · Test Run`.slice(0, 200),
+                            owner: "QA",
+                            planId: plan.id,
+                            ...(releaseVersion ? { releaseVersion } : {}),
+                            ...(environment ? { environment } : {}),
+                          });
                           let pending = cycles.current.get(plan.id);
+                          if (pending && pending.body !== body)
+                            throw new Error(
+                              "Restaura los datos del primer envío para reintentar la creación.",
+                            );
                           if (!pending) {
-                            pending = {
-                              key: crypto.randomUUID(),
-                              body: JSON.stringify({
-                                projectId,
-                                title: `${plan.name} · Test Run`.slice(0, 200),
-                                owner: "QA",
-                                planId: plan.id,
-                              }),
-                            };
+                            pending = { key: crypto.randomUUID(), body };
                             cycles.current.set(plan.id, pending);
                           }
                           const run = toRun(
@@ -352,11 +360,23 @@ export default function TestPlansView({
                           cycles.current.delete(plan.id);
                           if (alive.current)
                             setMessage(`Ejecución ${run.id} creada. Ábrela en Test runs.`);
-                        })
-                      }
+                        });
+                      }}
                     >
-                      Iniciar Test Run
-                    </button>
+                      <fieldset disabled={busy || readOnly} className="layout__stack">
+                        <details>
+                          <summary>Versión y entorno (opcional)</summary>
+                          <RunReleaseFields />
+                        </details>
+                        <button
+                          type="submit"
+                          className="button button-primary"
+                          disabled={busy || readOnly}
+                        >
+                          Iniciar Test Run
+                        </button>
+                      </fieldset>
+                    </form>
                     <button
                       className="workspace__danger"
                       disabled={busy || readOnly}
