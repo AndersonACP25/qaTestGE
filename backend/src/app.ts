@@ -24,6 +24,7 @@ export function createApp(repository: Repository, auth: AuthProvider) {
   app.use(requestContext());
   app.use(
     cors({
+      exposedHeaders: ["X-Next-Cursor", "X-Unread-Count", "X-Total-Count"],
       origin: process.env.FRONTEND_ORIGIN ?? process.env.CORS_ORIGIN ?? "http://localhost:5173",
       credentials: true,
     }),

@@ -1004,7 +1004,7 @@ export const openApiDocument = {
           "401": errorResponse("UNAUTHENTICATED"),
           "403": errorResponse("INVALID_CSRF o INVALID_ORIGIN"),
           "404": errorResponse("TEST_RUN_NOT_FOUND o PROJECT_NOT_FOUND"),
-          "409": errorResponse("RUN_INCOMPLETE o RUN_REFERENCED"),
+          "409": errorResponse("RUN_INCOMPLETE, RUN_REFERENCED o RUN_RESULT_RECORDED"),
           "503": unavailable,
         },
       },
@@ -1086,6 +1086,30 @@ export const openApiDocument = {
             tags: [path],
             parameters: [
               { in: "query", name: "projectId", required: path === "tags", schema: projectId },
+              ...(path === "test-runs"
+                ? [
+                    {
+                      in: "query",
+                      name: "summary",
+                      description: "Omite resultados y pasos; requiere projectId.",
+                      schema: { type: "boolean" },
+                    },
+                    {
+                      in: "query",
+                      name: "runId",
+                      description:
+                        "Devuelve solo esta ejecución con sus resultados; requiere projectId.",
+                      schema: { type: "string", pattern: "^RUN-[0-9]{1,19}$" },
+                    },
+                    ...["assignee", "tag", "plan"].map((name) => ({
+                      in: "query",
+                      name,
+                      description:
+                        "Filtro con summary=true. Usa none para registros sin esta referencia.",
+                      schema: { type: "string" },
+                    })),
+                  ]
+                : []),
               ...(["bugs", "test-cases", "test-runs"].includes(path)
                 ? [
                     {
@@ -1129,6 +1153,16 @@ export const openApiDocument = {
             responses: {
               "200": {
                 description: "Colección persistida",
+                ...(path === "test-runs"
+                  ? {
+                      headers: {
+                        "X-Total-Count": {
+                          description: "Total filtrado con summary=true",
+                          schema: { type: "integer" },
+                        },
+                      },
+                    }
+                  : {}),
                 content: json(envelope({ type: "array", items: ref(schema) })),
               },
               "400": errorResponse("INVALID_PROJECT_ID: filtro inválido."),

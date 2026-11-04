@@ -1,5 +1,5 @@
 import type { CreationContext } from "./creation-request.js";
-import type { ListQuery } from "./list-query.js";
+import type { ListQuery, RunListQuery } from "./list-query.js";
 import type { Bug, BugStatus, CreateBugInput, UpdateBugInput } from "../models/bug.model.js";
 import type {
   TestCase,
@@ -56,6 +56,11 @@ export interface Repository {
   ): Promise<(TestCaseAttachment & { imageData: Buffer | null }) | null>;
   createCaseAttachment(input: CreateTestCaseAttachmentInput): Promise<TestCaseAttachment | null>;
   deleteCaseAttachment(id: string, attachmentId: string, projectId: string): Promise<boolean>;
+  listRunSummaries(
+    projectId: string,
+    options?: RunListQuery,
+  ): Promise<{ rows: TestRun[]; total: number }>;
+  findRun(id: string, projectId: string): Promise<TestRun | null>;
   listRuns(projectId?: string, options?: ListQuery): Promise<TestRun[]>;
   createRun(input: CreateTestRunInput, context?: CreationContext): Promise<TestRun>;
   updateRun(id: string, projectId: string, input: UpdateTestRunInput): Promise<TestRun | null>;

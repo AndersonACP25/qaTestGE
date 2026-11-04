@@ -85,10 +85,10 @@ export default function NotificationBell({
             Ver todas las menciones →
           </button>
           {inbox.error && <Alert tone="error">{inbox.error}</Alert>}
-          {inbox.loading && !inbox.rows.length && <p role="status">Cargando…</p>}
-          {!inbox.loading && !inbox.rows.length && <p>No tienes notificaciones.</p>}
+          {inbox.loading && !inbox.recent.length && <p role="status">Cargando…</p>}
+          {!inbox.loading && !inbox.recent.length && <p>No tienes notificaciones.</p>}
           <div className="notification-bell__list">
-            {inbox.rows.slice(0, 5).map((row) => (
+            {inbox.recent.map((row) => (
               <article
                 key={row.id}
                 className={`notification-bell__item${row.readAt ? " notification-bell__item--read" : ""}`}

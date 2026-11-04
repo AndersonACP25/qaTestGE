@@ -6,7 +6,7 @@ import { PostgresQualityRepository } from "./quality.repository.js";
 import { previousCreation, rememberCreation, requireCreatedRow } from "./creation-request.js";
 import type { CreationContext } from "./creation-request.js";
 import { listSql } from "./list-query.js";
-import type { ListQuery } from "./list-query.js";
+import type { ListQuery, RunListQuery } from "./list-query.js";
 import type {
   BaseRow,
   BugRow,
@@ -114,14 +114,19 @@ const caseAttachment = (r: AttachmentRow) => ({
 const casesSql = `SELECT c.*, (SELECT u.name FROM qa.users u WHERE u.id=c.assignee_user_id) AS assigned_name, COALESCE((SELECT json_agg(json_build_object('action', s.action, 'expectedResult', s.expected_result) ORDER BY s.position)
  FROM qa.test_case_steps s WHERE s.test_case_id=c.id), '[]'::json) AS steps,
  COALESCE((SELECT array_agg(tc.tag_id::text ORDER BY tc.tag_id) FROM qa.test_case_tags tc WHERE tc.test_case_id=c.id), ARRAY[]::text[]) AS tag_ids FROM qa.test_cases c`;
-const runsSql = `SELECT r.*, COALESCE((SELECT array_agg(rr.test_case_id::text ORDER BY rr.test_case_id) FROM qa.test_run_results rr WHERE rr.test_run_id=r.id), ARRAY[]::text[]) AS case_ids,
+const runSelect = (
+  results: string,
+) => `SELECT r.*, COALESCE((SELECT array_agg(rr.test_case_id::text ORDER BY rr.test_case_id) FROM qa.test_run_results rr WHERE rr.test_run_id=r.id), ARRAY[]::text[]) AS case_ids,
  COALESCE((SELECT round(100.0 * count(*) FILTER (WHERE rr.executed_at IS NOT NULL) / NULLIF(count(*),0))::integer FROM qa.test_run_results rr WHERE rr.test_run_id=r.id),0) AS progress,
- COALESCE((SELECT json_agg(json_build_object('id', 'RES-' || lpad(rr.id::text,greatest(3,length(rr.id::text)),'0'),
+ ${results} AS results,
+ COALESCE((SELECT array_agg(rt.tag_id::text ORDER BY rt.tag_id) FROM qa.test_run_tags rt WHERE rt.test_run_id=r.id), ARRAY[]::text[]) AS tag_ids FROM qa.test_runs r`;
+const runsSql =
+  runSelect(`COALESCE((SELECT json_agg(json_build_object('id', 'RES-' || lpad(rr.id::text,greatest(3,length(rr.id::text)),'0'),
  'caseId','TC-' || lpad(c.id::text,greatest(3,length(c.id::text)),'0'), 'title',COALESCE(rr.title_snapshot,c.title),'caseVersion',COALESCE(rr.case_version,1),'status',rr.status,'notes',rr.notes,'executedAt',rr.executed_at,
  'steps',COALESCE((SELECT json_agg(json_build_object('action',s.value->>'action','expectedResult',COALESCE(s.value->>'expected_result',s.value->>'expectedResult','')) ORDER BY s.position)
  FROM jsonb_array_elements(rr.steps_snapshot) WITH ORDINALITY s(value,position)),'[]'::json)) ORDER BY rr.test_case_id)
- FROM qa.test_run_results rr JOIN qa.test_cases c ON c.id=rr.test_case_id AND c.project_id=rr.project_id WHERE rr.test_run_id=r.id),'[]'::json) AS results,
- COALESCE((SELECT array_agg(rt.tag_id::text ORDER BY rt.tag_id) FROM qa.test_run_tags rt WHERE rt.test_run_id=r.id), ARRAY[]::text[]) AS tag_ids FROM qa.test_runs r`;
+ FROM qa.test_run_results rr JOIN qa.test_cases c ON c.id=rr.test_case_id AND c.project_id=rr.project_id WHERE rr.test_run_id=r.id),'[]'::json)`);
+const runSummarySql = runSelect("'[]'::json");
 const evidenceSql = `SELECT e.id, e.project_id, e.name, e.type, e.size_bytes, e.created_at,
  e.file_bytes IS NOT NULL AS has_file, COALESCE((SELECT json_agg(
  CASE WHEN l.bug_id IS NOT NULL THEN 'BUG-' || lpad(l.bug_id::text,greatest(3,length(l.bug_id::text)),'0')
@@ -519,6 +524,53 @@ export class PostgresRepository implements Repository {
     );
     return rowCount === 1;
   }
+  async listRunSummaries(projectId: string, options?: RunListQuery) {
+    const query = listSql(
+      "r",
+      projectId,
+      options,
+      [
+        "'RUN-' || lpad(r.id::text,greatest(3,length(r.id::text)),'0')",
+        "r.title",
+        "r.owner",
+        "r.status",
+      ],
+      (bind) => {
+        const filters: string[] = [];
+        if (options?.assignee)
+          filters.push(
+            options.assignee === "none"
+              ? "r.owner_user_id IS NULL"
+              : `r.owner_user_id=${bind(options.assignee)}`,
+          );
+        if (options?.plan)
+          filters.push(
+            options.plan === "none" ? "r.plan_id IS NULL" : `r.plan_id=${bind(options.plan)}`,
+          );
+        if (options?.tag)
+          filters.push(
+            options.tag === "none"
+              ? "NOT EXISTS (SELECT 1 FROM qa.test_run_tags t WHERE t.test_run_id=r.id)"
+              : `EXISTS (SELECT 1 FROM qa.test_run_tags t WHERE t.test_run_id=r.id AND t.tag_id=${bind(options.tag)})`,
+          );
+        return filters;
+      },
+    );
+    const { rows } = await this.pool.query<RunRow>(`${runSummarySql} ${query.sql}`, query.values);
+    if (!options) return { rows: rows.map(run), total: rows.length };
+    const count = await this.pool.query<{ total: number }>(
+      `SELECT count(*)::integer AS total FROM qa.test_runs r ${query.predicate}`,
+      query.predicateValues,
+    );
+    return { rows: rows.map(run), total: count.rows[0].total };
+  }
+  async findRun(id: string, projectId: string) {
+    const { rows } = await this.pool.query<RunRow>(`${runsSql} WHERE r.id=$1 AND r.project_id=$2`, [
+      id,
+      projectId,
+    ]);
+    return rows[0] ? run(rows[0]) : null;
+  }
   async listRuns(projectId?: string, options?: ListQuery) {
     const query = listSql("r", projectId, options, [
       "r.title",
@@ -647,6 +699,18 @@ export class PostgresRepository implements Repository {
           409,
           "RUN_REFERENCED",
           "El resultado tiene un bug vinculado; conserva su referencia.",
+        );
+      const recordedRemoval = await client.query(
+        `SELECT 1 FROM qa.test_run_results
+        WHERE test_run_id=$1 AND project_id=$2 AND NOT(test_case_id=ANY($3::bigint[]))
+          AND (executed_at IS NOT NULL OR status <> 'skipped' OR notes <> '') LIMIT 1`,
+        [id, projectId, caseIds],
+      );
+      if (recordedRemoval.rowCount)
+        throw new HttpError(
+          409,
+          "RUN_RESULT_RECORDED",
+          "No puedes retirar un caso con un resultado registrado en esta ejecución.",
         );
       // Preserve existing results and snapshots for cases that remain selected.
       await client.query(

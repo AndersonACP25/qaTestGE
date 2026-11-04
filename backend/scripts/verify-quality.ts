@@ -105,6 +105,65 @@ try {
     ).status,
     200,
   );
+  const pendingCase = await agent
+    .post("/api/test-cases")
+    .send({ ...caseInput, title: "Caso pendiente para retirar" });
+  assert.equal(pendingCase.status, 201);
+  const pendingId = pendingCase.body.data.id;
+  const editRun = {
+    projectId,
+    title: "Ciclo editado",
+    owner: "QA",
+    status: "En curso",
+  };
+  const editable = await agent
+    .patch(`/api/test-runs/${run.id}`)
+    .send({ ...editRun, caseIds: [tc.id, pendingId] });
+  assert.equal(editable.status, 200);
+  const blockedRemoval = await agent
+    .patch(`/api/test-runs/${run.id}`)
+    .send({ ...editRun, title: "No debe guardarse", caseIds: [pendingId] });
+  assert.equal(blockedRemoval.status, 409);
+  assert.equal(blockedRemoval.body.error.code, "RUN_RESULT_RECORDED");
+  const unchanged = await agent.get("/api/test-runs").query({ projectId });
+  assert.equal(unchanged.status, 200);
+  const unchangedRun = unchanged.body.data.find((row: { id: string }) => row.id === run.id);
+  assert.equal(unchangedRun.title, editRun.title);
+  assert.deepEqual(unchangedRun.results, editable.body.data.results);
+  const removedPending = await agent
+    .patch(`/api/test-runs/${run.id}`)
+    .send({ ...editRun, caseIds: [tc.id] });
+  assert.equal(removedPending.status, 200);
+  assert.deepEqual(removedPending.body.data.caseIds, [tc.id]);
+  assert.equal(removedPending.body.data.results[0].id, result.id);
+  assert.equal(removedPending.body.data.results[0].notes, "Respuesta incorrecta");
+  await pool.query(
+    `INSERT INTO qa.test_runs(project_id,title,owner)
+     SELECT $1,'Paginación ' || n,'Otro QA' FROM generate_series(1,51) n`,
+    [projectId],
+  );
+  const runPage = { projectId, summary: "true", limit: 50 };
+  const firstPage = await agent.get("/api/test-runs").query(runPage);
+  assert.equal(firstPage.status, 200);
+  assert.equal(firstPage.headers["x-total-count"], "52");
+  assert.equal(firstPage.body.data.length, 50);
+  const nextPage = await agent.get("/api/test-runs").query({ ...runPage, offset: 50 });
+  assert.equal(nextPage.status, 200);
+  assert.equal(nextPage.body.data.length, 2);
+  assert.equal(nextPage.body.data[1].id, run.id);
+  assert.deepEqual(nextPage.body.data[1].results, []);
+  const filtered = await agent
+    .get("/api/test-runs")
+    .query({ ...runPage, search: run.id, plan: plan.body.data.id });
+  assert.equal(filtered.headers["x-total-count"], "1");
+  assert.equal(filtered.body.data[0].id, run.id);
+  const detail = await agent.get("/api/test-runs").query({ projectId, runId: run.id });
+  assert.deepEqual(detail.body.data[0].results, removedPending.body.data.results);
+  assert.equal((await other.get("/api/test-runs").query({ projectId, runId: run.id })).status, 404);
+  assert.ok(Buffer.byteLength(filtered.text) < Buffer.byteLength(detail.text));
+  console.info(
+    `Carga de una ejecución sintética: ${Buffer.byteLength(filtered.text)} bytes de resumen, ${Buffer.byteLength(detail.text)} bytes de detalle.`,
+  );
   const evidence = await agent
     .post("/api/evidence")
     .send({ projectId, name: "Captura", type: "Imagen", sizeBytes: 1, related: result.id });

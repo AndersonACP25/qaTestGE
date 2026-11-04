@@ -373,3 +373,75 @@ test("la Wiki explica las nuevas acciones y las evidencias opcionales", async ({
   await page.getByLabel("Buscar en la Wiki", { exact: true }).fill("Mis asignaciones");
   await expect(page.getByRole("heading", { name: "Mis asignaciones", exact: true })).toBeVisible();
 });
+
+test("Test Runs pagina en servidor y solicita los pasos al abrir el detalle", async ({
+  page,
+  workspace,
+}) => {
+  prepareRun(workspace);
+  const [run] = workspace.runs;
+  const requests: URLSearchParams[] = [];
+  await page.route("**/api/test-runs?*", (route) => {
+    const query = new URL(route.request().url()).searchParams;
+    requests.push(query);
+    if (query.has("runId")) return route.fulfill({ json: { data: [run] } });
+    return route.fulfill({
+      headers: { "X-Total-Count": "51" },
+      json: { data: query.get("offset") === "50" ? [{ ...run, results: [] }] : [] },
+    });
+  });
+  await page.goto("/");
+  await navigate(page, "Test runs");
+  await expect(page.getByText("Página 1 de 2")).toBeVisible();
+  await page.getByRole("button", { name: "Siguiente", exact: true }).click();
+  await page.getByRole("button", { name: run.title, exact: true }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(page.getByRole("dialog").getByText(/TC-12 · Caso 12 · versión 1/)).toBeVisible();
+  expect(requests.map((query) => query.get("offset") ?? query.get("runId"))).toEqual([
+    "0",
+    "50",
+    run.id,
+  ]);
+});
+
+test("Mis menciones conserva el contador global y pagina el filtro en servidor", async ({
+  page,
+  workspace,
+}) => {
+  void workspace;
+  const notice = {
+    id: "NTF-051",
+    commentId: "CMT-051",
+    target: { kind: "bug", id: "BUG-001" },
+    authorName: "Mención reciente",
+    createdAt: stamp,
+    readAt: null,
+  };
+  const queries: URLSearchParams[] = [];
+  await page.route("**/api/mention-notifications?*", (route) => {
+    const query = new URL(route.request().url()).searchParams;
+    queries.push(query);
+    return route.fulfill({
+      headers: {
+        "X-Unread-Count": "105",
+        ...(query.has("before") ? {} : { "X-Next-Cursor": notice.id }),
+      },
+      json: {
+        data: [
+          query.has("before")
+            ? { ...notice, id: "NTF-001", authorName: "Mención antigua" }
+            : notice,
+        ],
+      },
+    });
+  });
+  await page.goto("/");
+  await navigate(page, "Mis menciones");
+  await page.getByRole("button", { name: "Sin leer", exact: true }).click();
+  await page.getByRole("button", { name: "Siguiente", exact: true }).click();
+  await expect(page.getByText(/Mención antigua te mencionó/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Notificaciones, 105 sin leer" })).toBeVisible();
+  expect(
+    queries.some((query) => query.get("read") === "false" && query.get("before") === notice.id),
+  ).toBe(true);
+});

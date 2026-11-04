@@ -95,7 +95,7 @@ Dashboard encabeza el menú lateral y presenta 0/0% cuando no hay indicadores ev
 
 ## Filtros, cobertura y confirmaciones
 
-Bugs, Casos de prueba y Test Runs reúnen búsqueda, estado, responsable y tags en **Filtros**. Bugs añade prioridad/severidad, casos añade tipo/ciclo documental y ejecuciones añade Test Plan. **Limpiar filtros** restaura la lista; cambiar de ventana o proyecto también reinicia la selección. La paginación y exportación conservan el conjunto filtrado.
+Bugs, Casos de prueba y Test Runs reúnen búsqueda, estado, responsable y tags en **Filtros**. Bugs añade prioridad/severidad, casos añade tipo/ciclo documental y ejecuciones añade Test Plan. **Limpiar filtros** restaura la lista; cambiar de ventana o proyecto también reinicia la selección. Test Runs filtra y pagina en el servidor y carga los resultados y pasos al abrir el detalle. Exportar la tabla incluye la página visible.
 
 Cobertura y requisitos ofrece un buscador de casos en filas seleccionables con ID, título y clasificación. Tras vincular un bug, la matriz enfoca la relación confirmada; **Mostrar matriz completa** devuelve la consulta general. Las evidencias de **Diseñar bugs** y **Diseñar test case** están en **Evidencias opcionales**, cerrada por defecto; se anexan explícitamente después de guardar el registro.
 
