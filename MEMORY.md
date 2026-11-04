@@ -8,6 +8,8 @@
 - Mantener relaciones explícitas por ID y claves compuestas de proyecto. Las escrituras de pasos, snapshots y vínculos son transaccionales.
 - IA e imagen de perfil siguen siendo maquetas. No hay proveedores externos reales; futuras integraciones viven en servicios/.
 
+- Comentarios y Mis menciones usan páginas por cursor y el contador de no leídas abarca todo el proyecto. Test Runs filtra y pagina resúmenes en servidor, carga snapshots al abrir y exporta la página visible.
+
 ## Operación
 
 - Rama de pruebas qa-env; promover a main por PR. No publicar ramas sin petición del usuario.

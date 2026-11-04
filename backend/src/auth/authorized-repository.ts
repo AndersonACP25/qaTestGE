@@ -1,5 +1,5 @@
 import type { CreationContext } from "../repositories/creation-request.js";
-import type { ListQuery } from "../repositories/list-query.js";
+import type { ListQuery, RunListQuery } from "../repositories/list-query.js";
 import type { Repository, Project } from "../repositories/repository.js";
 import type { BugStatus, CreateBugInput, UpdateBugInput } from "../models/bug.model.js";
 import type {
@@ -60,9 +60,9 @@ export class AuthorizedRepository implements Repository {
         await this.projectIds(p);
         return base.saveMember(p, u, r, v);
       },
-      comments: async (p, t) => {
+      comments: async (p, t, before, limit) => {
         await this.projectIds(p);
-        return base.comments(p, t);
+        return base.comments(p, t, before, limit);
       },
       createComment: async (p, t, b, k) => {
         await this.projectIds(p);
@@ -76,9 +76,13 @@ export class AuthorizedRepository implements Repository {
         await this.projectIds(p);
         return base.activity(p, t, b, filters);
       },
-      notifications: async (p) => {
+      notifications: async (p, before, limit, read) => {
         await this.projectIds(p);
-        return base.notifications(p);
+        return base.notifications(p, before, limit, read);
+      },
+      unreadNotifications: async (p) => {
+        await this.projectIds(p);
+        return base.unreadNotifications(p);
       },
       readNotification: async (p, id) => {
         await this.projectIds(p);
@@ -191,6 +195,14 @@ export class AuthorizedRepository implements Repository {
     return this.list(id, (projectId) =>
       options ? this.base.listCases(projectId, options) : this.base.listCases(projectId),
     );
+  }
+  async listRunSummaries(projectId: string, options?: RunListQuery) {
+    await this.projectIds(projectId);
+    return this.base.listRunSummaries(projectId, options);
+  }
+  async findRun(id: string, projectId: string) {
+    await this.projectIds(projectId);
+    return this.base.findRun(id, projectId);
   }
   listRuns(id?: string, options?: ListQuery) {
     return this.list(id, (projectId) =>

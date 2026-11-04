@@ -31,6 +31,10 @@ export default function CollaborationPanel({
 }) {
   const { can, role } = usePermissions();
   const [comments, setComments] = useState<Comment[]>([]);
+  const [cursors, setCursors] = useState<string[]>([]);
+  const [next, setNext] = useState("");
+  const [loadingPage, setLoadingPage] = useState(true);
+  const before = cursors.at(-1);
   const [members, setMembers] = useState<ProjectMember[]>([]);
   const [activity, setActivity] = useState<Activity[]>([]);
   const [draft, setDraft] = useState(() => readMentionDraft(""));
@@ -54,26 +58,39 @@ export default function CollaborationPanel({
   }, []);
   const query = `projectId=${encodeURIComponent(projectId)}&kind=${target.kind}&resourceId=${encodeURIComponent(target.id)}`;
   useEffect(() => {
-    let active = true;
+    const controller = new AbortController();
+    const { signal } = controller;
+    let nextCursor = "";
+    setLoadingPage(true);
+    setNext("");
     Promise.all([
-      api<Comment[]>(`/comments?${query}`),
+      api<Comment[]>(
+        `/comments?${query}&page=true${before ? `&before=${encodeURIComponent(before)}` : ""}`,
+        { signal },
+        (headers) => {
+          nextCursor = headers.get("X-Next-Cursor") ?? "";
+        },
+      ),
       api<ProjectMember[]>(`/project-members?projectId=${projectId}`),
       api<Activity[]>(`/activity?${query}`),
     ])
       .then(([c, m, a]) => {
-        if (active) {
+        if (!signal.aborted) {
+          setNext(nextCursor);
           setComments(c);
           setMembers(m);
           setActivity(a);
         }
       })
       .catch((e: unknown) => {
-        if (active) setError(e instanceof Error ? e.message : "No se pudo cargar la conversación.");
+        if (!signal.aborted)
+          setError(e instanceof Error ? e.message : "No se pudo cargar la conversación.");
+      })
+      .finally(() => {
+        if (!signal.aborted) setLoadingPage(false);
       });
-    return () => {
-      active = false;
-    };
-  }, [query, projectId, revision]);
+    return () => controller.abort();
+  }, [query, projectId, revision, before]);
   async function act(operation: () => Promise<void>, success: string) {
     if (busy) return;
     setBusy(true);
@@ -139,6 +156,7 @@ export default function CollaborationPanel({
                   setBody("");
                   setEditing(null);
                   requestKey.current = crypto.randomUUID();
+                  if (!editing) setCursors([]);
                 }
               },
               editing ? "Comentario actualizado." : "Comentario publicado.",
@@ -278,6 +296,7 @@ export default function CollaborationPanel({
                   setEditing(null);
                   setBody("");
                   requestKey.current = crypto.randomUUID();
+                  if (!editing) setCursors([]);
                 }}
               >
                 Cancelar edición
@@ -345,8 +364,28 @@ export default function CollaborationPanel({
           </article>
         ))}
       </div>
-      {!comments.length && <p>Aún no hay comentarios.</p>}
-      <p className="collaboration__help">Se muestran los 100 comentarios más recientes.</p>
+      {loadingPage && <p role="status">Cargando comentarios…</p>}
+      {!loadingPage && !error && !comments.length && <p>Aún no hay comentarios.</p>}
+      {(cursors.length > 0 || next) && (
+        <div className="collaboration__actions" aria-label="Páginas de comentarios">
+          <button
+            type="button"
+            className="workspace__secondary"
+            disabled={loadingPage || !cursors.length}
+            onClick={() => setCursors((items) => items.slice(0, -1))}
+          >
+            Comentarios más recientes
+          </button>
+          <button
+            type="button"
+            className="workspace__secondary"
+            disabled={loadingPage || !next}
+            onClick={() => setCursors((items) => [...items, next])}
+          >
+            Comentarios anteriores
+          </button>
+        </div>
+      )}
       <details className="collaboration__history">
         <summary>Ver historial de actividad del registro</summary>
         <ActivityList rows={activity} />

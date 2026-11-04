@@ -15,7 +15,7 @@ export default function MentionsView({
   inbox: MentionInbox;
   onOpen: (target: ResourceTarget, signal: AbortSignal) => Promise<boolean>;
 }) {
-  const [filter, setFilter] = useState("Todas");
+  const { filter, setFilter } = inbox;
   const [openingId, setOpeningId] = useState("");
   const [openError, setOpenError] = useState("");
   const opening = useRef<AbortController | null>(null);
@@ -49,7 +49,7 @@ export default function MentionsView({
         <div className="mentions-view__header-actions">
           <button
             className="mentions-view__read-button"
-            disabled={inbox.loading || Boolean(inbox.busyId) || !inbox.rows.length}
+            disabled={inbox.loading || Boolean(inbox.busyId) || !inbox.unread}
             onClick={() => void inbox.markAllRead()}
           >
             {inbox.busyId === "all" ? "Marcando…" : "Marcar todas como leídas"}
@@ -126,11 +126,31 @@ export default function MentionsView({
           ))}
         </div>
       )}
+      {(inbox.hasPrevious || inbox.hasNext) && (
+        <div className="mentions-view__actions" aria-label="Páginas de menciones">
+          <button
+            type="button"
+            className="workspace__secondary"
+            disabled={inbox.loading || !inbox.hasPrevious}
+            onClick={inbox.previous}
+          >
+            Anterior
+          </button>
+          <button
+            type="button"
+            className="workspace__secondary"
+            disabled={inbox.loading || !inbox.hasNext}
+            onClick={inbox.next}
+          >
+            Siguiente
+          </button>
+        </div>
+      )}
       {!inbox.loading && !inbox.error && !rows.length && (
         <div className="mentions-view__empty">
           <Icon name="bell" size={32} />
           <h2 className="typography__heading">
-            {inbox.rows.length
+            {filter !== "Todas"
               ? "Sin menciones en este filtro"
               : "No tienes menciones en este proyecto."}
           </h2>

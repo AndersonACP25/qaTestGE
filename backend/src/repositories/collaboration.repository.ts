@@ -209,12 +209,17 @@ export class PostgresCollaborationRepository implements CollaborationRepository 
         );
     });
   }
-  async comments(projectId: string, target: ResourceTarget): Promise<Comment[]> {
+  async comments(
+    projectId: string,
+    target: ResourceTarget,
+    before?: string,
+    limit = 100,
+  ): Promise<Comment[]> {
     return this.transaction(async (c) => {
       const id = await this.target(c, projectId, target);
       const r = await c.query<CommentRow>(
-        `${commentSql} WHERE c.project_id=$1 AND c.${columns[target.kind]}=$2 ORDER BY c.id DESC LIMIT 100`,
-        [projectId, id],
+        `${commentSql} WHERE c.project_id=$1 AND c.${columns[target.kind]}=$2 AND ($3::bigint IS NULL OR c.id < $3) ORDER BY c.id DESC LIMIT $4`,
+        [projectId, id, before ?? null, limit],
       );
       return r.rows.map(toComment);
     });
@@ -404,7 +409,12 @@ export class PostgresCollaborationRepository implements CollaborationRepository 
       requestId: x.request_id,
     }));
   }
-  async notifications(projectId: string): Promise<MentionNotification[]> {
+  async notifications(
+    projectId: string,
+    before?: string,
+    limit = 100,
+    read?: boolean,
+  ): Promise<MentionNotification[]> {
     const r = await this.pool.query<{
       id: string;
       comment_id: string;
@@ -415,8 +425,8 @@ export class PostgresCollaborationRepository implements CollaborationRepository 
       created_at: Date;
       read_at: Date | null;
     }>(
-      `SELECT n.id::text,n.comment_id::text,c.bug_id::text,c.test_case_id::text,c.test_run_id::text,u.name,n.created_at,n.read_at FROM qa.mention_notifications n JOIN qa.comments c ON c.id=n.comment_id JOIN qa.users u ON u.id=c.author_id WHERE n.project_id=$1 AND n.user_id=$2 AND c.deleted_at IS NULL ORDER BY n.id DESC LIMIT 100`,
-      [projectId, this.actorId],
+      `SELECT n.id::text,n.comment_id::text,c.bug_id::text,c.test_case_id::text,c.test_run_id::text,u.name,n.created_at,n.read_at FROM qa.mention_notifications n JOIN qa.comments c ON c.id=n.comment_id JOIN qa.users u ON u.id=c.author_id WHERE n.project_id=$1 AND n.user_id=$2 AND c.deleted_at IS NULL AND ($3::bigint IS NULL OR n.id < $3) AND ($5::boolean IS NULL OR (n.read_at IS NOT NULL) = $5) ORDER BY n.id DESC LIMIT $4`,
+      [projectId, this.actorId, before ?? null, limit, read ?? null],
     );
     return r.rows.map((x) => ({
       id: resourceId("NTF", x.id),
@@ -430,6 +440,15 @@ export class PostgresCollaborationRepository implements CollaborationRepository 
       createdAt: x.created_at.toISOString(),
       readAt: x.read_at?.toISOString() ?? null,
     }));
+  }
+  async unreadNotifications(projectId: string) {
+    const { rows } = await this.pool.query<{ total: number }>(
+      `SELECT count(*)::integer AS total FROM qa.mention_notifications n
+       JOIN qa.comments c ON c.id=n.comment_id
+       WHERE n.project_id=$1 AND n.user_id=$2 AND n.read_at IS NULL AND c.deleted_at IS NULL`,
+      [projectId, this.actorId],
+    );
+    return rows[0].total;
   }
   async readNotification(projectId: string, id: string) {
     const r = await this.pool.query(

@@ -84,7 +84,12 @@ export interface CollaborationRepository {
     role: ProjectRole | null,
     revision: number,
   ): Promise<void>;
-  comments(projectId: string, target: ResourceTarget): Promise<Comment[]>;
+  comments(
+    projectId: string,
+    target: ResourceTarget,
+    before?: string,
+    limit?: number,
+  ): Promise<Comment[]>;
   createComment(
     projectId: string,
     target: ResourceTarget,
@@ -104,6 +109,12 @@ export interface CollaborationRepository {
     before?: string,
     filters?: AuditFilters,
   ): Promise<Activity[]>;
-  notifications(projectId: string): Promise<MentionNotification[]>;
+  notifications(
+    projectId: string,
+    before?: string,
+    limit?: number,
+    read?: boolean,
+  ): Promise<MentionNotification[]>;
+  unreadNotifications(projectId: string): Promise<number>;
   readNotification(projectId: string, id: string): Promise<void>;
 }

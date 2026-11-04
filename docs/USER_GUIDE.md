@@ -76,7 +76,7 @@ Abre el detalle de un bug, caso o ejecución y utiliza **Comentarios y actividad
 
 **Mis menciones** muestra tus avisos del proyecto. **Abrir registro** abre el bug, caso o ejecución sin cambiar su lectura. Usa el botón verde **Marcar como leída** para actualizarla explícitamente. La lista se actualiza cada 15 segundos mientras está visible y al recuperar el foco; también puedes actualizarla manualmente. Incluye las automenciones. No hay avisos push. Los avisos dejan de mostrarse si se retira la mención, se elimina el comentario o pierdes el acceso al proyecto.
 
-El autor y los Admin pueden editar o eliminar comentarios. El borrado muestra una marca de comentario eliminado; la versión anterior queda en la auditoría. Si otra persona modificó el comentario mientras lo editabas, se rechaza tu actualización para evitar sobrescribirla: actualiza la conversación y revisa la nueva versión. Se muestran los 100 comentarios más recientes del recurso.
+El autor y los Admin pueden editar o eliminar comentarios. El borrado muestra una marca de comentario eliminado; la versión anterior queda en la auditoría. Si otra persona modificó el comentario mientras lo editabas, se rechaza tu actualización para evitar sobrescribirla: actualiza la conversación y revisa la nueva versión. Los comentarios se muestran en páginas de 50. Usa **Comentarios anteriores** para consultar el historial.
 
 En el detalle puedes desplegar **Ver historial de actividad del registro**. La ventana **Actividad y auditoría** permite consultar cambios del proyecto y cargar entradas anteriores. Muestra actor, fecha, registro y cambios antes/después; también registra cambios de roles y permisos. El historial empieza al instalar la migración 014 y no reconstruye acciones anteriores. Los datos de auditoría se confirman junto con el cambio; las operaciones fallidas no dejan eventos de cambio. No se pueden editar ni eliminar desde la aplicación.
 
@@ -109,7 +109,7 @@ En **Configuración → Inteligencia artificial** puedes consultar el catálogo 
 
 ## Bandeja y notificaciones
 
-La campana del navbar muestra las últimas menciones del proyecto, un contador de pendientes y **Ver todas las menciones**. El contador se comparte con Mis menciones; ambos se actualizan cada 15 segundos mientras la aplicación está visible y al recuperar el foco. La bandeja permite filtrar Todas, Sin leer y Leídas. Abrir un registro conserva el aviso pendiente; marcarlo como leído requiere el botón verde. Se consultan los últimos 100 avisos.
+La campana del navbar muestra las últimas menciones del proyecto, un contador de pendientes y **Ver todas las menciones**. El contador se comparte con Mis menciones; ambos se actualizan cada 15 segundos mientras la aplicación está visible y al recuperar el foco. La bandeja permite filtrar Todas, Sin leer y Leídas. Abrir un registro conserva el aviso pendiente; marcarlo como leído requiere el botón verde. El filtro se aplica a todos tus avisos del proyecto y los resultados se consultan en páginas de 50.
 
 En la barra de comentarios, **@ Mencionar** abre la búsqueda de integrantes e inserta el nombre seleccionado donde está el cursor. También puedes escribir @ y seleccionar una sugerencia. Los campos largos tienen mayor altura inicial; Lista y Cita usan botones de texto.
 

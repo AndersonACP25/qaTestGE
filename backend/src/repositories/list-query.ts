@@ -6,6 +6,11 @@ export interface ListQuery {
   search?: string;
   status?: string;
 }
+export interface RunListQuery extends ListQuery {
+  assignee?: string;
+  tag?: string;
+  plan?: string;
+}
 export function listQuery(request: Request, statuses?: readonly string[]): ListQuery | undefined {
   if (["limit", "offset", "search", "status"].every((key) => request.query[key] === undefined))
     return undefined;
@@ -44,6 +49,7 @@ export function listSql(
   projectId: string | undefined,
   options: ListQuery | undefined,
   searchColumns: readonly string[],
+  extra?: (bind: (value: string | number) => string) => string[],
 ) {
   const values: (string | number)[] = [];
   const bind = (value: string | number) => {
@@ -59,8 +65,13 @@ export function listSql(
       `(${searchColumns.map((column) => `${column} ILIKE ${placeholder} ESCAPE '\\'`).join(" OR ")})`,
     );
   }
+  if (extra) where.push(...extra(bind));
+  const predicate = where.length ? "WHERE " + where.join(" AND ") : "";
+  const predicateValues = [...values];
   return {
-    sql: `${where.length ? "WHERE " + where.join(" AND ") : ""} ORDER BY ${alias}.id DESC${options ? ` LIMIT ${bind(options.limit)} OFFSET ${bind(options.offset)}` : ""}`,
+    predicate,
+    predicateValues,
+    sql: `${predicate} ORDER BY ${alias}.id DESC${options ? ` LIMIT ${bind(options.limit)} OFFSET ${bind(options.offset)}` : ""}`,
     values,
   };
 }

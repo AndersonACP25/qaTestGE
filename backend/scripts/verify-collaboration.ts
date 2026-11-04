@@ -412,6 +412,55 @@ try {
     ).rows[0].n,
     before,
   );
+  await pool.query(
+    `WITH created AS (
+      INSERT INTO qa.comments(project_id,bug_id,author_id,body,request_key,request_hash)
+      SELECT $1,$2,$3,'Comentario de paginación ' || n,gen_random_uuid(),n::text FROM generate_series(1,105) n
+      RETURNING id
+    )
+    INSERT INTO qa.mention_notifications(project_id,comment_id,user_id)
+    SELECT $1,id,$4 FROM created`,
+    [projectId, bugId.replace(/^BUG-/, ""), users[1], users[2]],
+  );
+  const commentPage = { projectId, kind: "bug", resourceId: bugId, page: true };
+  const firstComments = await owner.get("/api/comments").query(commentPage);
+  const secondComments = await owner
+    .get("/api/comments")
+    .query({ ...commentPage, before: firstComments.headers["x-next-cursor"] });
+  assert.equal(firstComments.body.data.length, 50);
+  assert.equal(secondComments.body.data.length, 50);
+  const thirdComments = await owner
+    .get("/api/comments")
+    .query({ ...commentPage, before: secondComments.headers["x-next-cursor"] });
+  assert.ok(thirdComments.body.data.some((row: { id: string }) => row.id === comment.body.data.id));
+  const unreadQuery = { projectId, page: true, read: false };
+  const firstNotices = await dev.get("/api/mention-notifications").query(unreadQuery);
+  assert.ok(Number(firstNotices.headers["x-unread-count"]) >= 105);
+  assert.equal(firstNotices.body.data.length, 50);
+  const secondNotices = await dev
+    .get("/api/mention-notifications")
+    .query({ ...unreadQuery, before: firstNotices.headers["x-next-cursor"] });
+  const thirdNotices = await dev
+    .get("/api/mention-notifications")
+    .query({ ...unreadQuery, before: secondNotices.headers["x-next-cursor"] });
+  assert.ok(thirdNotices.body.data.length >= 5);
+  const noticeIds = [
+    ...firstNotices.body.data,
+    ...secondNotices.body.data,
+    ...thirdNotices.body.data,
+  ].map((row: { id: string }) => row.id);
+  assert.equal(new Set(noticeIds).size, noticeIds.length);
+  const newlyRead: string = firstNotices.body.data[0].id;
+  assert.equal(
+    (await dev.patch(`/api/mention-notifications/${newlyRead}`).query({ projectId }).send({}))
+      .status,
+    204,
+  );
+  const readNotices = await dev
+    .get("/api/mention-notifications")
+    .query({ projectId, page: true, read: true });
+  assert.ok(readNotices.body.data.some((row: { id: string }) => row.id === newlyRead));
+  assert.equal((await outsider.get("/api/mention-notifications").query(unreadQuery)).status, 404);
   const access = (await owner.get("/api/project-members").query({ projectId, candidates: true }))
     .body.data;
   const devRow = access.find((x: { id: string }) => x.id === users[2]);

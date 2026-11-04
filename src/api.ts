@@ -130,7 +130,11 @@ async function responseError(response: Response): Promise<ApiError> {
     window.dispatchEvent(new Event("qa:unauthorized"));
   return new ApiError(message, response.status, code);
 }
-export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
+export async function api<T>(
+  path: string,
+  options: RequestInit = {},
+  onHeaders?: (headers: Headers) => void,
+): Promise<T> {
   const headers = new Headers(options.headers);
   if (
     options.body &&
@@ -180,7 +184,13 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   }
   try {
     // The only generic assertion is at this validated HTTP boundary.
-    return parseApiData(path, (options.method ?? "GET").toUpperCase(), parseApiEnvelope(body)) as T;
+    const data = parseApiData(
+      path,
+      (options.method ?? "GET").toUpperCase(),
+      parseApiEnvelope(body),
+    ) as T;
+    onHeaders?.(response.headers);
+    return data;
   } catch {
     throw new ApiError(
       "La API devolvió datos con un formato inesperado. Inténtalo de nuevo.",
@@ -380,12 +390,21 @@ export async function saveCaseStatus(id: string, projectId: string, status: Case
   });
   return toCase(updated);
 }
-export async function loadProject(projectId: string, signal?: AbortSignal) {
+export async function loadRunDetail(projectId: string, id: string, signal?: AbortSignal) {
+  const query = new URLSearchParams({ projectId, runId: id });
+  const rows = await api<ApiRun[]>(`/test-runs?${query}`, { signal });
+  const row = rows.find((item) => item.id === id);
+  if (!row) throw new Error("La ejecución ya no está disponible.");
+  return toRun(row);
+}
+export async function loadProject(projectId: string, signal?: AbortSignal, includeRuns = true) {
   const query = `?projectId=${encodeURIComponent(projectId)}`;
   const [bugs, cases, runs, evidence] = await Promise.all([
     api<ApiBug[]>(`/bugs${query}`, { signal }),
     api<ApiCase[]>(`/test-cases${query}`, { signal }),
-    api<ApiRun[]>(`/test-runs${query}`, { signal }),
+    includeRuns
+      ? api<ApiRun[]>(`/test-runs${query}&summary=true`, { signal })
+      : Promise.resolve([]),
     api<ApiEvidence[]>(`/evidence${query}`, { signal }),
   ]);
   return {
