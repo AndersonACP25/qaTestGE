@@ -199,3 +199,119 @@ test("genera casos de Gemini con consentimiento y guarda solo el caso revisado",
     .toBe("Rechazo de contraseña inválida");
   await noHorizontalOverflow(page);
 });
+
+test("Guardar todos valida el lote y reanuda pendientes sin duplicar casos confirmados", async ({
+  page,
+  workspace,
+}) => {
+  const calls: { key: string; body: Record<string, unknown> }[] = [];
+  await page.route("**/api/test-cases", async (route) => {
+    const request = route.request();
+    if (request.method() !== "POST") return route.fallback();
+    calls.push({ key: request.headers()["idempotency-key"], body: request.postDataJSON() });
+    if (calls.length === 2) {
+      await route.fulfill({
+        status: 503,
+        json: {
+          error: { code: "DATABASE_UNAVAILABLE", message: "Servicio temporalmente no disponible." },
+        },
+      });
+      return;
+    }
+    await route.fallback();
+  });
+  await page.goto("/");
+  await navigate(page, "Diseñar test cases");
+  await page
+    .getByLabel("Descripción o requisito", { exact: true })
+    .fill("Validar límites del registro.");
+  await page.getByLabel("Cantidad de pruebas: Edge cases", { exact: true }).fill("3");
+  await page.getByRole("button", { name: "Mostrar tabla de ejemplo" }).click();
+  const all = page.getByRole("button", { name: "Guardar todos", exact: true });
+  const confirm = page.getByRole("button", { name: "Confirmar guardado", exact: true });
+  const lastAction = page
+    .locator(".case-builder__case")
+    .last()
+    .getByRole("textbox", { name: "Acción", exact: true });
+  await expect(lastAction).toBeVisible();
+  const previousAction = await lastAction.inputValue();
+  await lastAction.fill("");
+  await all.click();
+  await confirm.click();
+  await expect(page.getByText(/Guardado detenido \(0\/3\)/)).toBeVisible();
+  expect(calls).toHaveLength(0);
+  await lastAction.fill(previousAction);
+  await all.click();
+  await confirm.click();
+  await expect(page.getByText(/Guardado detenido \(1\/3\)/)).toBeVisible();
+  expect(calls).toHaveLength(2);
+  await expect(page.getByText("2 casos pendientes", { exact: true })).toBeVisible();
+  await all.click();
+  await confirm.click();
+  await expect(page.getByText("Se guardaron los casos pendientes (2/2).")).toBeVisible();
+  expect(calls).toHaveLength(4);
+  expect(calls[2]).toEqual(calls[1]);
+  expect(new Set(calls.map(({ key }) => key)).size).toBe(3);
+  expect(workspace.cases).toHaveLength(4);
+  await expect(all).toBeDisabled();
+});
+
+test("Guardar todos detiene las creaciones pendientes al cambiar de proyecto", async ({
+  page,
+  workspace,
+}) => {
+  void workspace;
+  await page.route("**/api/projects", (route) =>
+    route.fulfill({
+      json: {
+        data: ["1", "2"].map((id) => ({
+          id,
+          organizationId: "1",
+          name: `Proyecto ${id}`,
+          description: "",
+          role: "QA",
+        })),
+      },
+    }),
+  );
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const writes: string[] = [];
+  await page.route("**/api/test-cases", async (route) => {
+    if (route.request().method() === "POST") {
+      writes.push(route.request().postDataJSON().projectId);
+      await pending;
+    }
+    await route.fallback();
+  });
+  try {
+    await page.goto("/");
+    await navigate(page, "Diseñar test cases");
+    const description = page.getByLabel("Descripción o requisito", { exact: true });
+    await description.fill("Validar dos casos del primer proyecto.");
+    await page.getByLabel("Cantidad de pruebas: Edge cases", { exact: true }).fill("2");
+    await page.getByRole("button", { name: "Mostrar tabla de ejemplo" }).click();
+    await page.getByRole("button", { name: "Guardar todos", exact: true }).click();
+    const firstRequest = page.waitForRequest(
+      (request) =>
+        new URL(request.url()).pathname === "/api/test-cases" && request.method() === "POST",
+    );
+    await page.getByRole("button", { name: "Confirmar guardado", exact: true }).click();
+    await firstRequest;
+    await page.getByRole("combobox", { name: "Proyecto", exact: true }).selectOption("2");
+    const firstResponse = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === "/api/test-cases" &&
+        response.request().method() === "POST",
+    );
+    release();
+    expect((await firstResponse).status()).toBe(201);
+    await expect(description).toHaveValue("");
+    await expect(page.getByText(/Se guardaron los casos pendientes/)).toHaveCount(0);
+    expect(writes).toEqual(["1"]);
+  } finally {
+    release();
+  }
+});

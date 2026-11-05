@@ -1415,6 +1415,7 @@ function App({
             )
           ) : activePage === "case-builder" ? (
             <CaseBuilder
+              canSave={allowed("cases.write")}
               canProposeWithGemini={Boolean(projectId) && aiConnected && allowed("cases.write")}
               key={`${user.id}:${projectId}`}
               catalog={caseCatalog}

@@ -175,7 +175,7 @@ El frontend carga proyectos y recursos reales, muestra estados de carga/error, y
 
 La navegación `case-builder` monta `CaseBuilder`. El catálogo, la selección y las cantidades permiten preparar ejemplos locales. Con Gemini conectado y permiso `cases.write`, el diálogo de consentimiento muestra la descripción, las categorías y las cantidades. `POST /api/ai/case-proposals` valida el alcance, comparte el límite de uso de propuestas de bugs y exige cantidades exactas por categoría. El servidor envía solo la descripción y las categorías solicitadas, sin datos de proyecto ni evidencias.
 
-Cada lote generado usa identificadores locales nuevos para separar ediciones, evidencias e idempotencia de los ejemplos y de lotes anteriores. La vista permite editar títulos y pasos, exportar la vista previa y guardar cada caso explícitamente como Borrador. Al cambiar de proyecto, el diseñador cancela la espera y descarta las respuestas tardías.
+Cada lote generado usa identificadores locales nuevos para separar ediciones, evidencias e idempotencia de los ejemplos y de lotes anteriores. La vista permite editar títulos y pasos, exportar la vista previa y guardar explícitamente cada caso o todos los pendientes como Borrador. El guardado en lote valida la vista previa, crea en secuencia, se detiene ante el primer error y conserva los resultados confirmados. Los reintentos en la misma vista mantienen la clave y el contenido si el resultado de una creación es incierto. Al cambiar de proyecto, el diseñador cancela la espera y descarta las respuestas tardías.
 
 ### Ejecuciones manuales y QA en 1.1.0
 

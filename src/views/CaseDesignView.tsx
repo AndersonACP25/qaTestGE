@@ -1,3 +1,4 @@
+import Dialog from "../Dialog";
 import { useState } from "react";
 import GeminiConsentDialog, { GeminiOutboundText } from "../components/GeminiConsentDialog";
 import { maxAiCases } from "../../backend/src/models/case-proposal.model";
@@ -9,6 +10,7 @@ import Alert from "../Alert";
 
 export default function CaseDesignView({
   canProposeWithGemini,
+  canSave,
   categories,
   text,
   selected,
@@ -24,6 +26,10 @@ export default function CaseDesignView({
   exporting,
   exportError,
   savingCaseKey,
+  batchProgress,
+  batchMessage,
+  pendingCount,
+  savePendingCases,
   savedCases,
   saveCaseError,
   projectId,
@@ -40,9 +46,10 @@ export default function CaseDesignView({
   removeExampleStep,
   exportPreview,
   savePreviewCase,
-}: CaseDesignController & { canProposeWithGemini: boolean }) {
+}: CaseDesignController & { canProposeWithGemini: boolean; canSave: boolean }) {
   const [consentOpen, setConsentOpen] = useState(false);
-  const locked = generating || Boolean(savingCaseKey);
+  const [confirmBatch, setConfirmBatch] = useState(false);
+  const locked = generating || Boolean(savingCaseKey || batchProgress);
   const canGenerate = canProposeWithGemini && Boolean(generationInput) && countsValid && !locked;
 
   return (
@@ -233,6 +240,25 @@ export default function CaseDesignView({
                     Exportar PDF
                   </button>
                 </div>
+                {canSave && (
+                  <div className="layout__actions">
+                    <button
+                      type="button"
+                      className="button button-primary"
+                      disabled={!projectId || !pendingCount || locked}
+                      onClick={() => setConfirmBatch(true)}
+                    >
+                      Guardar todos
+                    </button>
+                    <span>{formatCount(pendingCount, "caso pendiente", "casos pendientes")}</span>
+                  </div>
+                )}
+                {batchProgress && (
+                  <p role="status">
+                    Guardando casos… {batchProgress.done}/{batchProgress.total}
+                  </p>
+                )}
+                {batchMessage && <Alert tone="success">{batchMessage}</Alert>}
                 {exporting && <p role="status">Preparando archivo…</p>}
                 {exportError && <Alert tone="error">{exportError}</Alert>}
                 {saveCaseError && <Alert tone="error">{saveCaseError}</Alert>}
@@ -309,7 +335,7 @@ export default function CaseDesignView({
                     <button
                       type="button"
                       className={`case-builder__save-case${savedCases[testCase.key] ? " case-builder__save-case--saved" : ""}`}
-                      disabled={!projectId || locked}
+                      disabled={!projectId || !canSave || locked}
                       onClick={() => void savePreviewCase(testCase)}
                     >
                       {savedCases[testCase.key]
@@ -321,8 +347,8 @@ export default function CaseDesignView({
                   </section>
                 ))}
                 <p className="case-builder__hint">
-                  La vista previa y las exportaciones reflejan los pasos editados. Solo se guardan
-                  los casos en los que pulses «Guardar en casos de prueba».
+                  La vista previa y las exportaciones reflejan los pasos editados. Puedes guardar
+                  cada caso por separado o confirmar el guardado de todos los pendientes.
                 </p>
               </>
             ) : (
@@ -339,6 +365,38 @@ export default function CaseDesignView({
           </div>
         </section>
       </div>
+      {confirmBatch && (
+        <Dialog
+          confirmation
+          title="Guardar casos pendientes"
+          onClose={() => setConfirmBatch(false)}
+        >
+          <p>
+            Vas a crear {formatCount(pendingCount, "caso", "casos")} como borrador en este proyecto.
+            Confirma que revisaste el contenido.
+          </p>
+          <div className="workspace__actions workspace__actions--confirmation">
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={() => setConfirmBatch(false)}
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              className="button button-primary"
+              disabled={!canSave || locked || !pendingCount}
+              onClick={() => {
+                setConfirmBatch(false);
+                if (canSave) void savePendingCases();
+              }}
+            >
+              Confirmar guardado
+            </button>
+          </div>
+        </Dialog>
+      )}
       {consentOpen && generationInput && (
         <GeminiConsentDialog
           onClose={() => setConsentOpen(false)}

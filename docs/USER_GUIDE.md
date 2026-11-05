@@ -28,7 +28,7 @@ En **Bugs**, **Casos de prueba** y **Test runs**, el botón verde **Exportar tab
 
 ## Diseña tus casos
 
-El **Diseñador de casos** ofrece ejemplos ilustrativos y propuestas con Gemini por tipo de prueba. Describe tu flujo, selecciona tipos y cantidades (de 1 a 5), y adapta los pasos y resultados de la vista previa. Puedes exportarla a Excel, PDF o Markdown, o guardar cada caso en el proyecto mediante una acción explícita.
+El **Diseñador de casos** ofrece ejemplos ilustrativos y propuestas con Gemini por tipo de prueba. Describe tu flujo, selecciona tipos y cantidades (de 1 a 5), y adapta los pasos y resultados de la vista previa. Puedes exportarla a Excel, PDF o Markdown, o guardar casos mediante una acción explícita. **Guardar todos** pide confirmación y crea los casos pendientes como borradores. Si se detiene, conserva los confirmados y puedes reintentar los pendientes desde la misma vista previa.
 
 En **Configuración → Diseño de casos** puedes añadir tipos personalizados y elegir los tipos y cantidades iniciales. Estas preferencias se guardan para tu usuario **en este navegador**; no se sincronizan entre dispositivos. Cada tipo nuevo incluye escenarios de partida que debes adaptar a tus pruebas.
 

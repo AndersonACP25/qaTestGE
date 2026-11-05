@@ -7,6 +7,7 @@ import type { CaseCountDefaults } from "./models/caseCountDefaults";
 
 export default function CaseBuilder({
   canProposeWithGemini = false,
+  canSave = false,
   catalog,
   defaultCounts,
   projectId,
@@ -15,6 +16,7 @@ export default function CaseBuilder({
   onOpenTemplate,
 }: {
   canProposeWithGemini?: boolean;
+  canSave?: boolean;
   catalog?: CaseCategory[];
   defaultCounts?: CaseCountDefaults;
   projectId?: string;
@@ -64,7 +66,11 @@ export default function CaseBuilder({
           </div>
         </div>
       )}
-      <CaseDesignView {...controller} canProposeWithGemini={canProposeWithGemini} />
+      <CaseDesignView
+        {...controller}
+        canProposeWithGemini={canProposeWithGemini}
+        canSave={canSave}
+      />
     </div>
   );
 }

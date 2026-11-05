@@ -55,4 +55,4 @@ Si Gemini falla, el editor conserva el texto y el borrador existente. **Preparar
 
 En **Diseñar test cases**, describe el requisito, selecciona las categorías y ajusta las cantidades. Con permiso para crear casos y Gemini conectado, pulsa **Proponer con Gemini**. El diálogo muestra la descripción y las categorías con su cantidad. El proveedor recibe solo esos datos, con un máximo de ocho casos por solicitud.
 
-Edita el título, las acciones y los resultados esperados. Puedes exportar la vista previa o guardar cada caso individualmente en el proyecto como **Borrador**. Si Gemini falla, puedes seguir usando **Mostrar tabla de ejemplo** o conservar la vista previa abierta.
+Edita el título, las acciones y los resultados esperados. Puedes exportar la vista previa o guardar los casos como **Borrador**, uno a uno o mediante **Guardar todos**. Si Gemini falla, puedes seguir usando **Mostrar tabla de ejemplo** o conservar la vista previa abierta.
