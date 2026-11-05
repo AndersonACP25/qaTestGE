@@ -73,7 +73,6 @@ export default function MentionsView({
         <span>{formatCount(inbox.rows.length, "mención", "menciones")}</span>
       </div>
       {(inbox.error || openError) && <Alert tone="error">{inbox.error || openError}</Alert>}
-      {inbox.message && <Alert tone="success">{inbox.message}</Alert>}
       {inbox.loading && !inbox.rows.length ? (
         <p role="status">Cargando menciones…</p>
       ) : (

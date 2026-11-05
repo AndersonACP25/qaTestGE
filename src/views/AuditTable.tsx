@@ -1,6 +1,11 @@
 import type { Activity } from "../../backend/src/models/collaboration.model";
-import ActivityList from "./ProjectActivityView";
+import { useState } from "react";
+import Dialog from "../Dialog";
+import { auditChanges, AuditChangeDetails } from "./AuditChangeDetails";
 export default function AuditTable({ rows, detailed }: { rows: Activity[]; detailed: boolean }) {
+  const [selected, setSelected] = useState<string | null>(null);
+  const event = detailed ? rows.find((row) => row.id === selected) : undefined;
+  const changes = event ? auditChanges(event) : [];
   return (
     <div className="audit-table__scroll">
       <table className="audit-table">
@@ -24,11 +29,46 @@ export default function AuditTable({ rows, detailed }: { rows: Activity[]; detai
                 <strong>{row.resourceId}</strong>
                 <span>{row.action}</span>
               </td>
-              <td>{detailed ? <ActivityList rows={[row]} /> : "Resumen"}</td>
+              <td>
+                {detailed && (row.before || row.after) ? (
+                  <button
+                    type="button"
+                    className="workspace__secondary"
+                    onClick={() => setSelected(row.id)}
+                  >
+                    Ver cambios
+                  </button>
+                ) : detailed ? (
+                  "Sin detalle disponible"
+                ) : (
+                  "Resumen"
+                )}
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
+      {event && (
+        <Dialog
+          title={`Cambios de auditoría · ${event.resourceId}`}
+          onClose={() => setSelected(null)}
+          wide
+        >
+          <div className="layout__stack">
+            <p>
+              <strong>{event.actorName}</strong> ·{" "}
+              <time dateTime={event.createdAt}>
+                {new Date(event.createdAt).toLocaleString("es")}
+              </time>
+            </p>
+            {changes.length ? (
+              <AuditChangeDetails changes={changes} />
+            ) : (
+              <p>Este evento no contiene cambios de campos visibles.</p>
+            )}
+          </div>
+        </Dialog>
+      )}
       {!rows.length && <p>No hay actividad para esta página y filtros.</p>}
     </div>
   );

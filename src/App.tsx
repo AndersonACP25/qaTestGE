@@ -1279,6 +1279,7 @@ function App({
           {requestedLink && <p role="status">Abriendo enlace del registro…</p>}
           {workflowError && <Alert tone="error">{workflowError}</Alert>}
           {preferencesError && <Alert tone="error">{preferencesError}</Alert>}
+          {mentionInbox.message && <Alert tone="success">{mentionInbox.message}</Alert>}
           {!loading && !error && !projectId && activePage !== "settings" && (
             <p className="workspace__notice">
               No tienes proyectos disponibles. El administrador debe conceder acceso a un espacio
