@@ -586,3 +586,47 @@ test("abre un enlace directo con acceso y rechaza un proyecto ajeno", async ({
   ).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });
+
+test("selecciona casos y revisa la asignación masiva antes de enviarla", async ({
+  page,
+  workspace,
+}) => {
+  workspace.cases.push({
+    ...workspace.cases[0],
+    id: "TC-002",
+    title: "Verificar cierre de sesión",
+    version: 3,
+  });
+  let requests = 0;
+  await page.route("**/api/test-cases/bulk", (route) => {
+    requests++;
+    expect(route.request().postDataJSON()).toEqual({
+      projectId: "1",
+      cases: [
+        { id: "TC-001", version: 1 },
+        { id: "TC-002", version: 3 },
+      ],
+      action: { kind: "assign", assigneeUserId: "1" },
+    });
+    return route.fulfill({ json: { data: { updated: 2 } } });
+  });
+  await page.goto("/");
+  await navigate(page, "Casos de prueba");
+  await page.getByRole("checkbox", { name: "Seleccionar TC-001" }).check();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.getByRole("button", { name: "Seleccionar página" }).click();
+  await page.getByRole("button", { name: "Operación masiva", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("combobox").nth(1).selectOption({ label: "QA Local" });
+  await dialog.getByRole("button", { name: "Revisar cambios" }).click();
+  await expect(dialog.getByRole("heading", { name: "Vista previa de cambios" })).toBeVisible();
+  await expect(
+    dialog.getByText(/Verificar cierre de sesión · Sin asignar → QA Local/),
+  ).toBeVisible();
+  expect(requests).toBe(0);
+  await dialog.getByRole("button", { name: "Confirmar operación" }).click();
+  await expect(page.getByText("2 casos actualizados.", { exact: true })).toBeVisible();
+  expect(requests).toBe(1);
+  await expect(page.getByRole("checkbox", { name: "Seleccionar TC-001" })).not.toBeChecked();
+  await noHorizontalOverflow(page);
+});

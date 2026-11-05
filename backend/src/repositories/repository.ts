@@ -1,3 +1,4 @@
+import type { CaseBulkInput } from "../models/case-bulk.model.js";
 import type { CreationContext } from "./creation-request.js";
 import type { ListQuery, RunListQuery } from "./list-query.js";
 import type { Bug, BugStatus, CreateBugInput, UpdateBugInput } from "../models/bug.model.js";
@@ -43,6 +44,7 @@ export interface Repository {
   updateBug(id: string, projectId: string, input: UpdateBugInput): Promise<Bug | null>;
   deleteBug(id: string, projectId: string): Promise<boolean>;
   updateBugStatus(id: string, projectId: string, status: BugStatus): Promise<Bug | null>;
+  bulkUpdateCases(input: CaseBulkInput): Promise<{ updated: number }>;
   listCases(projectId?: string, options?: ListQuery): Promise<TestCase[]>;
   createCase(input: CreateTestCaseInput, context?: CreationContext): Promise<TestCase>;
   updateCase(id: string, projectId: string, input: UpdateTestCaseInput): Promise<TestCase | null>;

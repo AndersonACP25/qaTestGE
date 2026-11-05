@@ -1,3 +1,5 @@
+import { formatCount } from "./utils/pluralization";
+import CaseBulkActions from "./views/CaseBulkActions";
 import { readRecordLink } from "./models/recordLinks";
 import SavedListingViews from "./components/SavedListingViews";
 import { listingViewsKey } from "./models/listingViews";
@@ -1510,19 +1512,42 @@ function App({
                   />
                 )}
                 {activePage === "cases" && (
-                  <CaseTable
+                  <CaseBulkActions
+                    key={JSON.stringify([user.id, projectId, currentTablePage, listingFilters])}
+                    projectId={projectId}
                     items={visibleCases}
+                    members={teamMembers}
+                    membersError={teamMemberError}
                     tags={tags}
-                    onSelect={(testCase) => setRecordDetail({ kind: "case", record: testCase })}
-                    onExport={(item) => setExportTarget({ kind: "case", record: item })}
-                    onEdit={editCase}
-                    onDelete={(item) => {
-                      setDeleteCaseError("");
-                      setDeleteCaseTarget(item);
+                    tagError={tagError}
+                    enabled={allowed("cases.write")}
+                    onUpdated={(updated) => {
+                      if (!isRenderCurrent()) return;
+                      setRevision((value) => value + 1);
+                      notify(
+                        updated
+                          ? `${formatCount(updated, "caso actualizado", "casos actualizados")}.`
+                          : "La selección ya tenía los valores solicitados.",
+                      );
                     }}
-                    onStatusChange={(item, status) => void changeCaseStatus(item, status)}
-                    updatingStatus={updatingStatus}
-                  />
+                  >
+                    {(selection) => (
+                      <CaseTable
+                        items={visibleCases}
+                        selection={selection}
+                        tags={tags}
+                        onSelect={(testCase) => setRecordDetail({ kind: "case", record: testCase })}
+                        onExport={(item) => setExportTarget({ kind: "case", record: item })}
+                        onEdit={editCase}
+                        onDelete={(item) => {
+                          setDeleteCaseError("");
+                          setDeleteCaseTarget(item);
+                        }}
+                        onStatusChange={(item, status) => void changeCaseStatus(item, status)}
+                        updatingStatus={updatingStatus}
+                      />
+                    )}
+                  </CaseBulkActions>
                 )}
                 {activePage === "runs" && (
                   <>

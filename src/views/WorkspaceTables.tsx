@@ -193,6 +193,7 @@ export function CaseTable({
   onDelete,
   onStatusChange,
   updatingStatus,
+  selection,
 }: {
   items: TestCase[];
   tags: Tag[];
@@ -202,6 +203,7 @@ export function CaseTable({
   onDelete: (item: TestCase) => void;
   onStatusChange: (item: TestCase, status: CaseStatus) => void;
   updatingStatus: string;
+  selection?: { ids: Set<string>; toggle: (id: string) => void };
 }) {
   const readOnly = !usePermissions().can("cases.write");
   return (
@@ -222,7 +224,19 @@ export function CaseTable({
           {items.map((item) => (
             <tr key={item.id} onClick={() => onSelect(item)}>
               <td data-label="CASO ID">
-                <span className="id-text">{item.id}</span>
+                {selection ? (
+                  <label className="workspace__check" onClick={(event) => event.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      aria-label={`Seleccionar ${item.id}`}
+                      checked={selection.ids.has(item.id)}
+                      onChange={() => selection.toggle(item.id)}
+                    />
+                    <span className="id-text">{item.id}</span>
+                  </label>
+                ) : (
+                  <span className="id-text">{item.id}</span>
+                )}
               </td>
               <td data-label="NOMBRE DEL CASO">
                 <span className="bug-title">{item.title}</span>

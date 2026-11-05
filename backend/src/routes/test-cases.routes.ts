@@ -1,5 +1,6 @@
 import express, { Router } from "express";
 import {
+  bulkUpdateCases,
   createTestCase,
   deleteTestCase,
   listTestCases,
@@ -17,6 +18,7 @@ import {
 const testCasesRouter = Router();
 
 testCasesRouter.get("/", listTestCases);
+testCasesRouter.post("/bulk", bulkUpdateCases);
 testCasesRouter.post("/", createTestCase);
 testCasesRouter.patch("/:caseId", updateTestCase);
 testCasesRouter.delete("/:caseId", deleteTestCase);

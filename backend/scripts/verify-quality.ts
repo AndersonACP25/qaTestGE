@@ -454,6 +454,73 @@ try {
     400,
   );
   assert.equal((await agent.get("/api/test-runs").query({ projectId })).body.data.length, before);
+  const bulkCases = [
+    { id: tc.id, version: 3 },
+    { id: pendingId, version: 1 },
+  ];
+  const bulkRequest = {
+    projectId,
+    cases: bulkCases,
+    action: { kind: "assign", assigneeUserId: userIds[0] },
+  };
+  assert.equal((await other.post("/api/test-cases/bulk").send(bulkRequest)).status, 404);
+  assert.equal(
+    (
+      await agent.post("/api/test-cases/bulk").send({
+        ...bulkRequest,
+        cases: [bulkCases[0], { ...bulkCases[1], version: 2 }],
+      })
+    ).status,
+    409,
+  );
+  assert.equal(
+    (
+      await agent.post("/api/test-cases/bulk").send({
+        ...bulkRequest,
+        action: { kind: "assign", assigneeUserId: userIds[1] },
+      })
+    ).status,
+    400,
+  );
+  const invalidTagBatch = await agent.post("/api/test-cases/bulk").send({
+    ...bulkRequest,
+    action: { kind: "addTags", tagIds: ["9223372036854775807"] },
+  });
+  assert.equal(invalidTagBatch.status, 400);
+  const assignedCases = await agent.post("/api/test-cases/bulk").send(bulkRequest);
+  assert.equal(assignedCases.status, 200);
+  assert.equal(assignedCases.body.data.updated, 2);
+  const selection = bulkCases.map((entry) => ({ ...entry, version: entry.version + 1 }));
+  assert.equal(
+    (await agent.post("/api/test-cases/bulk").send({ ...bulkRequest, cases: selection })).body.data
+      .updated,
+    0,
+  );
+  const tagA = await agent
+    .post("/api/tags")
+    .send({ projectId, name: "Smoke masivo", color: "#123456" });
+  const tagB = await agent
+    .post("/api/tags")
+    .send({ projectId, name: "Regresión masiva", color: "#123457" });
+  assert.equal(tagA.status, 201);
+  assert.equal(tagB.status, 201);
+  for (const tagId of [tagA.body.data.id, tagB.body.data.id]) {
+    const tagged = await agent.post("/api/test-cases/bulk").send({
+      projectId,
+      cases: selection,
+      action: { kind: "addTags", tagIds: [tagId] },
+    });
+    assert.equal(tagged.status, 200);
+    assert.equal(tagged.body.data.updated, 2);
+    for (const entry of selection) entry.version++;
+  }
+  const batchHistory = await agent.get(`/api/test-cases/${tc.id}/history`).query({ projectId });
+  assert.deepEqual(batchHistory.body.data[0].snapshot.tagIds, [
+    tagA.body.data.id,
+    tagB.body.data.id,
+  ]);
+  assert.equal(batchHistory.body.data[0].version, 6);
+  assert.equal(batchHistory.body.data[0].snapshot.steps[0].action, caseInput.steps[0].action);
   console.info(
     "Calidad: historial/snapshots, conflicto concurrente, planes/ciclos, reejecución de fallidos, bugs/evidencias, flujo configurable, aislamiento y rollback correctos.",
   );
@@ -471,6 +538,8 @@ try {
       "test_plan_cases",
       "test_plans",
       "requirements",
+      "test_case_tags",
+      "tags",
       "test_case_steps",
       "test_cases",
       "project_bug_workflows",

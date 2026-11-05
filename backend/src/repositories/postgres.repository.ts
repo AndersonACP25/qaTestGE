@@ -1,3 +1,4 @@
+import type { CaseBulkInput } from "../models/case-bulk.model.js";
 import { PostgresAnalyticsRepository } from "./analytics.repository.js";
 import { PostgresCollaborationRepository } from "./collaboration.repository.js";
 import { actorDatabase } from "../auth/actor-database.js";
@@ -387,6 +388,58 @@ export class PostgresRepository implements Repository {
       const result = await client.query<CaseRow>(`${casesSql} WHERE c.id=$1`, [id]);
       await rememberCreation(client, "case", input.projectId, id, input, context);
       return testCase(result.rows[0]);
+    });
+  }
+  async bulkUpdateCases({ projectId, cases, action }: CaseBulkInput) {
+    return this.transaction(async (client) => {
+      await client.query("SELECT qa.require_permission($1, 'cases.write')", [projectId]);
+      const versions = new Map(cases.map((item) => [parseReference(item.id, "TC"), item.version]));
+      const ids = [...versions.keys()];
+      const { rows } = await client.query<{ id: string; version: number }>(
+        "SELECT id::text,version FROM qa.test_cases WHERE project_id=$1 AND id=ANY($2::bigint[]) ORDER BY qa.test_cases.id FOR UPDATE",
+        [projectId, ids],
+      );
+      if (rows.length !== ids.length || rows.some((row) => versions.get(row.id) !== row.version))
+        throw new HttpError(
+          409,
+          "CASE_VERSION_CONFLICT",
+          "Uno o más casos cambiaron o ya no están disponibles. Actualiza el listado y revisa la selección.",
+        );
+      if (action.kind === "assign") {
+        await this.validateAssignee(client, projectId, action.assigneeUserId);
+        const changed = await client.query(
+          `UPDATE qa.test_cases SET assignee_user_id=$3,
+            assignee_organization_id=CASE WHEN $3::bigint IS NULL THEN NULL ELSE (SELECT organization_id FROM qa.projects WHERE id=$1) END
+           WHERE project_id=$1 AND id=ANY($2::bigint[]) AND assignee_user_id IS DISTINCT FROM $3::bigint`,
+          [projectId, ids, action.assigneeUserId],
+        );
+        return { updated: changed.rowCount ?? 0 };
+      }
+      const tags = await client.query(
+        "SELECT id FROM qa.tags WHERE project_id=$1 AND id=ANY($2::bigint[]) FOR KEY SHARE",
+        [projectId, action.tagIds],
+      );
+      if (tags.rowCount !== action.tagIds.length)
+        throw new HttpError(400, "INVALID_TAG", "Todos los tags deben pertenecer al proyecto.");
+      const limit = await client.query(
+        `SELECT test_case_id FROM qa.test_case_tags WHERE project_id=$1 AND test_case_id=ANY($2::bigint[])
+         GROUP BY test_case_id HAVING count(*) FILTER(WHERE NOT(tag_id=ANY($3::bigint[]))) + cardinality($3::bigint[]) > 100`,
+        [projectId, ids, action.tagIds],
+      );
+      if (limit.rowCount)
+        throw new HttpError(400, "CASE_TAG_LIMIT", "Un caso superaría el límite de 100 tags.");
+      const changed = await client.query(
+        `WITH added AS (
+           INSERT INTO qa.test_case_tags(project_id,test_case_id,tag_id)
+           SELECT $1,case_id,tag_id FROM unnest($2::bigint[]) AS c(case_id)
+           CROSS JOIN unnest($3::bigint[]) AS t(tag_id)
+           ON CONFLICT DO NOTHING RETURNING test_case_id
+         )
+         UPDATE qa.test_cases SET version=version
+         WHERE project_id=$1 AND id IN (SELECT test_case_id FROM added)`,
+        [projectId, ids, action.tagIds],
+      );
+      return { updated: changed.rowCount ?? 0 };
     });
   }
   async updateCase(id: string, projectId: string, input: UpdateTestCaseInput) {

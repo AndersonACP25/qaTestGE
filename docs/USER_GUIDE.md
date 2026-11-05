@@ -134,3 +134,9 @@ La validación de requisitos considera el último resultado evaluable de cada ca
 En **Bugs**, **Casos de prueba** o **Test Runs**, ajusta los filtros, abre **Vistas guardadas** y escribe un nombre. **Guardar filtros actuales** conserva la combinación. Usa **Aplicar vista** para recuperarla desde la primera página o **Eliminar vista** para retirarla. Puedes guardar hasta 20 vistas por cuenta, proyecto y listado en el navegador actual.
 
 En el detalle de un registro, pulsa **Copiar enlace**. La persona que lo abra debe iniciar sesión y tener acceso al proyecto. Si el navegador bloquea el portapapeles, la aplicación muestra el enlace para copiarlo manualmente.
+
+## Operaciones masivas de casos
+
+En **Casos de prueba**, marca las filas o usa **Seleccionar página** para trabajar con los casos visibles. Abre **Operación masiva** y elige **Asignar responsable** o **Añadir tags**. Revisa el cambio por caso antes de pulsar **Confirmar operación**. La asignación permite dejar los casos sin responsable y los tags nuevos se suman a los existentes.
+
+La selección se limita a la página actual. Si un caso cambió desde que abriste la vista previa, actualiza el listado y revisa la selección de nuevo. La operación se aplica completa o se rechaza completa.

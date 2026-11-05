@@ -1,3 +1,4 @@
+import type { CaseBulkInput } from "../models/case-bulk.model.js";
 import type { CreationContext } from "../repositories/creation-request.js";
 import type { ListQuery, RunListQuery } from "../repositories/list-query.js";
 import type { Repository, Project } from "../repositories/repository.js";
@@ -241,6 +242,10 @@ export class AuthorizedRepository implements Repository {
     return context
       ? this.base.createCase(input, { ...context, actorId: this.actorId! })
       : this.base.createCase(input);
+  }
+  async bulkUpdateCases(input: CaseBulkInput) {
+    await this.projectIds(input.projectId);
+    return this.base.bulkUpdateCases(input);
   }
   async updateCase(id: string, projectId: string, input: UpdateTestCaseInput) {
     await this.projectIds(projectId);
