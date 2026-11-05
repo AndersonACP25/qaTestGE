@@ -374,3 +374,41 @@ for (const action of ["usuario", "lectura", "auditoría"])
     if (action === "lectura")
       await expect(page.locator(".mentions-view__counter strong")).toHaveText("0");
   });
+
+test("exporta la auditoría filtrada más allá de la página visible", async ({ page, workspace }) => {
+  void workspace;
+  const batch = Array.from({ length: 100 }, (_, index) => ({
+    id: String(150 - index),
+    projectId: "1",
+    kind: "bug",
+    resourceId: "BUG-001",
+    action: "bugs.update",
+    actorId: "1",
+    actorName: "QA Local",
+    createdAt: stamp,
+    requestId: null,
+    before: null,
+    after: null,
+  }));
+  const requested: URLSearchParams[] = [];
+  await page.route("**/api/activity?*", (route) => {
+    const query = new URL(route.request().url()).searchParams;
+    requested.push(query);
+    return route.fulfill({
+      json: {
+        data: query.get("before")
+          ? [{ ...batch[0], id: "50", resourceId: "BUG-002" }]
+          : batch.slice(0, Number(query.get("limit"))),
+      },
+    });
+  });
+  await page.goto("/");
+  await navigate(page, "Actividad y auditoría");
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Exportar todo filtrado Markdown" }).click();
+  expect((await download).suggestedFilename()).toBe("auditoria-proyecto-1-filtrada.md");
+  expect(
+    requested.some((query) => query.get("limit") === "100" && query.get("before") === "51"),
+  ).toBe(true);
+  await expect(page.getByText("Auditoría filtrada exportada.")).toBeVisible();
+});

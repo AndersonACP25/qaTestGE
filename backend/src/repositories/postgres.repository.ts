@@ -1,3 +1,5 @@
+import { caseSnapshotSchema } from "../models/case-version.model.js";
+import type { BugBulkInput } from "../models/bug-bulk.model.js";
 import type { CaseBulkInput } from "../models/case-bulk.model.js";
 import { PostgresAnalyticsRepository } from "./analytics.repository.js";
 import { PostgresCollaborationRepository } from "./collaboration.repository.js";
@@ -263,6 +265,58 @@ export class PostgresRepository implements Repository {
       return bug(result.rows[0]);
     });
   }
+  async bulkUpdateBugs({ projectId, bugs, action }: BugBulkInput) {
+    return this.transaction(async (client) => {
+      await client.query("SELECT qa.require_permission($1, 'bugs.write')", [projectId]);
+      const selection = new Map(bugs.map((item) => [parseReference(item.id, "BUG"), item]));
+      const ids = [...selection.keys()];
+      const locked = await client.query<{
+        id: string;
+        status: string;
+        assignee_user_id: string | null;
+        assignee: string | null;
+      }>(
+        "SELECT id::text,status,assignee_user_id::text,assignee FROM qa.bugs WHERE project_id=$1 AND id=ANY($2::bigint[]) ORDER BY qa.bugs.id FOR UPDATE",
+        [projectId, ids],
+      );
+      const changedSinceReview = locked.rows.some((row) => {
+        const expected = selection.get(row.id);
+        if (!expected) return true;
+        if (action.kind === "status") return row.status !== expected.status;
+        if (action.kind === "assign")
+          return (
+            row.assignee_user_id !== expected.assigneeUserId ||
+            (row.assignee_user_id === null && (row.assignee ?? "—") !== (expected.assignee ?? "—"))
+          );
+        return false;
+      });
+      if (locked.rows.length !== ids.length || changedSinceReview)
+        throw new HttpError(
+          409,
+          "BUG_BATCH_CONFLICT",
+          "Uno o más bugs cambiaron o ya no están disponibles. Actualiza el listado y revisa la selección.",
+        );
+      if (action.kind === "addTags") {
+        const changed = await this.addBatchTags(client, "bug", projectId, ids, action.tagIds);
+        return { updated: changed.length };
+      }
+      if (action.kind === "status") {
+        const result = await client.query(
+          "UPDATE qa.bugs SET status=$3 WHERE project_id=$1 AND id=ANY($2::bigint[]) AND status IS DISTINCT FROM $3",
+          [projectId, ids, action.status],
+        );
+        return { updated: result.rowCount ?? 0 };
+      }
+      await this.validateAssignee(client, projectId, action.assigneeUserId);
+      const result = await client.query(
+        `UPDATE qa.bugs SET assignee=NULL,assignee_user_id=$3,
+         assignee_organization_id=CASE WHEN $3::bigint IS NULL THEN NULL ELSE (SELECT organization_id FROM qa.projects WHERE id=$1) END
+         WHERE project_id=$1 AND id=ANY($2::bigint[]) AND (assignee_user_id IS DISTINCT FROM $3::bigint OR assignee IS NOT NULL)`,
+        [projectId, ids, action.assigneeUserId],
+      );
+      return { updated: result.rowCount ?? 0 };
+    });
+  }
   async updateBugStatus(id: string, projectId: string, status: BugStatus) {
     const { rows } = await this.pool.query<BugRow>(
       `WITH updated AS (
@@ -415,31 +469,41 @@ export class PostgresRepository implements Repository {
         );
         return { updated: changed.rowCount ?? 0 };
       }
-      const tags = await client.query(
-        "SELECT id FROM qa.tags WHERE project_id=$1 AND id=ANY($2::bigint[]) FOR KEY SHARE",
-        [projectId, action.tagIds],
-      );
-      if (tags.rowCount !== action.tagIds.length)
-        throw new HttpError(400, "INVALID_TAG", "Todos los tags deben pertenecer al proyecto.");
-      const limit = await client.query(
-        `SELECT test_case_id FROM qa.test_case_tags WHERE project_id=$1 AND test_case_id=ANY($2::bigint[])
-         GROUP BY test_case_id HAVING count(*) FILTER(WHERE NOT(tag_id=ANY($3::bigint[]))) + cardinality($3::bigint[]) > 100`,
-        [projectId, ids, action.tagIds],
-      );
-      if (limit.rowCount)
-        throw new HttpError(400, "CASE_TAG_LIMIT", "Un caso superaría el límite de 100 tags.");
+      const tagged = await this.addBatchTags(client, "case", projectId, ids, action.tagIds);
       const changed = await client.query(
-        `WITH added AS (
-           INSERT INTO qa.test_case_tags(project_id,test_case_id,tag_id)
-           SELECT $1,case_id,tag_id FROM unnest($2::bigint[]) AS c(case_id)
-           CROSS JOIN unnest($3::bigint[]) AS t(tag_id)
-           ON CONFLICT DO NOTHING RETURNING test_case_id
-         )
-         UPDATE qa.test_cases SET version=version
-         WHERE project_id=$1 AND id IN (SELECT test_case_id FROM added)`,
-        [projectId, ids, action.tagIds],
+        "UPDATE qa.test_cases SET version=version WHERE project_id=$1 AND id=ANY($2::bigint[])",
+        [projectId, tagged],
       );
       return { updated: changed.rowCount ?? 0 };
+    });
+  }
+  async restoreCaseVersion(
+    id: string,
+    projectId: string,
+    version: number,
+    expectedVersion: number,
+  ) {
+    const { rows } = await this.pool.query<{ snapshot: unknown }>(
+      "SELECT snapshot FROM qa.test_case_versions WHERE project_id=$1 AND test_case_id=$2 AND version=$3",
+      [projectId, id, version],
+    );
+    if (!rows[0]) return null;
+    const snapshot = caseSnapshotSchema.safeParse(rows[0].snapshot);
+    if (!snapshot.success)
+      throw new HttpError(
+        409,
+        "CASE_SNAPSHOT_INVALID",
+        "La versión histórica no se puede restaurar.",
+      );
+    const fields = snapshot.data;
+    return this.updateCase(id, projectId, {
+      expectedVersion,
+      title: fields.title,
+      suite: fields.suite ?? undefined,
+      testType: fields.test_type,
+      lifecycle: fields.lifecycle,
+      preconditions: fields.preconditions,
+      steps: fields.steps,
     });
   }
   async updateCase(id: string, projectId: string, input: UpdateTestCaseInput) {
@@ -1228,6 +1292,44 @@ export class PostgresRepository implements Repository {
         "INVALID_ASSIGNEE",
         "El responsable no pertenece al equipo del proyecto o está inactivo.",
       );
+  }
+  private async addBatchTags(
+    client: DatabaseClient,
+    kind: "case" | "bug",
+    projectId: string,
+    ids: (string | null)[],
+    tagIds: string[],
+  ) {
+    const [table, column] =
+      kind === "case" ? ["qa.test_case_tags", "test_case_id"] : ["qa.bug_tags", "bug_id"];
+    const tags = await client.query(
+      "SELECT id FROM qa.tags WHERE project_id=$1 AND id=ANY($2::bigint[]) ORDER BY id FOR KEY SHARE",
+      [projectId, tagIds],
+    );
+    if (tags.rowCount !== tagIds.length)
+      throw new HttpError(400, "INVALID_TAG", "Todos los tags deben pertenecer al proyecto.");
+    const limit = await client.query(
+      `SELECT ${column} FROM ${table} WHERE project_id=$1 AND ${column}=ANY($2::bigint[])
+       GROUP BY ${column} HAVING count(*) FILTER(WHERE NOT(tag_id=ANY($3::bigint[]))) + cardinality($3::bigint[]) > 100`,
+      [projectId, ids, tagIds],
+    );
+    if (limit.rowCount)
+      throw new HttpError(
+        400,
+        kind === "case" ? "CASE_TAG_LIMIT" : "BUG_TAG_LIMIT",
+        "Un registro superaría el límite de 100 tags.",
+      );
+    const { rows } = await client.query<{ id: string }>(
+      `WITH added AS (
+         INSERT INTO ${table}(project_id,${column},tag_id)
+         SELECT $1,record_id,tag_id FROM unnest($2::bigint[]) AS r(record_id)
+         CROSS JOIN unnest($3::bigint[]) AS t(tag_id)
+         ON CONFLICT DO NOTHING RETURNING ${column}
+       )
+       SELECT DISTINCT ${column}::text AS id FROM added`,
+      [projectId, ids, tagIds],
+    );
+    return rows.map(({ id }) => id);
   }
   private async replaceTags(
     table: "qa.bug_tags" | "qa.test_case_tags" | "qa.test_run_tags",

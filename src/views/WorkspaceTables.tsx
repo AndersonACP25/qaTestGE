@@ -95,7 +95,9 @@ export function BugTable({
   updatingStatus,
   compact = false,
   workflow,
+  selection,
 }: {
+  selection?: { ids: Set<string>; toggle: (id: string) => void };
   workflow?: BugWorkflow | null;
   bugs: Bug[];
   tags: Tag[];
@@ -126,7 +128,19 @@ export function BugTable({
           {bugs.map((bug) => (
             <tr key={bug.id} onClick={() => onSelect(bug)}>
               <td data-label="BUG ID">
-                <span className="id-text">{bug.id}</span>
+                {selection ? (
+                  <label className="workspace__check" onClick={(event) => event.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      aria-label={`Seleccionar ${bug.id}`}
+                      checked={selection.ids.has(bug.id)}
+                      onChange={() => selection.toggle(bug.id)}
+                    />
+                    <span className="id-text">{bug.id}</span>
+                  </label>
+                ) : (
+                  <span className="id-text">{bug.id}</span>
+                )}
               </td>
               <td data-label="TÍTULO">
                 <span className="bug-title">{bug.title}</span>

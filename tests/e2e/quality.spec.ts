@@ -348,3 +348,49 @@ test("previsualiza un archivo Excel antes de importar", async ({ page, workspace
   expect(workspace.cases.at(-1)?.testType).toBe("Regresión");
   await noHorizontalOverflow(page);
 });
+
+test("compara versiones y restaura el contenido como una versión nueva", async ({
+  page,
+  workspace,
+}) => {
+  const item = workspace.cases[0];
+  item.version = 2;
+  const snapshot = {
+    title: item.title,
+    test_type: "Funcional",
+    lifecycle: "Listo",
+    suite: "Smoke",
+    preconditions: "Sesión válida",
+    steps: item.steps,
+  };
+  const original = { ...snapshot, preconditions: "Sin sesión" };
+  const versions = [
+    { version: 2, changedAt: item.createdAt, snapshot },
+    { version: 1, changedAt: item.createdAt, snapshot: original },
+  ];
+  await page.route("**/api/test-cases/TC-001/history?*", (route) =>
+    route.fulfill({ json: { data: versions } }),
+  );
+  await page.route("**/api/test-cases/TC-001/history/restore", (route) => {
+    expect(route.request().postDataJSON()).toEqual({
+      projectId: "1",
+      version: 1,
+      expectedVersion: 2,
+    });
+    Object.assign(item, { version: 3, preconditions: "Sin sesión" });
+    versions.unshift({ version: 3, changedAt: item.createdAt, snapshot: original });
+    return route.fulfill({ json: { data: item } });
+  });
+  await page.goto("/?project=1&record=TC-001");
+  const dialog = page.getByRole("dialog");
+  await dialog.getByText("Comparar versiones", { exact: true }).click();
+  await expect(dialog.getByText("Versión 1: Sin sesión", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("Versión 2: Sesión válida", { exact: true })).toBeVisible();
+  await dialog
+    .locator("summary")
+    .filter({ hasText: /^Versión 1 ·/ })
+    .click();
+  page.once("dialog", (confirm) => void confirm.accept());
+  await dialog.getByRole("button", { name: "Restaurar versión 1", exact: true }).click();
+  await expect(page.getByText("Se creó la versión 3 a partir de la versión 1.")).toBeVisible();
+});

@@ -210,9 +210,10 @@ export function parseApiData(path: string, method: string, input: unknown): unkn
   else if (resource === "mention-notifications") schema = z.array(notification);
   else if (resource === "bug-workflow") schema = workflow;
   else if (resource === "test-plans") schema = method === "GET" ? z.array(plan) : plan;
-  else if (resource === "test-cases" && action === "bulk")
+  else if ((resource === "test-cases" || resource === "bugs") && action === "bulk")
     schema = z.object({ updated: z.number().int().min(0).max(50) });
-  else if (resource === "test-cases" && detail === "history") schema = z.array(history);
+  else if (resource === "test-cases" && detail === "history" && method === "GET")
+    schema = z.array(history);
   else if (resource === "auth") {
     if (action === "bug-templates")
       schema = parts.length === 2 && method === "GET" ? z.array(template) : template;

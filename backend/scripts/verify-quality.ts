@@ -521,6 +521,62 @@ try {
   ]);
   assert.equal(batchHistory.body.data[0].version, 6);
   assert.equal(batchHistory.body.data[0].snapshot.steps[0].action, caseInput.steps[0].action);
+  const secondBug = await agent
+    .post("/api/bugs")
+    .send({ projectId, title: "Segundo bug masivo", priority: "Media" });
+  assert.equal(secondBug.status, 201);
+  const bugBatch = [
+    { id: bug.body.data.id, status: "Triage", assigneeUserId: null, assignee: null },
+    { id: secondBug.body.data.id, status: "Abierto", assigneeUserId: null, assignee: null },
+  ];
+  const applyBugBatch = (action: object) =>
+    agent.post("/api/bugs/bulk").send({ projectId, bugs: bugBatch, action });
+  assert.equal((await applyBugBatch({ kind: "status", status: "Cerrado" })).status, 409);
+  const bugList = await agent.get("/api/bugs").query({ projectId });
+  assert.equal(
+    bugList.body.data.find((item: { id: string }) => item.id === bugBatch[0].id).status,
+    "Triage",
+  );
+  const transitioned = await applyBugBatch({ kind: "status", status: "Triage" });
+  assert.equal(transitioned.status, 200);
+  assert.equal(transitioned.body.data.updated, 1);
+  assert.equal((await applyBugBatch({ kind: "status", status: "Cerrado" })).status, 409);
+  assert.equal(
+    (await applyBugBatch({ kind: "assign", assigneeUserId: userIds[0] })).body.data.updated,
+    2,
+  );
+  assert.equal(
+    (await applyBugBatch({ kind: "addTags", tagIds: [tagA.body.data.id] })).body.data.updated,
+    2,
+  );
+  assert.equal(
+    (await applyBugBatch({ kind: "addTags", tagIds: [tagA.body.data.id, tagB.body.data.id] })).body
+      .data.updated,
+    2,
+  );
+  assert.equal(
+    (await applyBugBatch({ kind: "addTags", tagIds: [tagA.body.data.id] })).body.data.updated,
+    0,
+  );
+  const restorePath = `/api/test-cases/${tc.id}/history/restore`;
+  const restored = await agent
+    .post(restorePath)
+    .send({ projectId, version: 2, expectedVersion: 6 });
+  assert.equal(restored.status, 200);
+  assert.equal(restored.body.data.version, 7);
+  assert.equal(restored.body.data.steps[0].action, "Paso nuevo");
+  assert.equal(restored.body.data.assigneeUserId, userIds[0]);
+  assert.deepEqual(restored.body.data.tagIds, [tagA.body.data.id, tagB.body.data.id]);
+  assert.equal(
+    (await agent.post(restorePath).send({ projectId, version: 1, expectedVersion: 6 })).status,
+    409,
+  );
+  assert.equal(
+    (await other.post(restorePath).send({ projectId, version: 1, expectedVersion: 7 })).status,
+    404,
+  );
+  const restoredHistory = await agent.get(`/api/test-cases/${tc.id}/history`).query({ projectId });
+  assert.deepEqual(restoredHistory.body.data.slice(1), batchHistory.body.data);
   console.info(
     "Calidad: historial/snapshots, conflicto concurrente, planes/ciclos, reejecución de fallidos, bugs/evidencias, flujo configurable, aislamiento y rollback correctos.",
   );
@@ -532,6 +588,7 @@ try {
       "evidence_links",
       "evidence",
       "bug_test_cases",
+      "bug_tags",
       "bugs",
       "test_run_results",
       "test_runs",
