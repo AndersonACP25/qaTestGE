@@ -4840,10 +4840,6 @@ tbody td {
   gap: 12px;
   margin-top: 16px;
 }
-.bug-design__outbound {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
 .bug-design__draft {
   border-top: 1px solid var(--line);
   padding-top: 16px;

@@ -1,3 +1,4 @@
+import GeminiConsentDialog, { GeminiOutboundText } from "../components/GeminiConsentDialog";
 import { availableTemplateDefaults } from "../models/templateDefaults";
 import type { DesignTemplates } from "../../backend/src/models/design-templates.model";
 import DesignEvidencePanel from "./DesignEvidencePanel";
@@ -505,54 +506,29 @@ export default function BugDesignView({
         </div>
       </div>
       {confirmGemini && (
-        <Dialog confirmation title="Enviar texto a Gemini" onClose={() => setConfirmGemini(false)}>
-          <p>
-            Revisa el texto que se enviará a Google. Retira credenciales y datos sensibles antes de
-            continuar.
-          </p>
-          <div className="layout__stack">
-            <div>
-              <strong>Problema observado</strong>
-              <p className="bug-design__outbound">{source.trim()}</p>
-            </div>
-            {templateText && (
-              <label className="workspace__check">
-                <input
-                  type="checkbox"
-                  checked={includeTemplate}
-                  disabled={templateText.length > 1500}
-                  onChange={(event) => setIncludeTemplate(event.target.checked)}
-                />
-                {templateText.length > 1500
-                  ? "La plantilla supera el límite de 1500 caracteres y se omitirá."
-                  : "Incluir el texto de la plantilla"}
-              </label>
-            )}
-            {includeTemplate && (
-              <div>
-                <strong>Texto de la plantilla</strong>
-                <p className="bug-design__outbound">{templateText}</p>
-              </div>
-            )}
-          </div>
-          <div className="workspace__actions workspace__actions--confirmation">
-            <button
-              type="button"
-              className="workspace__secondary"
-              onClick={() => setConfirmGemini(false)}
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              className="button button-primary"
-              disabled={!canProposeWithGemini}
-              onClick={() => void propose()}
-            >
-              Enviar y generar propuesta
-            </button>
-          </div>
-        </Dialog>
+        <GeminiConsentDialog
+          onClose={() => setConfirmGemini(false)}
+          onConfirm={() => void propose()}
+          disabled={!canProposeWithGemini}
+        >
+          <GeminiOutboundText label="Problema observado" text={source.trim()} />
+          {templateText && (
+            <label className="workspace__check">
+              <input
+                type="checkbox"
+                checked={includeTemplate}
+                disabled={templateText.length > 1500}
+                onChange={(event) => setIncludeTemplate(event.target.checked)}
+              />
+              {templateText.length > 1500
+                ? "La plantilla supera el límite de 1500 caracteres y se omitirá."
+                : "Incluir el texto de la plantilla"}
+            </label>
+          )}
+          {includeTemplate && (
+            <GeminiOutboundText label="Texto de la plantilla" text={templateText} />
+          )}
+        </GeminiConsentDialog>
       )}
       {confirmSave && preview && (
         <Dialog
