@@ -41,6 +41,7 @@ test("Diseñar bugs conserva borradores y solo crea tras revisión", async ({
   await page.getByRole("checkbox", { name: "Smoke demo", exact: true }).check();
   await expect(page.getByRole("button", { name: "Guardar en Bugs" })).toBeEnabled();
   await page.getByRole("button", { name: "Guardar borrador", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Abrir borrador", exact: true })).toBeVisible();
   expect(workspace.writes.filter((item) => item.path === "/bugs")).toHaveLength(0);
   await page.reload();
   await navigate(page, "Diseñar bugs");
@@ -74,9 +75,15 @@ test("edita y elimina tipos personalizados conservando sus preferencias", async 
   await page.getByRole("checkbox", { name: "Contratos locales", exact: true }).check();
   await page.getByLabel("Valor inicial para Contratos locales").selectOption("4");
   await page.getByRole("button", { name: "Guardar valores predeterminados" }).click();
+  await expect(
+    page.getByText("Las preferencias de diseño se guardaron en este navegador.", { exact: true }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Editar tipo Contratos locales", exact: true }).click();
   await page.getByLabel("Nombre del tipo", { exact: true }).fill("Contratos revisados");
   await page.getByRole("button", { name: "Guardar tipo de caso", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Editar tipo Contratos revisados", exact: true }),
+  ).toBeVisible();
   await page.reload();
   await navigate(page, "Configuración");
   await page.getByRole("button", { name: "Diseño de casos", exact: true }).click();
@@ -87,6 +94,9 @@ test("edita y elimina tipos personalizados conservando sus preferencias", async 
   await page
     .getByRole("button", { name: "Eliminar tipo Contratos revisados", exact: true })
     .click();
+  await expect(
+    page.getByRole("button", { name: "Editar tipo Contratos revisados", exact: true }),
+  ).toHaveCount(0);
   await page.reload();
   await navigate(page, "Diseñar test cases");
   await expect(page.getByText("Contratos revisados", { exact: true })).toHaveCount(0);
@@ -358,6 +368,9 @@ test("tipos personalizados disponibles después de recargar", async ({ page }, t
   await page.getByRole("checkbox", { name: "Contratos externos", exact: true }).check();
   await page.getByLabel("Valor inicial para Contratos externos").selectOption("3");
   await page.getByRole("button", { name: "Guardar valores predeterminados" }).click();
+  await expect(
+    page.getByText("Las preferencias de diseño se guardaron en este navegador.", { exact: true }),
+  ).toBeVisible();
   await page.reload();
   await navigate(page, "Configuración");
   await page.getByRole("button", { name: "Diseño de casos", exact: true }).click();

@@ -40,7 +40,7 @@
 
 - CRUD de bugs/casos/runs/evidencias/tags, asignaciones, adjuntos privados (2 MiB), plantillas personales, invitaciones de equipo de un solo uso y gestión de proyectos/equipos.
 - Resultados manuales por caso, finalización/reapertura y snapshots; los recursos referenciados no se eliminan en cascada.
-- Borradores de bugs y preferencias del diseñador por usuario/proyecto, documentos versionados, revisiones y Web Locks. El diseñador usa ejemplos ilustrativos, no IA.
+- Borradores de bugs y preferencias del diseñador por usuario/proyecto, documentos versionados, revisiones y Web Locks. Las pruebas esperan la confirmación de persistencia antes de recargar. El diseñador usa ejemplos ilustrativos, no IA.
 - Claves idempotentes persistentes para bug/case/run/plan por actor/proyecto/recurso; huella y recurso se confirman juntos. No reintentar automáticamente ni renovar la clave tras una respuesta ambigua.
 - Contratos Zod de HTTP/almacenamiento, errores seguros, CSRF, autorización de servidor, X-Request-ID y logs sin cuerpos/cookies/secretos.
 - Tablas con páginas de 50/exportación visible, BEM, alertas superiores, footer compartido y navegación adaptable. Dashboard/Reportes consultan agregados del servidor; los demás listados conservan su carga existente.
