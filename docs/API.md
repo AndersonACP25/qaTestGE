@@ -68,7 +68,15 @@ Los recursos y proyectos requieren la cookie. Todas las escrituras protegidas (P
 
 En SwaggerUI, iniciar sesión con el endpoint login, consultar me y copiar csrfToken al campo X-CSRF-Token de **Authorize** para probar POST. La cookie se envía automáticamente desde el mismo origen. No introducir el token de sesión manualmente en JavaScript.
 
-Login y registro comparten un límite básico en memoria por proceso: 20 solicitudes por IP/15 minutos, con Retry-After y 429. La derivación de contraseñas limita también la concurrencia; ante saturación se devuelve AUTH_BUSY. Cambiar la contraseña requiere la contraseña actual; se mantiene la sesión actual y se revocan las demás. No hay recuperación de contraseña, verificación de correo ni MFA.
+Login y registro comparten un límite básico en memoria por proceso: 20 solicitudes por IP/15 minutos, con Retry-After y 429. La derivación de contraseñas limita también la concurrencia; ante saturación se devuelve AUTH_BUSY. Cambiar la contraseña requiere la contraseña actual; se mantiene la sesión actual y se revocan las demás. La activación y la recuperación requieren [entrega de enlaces configurada](../servicios/account-links/README.md).
+
+| Método | Ruta                          | Entrada / respuesta                                                                                                       |
+| ------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/auth/account-links`         | 200 con `enabled` para indicar si se pueden pedir enlaces                                                                 |
+| POST   | `/auth/account-links/request` | `email`; 202 con `accepted: true` para correos válidos, con respuesta uniforme                                            |
+| POST   | `/auth/account-links/consume` | `token` hexadecimal de 64 caracteres y `password` de 12–128; 200 con `completed: true`, revoca sesiones y borra la cookie |
+
+Admin puede omitir `password` al crear un usuario con `POST /project-users` para activar la cuenta por enlace. Si el webhook falla tras el alta, repite la solicitud con la misma clave y el mismo contenido. Las dos escrituras públicas tienen límites independientes de 20 solicitudes por IP cada 15 minutos.
 
 ### Plantillas de bugs
 
@@ -77,6 +85,10 @@ Las plantillas son privadas por usuario y se guardan en `qa.bug_templates`. El p
 ### Desactivación de cuenta
 
 `DELETE /auth/me` requiere cookie de sesión, `X-CSRF-Token` y JSON `{"currentPassword":"...","confirmation":"ELIMINAR CUENTA"}`. Verifica la contraseña actual y la frase exacta. Responde 204 y borra la cookie; la cuenta queda inactiva y nombre/correo/contraseña se anonimizan, se revocan todas las sesiones y se eliminan sus plantillas. Se conservan la fila de usuario inactiva, membresías, proyectos y recursos QA para preservar referencias e historial. La operación se ejecuta en una transacción.
+
+## Plantillas de diseño por proyecto
+
+`GET /design-templates?projectId=…` devuelve el documento personal del proyecto con `revision`, `cases` y `bugDefaults`. `PUT` guarda el documento completo y devuelve la revisión siguiente. Si otra sesión ya modificó la revisión, responde 409 y permite recargar antes de editar. Los tags y el responsable son valores predeterminados; la creación de cada bug o caso verifica los permisos y las referencias vigentes.
 
 ## Creación de recursos
 

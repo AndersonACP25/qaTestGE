@@ -77,7 +77,7 @@ export default function FileDropzone({
         }}
       />
       <button
-        className="workspace__secondary import-panel__trigger"
+        className="file-dropzone__trigger workspace__secondary import-panel__trigger"
         type="button"
         disabled={disabled}
         onClick={() => input.current?.click()}

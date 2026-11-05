@@ -1,7 +1,10 @@
+import { designTemplatesSchema } from "../../backend/src/models/design-templates.model";
+import { playwrightMetadataSchema } from "../../backend/src/models/playwright-import.model";
 import { assignedWorkPageSchema } from "../../backend/src/models/assigned-work.model";
 import { auditSettingsSchema } from "../../backend/src/models/audit.model";
 import {
   analyticsSchema,
+  releaseReadinessSchema,
   requirementSchema,
   requirementsSchema,
   coverageSchema,
@@ -73,6 +76,11 @@ const run = z.object({
   ownerUserId: id.nullish(),
   planId: id.nullable().optional(),
   sourceRunId: id.nullable().optional(),
+  releaseVersion: z.string().max(100).nullish(),
+  environment: z.string().max(100).nullish(),
+  playwright: playwrightMetadataSchema
+    .extend({ unknownCaseIds: z.array(id), unmappedCount: z.number().int().nonnegative() })
+    .nullish(),
   caseIds: z.array(id),
   caseCount: z.number().int().nonnegative(),
   progress: z.number().min(0).max(100),
@@ -186,12 +194,14 @@ export function parseApiData(path: string, method: string, input: unknown): unkn
   const [resource, action, detail] = parts;
   let schema: z.ZodType;
   if (resource === "analytics") schema = analyticsSchema;
+  else if (resource === "release-readiness") schema = releaseReadinessSchema;
   else if (resource === "requirements")
     schema = method === "GET" ? requirementsSchema : requirementSchema;
   else if (resource === "coverage-matrix") schema = coverageSchema;
   else if (resource === "imports" && action === "tags") schema = importResultSchema;
   else if (resource === "test-runs" && detail === "report") schema = runReportSchema;
   else if (resource === "assigned-work") schema = assignedWorkPageSchema;
+  else if (resource === "design-templates") schema = designTemplatesSchema;
   else if (resource === "audit-settings") schema = auditSettingsSchema;
   else if (resource === "project-users") schema = projectMember;
   else if (resource === "mention-notifications" && url.pathname.endsWith("/read-all"))
@@ -202,9 +212,16 @@ export function parseApiData(path: string, method: string, input: unknown): unkn
   else if (resource === "mention-notifications") schema = z.array(notification);
   else if (resource === "bug-workflow") schema = workflow;
   else if (resource === "test-plans") schema = method === "GET" ? z.array(plan) : plan;
-  else if (resource === "test-cases" && detail === "history") schema = z.array(history);
+  else if ((resource === "test-cases" || resource === "bugs") && action === "bulk")
+    schema = z.object({ updated: z.number().int().min(0).max(50) });
+  else if (resource === "test-cases" && detail === "history" && method === "GET")
+    schema = z.array(history);
   else if (resource === "auth") {
-    if (action === "bug-templates")
+    if (action === "account-links") {
+      if (method === "GET") schema = z.object({ enabled: z.boolean() });
+      else if (detail === "request") schema = z.object({ accepted: z.literal(true) });
+      else schema = z.object({ completed: z.literal(true) });
+    } else if (action === "bug-templates")
       schema = parts.length === 2 && method === "GET" ? z.array(template) : template;
     else if (action === "me" && method === "PATCH") schema = user;
     else schema = session;

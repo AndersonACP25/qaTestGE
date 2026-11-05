@@ -38,6 +38,9 @@ export interface BugTemplateInput {
   priority: BugTemplatePriority;
 }
 export interface AuthProvider {
+  accountLinksEnabled?(): boolean;
+  requestAccountLink?(email: string, activationUserId?: string): Promise<void>;
+  consumeAccountLink?(token: string, password: string): Promise<void>;
   forActor?(actorId: string, requestId: string): AuthProvider;
   register(input: RegistrationInput, previousToken?: string): Promise<AuthGrant>;
   login(email: string, password: string, previousToken?: string): Promise<AuthGrant>;

@@ -239,3 +239,10 @@
 .workspace__dialog {
   overflow: clip;
 }
+
+.notification-bell__actions {
+  padding-inline: 12px;
+}
+.notification-bell__actions .mentions-view__read-button {
+  min-height: 40px;
+}

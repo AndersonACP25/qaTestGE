@@ -80,6 +80,8 @@ const inputs = {
       projectId,
       title: text(200),
       owner: text(100),
+      releaseVersion: { ...text(100), nullable: true },
+      environment: { ...text(100), nullable: true },
       ownerUserId: {
         type: "string",
         nullable: true,
@@ -137,6 +139,17 @@ const project = object(
 );
 const unavailable = errorResponse("DATABASE_UNAVAILABLE: PostgreSQL no disponible.");
 
+const playwrightFields = {
+  key: { type: "string", maxLength: 240 },
+  suite: text(100),
+  environment: text(100),
+  branch: text(200),
+  commit: { type: "string", pattern: "^[a-f0-9]{40}$" },
+  runUrl: { type: "string", format: "uri", maxLength: 500 },
+  unmappedCount: { type: "integer", minimum: 0, maximum: 100000 },
+};
+const unknownPlaywrightCases = { type: "array", items: { type: "string" } };
+
 export const openApiDocument = {
   openapi: "3.0.3",
   info: {
@@ -148,9 +161,135 @@ export const openApiDocument = {
   servers: [{ url: "/", description: "Servidor actual (directo o proxy /api)" }],
   security: [{ sessionCookie: [] as string[] }],
   paths: {
+    "/api/integrations/playwright": {
+      post: {
+        summary: "Publicar resultados normalizados de Playwright en el proyecto configurado",
+        security: [{ playwrightBearer: [] }],
+        requestBody: {
+          required: true,
+          content: json(
+            object(
+              {
+                ...playwrightFields,
+                releaseVersion: text(100),
+                results: {
+                  type: "array",
+                  minItems: 1,
+                  maxItems: 1000,
+                  items: object(
+                    {
+                      caseId: { type: "string", pattern: "^TC-[0-9]{1,19}$" },
+                      attempts: {
+                        type: "array",
+                        minItems: 1,
+                        maxItems: 20,
+                        items: {
+                          type: "string",
+                          enum: ["passed", "failed", "timedOut", "skipped", "interrupted"],
+                        },
+                      },
+                    },
+                    ["caseId", "attempts"],
+                  ),
+                },
+              },
+              [...Object.keys(playwrightFields), "results"],
+            ),
+          ),
+        },
+        responses: {
+          "200": {
+            description: "Ejecución publicada o recuperada al repetir el reporte",
+            content: json(
+              envelope(
+                object(
+                  {
+                    id: { type: "string" },
+                    unknownCaseIds: unknownPlaywrightCases,
+                    unmappedCount: playwrightFields.unmappedCount,
+                  },
+                  ["id", "unknownCaseIds", "unmappedCount"],
+                ),
+              ),
+            ),
+          },
+          "400": errorResponse("INVALID_PLAYWRIGHT_REPORT"),
+          "401": errorResponse("INVALID_PLAYWRIGHT_TOKEN"),
+          "403": errorResponse("FORBIDDEN"),
+          "404": errorResponse("PLAYWRIGHT_DISABLED o PROJECT_NOT_FOUND"),
+          "409": errorResponse("PLAYWRIGHT_IMPORT_CONFLICT"),
+          "422": errorResponse("PLAYWRIGHT_NO_CASES"),
+        },
+      },
+    },
     ...analyticsPaths,
     ...qualityPaths,
     ...collaborationPaths,
+    "/api/auth/account-links": {
+      get: {
+        security: [],
+        summary: "Consultar si la instancia permite solicitar enlaces de cuenta",
+        responses: {
+          "200": {
+            description: "Capacidad de envío",
+            content: json(envelope(object({ enabled: { type: "boolean" } }, ["enabled"]))),
+          },
+        },
+      },
+    },
+    "/api/auth/account-links/request": {
+      post: {
+        security: [],
+        summary: "Solicitar activación o recuperación sin revelar la existencia de una cuenta",
+        requestBody: {
+          required: true,
+          content: json(
+            object({ email: { type: "string", format: "email", maxLength: 254 } }, ["email"]),
+          ),
+        },
+        responses: {
+          "202": {
+            description: "Solicitud aceptada",
+            content: json(envelope(object({ accepted: { const: true } }, ["accepted"]))),
+          },
+          "400": errorResponse("INVALID_EMAIL"),
+          "429": errorResponse("TOO_MANY_ATTEMPTS"),
+          "503": errorResponse("ACCOUNT_LINKS_DISABLED"),
+        },
+      },
+    },
+    "/api/auth/account-links/consume": {
+      post: {
+        security: [],
+        summary: "Definir contraseña con un enlace de un solo uso y revocar sesiones",
+        requestBody: {
+          required: true,
+          content: json(
+            object(
+              {
+                token: { type: "string", pattern: "^[a-f0-9]{64}$", writeOnly: true },
+                password: {
+                  type: "string",
+                  minLength: 12,
+                  maxLength: 128,
+                  format: "password",
+                  writeOnly: true,
+                },
+              },
+              ["token", "password"],
+            ),
+          ),
+        },
+        responses: {
+          "200": {
+            description: "Contraseña establecida",
+            content: json(envelope(object({ completed: { const: true } }, ["completed"]))),
+          },
+          "400": errorResponse("INVALID_ACCOUNT_LINK o INVALID_ACCOUNT_LINK_INPUT"),
+          "429": errorResponse("TOO_MANY_ATTEMPTS o AUTH_BUSY"),
+        },
+      },
+    },
     "/api/auth/register": {
       post: {
         security: [],
@@ -753,6 +892,186 @@ export const openApiDocument = {
         },
       },
     },
+    "/api/bugs/bulk": {
+      post: {
+        summary:
+          "Asignar responsable, añadir tags o cambiar estado a una selección de bugs en una transacción",
+        requestBody: {
+          required: true,
+          content: json(
+            object(
+              {
+                projectId,
+                bugs: {
+                  type: "array",
+                  minItems: 1,
+                  maxItems: 50,
+                  items: object(
+                    {
+                      id: { type: "string", pattern: "^BUG-[0-9]{1,19}$" },
+                      status: text(60),
+                      assigneeUserId: { ...projectId, nullable: true },
+                      assignee: { type: "string", maxLength: 120, nullable: true },
+                    },
+                    ["id", "status", "assigneeUserId", "assignee"],
+                  ),
+                },
+                action: {
+                  oneOf: [
+                    object({ kind: { type: "string", enum: ["status"] }, status: text(60) }, [
+                      "kind",
+                      "status",
+                    ]),
+                    object(
+                      {
+                        kind: { type: "string", enum: ["assign"] },
+                        assigneeUserId: { ...projectId, nullable: true },
+                      },
+                      ["kind", "assigneeUserId"],
+                    ),
+                    object(
+                      {
+                        kind: { type: "string", enum: ["addTags"] },
+                        tagIds: {
+                          type: "array",
+                          minItems: 1,
+                          maxItems: 100,
+                          uniqueItems: true,
+                          items: projectId,
+                        },
+                      },
+                      ["kind", "tagIds"],
+                    ),
+                  ],
+                },
+              },
+              ["projectId", "bugs", "action"],
+            ),
+          ),
+        },
+        responses: {
+          "200": {
+            description: "Cantidad de bugs que cambiaron",
+            content: json(
+              envelope(
+                object({ updated: { type: "integer", minimum: 0, maximum: 50 } }, ["updated"]),
+              ),
+            ),
+          },
+          "400": errorResponse("INVALID_BUG_BATCH, INVALID_ASSIGNEE, INVALID_TAG o BUG_TAG_LIMIT"),
+          "401": errorResponse("UNAUTHENTICATED"),
+          "403": errorResponse("FORBIDDEN o INVALID_CSRF"),
+          "404": errorResponse("PROJECT_NOT_FOUND"),
+          "409": errorResponse("BUG_BATCH_CONFLICT o DOMAIN_CONFLICT"),
+        },
+      },
+    },
+    "/api/test-cases/bulk": {
+      post: {
+        summary: "Asignar responsable o añadir tags a una selección de casos en una transacción",
+        requestBody: {
+          required: true,
+          content: json(
+            object(
+              {
+                projectId,
+                cases: {
+                  type: "array",
+                  minItems: 1,
+                  maxItems: 50,
+                  items: object(
+                    {
+                      id: { type: "string", pattern: "^TC-[0-9]{1,19}$" },
+                      version: { type: "integer", minimum: 1, maximum: 2147483647 },
+                    },
+                    ["id", "version"],
+                  ),
+                },
+                action: {
+                  oneOf: [
+                    object(
+                      {
+                        kind: { type: "string", enum: ["assign"] },
+                        assigneeUserId: { ...projectId, nullable: true },
+                      },
+                      ["kind", "assigneeUserId"],
+                    ),
+                    object(
+                      {
+                        kind: { type: "string", enum: ["addTags"] },
+                        tagIds: {
+                          type: "array",
+                          minItems: 1,
+                          maxItems: 100,
+                          uniqueItems: true,
+                          items: projectId,
+                        },
+                      },
+                      ["kind", "tagIds"],
+                    ),
+                  ],
+                },
+              },
+              ["projectId", "cases", "action"],
+            ),
+          ),
+        },
+        responses: {
+          "200": {
+            description: "Cantidad de casos que cambiaron",
+            content: json(
+              envelope(
+                object({ updated: { type: "integer", minimum: 0, maximum: 50 } }, ["updated"]),
+              ),
+            ),
+          },
+          "400": errorResponse(
+            "INVALID_CASE_BATCH, INVALID_ASSIGNEE, INVALID_TAG o CASE_TAG_LIMIT",
+          ),
+          "401": errorResponse("UNAUTHENTICATED"),
+          "403": errorResponse("FORBIDDEN o INVALID_CSRF"),
+          "404": errorResponse("PROJECT_NOT_FOUND"),
+          "409": errorResponse("CASE_VERSION_CONFLICT"),
+        },
+      },
+    },
+    "/api/test-cases/{caseId}/history/restore": {
+      post: {
+        summary: "Restaurar contenido histórico como una versión nueva del caso",
+        parameters: [
+          {
+            in: "path",
+            name: "caseId",
+            required: true,
+            schema: { type: "string", pattern: "^TC-[0-9]{1,19}$" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: json(
+            object(
+              {
+                projectId,
+                version: { type: "integer", minimum: 1 },
+                expectedVersion: { type: "integer", minimum: 2 },
+              },
+              ["projectId", "version", "expectedVersion"],
+            ),
+          ),
+        },
+        responses: {
+          "200": {
+            description: "Caso restaurado en una nueva versión",
+            content: json(envelope(ref("TestCase"))),
+          },
+          "400": errorResponse("INVALID_CASE_RESTORE"),
+          "401": errorResponse("UNAUTHENTICATED"),
+          "403": errorResponse("FORBIDDEN o INVALID_CSRF"),
+          "404": errorResponse("CASE_VERSION_NOT_FOUND"),
+          "409": errorResponse("CASE_VERSION_CONFLICT o CASE_SNAPSHOT_INVALID"),
+        },
+      },
+    },
     "/api/test-cases/{caseId}/status": {
       patch: {
         security: [{ sessionCookie: [], csrfToken: [] }],
@@ -1004,7 +1323,9 @@ export const openApiDocument = {
           "401": errorResponse("UNAUTHENTICATED"),
           "403": errorResponse("INVALID_CSRF o INVALID_ORIGIN"),
           "404": errorResponse("TEST_RUN_NOT_FOUND o PROJECT_NOT_FOUND"),
-          "409": errorResponse("RUN_INCOMPLETE o RUN_REFERENCED"),
+          "409": errorResponse(
+            "RUN_INCOMPLETE, RUN_REFERENCED, RUN_RESULT_RECORDED o PLAYWRIGHT_RUN_IMMUTABLE",
+          ),
           "503": unavailable,
         },
       },
@@ -1027,7 +1348,7 @@ export const openApiDocument = {
           "401": errorResponse("UNAUTHENTICATED"),
           "403": errorResponse("INVALID_CSRF o INVALID_ORIGIN"),
           "404": errorResponse("TEST_RUN_NOT_FOUND o PROJECT_NOT_FOUND"),
-          "409": errorResponse("RUN_REFERENCED"),
+          "409": errorResponse("RUN_REFERENCED o PLAYWRIGHT_RUN_IMMUTABLE"),
           "503": unavailable,
         },
       },
@@ -1086,6 +1407,30 @@ export const openApiDocument = {
             tags: [path],
             parameters: [
               { in: "query", name: "projectId", required: path === "tags", schema: projectId },
+              ...(path === "test-runs"
+                ? [
+                    {
+                      in: "query",
+                      name: "summary",
+                      description: "Omite resultados y pasos; requiere projectId.",
+                      schema: { type: "boolean" },
+                    },
+                    {
+                      in: "query",
+                      name: "runId",
+                      description:
+                        "Devuelve solo esta ejecución con sus resultados; requiere projectId.",
+                      schema: { type: "string", pattern: "^RUN-[0-9]{1,19}$" },
+                    },
+                    ...["assignee", "tag", "plan"].map((name) => ({
+                      in: "query",
+                      name,
+                      description:
+                        "Filtro con summary=true. Usa none para registros sin esta referencia.",
+                      schema: { type: "string" },
+                    })),
+                  ]
+                : []),
               ...(["bugs", "test-cases", "test-runs"].includes(path)
                 ? [
                     {
@@ -1129,6 +1474,16 @@ export const openApiDocument = {
             responses: {
               "200": {
                 description: "Colección persistida",
+                ...(path === "test-runs"
+                  ? {
+                      headers: {
+                        "X-Total-Count": {
+                          description: "Total filtrado con summary=true",
+                          schema: { type: "integer" },
+                        },
+                      },
+                    }
+                  : {}),
                 content: json(envelope({ type: "array", items: ref(schema) })),
               },
               "400": errorResponse("INVALID_PROJECT_ID: filtro inválido."),
@@ -1172,6 +1527,7 @@ export const openApiDocument = {
   },
   components: {
     securitySchemes: {
+      playwrightBearer: { type: "http", scheme: "bearer" },
       sessionCookie: { type: "apiKey", in: "cookie", name: "qa_session" },
       csrfToken: {
         type: "apiKey",
@@ -1351,6 +1707,17 @@ export const openApiDocument = {
           caseCount: { type: "integer", minimum: 0 },
           progress: { type: "number", minimum: 0, maximum: 100 },
           results: { type: "array", items: ref("TestRunResult") },
+          playwright: {
+            ...object(
+              {
+                ...playwrightFields,
+                releaseVersion: text(100),
+                unknownCaseIds: unknownPlaywrightCases,
+              },
+              [...Object.keys(playwrightFields), "unknownCaseIds"],
+            ),
+            nullable: true,
+          },
           status: { type: "string", enum: ["En curso", "Completado"] },
           tagIds,
         },

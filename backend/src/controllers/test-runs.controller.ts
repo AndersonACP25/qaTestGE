@@ -13,6 +13,39 @@ import {
 import { HttpError } from "../http-error.js";
 
 export async function listTestRuns(request: Request, response: Response) {
+  if (request.query.summary === "true" || request.query.runId !== undefined) {
+    const projectId = projectFilter(request);
+    if (!projectId) throw new HttpError(400, "PROJECT_REQUIRED", "Selecciona un proyecto.");
+    const repo = repository(request);
+    if (request.query.runId !== undefined) {
+      const id = parseReference(request.query.runId, "RUN");
+      if (!id) throw new HttpError(400, "INVALID_REFERENCE", "Ejecución inválida.");
+      const run = await repo.findRun(id, projectId);
+      if (!run)
+        throw new HttpError(404, "TEST_RUN_NOT_FOUND", "Ejecución no encontrada en el proyecto.");
+      response.json({ data: [run] });
+      return;
+    }
+    const page = listQuery(request, testRunStatuses);
+    const filter = (key: string, prefix?: string) => {
+      const value = request.query[key];
+      if (value === undefined || value === "none") return value;
+      const id = prefix ? parseReference(value, prefix) : isId(value) ? value : null;
+      if (!id) throw new HttpError(400, "INVALID_FILTER", "Revisa los filtros de ejecuciones.");
+      return id;
+    };
+    const assignee = filter("assignee");
+    const tag = filter("tag");
+    const plan = filter("plan", "PLAN");
+    const result = await repo.listRunSummaries(
+      projectId,
+      page || assignee || tag || plan
+        ? { ...(page ?? { limit: 50, offset: 0 }), assignee, tag, plan }
+        : undefined,
+    );
+    response.set("X-Total-Count", String(result.total)).json({ data: result.rows });
+    return;
+  }
   response.json({
     data: await repository(request).listRuns(
       projectFilter(request),
@@ -43,6 +76,13 @@ function valid(body: unknown): body is CreateTestRunInput {
     !text(body.title, 200) ||
     !text(body.owner, 100) ||
     "caseCount" in body
+  )
+    return false;
+  if (
+    [body.releaseVersion, body.environment].some(
+      (value) =>
+        value != null && (typeof value !== "string" || value.length > 100 || value.includes("\0")),
+    )
   )
     return false;
   if (!validTagIds(body.tagIds)) return false;

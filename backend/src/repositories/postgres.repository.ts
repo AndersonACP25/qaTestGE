@@ -1,12 +1,21 @@
+import { caseSnapshotSchema } from "../models/case-version.model.js";
+import type { BugBulkInput } from "../models/bug-bulk.model.js";
+import type { CaseBulkInput } from "../models/case-bulk.model.js";
 import { PostgresAnalyticsRepository } from "./analytics.repository.js";
 import { PostgresCollaborationRepository } from "./collaboration.repository.js";
 import { actorDatabase } from "../auth/actor-database.js";
 import type { DatabasePool, DatabaseClient } from "../auth/actor-database.js";
 import { PostgresQualityRepository } from "./quality.repository.js";
-import { previousCreation, rememberCreation, requireCreatedRow } from "./creation-request.js";
+import type { PlaywrightImport } from "../models/playwright-import.model.js";
+import {
+  creationHash,
+  previousCreation,
+  rememberCreation,
+  requireCreatedRow,
+} from "./creation-request.js";
 import type { CreationContext } from "./creation-request.js";
 import { listSql } from "./list-query.js";
-import type { ListQuery } from "./list-query.js";
+import type { ListQuery, RunListQuery } from "./list-query.js";
 import type {
   BaseRow,
   BugRow,
@@ -85,6 +94,9 @@ const run = (r: RunRow) => ({
   ownerUserId: r.owner_user_id?.toString() ?? null,
   planId: r.plan_id ? resourceId("PLAN", r.plan_id) : null,
   sourceRunId: r.source_run_id ? resourceId("RUN", r.source_run_id) : null,
+  playwright: r.playwright ?? null,
+  releaseVersion: r.release_version ?? null,
+  environment: r.execution_environment ?? null,
   status: r.status,
   caseIds: r.case_ids.map((id) => resourceId("TC", id)),
   caseCount: r.case_ids.length,
@@ -114,14 +126,19 @@ const caseAttachment = (r: AttachmentRow) => ({
 const casesSql = `SELECT c.*, (SELECT u.name FROM qa.users u WHERE u.id=c.assignee_user_id) AS assigned_name, COALESCE((SELECT json_agg(json_build_object('action', s.action, 'expectedResult', s.expected_result) ORDER BY s.position)
  FROM qa.test_case_steps s WHERE s.test_case_id=c.id), '[]'::json) AS steps,
  COALESCE((SELECT array_agg(tc.tag_id::text ORDER BY tc.tag_id) FROM qa.test_case_tags tc WHERE tc.test_case_id=c.id), ARRAY[]::text[]) AS tag_ids FROM qa.test_cases c`;
-const runsSql = `SELECT r.*, COALESCE((SELECT array_agg(rr.test_case_id::text ORDER BY rr.test_case_id) FROM qa.test_run_results rr WHERE rr.test_run_id=r.id), ARRAY[]::text[]) AS case_ids,
+const runSelect = (
+  results: string,
+) => `SELECT r.*, COALESCE((SELECT array_agg(rr.test_case_id::text ORDER BY rr.test_case_id) FROM qa.test_run_results rr WHERE rr.test_run_id=r.id), ARRAY[]::text[]) AS case_ids,
  COALESCE((SELECT round(100.0 * count(*) FILTER (WHERE rr.executed_at IS NOT NULL) / NULLIF(count(*),0))::integer FROM qa.test_run_results rr WHERE rr.test_run_id=r.id),0) AS progress,
- COALESCE((SELECT json_agg(json_build_object('id', 'RES-' || lpad(rr.id::text,greatest(3,length(rr.id::text)),'0'),
+ ${results} AS results,
+ COALESCE((SELECT array_agg(rt.tag_id::text ORDER BY rt.tag_id) FROM qa.test_run_tags rt WHERE rt.test_run_id=r.id), ARRAY[]::text[]) AS tag_ids FROM qa.test_runs r`;
+const runsSql =
+  runSelect(`COALESCE((SELECT json_agg(json_build_object('id', 'RES-' || lpad(rr.id::text,greatest(3,length(rr.id::text)),'0'),
  'caseId','TC-' || lpad(c.id::text,greatest(3,length(c.id::text)),'0'), 'title',COALESCE(rr.title_snapshot,c.title),'caseVersion',COALESCE(rr.case_version,1),'status',rr.status,'notes',rr.notes,'executedAt',rr.executed_at,
  'steps',COALESCE((SELECT json_agg(json_build_object('action',s.value->>'action','expectedResult',COALESCE(s.value->>'expected_result',s.value->>'expectedResult','')) ORDER BY s.position)
  FROM jsonb_array_elements(rr.steps_snapshot) WITH ORDINALITY s(value,position)),'[]'::json)) ORDER BY rr.test_case_id)
- FROM qa.test_run_results rr JOIN qa.test_cases c ON c.id=rr.test_case_id AND c.project_id=rr.project_id WHERE rr.test_run_id=r.id),'[]'::json) AS results,
- COALESCE((SELECT array_agg(rt.tag_id::text ORDER BY rt.tag_id) FROM qa.test_run_tags rt WHERE rt.test_run_id=r.id), ARRAY[]::text[]) AS tag_ids FROM qa.test_runs r`;
+ FROM qa.test_run_results rr JOIN qa.test_cases c ON c.id=rr.test_case_id AND c.project_id=rr.project_id WHERE rr.test_run_id=r.id),'[]'::json)`);
+const runSummarySql = runSelect("'[]'::json");
 const evidenceSql = `SELECT e.id, e.project_id, e.name, e.type, e.size_bytes, e.created_at,
  e.file_bytes IS NOT NULL AS has_file, COALESCE((SELECT json_agg(
  CASE WHEN l.bug_id IS NOT NULL THEN 'BUG-' || lpad(l.bug_id::text,greatest(3,length(l.bug_id::text)),'0')
@@ -246,6 +263,58 @@ export class PostgresRepository implements Repository {
       );
       await rememberCreation(client, "bug", input.projectId, rows[0].id, input, context);
       return bug(result.rows[0]);
+    });
+  }
+  async bulkUpdateBugs({ projectId, bugs, action }: BugBulkInput) {
+    return this.transaction(async (client) => {
+      await client.query("SELECT qa.require_permission($1, 'bugs.write')", [projectId]);
+      const selection = new Map(bugs.map((item) => [parseReference(item.id, "BUG"), item]));
+      const ids = [...selection.keys()];
+      const locked = await client.query<{
+        id: string;
+        status: string;
+        assignee_user_id: string | null;
+        assignee: string | null;
+      }>(
+        "SELECT id::text,status,assignee_user_id::text,assignee FROM qa.bugs WHERE project_id=$1 AND id=ANY($2::bigint[]) ORDER BY qa.bugs.id FOR UPDATE",
+        [projectId, ids],
+      );
+      const changedSinceReview = locked.rows.some((row) => {
+        const expected = selection.get(row.id);
+        if (!expected) return true;
+        if (action.kind === "status") return row.status !== expected.status;
+        if (action.kind === "assign")
+          return (
+            row.assignee_user_id !== expected.assigneeUserId ||
+            (row.assignee_user_id === null && (row.assignee ?? "—") !== (expected.assignee ?? "—"))
+          );
+        return false;
+      });
+      if (locked.rows.length !== ids.length || changedSinceReview)
+        throw new HttpError(
+          409,
+          "BUG_BATCH_CONFLICT",
+          "Uno o más bugs cambiaron o ya no están disponibles. Actualiza el listado y revisa la selección.",
+        );
+      if (action.kind === "addTags") {
+        const changed = await this.addBatchTags(client, "bug", projectId, ids, action.tagIds);
+        return { updated: changed.length };
+      }
+      if (action.kind === "status") {
+        const result = await client.query(
+          "UPDATE qa.bugs SET status=$3 WHERE project_id=$1 AND id=ANY($2::bigint[]) AND status IS DISTINCT FROM $3",
+          [projectId, ids, action.status],
+        );
+        return { updated: result.rowCount ?? 0 };
+      }
+      await this.validateAssignee(client, projectId, action.assigneeUserId);
+      const result = await client.query(
+        `UPDATE qa.bugs SET assignee=NULL,assignee_user_id=$3,
+         assignee_organization_id=CASE WHEN $3::bigint IS NULL THEN NULL ELSE (SELECT organization_id FROM qa.projects WHERE id=$1) END
+         WHERE project_id=$1 AND id=ANY($2::bigint[]) AND (assignee_user_id IS DISTINCT FROM $3::bigint OR assignee IS NOT NULL)`,
+        [projectId, ids, action.assigneeUserId],
+      );
+      return { updated: result.rowCount ?? 0 };
     });
   }
   async updateBugStatus(id: string, projectId: string, status: BugStatus) {
@@ -373,6 +442,68 @@ export class PostgresRepository implements Repository {
       const result = await client.query<CaseRow>(`${casesSql} WHERE c.id=$1`, [id]);
       await rememberCreation(client, "case", input.projectId, id, input, context);
       return testCase(result.rows[0]);
+    });
+  }
+  async bulkUpdateCases({ projectId, cases, action }: CaseBulkInput) {
+    return this.transaction(async (client) => {
+      await client.query("SELECT qa.require_permission($1, 'cases.write')", [projectId]);
+      const versions = new Map(cases.map((item) => [parseReference(item.id, "TC"), item.version]));
+      const ids = [...versions.keys()];
+      const { rows } = await client.query<{ id: string; version: number }>(
+        "SELECT id::text,version FROM qa.test_cases WHERE project_id=$1 AND id=ANY($2::bigint[]) ORDER BY qa.test_cases.id FOR UPDATE",
+        [projectId, ids],
+      );
+      if (rows.length !== ids.length || rows.some((row) => versions.get(row.id) !== row.version))
+        throw new HttpError(
+          409,
+          "CASE_VERSION_CONFLICT",
+          "Uno o más casos cambiaron o ya no están disponibles. Actualiza el listado y revisa la selección.",
+        );
+      if (action.kind === "assign") {
+        await this.validateAssignee(client, projectId, action.assigneeUserId);
+        const changed = await client.query(
+          `UPDATE qa.test_cases SET assignee_user_id=$3,
+            assignee_organization_id=CASE WHEN $3::bigint IS NULL THEN NULL ELSE (SELECT organization_id FROM qa.projects WHERE id=$1) END
+           WHERE project_id=$1 AND id=ANY($2::bigint[]) AND assignee_user_id IS DISTINCT FROM $3::bigint`,
+          [projectId, ids, action.assigneeUserId],
+        );
+        return { updated: changed.rowCount ?? 0 };
+      }
+      const tagged = await this.addBatchTags(client, "case", projectId, ids, action.tagIds);
+      const changed = await client.query(
+        "UPDATE qa.test_cases SET version=version WHERE project_id=$1 AND id=ANY($2::bigint[])",
+        [projectId, tagged],
+      );
+      return { updated: changed.rowCount ?? 0 };
+    });
+  }
+  async restoreCaseVersion(
+    id: string,
+    projectId: string,
+    version: number,
+    expectedVersion: number,
+  ) {
+    const { rows } = await this.pool.query<{ snapshot: unknown }>(
+      "SELECT snapshot FROM qa.test_case_versions WHERE project_id=$1 AND test_case_id=$2 AND version=$3",
+      [projectId, id, version],
+    );
+    if (!rows[0]) return null;
+    const snapshot = caseSnapshotSchema.safeParse(rows[0].snapshot);
+    if (!snapshot.success)
+      throw new HttpError(
+        409,
+        "CASE_SNAPSHOT_INVALID",
+        "La versión histórica no se puede restaurar.",
+      );
+    const fields = snapshot.data;
+    return this.updateCase(id, projectId, {
+      expectedVersion,
+      title: fields.title,
+      suite: fields.suite ?? undefined,
+      testType: fields.test_type,
+      lifecycle: fields.lifecycle,
+      preconditions: fields.preconditions,
+      steps: fields.steps,
     });
   }
   async updateCase(id: string, projectId: string, input: UpdateTestCaseInput) {
@@ -519,6 +650,53 @@ export class PostgresRepository implements Repository {
     );
     return rowCount === 1;
   }
+  async listRunSummaries(projectId: string, options?: RunListQuery) {
+    const query = listSql(
+      "r",
+      projectId,
+      options,
+      [
+        "'RUN-' || lpad(r.id::text,greatest(3,length(r.id::text)),'0')",
+        "r.title",
+        "r.owner",
+        "r.status",
+      ],
+      (bind) => {
+        const filters: string[] = [];
+        if (options?.assignee)
+          filters.push(
+            options.assignee === "none"
+              ? "r.owner_user_id IS NULL"
+              : `r.owner_user_id=${bind(options.assignee)}`,
+          );
+        if (options?.plan)
+          filters.push(
+            options.plan === "none" ? "r.plan_id IS NULL" : `r.plan_id=${bind(options.plan)}`,
+          );
+        if (options?.tag)
+          filters.push(
+            options.tag === "none"
+              ? "NOT EXISTS (SELECT 1 FROM qa.test_run_tags t WHERE t.test_run_id=r.id)"
+              : `EXISTS (SELECT 1 FROM qa.test_run_tags t WHERE t.test_run_id=r.id AND t.tag_id=${bind(options.tag)})`,
+          );
+        return filters;
+      },
+    );
+    const { rows } = await this.pool.query<RunRow>(`${runSummarySql} ${query.sql}`, query.values);
+    if (!options) return { rows: rows.map(run), total: rows.length };
+    const count = await this.pool.query<{ total: number }>(
+      `SELECT count(*)::integer AS total FROM qa.test_runs r ${query.predicate}`,
+      query.predicateValues,
+    );
+    return { rows: rows.map(run), total: count.rows[0].total };
+  }
+  async findRun(id: string, projectId: string) {
+    const { rows } = await this.pool.query<RunRow>(`${runsSql} WHERE r.id=$1 AND r.project_id=$2`, [
+      id,
+      projectId,
+    ]);
+    return rows[0] ? run(rows[0]) : null;
+  }
   async listRuns(projectId?: string, options?: ListQuery) {
     const query = listSql("r", projectId, options, [
       "r.title",
@@ -528,6 +706,88 @@ export class PostgresRepository implements Repository {
     ]);
     const { rows } = await this.pool.query<RunRow>(`${runsSql} ${query.sql}`, query.values);
     return rows.map(run);
+  }
+  async importPlaywright(projectId: string, actorId: string, input: PlaywrightImport) {
+    return this.transaction(async (client) => {
+      await client.query("SELECT qa.require_permission($1, 'runs.write')", [projectId]);
+      const { results, ...metadata } = input;
+      const fingerprint = creationHash({
+        ...metadata,
+        results: [...results].sort((a, b) => a.caseId.localeCompare(b.caseId)),
+      });
+      await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [
+        `playwright:${projectId}:${metadata.key}`,
+      ]);
+      const existing = await client.query<RunRow & { playwright_import_hash: string }>(
+        `${runsSql} WHERE r.project_id=$1 AND r.playwright->>'key'=$2 AND r.playwright IS NOT NULL`,
+        [projectId, metadata.key],
+      );
+      if (existing.rows[0]) {
+        if (existing.rows[0].playwright_import_hash !== fingerprint)
+          throw new HttpError(
+            409,
+            "PLAYWRIGHT_IMPORT_CONFLICT",
+            "Ya existe un reporte distinto para esta ejecución de CI.",
+          );
+        return run(existing.rows[0]);
+      }
+      const selected = await client.query<{ id: string }>(
+        "SELECT id::text FROM qa.test_cases WHERE project_id=$1 AND id=ANY($2::bigint[]) AND lifecycle <> 'Obsoleto' ORDER BY id FOR SHARE",
+        [projectId, results.map((row) => parseReference(row.caseId, "TC"))],
+      );
+      const caseIds = selected.rows.map((row) => resourceId("TC", row.id));
+      const known = new Set(caseIds);
+      const unknownCaseIds = results
+        .filter((row) => !known.has(row.caseId))
+        .map((row) => row.caseId);
+      if (!caseIds.length)
+        throw new HttpError(
+          422,
+          "PLAYWRIGHT_NO_CASES",
+          "El reporte no contiene casos vigentes de este proyecto.",
+        );
+      const runId = await this.insertRun(client, {
+        projectId,
+        caseIds,
+        owner: "Playwright",
+        ownerUserId: actorId,
+        releaseVersion: metadata.releaseVersion,
+        environment: metadata.environment,
+        title: `[Playwright] ${metadata.suite} · ${metadata.environment}`.slice(0, 200),
+      });
+      const normalized = results
+        .filter((row) => known.has(row.caseId))
+        .map(({ caseId, attempts }) => {
+          const last = attempts.at(-1);
+          return {
+            case_id: parseReference(caseId, "TC"),
+            status:
+              last === "passed"
+                ? "passed"
+                : last === "skipped"
+                  ? "skipped"
+                  : last === "interrupted"
+                    ? "blocked"
+                    : "failed",
+            notes: `Playwright · intentos: ${attempts.join(" → ")}`,
+          };
+        });
+      await client.query(
+        `UPDATE qa.test_run_results rr SET status=i.status, notes=i.notes, executed_at=now()
+         FROM jsonb_to_recordset($3::jsonb) i(case_id bigint,status text,notes text)
+         WHERE rr.project_id=$1 AND rr.test_run_id=$2 AND rr.test_case_id=i.case_id`,
+        [projectId, runId, JSON.stringify(normalized)],
+      );
+      await client.query(
+        "UPDATE qa.test_runs SET status='Completado',completed_at=now(),playwright=$3,playwright_import_hash=$4 WHERE project_id=$1 AND id=$2",
+        [projectId, runId, JSON.stringify({ ...metadata, unknownCaseIds }), fingerprint],
+      );
+      const saved = await client.query<RunRow>(`${runsSql} WHERE r.id=$1 AND r.project_id=$2`, [
+        runId,
+        projectId,
+      ]);
+      return run(saved.rows[0]);
+    });
   }
   async createRun(input: CreateTestRunInput, context?: CreationContext) {
     return this.transaction(async (client) => {
@@ -539,93 +799,113 @@ export class PostgresRepository implements Repository {
         ]);
         return run(requireCreatedRow(result.rows[0]));
       }
-      let selectedIds = input.caseIds ?? [];
-      let sourcePlan: string | null = null;
-      const sourceId = input.sourceRunId ? parseReference(input.sourceRunId, "RUN") : null;
-      if (sourceId) {
-        const source = await client.query<{ plan_id: string | null }>(
-          "SELECT plan_id::text FROM qa.test_runs WHERE id=$1 AND project_id=$2 FOR UPDATE",
-          [sourceId, input.projectId],
-        );
-        if (!source.rows[0])
-          throw new HttpError(404, "RUN_NOT_FOUND", "Ejecución de origen no disponible.");
-        sourcePlan = source.rows[0].plan_id;
-        const results = await client.query<{ test_case_id: string }>(
-          "SELECT test_case_id::text FROM qa.test_run_results WHERE test_run_id=$1 AND project_id=$2 AND (NOT $3::boolean OR (status='failed' AND executed_at IS NOT NULL)) ORDER BY test_case_id",
-          [sourceId, input.projectId, input.failedOnly ?? false],
-        );
-        selectedIds = results.rows.map((r) => resourceId("TC", r.test_case_id));
-      } else if (input.planId) {
-        const planId = parseReference(input.planId, "PLAN");
-        const plan = await client.query(
-          "SELECT id FROM qa.test_plans WHERE id=$1 AND project_id=$2 FOR SHARE",
-          [planId, input.projectId],
-        );
-        if (!plan.rowCount) throw new HttpError(404, "PLAN_NOT_FOUND", "Plan no disponible.");
-        const members = await client.query<{ test_case_id: string }>(
-          "SELECT test_case_id::text FROM qa.test_plan_cases WHERE plan_id=$1 AND project_id=$2 ORDER BY test_case_id",
-          [planId, input.projectId],
-        );
-        selectedIds = members.rows.map((r) => resourceId("TC", r.test_case_id));
-      }
-      if (!selectedIds.length)
-        throw new HttpError(
-          400,
-          "EMPTY_RUN",
-          "Selecciona al menos un caso; no hay resultados elegibles para reejecutar.",
-        );
-      const { rows } = await client.query<RunRow>(
-        "INSERT INTO qa.test_runs(project_id,title,owner,plan_id,source_run_id,owner_user_id) VALUES($1,$2,$3,$4,$5,$6) RETURNING *",
-        [
-          input.projectId,
-          input.title.trim(),
-          input.owner.trim(),
-          sourcePlan ?? (input.planId ? parseReference(input.planId, "PLAN") : null),
-          sourceId,
-          input.ownerUserId ?? null,
-        ],
-      );
-      const id = rows[0].id;
-      await this.replaceTags(
-        "qa.test_run_tags",
-        "test_run_id",
-        id,
-        input.projectId,
-        input.tagIds,
-        client,
-      );
-      const caseIds = selectedIds.map((value) => parseReference(value, "TC")!);
-      const inserted = sourceId
-        ? await client.query(
-            `INSERT INTO qa.test_run_results(project_id,test_run_id,test_case_id,steps_snapshot,title_snapshot,case_version)
-       SELECT project_id,$2,test_case_id,steps_snapshot,title_snapshot,case_version FROM qa.test_run_results WHERE project_id=$1 AND test_run_id=$4 AND test_case_id=ANY($3::bigint[])`,
-            [input.projectId, id, caseIds, sourceId],
-          )
-        : await client.query(
-            `INSERT INTO qa.test_run_results(project_id,test_run_id,test_case_id,steps_snapshot,title_snapshot,case_version)
-        SELECT $1,$2,c.id,COALESCE((SELECT jsonb_agg(jsonb_build_object('action',s.action,'expected_result',s.expected_result) ORDER BY s.position)
-        FROM qa.test_case_steps s WHERE s.test_case_id=c.id),'[]'::jsonb),c.title,c.version
-        FROM qa.test_cases c WHERE c.project_id=$1 AND c.id=ANY($3::bigint[]) AND c.lifecycle <> 'Obsoleto'`,
-            [input.projectId, id, caseIds],
-          );
-      if (inserted.rowCount !== caseIds.length)
-        throw new HttpError(
-          400,
-          "INVALID_REFERENCE",
-          "Los casos deben existir y pertenecer al proyecto de la ejecución.",
-        );
+      const id = await this.insertRun(client, input);
       const result = await client.query<RunRow>(`${runsSql} WHERE r.id=$1`, [id]);
       await rememberCreation(client, "run", input.projectId, id, input, context);
       return run(result.rows[0]);
     });
   }
+  private async insertRun(client: DatabaseClient, input: CreateTestRunInput) {
+    let selectedIds = input.caseIds ?? [];
+    let sourcePlan: string | null = null;
+    let releaseVersion = input.releaseVersion?.trim() || null;
+    let environment = input.environment?.trim() || null;
+    const sourceId = input.sourceRunId ? parseReference(input.sourceRunId, "RUN") : null;
+    if (sourceId) {
+      const source = await client.query<{
+        plan_id: string | null;
+        release_version: string | null;
+        execution_environment: string | null;
+      }>(
+        "SELECT plan_id::text,release_version,execution_environment FROM qa.test_runs WHERE id=$1 AND project_id=$2 FOR UPDATE",
+        [sourceId, input.projectId],
+      );
+      if (!source.rows[0])
+        throw new HttpError(404, "RUN_NOT_FOUND", "Ejecución de origen no disponible.");
+      sourcePlan = source.rows[0].plan_id;
+      if (input.releaseVersion === undefined) releaseVersion = source.rows[0].release_version;
+      if (input.environment === undefined) environment = source.rows[0].execution_environment;
+      const results = await client.query<{ test_case_id: string }>(
+        "SELECT test_case_id::text FROM qa.test_run_results WHERE test_run_id=$1 AND project_id=$2 AND (NOT $3::boolean OR (status='failed' AND executed_at IS NOT NULL)) ORDER BY test_case_id",
+        [sourceId, input.projectId, input.failedOnly ?? false],
+      );
+      selectedIds = results.rows.map((r) => resourceId("TC", r.test_case_id));
+    } else if (input.planId) {
+      const planId = parseReference(input.planId, "PLAN");
+      const plan = await client.query(
+        "SELECT id FROM qa.test_plans WHERE id=$1 AND project_id=$2 FOR SHARE",
+        [planId, input.projectId],
+      );
+      if (!plan.rowCount) throw new HttpError(404, "PLAN_NOT_FOUND", "Plan no disponible.");
+      const members = await client.query<{ test_case_id: string }>(
+        "SELECT test_case_id::text FROM qa.test_plan_cases WHERE plan_id=$1 AND project_id=$2 ORDER BY test_case_id",
+        [planId, input.projectId],
+      );
+      selectedIds = members.rows.map((r) => resourceId("TC", r.test_case_id));
+    }
+    if (!selectedIds.length)
+      throw new HttpError(
+        400,
+        "EMPTY_RUN",
+        "Selecciona al menos un caso; no hay resultados elegibles para reejecutar.",
+      );
+    const { rows } = await client.query<RunRow>(
+      "INSERT INTO qa.test_runs(project_id,title,owner,plan_id,source_run_id,owner_user_id,release_version,execution_environment) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *",
+      [
+        input.projectId,
+        input.title.trim(),
+        input.owner.trim(),
+        sourcePlan ?? (input.planId ? parseReference(input.planId, "PLAN") : null),
+        sourceId,
+        input.ownerUserId ?? null,
+        releaseVersion,
+        environment,
+      ],
+    );
+    const id = rows[0].id;
+    await this.replaceTags(
+      "qa.test_run_tags",
+      "test_run_id",
+      id,
+      input.projectId,
+      input.tagIds,
+      client,
+    );
+    const caseIds = selectedIds.map((value) => parseReference(value, "TC")!);
+    const inserted = sourceId
+      ? await client.query(
+          `INSERT INTO qa.test_run_results(project_id,test_run_id,test_case_id,steps_snapshot,title_snapshot,case_version)
+       SELECT project_id,$2,test_case_id,steps_snapshot,title_snapshot,case_version FROM qa.test_run_results WHERE project_id=$1 AND test_run_id=$4 AND test_case_id=ANY($3::bigint[])`,
+          [input.projectId, id, caseIds, sourceId],
+        )
+      : await client.query(
+          `INSERT INTO qa.test_run_results(project_id,test_run_id,test_case_id,steps_snapshot,title_snapshot,case_version)
+        SELECT $1,$2,c.id,COALESCE((SELECT jsonb_agg(jsonb_build_object('action',s.action,'expected_result',s.expected_result) ORDER BY s.position)
+        FROM qa.test_case_steps s WHERE s.test_case_id=c.id),'[]'::jsonb),c.title,c.version
+        FROM qa.test_cases c WHERE c.project_id=$1 AND c.id=ANY($3::bigint[]) AND c.lifecycle <> 'Obsoleto'`,
+          [input.projectId, id, caseIds],
+        );
+    if (inserted.rowCount !== caseIds.length)
+      throw new HttpError(
+        400,
+        "INVALID_REFERENCE",
+        "Los casos deben existir y pertenecer al proyecto de la ejecución.",
+      );
+    return id;
+  }
   async updateRun(id: string, projectId: string, input: UpdateTestRunInput) {
     return this.transaction(async (client) => {
       const locked = await client.query(
-        "SELECT id FROM qa.test_runs WHERE id=$1 AND project_id=$2 FOR UPDATE",
+        "SELECT id,playwright FROM qa.test_runs WHERE id=$1 AND project_id=$2 FOR UPDATE",
         [id, projectId],
       );
       if (!locked.rowCount) return null;
+      if (locked.rows[0].playwright)
+        throw new HttpError(
+          409,
+          "PLAYWRIGHT_RUN_IMMUTABLE",
+          "La ejecución publicada por Playwright conserva su historial de CI.",
+        );
       const caseIds = input.caseIds.map((value) => parseReference(value, "TC")!);
       const linkedRemoval = await client.query(
         `SELECT 1 FROM qa.evidence_links l JOIN qa.test_run_results rr ON rr.id=l.test_run_result_id AND rr.project_id=l.project_id
@@ -647,6 +927,18 @@ export class PostgresRepository implements Repository {
           409,
           "RUN_REFERENCED",
           "El resultado tiene un bug vinculado; conserva su referencia.",
+        );
+      const recordedRemoval = await client.query(
+        `SELECT 1 FROM qa.test_run_results
+        WHERE test_run_id=$1 AND project_id=$2 AND NOT(test_case_id=ANY($3::bigint[]))
+          AND (executed_at IS NOT NULL OR status <> 'skipped' OR notes <> '') LIMIT 1`,
+        [id, projectId, caseIds],
+      );
+      if (recordedRemoval.rowCount)
+        throw new HttpError(
+          409,
+          "RUN_RESULT_RECORDED",
+          "No puedes retirar un caso con un resultado registrado en esta ejecución.",
         );
       // Preserve existing results and snapshots for cases that remain selected.
       await client.query(
@@ -676,7 +968,7 @@ export class PostgresRepository implements Repository {
           "Registra un resultado para cada caso antes de completar la ejecución.",
         );
       await client.query(
-        "UPDATE qa.test_runs SET title=$3,owner=$4,status=$5,owner_user_id=CASE WHEN $6::boolean THEN $7::bigint ELSE owner_user_id END,completed_at=CASE WHEN $5='Completado' THEN COALESCE(completed_at,now()) ELSE NULL END WHERE id=$1 AND project_id=$2",
+        "UPDATE qa.test_runs SET title=$3,owner=$4,status=$5,owner_user_id=CASE WHEN $6::boolean THEN $7::bigint ELSE owner_user_id END,completed_at=CASE WHEN $5='Completado' THEN COALESCE(completed_at,now()) ELSE NULL END,release_version=CASE WHEN $8::boolean THEN $9::varchar ELSE release_version END,execution_environment=CASE WHEN $10::boolean THEN $11::varchar ELSE execution_environment END WHERE id=$1 AND project_id=$2",
         [
           id,
           projectId,
@@ -685,6 +977,10 @@ export class PostgresRepository implements Repository {
           input.status,
           input.ownerUserId !== undefined,
           input.ownerUserId ?? null,
+          input.releaseVersion !== undefined,
+          input.releaseVersion?.trim() || null,
+          input.environment !== undefined,
+          input.environment?.trim() || null,
         ],
       );
       if (input.tagIds !== undefined)
@@ -736,10 +1032,16 @@ export class PostgresRepository implements Repository {
   async deleteRun(id: string, projectId: string) {
     return this.transaction(async (client) => {
       const locked = await client.query(
-        "SELECT id FROM qa.test_runs WHERE id=$1 AND project_id=$2 FOR UPDATE",
+        "SELECT id,playwright FROM qa.test_runs WHERE id=$1 AND project_id=$2 FOR UPDATE",
         [id, projectId],
       );
       if (!locked.rowCount) return false;
+      if (locked.rows[0].playwright)
+        throw new HttpError(
+          409,
+          "PLAYWRIGHT_RUN_IMMUTABLE",
+          "La ejecución publicada por Playwright conserva su historial de CI.",
+        );
       const linked = await client.query(
         `SELECT 1 FROM qa.evidence_links WHERE project_id=$2 AND (test_run_id=$1 OR test_run_result_id IN
         (SELECT id FROM qa.test_run_results WHERE test_run_id=$1 AND project_id=$2)) LIMIT 1`,
@@ -990,6 +1292,44 @@ export class PostgresRepository implements Repository {
         "INVALID_ASSIGNEE",
         "El responsable no pertenece al equipo del proyecto o está inactivo.",
       );
+  }
+  private async addBatchTags(
+    client: DatabaseClient,
+    kind: "case" | "bug",
+    projectId: string,
+    ids: (string | null)[],
+    tagIds: string[],
+  ) {
+    const [table, column] =
+      kind === "case" ? ["qa.test_case_tags", "test_case_id"] : ["qa.bug_tags", "bug_id"];
+    const tags = await client.query(
+      "SELECT id FROM qa.tags WHERE project_id=$1 AND id=ANY($2::bigint[]) ORDER BY id FOR KEY SHARE",
+      [projectId, tagIds],
+    );
+    if (tags.rowCount !== tagIds.length)
+      throw new HttpError(400, "INVALID_TAG", "Todos los tags deben pertenecer al proyecto.");
+    const limit = await client.query(
+      `SELECT ${column} FROM ${table} WHERE project_id=$1 AND ${column}=ANY($2::bigint[])
+       GROUP BY ${column} HAVING count(*) FILTER(WHERE NOT(tag_id=ANY($3::bigint[]))) + cardinality($3::bigint[]) > 100`,
+      [projectId, ids, tagIds],
+    );
+    if (limit.rowCount)
+      throw new HttpError(
+        400,
+        kind === "case" ? "CASE_TAG_LIMIT" : "BUG_TAG_LIMIT",
+        "Un registro superaría el límite de 100 tags.",
+      );
+    const { rows } = await client.query<{ id: string }>(
+      `WITH added AS (
+         INSERT INTO ${table}(project_id,${column},tag_id)
+         SELECT $1,record_id,tag_id FROM unnest($2::bigint[]) AS r(record_id)
+         CROSS JOIN unnest($3::bigint[]) AS t(tag_id)
+         ON CONFLICT DO NOTHING RETURNING ${column}
+       )
+       SELECT DISTINCT ${column}::text AS id FROM added`,
+      [projectId, ids, tagIds],
+    );
+    return rows.map(({ id }) => id);
   }
   private async replaceTags(
     table: "qa.bug_tags" | "qa.test_case_tags" | "qa.test_run_tags",

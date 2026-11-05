@@ -1,8 +1,10 @@
 import express, { Router } from "express";
 import {
+  bulkUpdateCases,
   createTestCase,
   deleteTestCase,
   listTestCases,
+  restoreCaseVersion,
   updateTestCase,
   updateTestCaseStatus,
 } from "../controllers/test-cases.controller.js";
@@ -17,6 +19,8 @@ import {
 const testCasesRouter = Router();
 
 testCasesRouter.get("/", listTestCases);
+testCasesRouter.post("/bulk", bulkUpdateCases);
+testCasesRouter.post("/:caseId/history/restore", restoreCaseVersion);
 testCasesRouter.post("/", createTestCase);
 testCasesRouter.patch("/:caseId", updateTestCase);
 testCasesRouter.delete("/:caseId", deleteTestCase);

@@ -1,5 +1,7 @@
+import type { BugBulkInput } from "../models/bug-bulk.model.js";
+import type { CaseBulkInput } from "../models/case-bulk.model.js";
 import type { CreationContext } from "./creation-request.js";
-import type { ListQuery } from "./list-query.js";
+import type { ListQuery, RunListQuery } from "./list-query.js";
 import type { Bug, BugStatus, CreateBugInput, UpdateBugInput } from "../models/bug.model.js";
 import type {
   TestCase,
@@ -38,13 +40,21 @@ export interface Repository {
   readonly quality?: import("../models/quality.model.js").QualityRepository;
   health(): Promise<void>;
   listProjects(): Promise<Project[]>;
+  bulkUpdateBugs(input: BugBulkInput): Promise<{ updated: number }>;
   listBugs(projectId?: string, options?: ListQuery): Promise<Bug[]>;
   createBug(input: CreateBugInput, context?: CreationContext): Promise<Bug>;
   updateBug(id: string, projectId: string, input: UpdateBugInput): Promise<Bug | null>;
   deleteBug(id: string, projectId: string): Promise<boolean>;
   updateBugStatus(id: string, projectId: string, status: BugStatus): Promise<Bug | null>;
+  bulkUpdateCases(input: CaseBulkInput): Promise<{ updated: number }>;
   listCases(projectId?: string, options?: ListQuery): Promise<TestCase[]>;
   createCase(input: CreateTestCaseInput, context?: CreationContext): Promise<TestCase>;
+  restoreCaseVersion(
+    id: string,
+    projectId: string,
+    version: number,
+    expectedVersion: number,
+  ): Promise<TestCase | null>;
   updateCase(id: string, projectId: string, input: UpdateTestCaseInput): Promise<TestCase | null>;
   deleteCase(id: string, projectId: string): Promise<boolean>;
   updateCaseStatus(id: string, projectId: string, status: TestCaseStatus): Promise<TestCase | null>;
@@ -56,7 +66,17 @@ export interface Repository {
   ): Promise<(TestCaseAttachment & { imageData: Buffer | null }) | null>;
   createCaseAttachment(input: CreateTestCaseAttachmentInput): Promise<TestCaseAttachment | null>;
   deleteCaseAttachment(id: string, attachmentId: string, projectId: string): Promise<boolean>;
+  listRunSummaries(
+    projectId: string,
+    options?: RunListQuery,
+  ): Promise<{ rows: TestRun[]; total: number }>;
+  findRun(id: string, projectId: string): Promise<TestRun | null>;
   listRuns(projectId?: string, options?: ListQuery): Promise<TestRun[]>;
+  importPlaywright(
+    projectId: string,
+    actorId: string,
+    input: import("../models/playwright-import.model.js").PlaywrightImport,
+  ): Promise<TestRun>;
   createRun(input: CreateTestRunInput, context?: CreationContext): Promise<TestRun>;
   updateRun(id: string, projectId: string, input: UpdateTestRunInput): Promise<TestRun | null>;
   deleteRun(id: string, projectId: string): Promise<boolean>;

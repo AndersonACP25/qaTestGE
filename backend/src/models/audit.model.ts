@@ -62,7 +62,12 @@ export const provisionUserSchema = z
   .object({
     name: z.string().trim().min(1).max(100),
     email: z.email().trim().toLowerCase().max(254),
-    password: z.string().min(12).max(128),
+    password: z
+      .string()
+      .min(12)
+      .max(128)
+      .refine((value) => Boolean(value.trim()))
+      .optional(),
     role: z.enum(["Admin", "QA", "Dev", "Solo lectura"]),
   })
   .strict();

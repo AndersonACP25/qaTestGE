@@ -1,3 +1,6 @@
+import ProjectTemplatesPanel from "./ProjectTemplatesPanel";
+import type { DesignTemplatesController } from "../controllers/useDesignTemplates";
+import type { Tag } from "../types";
 import ProjectAccessView from "./ProjectAccessView";
 import RichTextarea from "../components/RichTextarea";
 import ProjectsView from "./ProjectsView";
@@ -22,6 +25,11 @@ export default function AccountSettingsView({
   refreshRevision = 0,
   projectId = "",
   projectName = "Proyecto",
+  designTemplates,
+  tags,
+  members,
+  templateResourcesError,
+  templateResourcesLoading,
   onProjectChanged = () => {},
   preferences,
   onPreferencesChanged,
@@ -33,6 +41,11 @@ export default function AccountSettingsView({
   refreshRevision?: number;
   projectId?: string;
   projectName?: string;
+  designTemplates: DesignTemplatesController;
+  tags: Tag[];
+  members: { id: string; name: string }[];
+  templateResourcesError: string;
+  templateResourcesLoading: boolean;
   onProjectChanged?: () => void;
   preferences: CasePreferences;
   onPreferencesChanged: (next: CasePreferences) => Promise<void>;
@@ -40,6 +53,7 @@ export default function AccountSettingsView({
   onUserUpdated: (user: User) => void;
   onAccountDeleted: () => void;
 }) {
+  const [templateMode, setTemplateMode] = useState<"bug" | "case">("bug");
   const [section, setSection] = useState<
     | "cuenta"
     | "plantillas"
@@ -251,7 +265,7 @@ export default function AccountSettingsView({
             ["cuenta", "Cuenta y seguridad"],
             ["projects", "Proyectos"],
             ["teams", "Equipos"],
-            ["plantillas", "Plantillas de bugs"],
+            ["plantillas", "Plantillas"],
             ["diseno", "Diseño de casos"],
             ["ia", "Inteligencia artificial"],
             ...(projectId && canAccess ? [["access", "Accesos al proyecto"] as const] : []),
@@ -438,135 +452,177 @@ export default function AccountSettingsView({
             hidden={activeSection !== "plantillas"}
           >
             <div className="account-settings__heading">
-              <h2 className="typography__section">Plantillas para bugs</h2>
-              <p>
-                Crea formatos personales inspirados en GitHub Issue Templates. El contenido se
-                guarda como texto y nunca se interpreta como HTML.
-              </p>
+              <h2 className="typography__section">Plantillas</h2>
+              <p>Reutiliza formatos de bugs y casos de prueba antes de crear un registro.</p>
             </div>
-            <form
-              className="account-settings__form"
-              onSubmit={(event) => void saveTemplate(event)}
-              aria-busy={templateBusy}
-            >
-              <label className="workspace__field">
-                Nombre de la plantilla
-                <input
-                  value={templateForm.name}
-                  onChange={(event) =>
-                    setTemplateForm({ ...templateForm, name: event.target.value })
-                  }
-                  maxLength={100}
-                  required
-                  placeholder="Ej. Error funcional"
-                />
-              </label>
-              <label className="workspace__field">
-                Título sugerido
-                <input
-                  value={templateForm.title}
-                  onChange={(event) =>
-                    setTemplateForm({ ...templateForm, title: event.target.value })
-                  }
-                  maxLength={200}
-                  placeholder="Ej. [Bug] "
-                />
-              </label>
-              <label className="workspace__field">
-                Descripción / secciones
-                <RichTextarea
-                  value={templateForm.description}
-                  onChange={(event) =>
-                    setTemplateForm({ ...templateForm, description: event.target.value })
-                  }
-                  maxLength={5000}
-                  rows={5}
-                  placeholder={
-                    "## Pasos para reproducir\n\n## Comportamiento esperado\n\n## Comportamiento actual"
-                  }
-                />
-              </label>
-              <label className="workspace__field">
-                Prioridad predeterminada
-                <select
-                  value={templateForm.priority}
-                  onChange={(event) =>
-                    setTemplateForm({
-                      ...templateForm,
-                      priority: event.target.value as BugTemplatePriority,
-                    })
-                  }
+            <div className="layout__actions" role="group" aria-label="Tipo de plantilla">
+              <button
+                type="button"
+                className="account-settings__tab"
+                aria-pressed={templateMode === "bug"}
+                onClick={() => setTemplateMode("bug")}
+              >
+                Plantillas de bugs
+              </button>
+              <button
+                type="button"
+                className="account-settings__tab"
+                aria-pressed={templateMode === "case"}
+                onClick={() => setTemplateMode("case")}
+              >
+                Plantillas de casos de prueba
+              </button>
+            </div>
+            {templateMode === "bug" && (
+              <>
+                <div className="account-settings__heading">
+                  <h2 className="typography__section">Plantillas para bugs</h2>
+                  <p>
+                    Crea formatos personales inspirados en GitHub Issue Templates. El contenido se
+                    guarda como texto y nunca se interpreta como HTML.
+                  </p>
+                </div>
+                <form
+                  className="account-settings__form"
+                  onSubmit={(event) => void saveTemplate(event)}
+                  aria-busy={templateBusy}
                 >
-                  {priorities.map((priority) => (
-                    <option key={priority}>{priority}</option>
-                  ))}
-                </select>
-              </label>
-              {templateError && <Alert tone="error">{templateError}</Alert>}
-              {templateMessage && <Alert tone="success">{templateMessage}</Alert>}
-              <div className="workspace__actions">
-                <button
-                  className="button button-primary"
-                  type="submit"
-                  disabled={templateBusy || templatesBusy}
-                >
-                  {templateBusy
-                    ? "Guardando…"
-                    : editingTemplateId
-                      ? "Actualizar plantilla"
-                      : "Guardar plantilla"}
-                </button>
-                {editingTemplateId && (
-                  <button
-                    className="workspace__secondary"
-                    type="button"
-                    disabled={templateBusy}
-                    onClick={resetTemplateForm}
-                  >
-                    Cancelar edición
-                  </button>
-                )}
-              </div>
-            </form>
-            <div className="account-settings__templates" aria-live="polite">
-              {templatesBusy ? (
-                <p className="workspace__notice">Cargando plantillas…</p>
-              ) : templates.length === 0 ? (
-                <p className="workspace__notice">
-                  Todavía no tienes plantillas. Las plantillas creadas aquí aparecerán en el
-                  formulario «Nuevo bug».
-                </p>
-              ) : (
-                templates.map((template) => (
-                  <article className="account-settings__template" key={template.id}>
-                    <div>
-                      <strong>{template.name}</strong>
-                      <p>
-                        {template.title || "Sin título sugerido"} · Prioridad {template.priority}
-                      </p>
-                    </div>
-                    <div className="account-settings__template-actions">
+                  <label className="workspace__field">
+                    Nombre de la plantilla
+                    <input
+                      value={templateForm.name}
+                      onChange={(event) =>
+                        setTemplateForm({ ...templateForm, name: event.target.value })
+                      }
+                      maxLength={100}
+                      required
+                      placeholder="Ej. Error funcional"
+                    />
+                  </label>
+                  <label className="workspace__field">
+                    Título sugerido
+                    <input
+                      value={templateForm.title}
+                      onChange={(event) =>
+                        setTemplateForm({ ...templateForm, title: event.target.value })
+                      }
+                      maxLength={200}
+                      placeholder="Ej. [Bug] "
+                    />
+                  </label>
+                  <label className="workspace__field">
+                    Descripción / secciones
+                    <RichTextarea
+                      value={templateForm.description}
+                      onChange={(event) =>
+                        setTemplateForm({ ...templateForm, description: event.target.value })
+                      }
+                      maxLength={5000}
+                      rows={5}
+                      placeholder={
+                        "## Pasos para reproducir\n\n## Comportamiento esperado\n\n## Comportamiento actual"
+                      }
+                    />
+                  </label>
+                  <label className="workspace__field">
+                    Prioridad predeterminada
+                    <select
+                      value={templateForm.priority}
+                      onChange={(event) =>
+                        setTemplateForm({
+                          ...templateForm,
+                          priority: event.target.value as BugTemplatePriority,
+                        })
+                      }
+                    >
+                      {priorities.map((priority) => (
+                        <option key={priority}>{priority}</option>
+                      ))}
+                    </select>
+                  </label>
+                  {templateError && <Alert tone="error">{templateError}</Alert>}
+                  {templateMessage && <Alert tone="success">{templateMessage}</Alert>}
+                  <div className="workspace__actions">
+                    <button
+                      className="button button-primary"
+                      type="submit"
+                      disabled={templateBusy || templatesBusy}
+                    >
+                      {templateBusy
+                        ? "Guardando…"
+                        : editingTemplateId
+                          ? "Actualizar plantilla"
+                          : "Guardar plantilla"}
+                    </button>
+                    {editingTemplateId && (
                       <button
                         className="workspace__secondary"
                         type="button"
                         disabled={templateBusy}
-                        onClick={() => editTemplate(template)}
+                        onClick={resetTemplateForm}
                       >
-                        Editar
+                        Cancelar edición
                       </button>
-                      <button
-                        className="workspace__secondary"
-                        type="button"
-                        disabled={templateBusy}
-                        onClick={() => void removeTemplate(template)}
-                      >
-                        Eliminar
-                      </button>
-                    </div>
-                  </article>
-                ))
-              )}
-            </div>
+                    )}
+                  </div>
+                </form>
+                <div className="account-settings__templates" aria-live="polite">
+                  {templatesBusy ? (
+                    <p className="workspace__notice">Cargando plantillas…</p>
+                  ) : templates.length === 0 ? (
+                    <p className="workspace__notice">
+                      Todavía no tienes plantillas. Las plantillas creadas aquí aparecerán en el
+                      formulario «Nuevo bug».
+                    </p>
+                  ) : (
+                    templates.map((template) => (
+                      <article className="account-settings__template" key={template.id}>
+                        <div>
+                          <strong>{template.name}</strong>
+                          <p>
+                            {template.title || "Sin título sugerido"} · Prioridad{" "}
+                            {template.priority}
+                          </p>
+                        </div>
+                        <div className="account-settings__template-actions">
+                          <button
+                            className="workspace__secondary"
+                            type="button"
+                            disabled={templateBusy}
+                            onClick={() => editTemplate(template)}
+                          >
+                            Editar
+                          </button>
+                          <button
+                            className="workspace__secondary"
+                            type="button"
+                            disabled={templateBusy}
+                            onClick={() => void removeTemplate(template)}
+                          >
+                            Eliminar
+                          </button>
+                        </div>
+                      </article>
+                    ))
+                  )}
+                </div>
+              </>
+            )}
+            {activeSection === "plantillas" && projectId && (
+              <ProjectTemplatesPanel
+                key={`${user.id}:${projectId}:${templateMode}`}
+                mode={templateMode}
+                controller={designTemplates}
+                resourcesLoading={templateResourcesLoading}
+                bugs={templates}
+                tags={tags}
+                members={members}
+                resourcesError={templateResourcesError}
+              />
+            )}
+            {templateMode === "case" && !projectId && (
+              <p>Selecciona un proyecto para gestionar las plantillas de casos.</p>
+            )}
           </section>
           <section
             className="account-settings__card account-settings__card--wide"

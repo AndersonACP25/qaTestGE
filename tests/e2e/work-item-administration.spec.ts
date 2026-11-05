@@ -38,8 +38,7 @@ test("lectura masiva explícita conserva avisos al fallar y comparte el contador
   const popover = page.getByRole("region", { name: "Notificaciones del proyecto" });
   if (testInfo.project.name === "desktop")
     expect((await popover.boundingBox())!.width).toBeGreaterThanOrEqual(540);
-  await page.getByRole("button", { name: "Ver todas las menciones →", exact: true }).click();
-  const all = page.getByRole("button", { name: "Marcar todas como leídas", exact: true });
+  const all = popover.getByRole("button", { name: "Marcar todas como leídas", exact: true });
   await all.click();
   await expect(page.getByRole("alert")).toContainText("No se pudo registrar la lectura masiva.");
   await expect(bell).toBeVisible();
@@ -47,6 +46,8 @@ test("lectura masiva explícita conserva avisos al fallar y comparte el contador
   await expect(
     page.getByText("105 menciones marcadas como leídas.", { exact: true }),
   ).toBeVisible();
+  await expect(all).toBeDisabled();
+  await popover.getByRole("button", { name: "Ver todas las menciones →", exact: true }).click();
   await expect(page.locator(".mentions-view__counter strong")).toHaveText("0");
   await expect(page.getByRole("button", { name: "Notificaciones", exact: true })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("menciones-masivas.png"), fullPage: true });
@@ -374,3 +375,50 @@ for (const action of ["usuario", "lectura", "auditoría"])
     if (action === "lectura")
       await expect(page.locator(".mentions-view__counter strong")).toHaveText("0");
   });
+
+test("exporta la auditoría filtrada más allá de la página visible", async ({ page, workspace }) => {
+  void workspace;
+  const batch = Array.from({ length: 100 }, (_, index) => ({
+    id: String(150 - index),
+    projectId: "1",
+    kind: "bug",
+    resourceId: "BUG-001",
+    action: "bugs.update",
+    actorId: "1",
+    actorName: "QA Local",
+    createdAt: stamp,
+    requestId: null,
+    before: { status: "Abierto" },
+    after: { status: "Resuelto" },
+  }));
+  const requested: URLSearchParams[] = [];
+  await page.route("**/api/activity?*", (route) => {
+    const query = new URL(route.request().url()).searchParams;
+    requested.push(query);
+    return route.fulfill({
+      json: {
+        data: query.get("before")
+          ? [{ ...batch[0], id: "50", resourceId: "BUG-002" }]
+          : batch.slice(0, Number(query.get("limit"))),
+      },
+    });
+  });
+  await page.goto("/");
+  await navigate(page, "Actividad y auditoría");
+  await page.getByRole("button", { name: "Ver cambios", exact: true }).first().click();
+  const details = page.getByRole("dialog", { name: "Cambios de auditoría · BUG-001" });
+  await expect(details.getByText("Antes: Abierto")).toBeVisible();
+  await expect(details.getByText("Después: Resuelto")).toBeVisible();
+  await page.keyboard.press("Escape");
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Exportar todo filtrado", exact: true }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Exportar Markdown", exact: true })
+    .click();
+  expect((await download).suggestedFilename()).toBe("qaTestGe-Auditoria-proyecto-1-filtrada.md");
+  expect(
+    requested.some((query) => query.get("limit") === "100" && query.get("before") === "51"),
+  ).toBe(true);
+  await expect(page.getByText("Auditoría filtrada exportada.")).toBeVisible();
+});

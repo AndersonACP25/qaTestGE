@@ -57,6 +57,33 @@ function valid<T>(schema: z.ZodType<T>, value: unknown): T {
     throw new HttpError(400, "INVALID_INPUT", "Revisa los campos y límites de la solicitud.");
   return result.data;
 }
+router.get("/release-readiness", async (req, res) => {
+  const range = valid(rangeInput, req.query);
+  const filters = valid(
+    z.object({
+      plan: ref("PLAN").optional(),
+      origin: z.enum(["manual", "playwright"]).optional(),
+      outcome: z.enum(["pending", "passed", "failed", "blocked", "skipped"]).optional(),
+      offset: page.shape.offset,
+      releaseVersion: z
+        .string()
+        .trim()
+        .min(1)
+        .max(100)
+        .refine((v) => !v.includes("\0"))
+        .optional(),
+      environment: z
+        .string()
+        .trim()
+        .min(1)
+        .max(100)
+        .refine((v) => !v.includes("\0"))
+        .optional(),
+    }),
+    req.query,
+  );
+  res.json({ data: await analytics(req).releaseReadiness(project(req), { ...range, ...filters }) });
+});
 router.get("/analytics", async (req, res) => {
   const today = new Date().toISOString().slice(0, 10);
   const from = new Date(Date.now() - 29 * 86400000).toISOString().slice(0, 10);

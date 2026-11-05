@@ -32,6 +32,9 @@ export function createPool(connectionString: string): pg.Pool {
 }
 
 export async function checkDatabase(pool: pg.Pool): Promise<void> {
+  await pool.query(
+    "SELECT project_id,user_id,revision,templates FROM qa.project_design_templates LIMIT 0",
+  );
   await pool.query(`SELECT p.id, o.id, b.id, c.id, s.id, r.id, rr.id, bc.bug_id, e.id, el.id
     FROM qa.projects p JOIN qa.organizations o ON o.id = p.organization_id
     LEFT JOIN qa.bugs b ON b.project_id = p.id
@@ -78,10 +81,16 @@ export async function checkDatabase(pool: pg.Pool): Promise<void> {
   await pool.query(
     "SELECT project_id,actor_id,request_key,request_hash,user_id FROM qa.project_user_requests LIMIT 0",
   );
-  await pool.query("SELECT owner_user_id FROM qa.test_runs LIMIT 0");
+  await pool.query(
+    "SELECT owner_user_id,playwright,playwright_import_hash,release_version,execution_environment FROM qa.test_runs LIMIT 0",
+  );
   await pool.query("SELECT 1");
   await pool.query(
     "SELECT u.id,s.token_hash,m.user_id FROM qa.users u LEFT JOIN qa.auth_sessions s ON s.user_id=u.id LEFT JOIN qa.organization_members m ON m.user_id=u.id LIMIT 0",
+  );
+  await pool.query("SELECT activation_pending FROM qa.users LIMIT 0");
+  await pool.query(
+    "SELECT user_id,token_hash,purpose,issued_at,expires_at FROM qa.account_links LIMIT 0",
   );
   await pool.query("SELECT id,user_id FROM qa.bug_templates LIMIT 0");
   await pool.query(

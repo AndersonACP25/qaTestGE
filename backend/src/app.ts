@@ -1,3 +1,4 @@
+import { publishPlaywright } from "./routes/playwright.routes.js";
 import analyticsRouter from "./routes/analytics.routes.js";
 import collaborationRouter from "./routes/collaboration.routes.js";
 import qualityRouter from "./routes/quality.routes.js";
@@ -24,6 +25,7 @@ export function createApp(repository: Repository, auth: AuthProvider) {
   app.use(requestContext());
   app.use(
     cors({
+      exposedHeaders: ["X-Next-Cursor", "X-Unread-Count", "X-Total-Count"],
       origin: process.env.FRONTEND_ORIGIN ?? process.env.CORS_ORIGIN ?? "http://localhost:5173",
       credentials: true,
     }),
@@ -53,6 +55,7 @@ export function createApp(repository: Repository, auth: AuthProvider) {
       });
     }
   });
+  app.post("/api/integrations/playwright", publishPlaywright(repository, auth));
   app.use("/api", requireAuth(auth, repository));
   app.use("/api", workspaceRouter(auth));
   app.use("/api", qualityRouter);

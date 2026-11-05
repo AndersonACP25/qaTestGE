@@ -32,11 +32,25 @@ export default function AuditSettingsPanel({
   return (
     <details className="audit-settings layout__inset">
       <summary>Configuración de auditoría · {value.profile}</summary>
-      <p>
-        General reúne todos los eventos. Calidad se centra en los recursos de prueba. Seguridad
-        reúne accesos, altas de usuarios y cambios de configuración. Los filtros y el nivel de
-        detalle no eliminan eventos del historial.
-      </p>
+      <div className="audit-settings__description layout__stack">
+        <dl>
+          <div>
+            <dt>General</dt>
+            <dd>Incluye todos los eventos del proyecto.</dd>
+          </div>
+          <div>
+            <dt>Calidad</dt>
+            <dd>Se centra en los recursos de prueba y su trazabilidad.</dd>
+          </div>
+          <div>
+            <dt>Seguridad</dt>
+            <dd>Reúne accesos, altas y cambios de configuración.</dd>
+          </div>
+        </dl>
+        <p className="typography__caption">
+          Los filtros y el nivel de detalle conservan los eventos del historial.
+        </p>
+      </div>
       <form
         onSubmit={(event) => {
           event.preventDefault();

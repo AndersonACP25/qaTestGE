@@ -1,3 +1,5 @@
+import { z } from "zod";
+import { designTemplatesSchema } from "./models/design-templates.model.js";
 const id = { type: "string", pattern: "^[1-9][0-9]{0,18}$" };
 const text = { type: "string" };
 const revision = { type: "integer", minimum: 1 };
@@ -111,6 +113,7 @@ function operation(
   parameters: object[] = [],
   body?: object,
   created = false,
+  headers?: object,
 ) {
   return {
     summary,
@@ -122,6 +125,7 @@ function operation(
     responses: {
       [response ? (created ? "201" : "200") : "204"]: {
         description: "Operación completada",
+        ...(headers ? { headers } : {}),
         ...(response
           ? {
               content: {
@@ -152,6 +156,11 @@ const auditSettings = {
     version: { type: "integer", minimum: 0 },
   },
 };
+const pageParameters = [
+  { name: "page", in: "query", schema: { type: "boolean" } },
+  { name: "before", in: "query", schema: text },
+];
+const nextPageHeader = { description: "Cursor de la página siguiente, si existe", schema: text };
 const path = (name: string) => ({ name, in: "path", required: true, schema: text });
 export const collaborationPaths = {
   "/api/assigned-work": {
@@ -198,6 +207,18 @@ export const collaborationPaths = {
       ],
     ),
   },
+  "/api/design-templates": {
+    get: operation(
+      "Consultar plantillas personales del proyecto",
+      z.toJSONSchema(designTemplatesSchema),
+    ),
+    put: operation(
+      "Guardar plantillas personales con revisión",
+      z.toJSONSchema(designTemplatesSchema),
+      [],
+      z.toJSONSchema(designTemplatesSchema),
+    ),
+  },
   "/api/audit-settings": {
     get: operation(
       "Configuración de vista de auditoría del proyecto; no altera el historial",
@@ -212,7 +233,7 @@ export const collaborationPaths = {
   },
   "/api/project-users": {
     post: operation(
-      "Admin crea cuenta local e integrante del equipo con rol únicamente en este proyecto. No envía correos. Clave y contenido deben conservarse al reintentar; correo existente genera 409 sin modificar la cuenta",
+      "Admin crea cuenta local e integrante del equipo con rol únicamente en este proyecto. Omitir password solicita un enlace de activación si el envío está habilitado. Clave y contenido deben conservarse al reintentar; correo existente genera 409 sin modificar la cuenta",
       member,
       [
         {
@@ -225,7 +246,7 @@ export const collaborationPaths = {
       {
         type: "object",
         additionalProperties: false,
-        required: ["name", "email", "password", "role"],
+        required: ["name", "email", "role"],
         properties: {
           name: { type: "string", minLength: 1, maxLength: 100 },
           email: { type: "string", format: "email", maxLength: 254 },
@@ -257,9 +278,12 @@ export const collaborationPaths = {
   },
   "/api/comments": {
     get: operation(
-      "Últimos 100 comentarios del recurso, incluidos eliminados lógicos",
+      "Comentarios del recurso, incluidos eliminados lógicos. page=true pagina de 50 en 50.",
       array(comment),
-      targetQuery,
+      [...targetQuery, ...pageParameters],
+      undefined,
+      false,
+      { "X-Next-Cursor": nextPageHeader },
     ),
     post: operation(
       "Publicar comentario; menciones @[Nombre](user:ID) o @Nombre completo único, solo a integrantes activos con acceso. Nombres ambiguos requieren selección. Las automenciones también generan avisos privados.",
@@ -344,11 +368,24 @@ export const collaborationPaths = {
     ),
   },
   "/api/mention-notifications": {
-    get: operation("Últimos 100 avisos propios visibles en el proyecto", array(notification)),
+    get: operation(
+      "Avisos propios visibles. page=true pagina de 50 en 50 y devuelve el total sin leer.",
+      array(notification),
+      [...pageParameters, { name: "read", in: "query", schema: { type: "boolean" } }],
+      undefined,
+      false,
+      {
+        "X-Next-Cursor": nextPageHeader,
+        "X-Unread-Count": {
+          description: "Avisos sin leer en todo el proyecto",
+          schema: { type: "integer" },
+        },
+      },
+    ),
   },
   "/api/mention-notifications/read-all": {
     patch: operation(
-      "Marca todos los avisos propios sin leer del proyecto, incluidos los anteriores a los 100 visibles; no marca menciones futuras",
+      "Marca todos los avisos propios sin leer del proyecto, incluidos los de otras páginas; no marca menciones futuras",
       {
         type: "object",
         required: ["updated", "readAt"],

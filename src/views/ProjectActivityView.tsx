@@ -1,5 +1,8 @@
+import { auditChanges, AuditChangeDetails } from "./AuditChangeDetails";
+import Dialog from "../Dialog";
 import AuditTable from "./AuditTable";
-import { exportTable } from "../utils/exportTable";
+import { createTableExport } from "../utils/exportTable";
+import { download as saveFile } from "../utils/download";
 import type { ExportFormat } from "../utils/exportRecord";
 import { useOperationScope } from "../controllers/useOperationScope";
 import AuditSettingsPanel from "./AuditSettingsPanel";
@@ -40,44 +43,6 @@ const labels: Record<string, string> = {
   test_case_tags: "Tags del caso",
   test_run_tags: "Tags de ejecución",
 };
-function fields(value: unknown): Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-    ? Object.fromEntries(Object.entries(value))
-    : {};
-}
-const fieldLabels: Record<string, string> = {
-  profile: "Perfil",
-  detail: "Detalle",
-  page_size: "Eventos por página",
-  code: "Código",
-  test_case_id: "Caso vinculado",
-  bug_id: "Bug vinculado",
-  title: "Título",
-  body: "Comentario",
-  status: "Estado",
-  role: "Rol",
-  lifecycle: "Estado documental",
-  test_type: "Tipo de prueba",
-  severity: "Severidad",
-  priority: "Prioridad",
-  environment: "Entorno",
-  affected_version: "Versión afectada",
-  notes: "Notas",
-  action: "Acción",
-  expected_result: "Resultado esperado",
-  suite: "Suite",
-  preconditions: "Precondiciones",
-  name: "Nombre",
-  description: "Descripción",
-  owner: "Responsable",
-  version: "Versión",
-  states: "Estados",
-  transitions: "Transiciones",
-  closed_states: "Estados resueltos",
-  deleted_at: "Fecha de eliminación",
-  assignee_user_id: "Responsable QA",
-  user_id: "Integrante",
-};
 export default function ActivityList({
   rows,
   detailed = true,
@@ -95,11 +60,7 @@ export default function ActivityList({
         )
         .map((row) => {
           const [table, operation] = row.action.split(".");
-          const before = fields(row.before);
-          const after = fields(row.after);
-          const keys = [...new Set([...Object.keys(before), ...Object.keys(after)])].filter(
-            (k) => fieldLabels[k] && JSON.stringify(before[k]) !== JSON.stringify(after[k]),
-          );
+          const changes = auditChanges(row);
           return (
             <li className="project-activity__event" key={row.id}>
               <p className="project-activity__event-heading">
@@ -114,32 +75,10 @@ export default function ActivityList({
               <time className="project-activity__time" dateTime={row.createdAt}>
                 {new Date(row.createdAt).toLocaleString("es")}
               </time>
-              {detailed && keys.length > 0 && (
+              {detailed && changes.length > 0 && (
                 <details>
                   <summary>Ver cambios</summary>
-                  <dl className="project-activity__changes">
-                    {keys.map((k) => (
-                      <div className="collaboration__change" key={k}>
-                        <dt>{fieldLabels[k]}</dt>
-                        <dd>
-                          Antes:{" "}
-                          {before[k] === undefined
-                            ? "—"
-                            : typeof before[k] === "string"
-                              ? before[k]
-                              : JSON.stringify(before[k])}
-                        </dd>
-                        <dd>
-                          Después:{" "}
-                          {after[k] === undefined
-                            ? "—"
-                            : typeof after[k] === "string"
-                              ? after[k]
-                              : JSON.stringify(after[k])}
-                        </dd>
-                      </div>
-                    ))}
-                  </dl>
+                  <AuditChangeDetails changes={changes} />
                 </details>
               )}
             </li>
@@ -159,6 +98,7 @@ export function ProjectActivityView({
   const [pages, setPages] = useState<Activity[][]>([]);
   const [pageIndex, setPageIndex] = useState(0);
   const [exporting, setExporting] = useState(false);
+  const [exportScope, setExportScope] = useState<"page" | "all" | null>(null);
   const [rows, setRows] = useState<Activity[]>([]);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -263,16 +203,63 @@ export function ProjectActivityView({
       if (alive.current && isCurrent()) setBusy(false);
     }
   }
-  async function download(format: ExportFormat) {
+  const exportRequest = useRef<AbortController | null>(null);
+  useEffect(
+    () => () => exportRequest.current?.abort(),
+    [queryString, revision, refreshRevision, search],
+  );
+  const matchesLocalSearch = (row: Activity) =>
+    `${row.actorName} ${row.resourceId} ${labels[row.action.split(".")[0]] ?? row.kind}`
+      .toLocaleLowerCase("es")
+      .includes(search.trim().toLocaleLowerCase("es"));
+  const visible = rows.filter(matchesLocalSearch);
+  async function download(format: ExportFormat, all = false) {
     if (exporting || loading || busy) return;
     const isCurrent = captureScope();
+    const controller = new AbortController();
+    exportRequest.current = controller;
     setExporting(true);
     setError("");
     setMessage("");
     try {
-      await exportTable(format, {
-        title: "Auditoría",
-        filename: `auditoria-proyecto-${projectId}-pagina-${pageIndex + 1}`,
+      let source = visible;
+      if (all) {
+        source = [];
+        const params = new URLSearchParams(queryString);
+        params.set("limit", "100");
+        let scanned = 0;
+        let size = 0;
+        const encoder = new TextEncoder();
+        while (!controller.signal.aborted) {
+          const page = await api<Activity[]>(`/activity?${params}`, { signal: controller.signal });
+          if (controller.signal.aborted || !isCurrent()) return;
+          scanned += page.length;
+          for (const row of page.filter(matchesLocalSearch)) {
+            size += encoder.encode(JSON.stringify(row)).byteLength;
+            source.push(row);
+          }
+          if (scanned > 10000 || size > 8 * 1024 * 1024)
+            throw new Error(
+              "El historial supera el límite de exportación. Acota los filtros del servidor e inténtalo de nuevo.",
+            );
+          if (page.length < 100) break;
+          const cursor = page.at(-1)!.id;
+          if (cursor === params.get("before"))
+            throw new Error("No se pudo avanzar por el historial.");
+          params.set("before", cursor);
+        }
+      }
+      if (!source.length) {
+        if (isCurrent() && !controller.signal.aborted) {
+          setMessage("No hay eventos que coincidan con los filtros.");
+          setExportScope(null);
+        }
+        return;
+      }
+      const filename = `qaTestGe-Auditoria-proyecto-${projectId}-${all ? "filtrada" : `pagina-${pageIndex + 1}`}`;
+      const file = await createTableExport(format, {
+        title: "qaTestGe · Auditoría",
+        filename,
         headers: [
           "Fecha UTC",
           "Autor",
@@ -280,7 +267,7 @@ export function ProjectActivityView({
           "Operación",
           ...(settings?.detail === "Resumen" ? [] : ["Antes", "Después"]),
         ],
-        rows: visible.map((row) => [
+        rows: source.map((row) => [
           row.createdAt,
           row.actorName,
           row.resourceId,
@@ -290,19 +277,18 @@ export function ProjectActivityView({
             : [JSON.stringify(row.before), JSON.stringify(row.after)]),
         ]),
       });
-      if (isCurrent()) setMessage("Página de auditoría exportada.");
+      if (isCurrent() && !controller.signal.aborted) {
+        saveFile(file, `${filename}.${format}`);
+        setExportScope(null);
+        setMessage(all ? "Auditoría filtrada exportada." : "Página de auditoría exportada.");
+      }
     } catch (cause) {
-      if (isCurrent())
+      if (isCurrent() && !controller.signal.aborted)
         setError(cause instanceof Error ? cause.message : "No se pudo exportar la auditoría.");
     } finally {
       if (alive.current) setExporting(false);
     }
   }
-  const visible = rows.filter((r) =>
-    `${r.actorName} ${r.resourceId} ${labels[r.action.split(".")[0]] ?? r.kind}`
-      .toLocaleLowerCase("es")
-      .includes(search.trim().toLocaleLowerCase("es")),
-  );
   return (
     <section className="project-activity">
       <header className="project-activity__heading">
@@ -478,7 +464,7 @@ export function ProjectActivityView({
           placeholder="Autor, recurso o identificador"
         />
       </label>
-      {error && <Alert tone="error">{error}</Alert>}
+      {error && !exportScope && <Alert tone="error">{error}</Alert>}
       {message && <Alert tone="success">{message}</Alert>}
       {loading ? (
         <p role="status">Cargando actividad…</p>
@@ -488,20 +474,71 @@ export function ProjectActivityView({
             {formatCount(visible.length, "evento visible", "eventos visibles")} · La búsqueda se
             limita a la página actual.
           </p>
-          <div className="audit-table__exports layout__actions">
-            {(["xlsx", "pdf", "md"] as const).map((format) => (
-              <button
-                className="workspace__secondary"
-                disabled={exporting || !visible.length || busy}
-                key={format}
-                onClick={() => void download(format)}
-              >
-                {exporting
-                  ? "Exportando…"
-                  : `Exportar página ${format === "xlsx" ? "Excel" : format === "md" ? "Markdown" : "PDF"}`}
-              </button>
-            ))}
+          <div
+            className="audit-table__exports layout__actions"
+            role="group"
+            aria-label="Exportación de auditoría"
+          >
+            <button
+              type="button"
+              className="workspace__secondary"
+              disabled={exporting || !visible.length || busy}
+              onClick={() => {
+                setError("");
+                setExportScope("page");
+              }}
+            >
+              Exportar página
+            </button>
+            <button
+              type="button"
+              className="workspace__secondary"
+              disabled={exporting || busy || !settings}
+              onClick={() => {
+                setError("");
+                setExportScope("all");
+              }}
+            >
+              Exportar todo filtrado
+            </button>
           </div>
+          {exportScope && (
+            <Dialog
+              title={
+                exportScope === "page"
+                  ? "Exportar página de auditoría"
+                  : "Exportar auditoría filtrada"
+              }
+              onClose={() => {
+                if (!exporting) setExportScope(null);
+              }}
+            >
+              <div className="layout__stack">
+                <p>Elige el formato del archivo.</p>
+                {error && <Alert tone="error">{error}</Alert>}
+                <div className="layout__actions" aria-busy={exporting}>
+                  {(
+                    [
+                      ["xlsx", "Excel"],
+                      ["pdf", "PDF"],
+                      ["md", "Markdown"],
+                    ] as const
+                  ).map(([format, label]) => (
+                    <button
+                      type="button"
+                      key={format}
+                      className="workspace__secondary"
+                      disabled={exporting}
+                      onClick={() => void download(format, exportScope === "all")}
+                    >
+                      Exportar {label}
+                    </button>
+                  ))}
+                </div>
+                {exporting && <p role="status">Exportando…</p>}
+              </div>
+            </Dialog>
+          )}
           <AuditTable rows={visible} detailed={settings?.detail !== "Resumen"} />
         </>
       )}

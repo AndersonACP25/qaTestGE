@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+  bulkUpdateBugs,
   createBug,
   deleteBug,
   listBugs,
@@ -10,6 +11,7 @@ import {
 const bugsRouter = Router();
 
 bugsRouter.get("/", listBugs);
+bugsRouter.post("/bulk", bulkUpdateBugs);
 bugsRouter.post("/", createBug);
 bugsRouter.patch("/:bugId", updateBug);
 bugsRouter.delete("/:bugId", deleteBug);

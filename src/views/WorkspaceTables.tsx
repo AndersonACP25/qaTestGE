@@ -1,3 +1,5 @@
+import TableExport from "../TableExport";
+import { evidenceTableExport } from "../models/tableExport";
 import { usePermissions } from "../controllers/ProjectPermissions";
 import type { BugWorkflow } from "../../backend/src/models/quality.model";
 import { Avatar, Icon, Priority, StatusBadge } from "../components/RecordPrimitives";
@@ -95,7 +97,9 @@ export function BugTable({
   updatingStatus,
   compact = false,
   workflow,
+  selection,
 }: {
+  selection?: { ids: Set<string>; toggle: (id: string) => void };
   workflow?: BugWorkflow | null;
   bugs: Bug[];
   tags: Tag[];
@@ -126,7 +130,19 @@ export function BugTable({
           {bugs.map((bug) => (
             <tr key={bug.id} onClick={() => onSelect(bug)}>
               <td data-label="BUG ID">
-                <span className="id-text">{bug.id}</span>
+                {selection ? (
+                  <label className="workspace__check" onClick={(event) => event.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      aria-label={`Seleccionar ${bug.id}`}
+                      checked={selection.ids.has(bug.id)}
+                      onChange={() => selection.toggle(bug.id)}
+                    />
+                    <span className="id-text">{bug.id}</span>
+                  </label>
+                ) : (
+                  <span className="id-text">{bug.id}</span>
+                )}
               </td>
               <td data-label="TÍTULO">
                 <span className="bug-title">{bug.title}</span>
@@ -193,6 +209,7 @@ export function CaseTable({
   onDelete,
   onStatusChange,
   updatingStatus,
+  selection,
 }: {
   items: TestCase[];
   tags: Tag[];
@@ -202,6 +219,7 @@ export function CaseTable({
   onDelete: (item: TestCase) => void;
   onStatusChange: (item: TestCase, status: CaseStatus) => void;
   updatingStatus: string;
+  selection?: { ids: Set<string>; toggle: (id: string) => void };
 }) {
   const readOnly = !usePermissions().can("cases.write");
   return (
@@ -222,7 +240,19 @@ export function CaseTable({
           {items.map((item) => (
             <tr key={item.id} onClick={() => onSelect(item)}>
               <td data-label="CASO ID">
-                <span className="id-text">{item.id}</span>
+                {selection ? (
+                  <label className="workspace__check" onClick={(event) => event.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      aria-label={`Seleccionar ${item.id}`}
+                      checked={selection.ids.has(item.id)}
+                      onChange={() => selection.toggle(item.id)}
+                    />
+                    <span className="id-text">{item.id}</span>
+                  </label>
+                ) : (
+                  <span className="id-text">{item.id}</span>
+                )}
               </td>
               <td data-label="NOMBRE DEL CASO">
                 <span className="bug-title">{item.title}</span>
@@ -334,6 +364,7 @@ export function RunTable({
                     {item.status === "Completado" ? "Ver resultados" : "Ejecutar"}
                   </button>
                 </div>
+                {item.playwright && <span className="muted-cell">Playwright</span>}
                 <TagBadges ids={item.tagIds ?? []} tags={tags} />
               </td>
               <td data-label="CASOS" className="muted-cell">
@@ -356,8 +387,10 @@ export function RunTable({
               <td data-label="Acciones">
                 <RowActions
                   id={item.id}
-                  onEdit={readOnly ? undefined : () => onSelect(item, "edit")}
-                  onDelete={readOnly ? undefined : () => onSelect(item, "delete")}
+                  onEdit={readOnly || item.playwright ? undefined : () => onSelect(item, "edit")}
+                  onDelete={
+                    readOnly || item.playwright ? undefined : () => onSelect(item, "delete")
+                  }
                 />
                 <button
                   type="button"
@@ -392,7 +425,7 @@ export function EvidenceTable({
 }) {
   return (
     <div className="workspace-table__scroll">
-      <table className="workspace-table__table">
+      <table className="workspace-table__table evidence-list__table">
         <thead>
           <tr>
             <th>NOMBRE</th>
@@ -400,7 +433,7 @@ export function EvidenceTable({
             <th>VINCULADO A</th>
             <th>TAMAÑO</th>
             <th>FECHA</th>
-            <th />
+            <th>ACCIONES</th>
           </tr>
         </thead>
         <tbody>
@@ -431,31 +464,28 @@ export function EvidenceTable({
               <td data-label="FECHA" className="muted-cell">
                 {item.date}
               </td>
-              <td data-label="Acciones">
-                {item.hasFile && (
+              <td data-label="Acciones" onClick={(event) => event.stopPropagation()}>
+                <div className="evidence-list__actions layout__actions">
+                  <TableExport data={evidenceTableExport(item)} singleRecord />
+                  {item.hasFile && (
+                    <button
+                      type="button"
+                      className="workspace__secondary workspace-table__action--download"
+                      aria-label={`Descargar ${item.name}`}
+                      onClick={() => onDownload(item)}
+                    >
+                      Descargar
+                    </button>
+                  )}
                   <button
                     type="button"
-                    className="workspace__secondary workspace-table__action--download"
-                    aria-label={`Descargar ${item.name}`}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onDownload(item);
-                    }}
+                    className="workspace__secondary"
+                    aria-label={`Gestionar ${item.name}`}
+                    onClick={() => onActions(item)}
                   >
-                    Descargar
+                    Gestionar
                   </button>
-                )}
-                <button
-                  type="button"
-                  className="row-more"
-                  aria-label={`Más opciones para ${item.name}`}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onActions(item);
-                  }}
-                >
-                  <Icon name="dots" size={18} />
-                </button>
+                </div>
               </td>
             </tr>
           ))}

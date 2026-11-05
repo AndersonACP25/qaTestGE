@@ -1,3 +1,11 @@
+import { useDesignTemplates } from "./controllers/useDesignTemplates";
+import { availableTemplateDefaults } from "./models/templateDefaults";
+import type { CaseTemplate } from "../backend/src/models/design-templates.model";
+import { formatCount } from "./utils/pluralization";
+import RecordBulkActions from "./views/RecordBulkActions";
+import { readRecordLink } from "./models/recordLinks";
+import SavedListingViews from "./components/SavedListingViews";
+import { listingViewsKey } from "./models/listingViews";
 import ListingFilters, { defaultListingFilters } from "./components/ListingFilters";
 import WorkItemEditor from "./components/WorkItemEditor";
 import ProjectPicker from "./components/ProjectPicker";
@@ -25,6 +33,7 @@ import { Icon, Avatar } from "./components/RecordPrimitives";
 import { BugTable, CaseTable, RunTable, EvidenceTable } from "./views/WorkspaceTables";
 import CaseAttachmentsPanel from "./views/CaseAttachmentsPanel";
 import { useCasePreferences } from "./controllers/useCasePreferences";
+import { useRunListing } from "./controllers/useRunListing";
 import { useOperationScope } from "./controllers/useOperationScope";
 import TagPicker from "./TagPicker";
 import BugDesignView from "./views/BugDesignView";
@@ -32,17 +41,18 @@ import TableExport from "./TableExport";
 import { bugTableExport, caseTableExport, runTableExport } from "./models/tableExport";
 import TestRunDialog from "./views/TestRunDialog";
 import { version } from "../package.json";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import Alert, { type AlertTone } from "./Alert";
 import Footer from "./Footer";
-import { filterBugs, filterCases, filterEvidence, filterRuns } from "./utils/filterItems";
+import { filterBugs, filterCases, filterEvidence } from "./utils/filterItems";
 import CaseBuilder from "./CaseBuilder";
 import Dialog from "./Dialog";
 import {
   addTestCaseLink,
   api,
   loadProject,
+  loadRunDetail,
   createBug,
   createTestCase,
   deleteBug,
@@ -62,6 +72,7 @@ import type { BugTemplate, BugTemplatePriority, Project, User } from "./api";
 import AccountSettingsView from "./views/AccountSettingsView";
 import WikiView from "./views/WikiView";
 import TagsView from "./views/TagsView";
+import RunReleaseFields from "./components/RunReleaseFields";
 import ReportsView from "./views/ReportsView";
 import RecordDetailsDialog, { type RecordDetail } from "./views/RecordDetailsDialog";
 import { exportRecord, recordExportFormats } from "./utils/exportRecord";
@@ -120,12 +131,18 @@ function App({
   themeControl: React.ReactNode;
 }) {
   const [activePage, setActivePage] = useState<NavigationPage>("overview");
+  const [requestedLink, setRequestedLink] = useState(() => readRecordLink(window.location.search));
+  const [projectsLoaded, setProjectsLoaded] = useState(false);
+  const [linkError, setLinkError] = useState("");
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectId, setProjectId] = useState("");
   const captureScope = useOperationScope(user.id, projectId);
+  const designTemplates = useDesignTemplates(user.id, projectId);
+  const [selectedCaseTemplate, setSelectedCaseTemplate] = useState<CaseTemplate | null>(null);
   const mentionInbox = useMentionNotifications(user.id, projectId);
   const [tags, setTags] = useState<Tag[]>([]);
   const [tagError, setTagError] = useState("");
+  const [loadedTagProject, setLoadedTagProject] = useState("");
   const [revision, setRevision] = useState(0);
   const [projectError, setError] = useState("");
   const {
@@ -138,6 +155,7 @@ function App({
     projectId,
     revision,
     !["overview", "reports", "coverage", "settings", "assignments"].includes(activePage),
+    activePage !== "runs",
   );
   const error = projectError || resourceError;
   const { workflow, error: workflowError } = useBugWorkflow(projectId, revision);
@@ -188,6 +206,7 @@ function App({
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [assigneeUserId, setAssigneeUserId] = useState("");
   const [teamMembers, setTeamMembers] = useState<{ id: string; name: string }[]>([]);
+  const [loadedMemberProject, setLoadedMemberProject] = useState("");
   const [teamMemberError, setTeamMemberError] = useState("");
   const [editingCase, setEditingCase] = useState<TestCase | null>(null);
   const [caseImageFiles, setCaseImageFiles] = useState<File[]>([]);
@@ -245,6 +264,9 @@ function App({
           setTeamMemberError(
             cause instanceof Error ? cause.message : "No se pudieron cargar los integrantes.",
           );
+      })
+      .finally(() => {
+        if (!abort.signal.aborted) setLoadedMemberProject(project.id);
       });
     return () => abort.abort();
   }, [project?.organizationId, project?.id]);
@@ -257,6 +279,7 @@ function App({
         if (abort.signal.aborted) return;
         setError("");
         setProjects(items);
+        setProjectsLoaded(true);
         setProjectId((current) =>
           items.some((p) => p.id === current) ? current : (items[0]?.id ?? ""),
         );
@@ -306,9 +329,14 @@ function App({
           setTags([]);
           setTagError(cause instanceof Error ? cause.message : "No se pudieron cargar los tags.");
         }
+      })
+      .finally(() => {
+        if (!abort.signal.aborted) setLoadedTagProject(projectId);
       });
     return () => abort.abort();
   }, [projectId, revision]);
+  const templateResourcesLoading =
+    Boolean(projectId) && (loadedTagProject !== projectId || loadedMemberProject !== projectId);
   const filteredBugs = useMemo(() => filterBugs(bugs, listingFilters), [bugs, listingFilters]);
   const filteredCases = useMemo(
     () =>
@@ -319,7 +347,150 @@ function App({
       ),
     [cases, listingFilters, typeFilter, lifecycleFilter],
   );
-  const filteredRuns = useMemo(() => filterRuns(runs, listingFilters), [runs, listingFilters]);
+  const runListing = useRunListing(
+    activePage === "runs" ? projectId : "",
+    revision,
+    tablePage,
+    listingFilters,
+  );
+  const [runPlans, setRunPlans] = useState<string[]>([]);
+  const [openingRun, setOpeningRun] = useState(false);
+  const [openRunError, setOpenRunError] = useState("");
+  const runRequest = useRef<AbortController | null>(null);
+  useEffect(() => {
+    setOpeningRun(false);
+    setOpenRunError("");
+    return () => runRequest.current?.abort();
+  }, [projectId, activePage]);
+  useEffect(() => {
+    if (activePage !== "runs" || !projectId) return;
+    const controller = new AbortController();
+    setRunPlans([]);
+    void api<{ id: string }[]>(`/test-plans?projectId=${encodeURIComponent(projectId)}`, {
+      signal: controller.signal,
+    })
+      .then((plans) => {
+        if (!controller.signal.aborted) setRunPlans(plans.map((plan) => plan.id));
+      })
+      .catch((cause: unknown) => {
+        if (!controller.signal.aborted)
+          setOpenRunError(
+            cause instanceof Error ? cause.message : "No se pudieron cargar los planes.",
+          );
+      });
+    return () => controller.abort();
+  }, [activePage, projectId, revision]);
+  useEffect(() => {
+    if (activePage !== "runs" || runListing.loading || runListing.error) return;
+    const last = Math.max(1, Math.ceil(runListing.total / 50));
+    if (tablePage > last) setTablePage(last);
+  }, [activePage, runListing.loading, runListing.error, runListing.total, tablePage]);
+
+  async function openRun(id: string, action: typeof runAction, closeRecord = false) {
+    runRequest.current?.abort();
+    const controller = new AbortController();
+    runRequest.current = controller;
+    const isCurrent = captureScope();
+    setOpeningRun(true);
+    setOpenRunError("");
+    try {
+      const [run, resources] = await Promise.all([
+        loadRunDetail(projectId, id, controller.signal),
+        activePage === "reports" ? loadProject(projectId, controller.signal, false) : null,
+      ]);
+      if (!isCurrent() || controller.signal.aborted) return;
+      if (resources) setData((current) => ({ ...resources, runs: current.runs }));
+      if (closeRecord) setRecordDetail(null);
+      setRunAction(action);
+      setRunDetail(run);
+    } catch (cause) {
+      if (isCurrent() && !controller.signal.aborted)
+        setOpenRunError(cause instanceof Error ? cause.message : "No se pudo abrir la ejecución.");
+    } finally {
+      if (isCurrent() && !controller.signal.aborted) setOpeningRun(false);
+    }
+  }
+  async function openReleaseBug(id: string) {
+    runRequest.current?.abort();
+    const controller = new AbortController();
+    runRequest.current = controller;
+    const isCurrent = captureScope();
+    setOpeningRun(true);
+    setOpenRunError("");
+    try {
+      const resources = await loadProject(projectId, controller.signal, false);
+      if (!isCurrent() || controller.signal.aborted) return;
+      const record = resources.bugs.find((bug) => bug.id === id);
+      if (!record) throw new Error("El bug ya no está disponible.");
+      setData((current) => ({ ...resources, runs: current.runs }));
+      setRecordDetail({ kind: "bug", record });
+    } catch (cause) {
+      if (isCurrent() && !controller.signal.aborted)
+        setOpenRunError(cause instanceof Error ? cause.message : "No se pudo abrir el bug.");
+    } finally {
+      if (isCurrent() && !controller.signal.aborted) setOpeningRun(false);
+    }
+  }
+  const openProjectRecord = useCallback(
+    async (target: { kind: "bug" | "case" | "run"; id: string }, signal: AbortSignal) => {
+      const isCurrent = captureScope();
+      const [loaded, targetRun] = await Promise.all([
+        loadProject(projectId, signal, false),
+        target.kind === "run" ? loadRunDetail(projectId, target.id, signal) : null,
+      ]);
+      if (!isCurrent() || signal.aborted) return false;
+      const { bugs, cases } = loaded;
+      const exists =
+        target.kind === "bug"
+          ? bugs.some((b) => b.id === target.id)
+          : target.kind === "case"
+            ? cases.some((c) => c.id === target.id)
+            : Boolean(targetRun);
+      if (!exists) throw new Error("El registro ya no está disponible.");
+      setData((current) => ({ ...loaded, runs: current.runs }));
+      if (target.kind === "bug") {
+        const record = bugs.find((b) => b.id === target.id);
+        if (record) setRecordDetail({ kind: "bug", record });
+      } else if (target.kind === "case") {
+        const record = cases.find((c) => c.id === target.id);
+        if (record) setRecordDetail({ kind: "case", record });
+      } else {
+        const run = targetRun;
+        if (run) {
+          setRunAction("view");
+          setRunDetail(run);
+        }
+      }
+      return true;
+    },
+    [captureScope, projectId, setData],
+  );
+  useEffect(() => {
+    if (!requestedLink || !projectsLoaded) return;
+    if (!projects.some((project) => project.id === requestedLink.projectId)) {
+      setLinkError("El registro no está disponible o no tienes acceso a su proyecto.");
+      setRequestedLink(null);
+      return;
+    }
+    if (projectId !== requestedLink.projectId) {
+      setProjectId(requestedLink.projectId);
+      return;
+    }
+    const controller = new AbortController();
+    setActivePage(
+      requestedLink.kind === "bug" ? "bugs" : requestedLink.kind === "case" ? "cases" : "runs",
+    );
+    void openProjectRecord(requestedLink, controller.signal)
+      .then(() => {
+        if (!controller.signal.aborted) setRequestedLink(null);
+      })
+      .catch(() => {
+        if (controller.signal.aborted) return;
+        setLinkError("El registro no está disponible o no tienes acceso a su proyecto.");
+        setRequestedLink(null);
+      });
+    return () => controller.abort();
+  }, [requestedLink, projectsLoaded, projects, projectId, openProjectRecord]);
   const filteredEvidence = useMemo(() => filterEvidence(evidence, { search }), [evidence, search]);
   const matchedTotal =
     activePage === "bugs"
@@ -327,14 +498,17 @@ function App({
       : activePage === "cases"
         ? filteredCases.length
         : activePage === "runs"
-          ? filteredRuns.length
+          ? runListing.total
           : filteredEvidence.length;
-  const currentTablePage = Math.min(tablePage, Math.max(1, Math.ceil(matchedTotal / 50)));
+  const currentTablePage =
+    activePage === "runs"
+      ? tablePage
+      : Math.min(tablePage, Math.max(1, Math.ceil(matchedTotal / 50)));
   const slicePage = <T,>(items: T[]) =>
     items.slice((currentTablePage - 1) * 50, currentTablePage * 50);
   const visibleBugs = slicePage(filteredBugs),
     visibleCases = slicePage(filteredCases),
-    visibleRuns = slicePage(filteredRuns),
+    visibleRuns = runListing.rows,
     visibleEvidence = slicePage(filteredEvidence);
   const pageTitle = {
     assignments: "Mis asignaciones",
@@ -360,6 +534,8 @@ function App({
     toastTimer.current = setTimeout(() => setToast(""), 4000);
   };
   function navigate(page: NavigationPage) {
+    setRequestedLink(null);
+    setLinkError("");
     if (page === "mentions") mentionInbox.refresh();
     setActivePage(page);
     setTablePage(1);
@@ -387,7 +563,10 @@ function App({
       });
       setSelectedBugTemplateId("");
     }
-    if (value === "case") setCaseSteps([{ action: "", expectedResult: "" }]);
+    if (value === "case") {
+      setSelectedCaseTemplate(null);
+      setCaseSteps([{ action: "", expectedResult: "" }]);
+    }
     setSelectedTagIds([]);
     if (value === "evidence") {
       setEvidenceForm({ name: "", type: "Archivo", sizeBytes: 0, related: "" });
@@ -510,6 +689,13 @@ function App({
   function applyBugTemplate(templateId: string) {
     setSelectedBugTemplateId(templateId);
     const template = bugTemplates.find((item) => item.id === templateId);
+    const defaults = availableTemplateDefaults(
+      designTemplates.data.bugDefaults.find((item) => item.templateId === template?.id),
+      tags,
+      teamMembers,
+    );
+    setSelectedTagIds(defaults.tagIds);
+    setAssigneeUserId(defaults.assigneeUserId ?? "");
     setBugForm(
       template
         ? {
@@ -521,6 +707,13 @@ function App({
           }
         : { title: "", description: "", priority: "Media", status: "Abierto", assignee: "" },
     );
+  }
+  function applyCaseTemplate(template: CaseTemplate | null) {
+    setSelectedCaseTemplate(template);
+    setCaseSteps(template?.steps ?? [{ action: "", expectedResult: "" }]);
+    const defaults = availableTemplateDefaults(template ?? undefined, tags, teamMembers);
+    setSelectedTagIds(defaults.tagIds);
+    setAssigneeUserId(defaults.assigneeUserId ?? "");
   }
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -655,6 +848,8 @@ function App({
         owner: user.name,
         ownerUserId: assigneeUserId || user.id,
         caseIds: form.getAll("caseIds"),
+        releaseVersion: String(form.get("releaseVersion") ?? "").trim() || null,
+        environment: String(form.get("environment") ?? "").trim() || null,
         tagIds: selectedTagIds,
       };
     } else if (modal === "evidence") {
@@ -1076,6 +1271,8 @@ function App({
               onChange={(event) => {
                 setData({ bugs: [], cases: [], runs: [], evidence: [] });
                 setLoading(true);
+                setRequestedLink(null);
+                setLinkError("");
                 setProjectId(event.target.value);
                 setModal("");
                 setRunDetail(null);
@@ -1110,8 +1307,11 @@ function App({
             </p>
           )}
           {error && <Alert tone="error">{error}</Alert>}
+          {linkError && <Alert tone="error">{linkError}</Alert>}
+          {requestedLink && <p role="status">Abriendo enlace del registro…</p>}
           {workflowError && <Alert tone="error">{workflowError}</Alert>}
           {preferencesError && <Alert tone="error">{preferencesError}</Alert>}
+          {mentionInbox.message && <Alert tone="success">{mentionInbox.message}</Alert>}
           {!loading && !error && !projectId && activePage !== "settings" && (
             <p className="workspace__notice">
               No tienes proyectos disponibles. El administrador debe conceder acceso a un espacio
@@ -1126,34 +1326,7 @@ function App({
                 refreshRevision={revision}
                 key={projectId}
                 inbox={mentionInbox}
-                onOpen={async (target, signal) => {
-                  const isCurrent = captureScope();
-                  const loaded = await loadProject(projectId, signal);
-                  if (!isCurrent() || signal.aborted) return false;
-                  const { bugs, cases, runs } = loaded;
-                  const exists =
-                    target.kind === "bug"
-                      ? bugs.some((b) => b.id === target.id)
-                      : target.kind === "case"
-                        ? cases.some((c) => c.id === target.id)
-                        : runs.some((r) => r.id === target.id);
-                  if (!exists) throw new Error("El registro ya no está disponible.");
-                  setData(loaded);
-                  if (target.kind === "bug") {
-                    const record = bugs.find((b) => b.id === target.id);
-                    if (record) setRecordDetail({ kind: "bug", record });
-                  } else if (target.kind === "case") {
-                    const record = cases.find((c) => c.id === target.id);
-                    if (record) setRecordDetail({ kind: "case", record });
-                  } else {
-                    const run = runs.find((r) => r.id === target.id);
-                    if (run) {
-                      setRunAction("view");
-                      setRunDetail(run);
-                    }
-                  }
-                  return true;
-                }}
+                onOpen={openProjectRecord}
               />
             )
           ) : activePage === "plans" ? (
@@ -1179,6 +1352,11 @@ function App({
               user={user}
               onUserUpdated={onUserUpdated}
               onAccountDeleted={onAccountDeleted}
+              designTemplates={designTemplates}
+              templateResourcesLoading={templateResourcesLoading}
+              tags={tags}
+              members={teamMembers}
+              templateResourcesError={tagError || teamMemberError}
               preferences={preferences}
               onPreferencesChanged={savePreferences}
             />
@@ -1194,6 +1372,10 @@ function App({
                 projectId={projectId}
                 tags={tags}
                 tagError={tagError}
+                members={teamMembers}
+                memberError={teamMemberError}
+                defaults={designTemplates.data.bugDefaults}
+                defaultsLoading={designTemplates.loading || templateResourcesLoading}
                 onOpenBugs={() => {
                   setSearch("");
                   setStatusFilter("Todos");
@@ -1216,6 +1398,15 @@ function App({
               defaultCounts={caseCountDefaults}
               defaultSelectedCategories={caseDesignCategories}
               projectId={projectId}
+              templates={templateResourcesLoading ? [] : designTemplates.data.cases}
+              onOpenTemplate={
+                allowed("cases.write")
+                  ? (template) => {
+                      openModal("case");
+                      applyCaseTemplate(template);
+                    }
+                  : undefined
+              }
             />
           ) : activePage === "tags" ? (
             projectId && (
@@ -1262,6 +1453,10 @@ function App({
                 projectId={projectId}
                 projectName={project?.name ?? "Proyecto"}
                 refreshRevision={revision}
+                onOpenRun={(id) => void openRun(id, "view")}
+                onOpenBug={(id) => void openReleaseBug(id)}
+                openingRun={openingRun}
+                openRunError={openRunError}
               />
             )
           ) : (
@@ -1277,40 +1472,59 @@ function App({
             ) : isListing ? (
               <section className="listing-card">
                 {activePage === "evidence" ? (
-                  <label className="search-field">
-                    <Icon name="search" />
-                    <input
-                      aria-label="Buscar registros"
-                      value={search}
-                      onChange={(event) => {
-                        setSearch(event.target.value);
+                  <div className="evidence-list__toolbar">
+                    <label className="search-field evidence-list__search">
+                      <Icon name="search" />
+                      <input
+                        aria-label="Buscar registros"
+                        value={search}
+                        onChange={(event) => {
+                          setSearch(event.target.value);
+                          setTablePage(1);
+                        }}
+                        type="search"
+                        placeholder="Buscar evidencias…"
+                      />
+                    </label>
+                  </div>
+                ) : (
+                  <>
+                    <ListingFilters
+                      kind={
+                        activePage === "bugs" ? "bugs" : activePage === "cases" ? "cases" : "runs"
+                      }
+                      statuses={filters}
+                      values={listingFilters}
+                      onChange={(patch) => {
+                        setListingFilters((current) => ({ ...current, ...patch }));
                         setTablePage(1);
                       }}
-                      placeholder="Buscar evidencias…"
+                      onClear={() => {
+                        setListingFilters(defaultListingFilters);
+                        setTablePage(1);
+                      }}
+                      members={teamMembers}
+                      tags={tags}
+                      types={[...new Set(cases.map((item) => item.testType ?? "Funcional"))].sort()}
+                      plans={[
+                        ...new Set([
+                          ...runPlans,
+                          ...visibleRuns.flatMap((item) => (item.planId ? [item.planId] : [])),
+                        ]),
+                      ].sort()}
                     />
-                  </label>
-                ) : (
-                  <ListingFilters
-                    kind={
-                      activePage === "bugs" ? "bugs" : activePage === "cases" ? "cases" : "runs"
-                    }
-                    statuses={filters}
-                    values={listingFilters}
-                    onChange={(patch) => {
-                      setListingFilters((current) => ({ ...current, ...patch }));
-                      setTablePage(1);
-                    }}
-                    onClear={() => {
-                      setListingFilters(defaultListingFilters);
-                      setTablePage(1);
-                    }}
-                    members={teamMembers}
-                    tags={tags}
-                    types={[...new Set(cases.map((item) => item.testType ?? "Funcional"))].sort()}
-                    plans={[
-                      ...new Set(runs.flatMap((item) => (item.planId ? [item.planId] : []))),
-                    ].sort()}
-                  />
+                    {activePage === "cases" && (
+                      <SavedListingViews
+                        key={listingViewsKey(user.id, projectId, "cases")}
+                        storageKey={listingViewsKey(user.id, projectId, "cases")}
+                        filters={listingFilters}
+                        onApply={(saved) => {
+                          setListingFilters(saved);
+                          setTablePage(1);
+                        }}
+                      />
+                    )}
+                  </>
                 )}
                 {activePage !== "evidence" && (
                   <div className="workspace-table__toolbar">
@@ -1338,53 +1552,112 @@ function App({
                   </div>
                 )}
                 {activePage === "bugs" && (
-                  <BugTable
+                  <RecordBulkActions
+                    key={JSON.stringify([
+                      "bugs",
+                      user.id,
+                      projectId,
+                      currentTablePage,
+                      listingFilters,
+                    ])}
+                    resource="bugs"
                     workflow={workflow}
-                    bugs={visibleBugs}
+                    projectId={projectId}
+                    items={visibleBugs.map((bug) => ({ ...bug, assigneeName: bug.assignee }))}
+                    members={teamMembers}
+                    membersError={teamMemberError}
                     tags={tags}
-                    onSelect={(bug) => setRecordDetail({ kind: "bug", record: bug })}
-                    onExport={(bug) => setExportTarget({ kind: "bug", record: bug })}
-                    onEdit={editBug}
-                    onDelete={(bug) => {
-                      setDeleteBugError("");
-                      setDeleteBugTarget(bug);
+                    tagError={tagError}
+                    enabled={allowed("bugs.write")}
+                    onUpdated={(updated) => {
+                      if (!isRenderCurrent()) return;
+                      setRevision((value) => value + 1);
+                      notify(
+                        updated
+                          ? `${formatCount(updated, "bug actualizado", "bugs actualizados")}.`
+                          : "La selección ya tenía los valores solicitados.",
+                      );
                     }}
-                    onStatusChange={(bug, status) => void changeBugStatus(bug, status)}
-                    updatingStatus={updatingStatus}
-                  />
+                  >
+                    {(selection) => (
+                      <BugTable
+                        workflow={workflow}
+                        selection={selection}
+                        bugs={visibleBugs}
+                        tags={tags}
+                        onSelect={(bug) => setRecordDetail({ kind: "bug", record: bug })}
+                        onExport={(bug) => setExportTarget({ kind: "bug", record: bug })}
+                        onEdit={editBug}
+                        onDelete={(bug) => {
+                          setDeleteBugError("");
+                          setDeleteBugTarget(bug);
+                        }}
+                        onStatusChange={(bug, status) => void changeBugStatus(bug, status)}
+                        updatingStatus={updatingStatus}
+                      />
+                    )}
+                  </RecordBulkActions>
                 )}
                 {activePage === "cases" && (
-                  <CaseTable
+                  <RecordBulkActions
+                    key={JSON.stringify([user.id, projectId, currentTablePage, listingFilters])}
+                    projectId={projectId}
                     items={visibleCases}
+                    resource="test-cases"
+                    members={teamMembers}
+                    membersError={teamMemberError}
                     tags={tags}
-                    onSelect={(testCase) => setRecordDetail({ kind: "case", record: testCase })}
-                    onExport={(item) => setExportTarget({ kind: "case", record: item })}
-                    onEdit={editCase}
-                    onDelete={(item) => {
-                      setDeleteCaseError("");
-                      setDeleteCaseTarget(item);
+                    tagError={tagError}
+                    enabled={allowed("cases.write")}
+                    onUpdated={(updated) => {
+                      if (!isRenderCurrent()) return;
+                      setRevision((value) => value + 1);
+                      notify(
+                        updated
+                          ? `${formatCount(updated, "caso actualizado", "casos actualizados")}.`
+                          : "La selección ya tenía los valores solicitados.",
+                      );
                     }}
-                    onStatusChange={(item, status) => void changeCaseStatus(item, status)}
-                    updatingStatus={updatingStatus}
-                  />
+                  >
+                    {(selection) => (
+                      <CaseTable
+                        items={visibleCases}
+                        selection={selection}
+                        tags={tags}
+                        onSelect={(testCase) => setRecordDetail({ kind: "case", record: testCase })}
+                        onExport={(item) => setExportTarget({ kind: "case", record: item })}
+                        onEdit={editCase}
+                        onDelete={(item) => {
+                          setDeleteCaseError("");
+                          setDeleteCaseTarget(item);
+                        }}
+                        onStatusChange={(item, status) => void changeCaseStatus(item, status)}
+                        updatingStatus={updatingStatus}
+                      />
+                    )}
+                  </RecordBulkActions>
                 )}
                 {activePage === "runs" && (
-                  <RunTable
-                    items={visibleRuns}
-                    tags={tags}
-                    onExport={(run) => {
-                      setRunAction("export");
-                      setRunDetail(run);
-                    }}
-                    onExecute={(run) => {
-                      setRunAction("execute");
-                      setRunDetail(run);
-                    }}
-                    onSelect={(run, action) => {
-                      setRunAction(action);
-                      setRunDetail(run);
-                    }}
-                  />
+                  <>
+                    {(runListing.error || openRunError) && (
+                      <Alert tone="error">{runListing.error || openRunError}</Alert>
+                    )}
+                    {(runListing.loading || openingRun) && (
+                      <p role="status">
+                        {openingRun ? "Abriendo ejecución…" : "Cargando ejecuciones…"}
+                      </p>
+                    )}
+                    <RunTable
+                      items={visibleRuns}
+                      tags={tags}
+                      onExport={(run) => void openRun(run.id, "export")}
+                      onExecute={(run) => void openRun(run.id, "execute")}
+                      onSelect={(run, action) => void openRun(run.id, action)}
+                    />
+                    <p className="workspace__notice">
+                      La exportación de la tabla incluye la página visible.
+                    </p>
+                  </>
                 )}
                 {activePage === "evidence" && (
                   <EvidenceTable
@@ -1394,11 +1667,12 @@ function App({
                     onDownload={(item) => void downloadEvidence(item)}
                   />
                 )}
-                {!total && (
-                  <p className="workspace__notice">
-                    No hay registros que coincidan con los filtros.
-                  </p>
-                )}
+                {!total &&
+                  (activePage !== "runs" || (!runListing.loading && !runListing.error)) && (
+                    <p className="workspace__notice">
+                      No hay registros que coincidan con los filtros.
+                    </p>
+                  )}
                 <TableFooter
                   total={total}
                   page={currentTablePage}
@@ -1461,7 +1735,7 @@ function App({
                 {modal === "bug" && (
                   <label className="workspace__field" data-editor-property="true">
                     Cargar plantilla
-                    {bugTemplatesLoading ? (
+                    {bugTemplatesLoading || designTemplates.loading || templateResourcesLoading ? (
                       <span className="workspace__notice">Cargando plantillas…</span>
                     ) : (
                       <select
@@ -1476,6 +1750,28 @@ function App({
                         ))}
                       </select>
                     )}
+                  </label>
+                )}
+                {modal === "case" && designTemplates.data.cases.length > 0 && (
+                  <label className="workspace__field" data-editor-property="true">
+                    Cargar plantilla de caso
+                    <select
+                      value={selectedCaseTemplate?.id ?? ""}
+                      disabled={templateResourcesLoading}
+                      onChange={(event) =>
+                        applyCaseTemplate(
+                          designTemplates.data.cases.find(({ id }) => id === event.target.value) ??
+                            null,
+                        )
+                      }
+                    >
+                      <option value="">Sin plantilla</option>
+                      {designTemplates.data.cases.map(({ id, name }) => (
+                        <option key={id} value={id}>
+                          {name}
+                        </option>
+                      ))}
+                    </select>
                   </label>
                 )}
                 {modal !== "evidence" &&
@@ -1497,7 +1793,11 @@ function App({
                         <input
                           name="title"
                           maxLength={200}
-                          defaultValue={editingCase?.title ?? ""}
+                          key={modal === "case" ? selectedCaseTemplate?.id : editingCase?.id}
+                          defaultValue={
+                            (modal === "case" ? selectedCaseTemplate?.title : editingCase?.title) ??
+                            ""
+                          }
                           required
                         />
                       )}
@@ -1640,7 +1940,12 @@ function App({
                         required
                         maxLength={100}
                         list="case-types"
-                        defaultValue={editingCase?.testType ?? "Funcional"}
+                        key={modal === "case" ? selectedCaseTemplate?.id : editingCase?.id}
+                        defaultValue={
+                          (modal === "case"
+                            ? selectedCaseTemplate?.testType
+                            : editingCase?.testType) ?? "Funcional"
+                        }
                       />
                       <datalist id="case-types">
                         {[
@@ -1668,14 +1973,27 @@ function App({
                     </label>
                     <label className="workspace__field">
                       Suite (opcional)
-                      <input name="suite" maxLength={100} defaultValue={editingCase?.suite ?? ""} />
+                      <input
+                        name="suite"
+                        maxLength={100}
+                        key={modal === "case" ? selectedCaseTemplate?.id : editingCase?.id}
+                        defaultValue={
+                          (modal === "case" ? selectedCaseTemplate?.suite : editingCase?.suite) ??
+                          ""
+                        }
+                      />
                     </label>
                     <label className="workspace__field">
                       Precondiciones
                       <RichTextarea
                         name="preconditions"
                         maxLength={10000}
-                        defaultValue={editingCase?.preconditions ?? ""}
+                        key={modal === "case" ? selectedCaseTemplate?.id : editingCase?.id}
+                        defaultValue={
+                          (modal === "case"
+                            ? selectedCaseTemplate?.preconditions
+                            : editingCase?.preconditions) ?? ""
+                        }
                       />
                     </label>
                     <TagPicker
@@ -1832,6 +2150,7 @@ function App({
                 )}
                 {modal === "run" && (
                   <>
+                    <RunReleaseFields />
                     <label className="workspace__field">
                       Responsable de ejecución
                       <select
@@ -2075,18 +2394,17 @@ function App({
                 {recordDetail.record.sourceRunId && (
                   <button
                     className="workspace__secondary"
+                    disabled={openingRun}
                     onClick={() => {
-                      const source = runs.find((r) => r.id === recordDetail.record.sourceRunId);
-                      if (source) {
-                        setRunDetail(source);
-                        setRecordDetail(null);
-                      }
+                      const source = recordDetail.record.sourceRunId;
+                      if (source) void openRun(source, "view", true);
                     }}
                   >
-                    Abrir ejecución de origen
+                    {openingRun ? "Abriendo ejecución…" : "Abrir ejecución de origen"}
                   </button>
                 )}
               </div>
+              {openRunError && <Alert tone="error">{openRunError}</Alert>}
               {evidence
                 .filter((e) => e.related.split(", ").includes(recordDetail.record.id))
                 .map((e) => (
@@ -2129,6 +2447,12 @@ function App({
                 key={recordDetail.record.id}
                 caseId={recordDetail.record.id}
                 projectId={projectId}
+                expectedVersion={recordDetail.record.version ?? 1}
+                onRestored={(item) => {
+                  if (!isRenderCurrent()) return;
+                  setRecordDetail({ kind: "case", record: item });
+                  setRevision((value) => value + 1);
+                }}
               />
             </>
           )}

@@ -68,6 +68,10 @@ export interface MentionNotification {
   readAt: string | null;
 }
 export interface CollaborationRepository {
+  designTemplates?(
+    projectId: string,
+    input?: import("./design-templates.model.js").DesignTemplates,
+  ): Promise<import("./design-templates.model.js").DesignTemplates>;
   assignedWork(projectId: string, filters: AssignedWorkFilters): Promise<AssignedWorkPage>;
   auditSettings(projectId: string): Promise<AuditSettings>;
   saveAuditSettings(projectId: string, input: AuditSettings): Promise<AuditSettings>;
@@ -84,7 +88,12 @@ export interface CollaborationRepository {
     role: ProjectRole | null,
     revision: number,
   ): Promise<void>;
-  comments(projectId: string, target: ResourceTarget): Promise<Comment[]>;
+  comments(
+    projectId: string,
+    target: ResourceTarget,
+    before?: string,
+    limit?: number,
+  ): Promise<Comment[]>;
   createComment(
     projectId: string,
     target: ResourceTarget,
@@ -104,6 +113,12 @@ export interface CollaborationRepository {
     before?: string,
     filters?: AuditFilters,
   ): Promise<Activity[]>;
-  notifications(projectId: string): Promise<MentionNotification[]>;
+  notifications(
+    projectId: string,
+    before?: string,
+    limit?: number,
+    read?: boolean,
+  ): Promise<MentionNotification[]>;
+  unreadNotifications(projectId: string): Promise<number>;
   readNotification(projectId: string, id: string): Promise<void>;
 }

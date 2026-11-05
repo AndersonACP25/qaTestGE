@@ -1,3 +1,5 @@
+import type { PlaywrightMetadata } from "./playwright-import.model.js";
+
 export const testRunStatuses = ["En curso", "Completado"] as const;
 export type TestRunStatus = (typeof testRunStatuses)[number];
 export const resultStatuses = ["passed", "failed", "blocked", "skipped"] as const;
@@ -12,7 +14,11 @@ export interface TestRunResult {
   executedAt: string | null;
   steps: { action: string; expectedResult: string }[];
 }
-export interface UpdateTestRunInput {
+export interface RunReleaseContext {
+  releaseVersion?: string | null;
+  environment?: string | null;
+}
+export interface UpdateTestRunInput extends RunReleaseContext {
   title: string;
   owner: string;
   ownerUserId?: string | null;
@@ -25,12 +31,13 @@ export interface UpdateRunResultInput {
   notes: string;
 }
 
-export interface TestRun {
+export interface TestRun extends RunReleaseContext {
   id: string;
   projectId: string;
   caseIds: string[];
   planId?: string | null;
   sourceRunId?: string | null;
+  playwright?: PlaywrightMetadata | null;
   title: string;
   caseCount: number;
   progress: number;
@@ -42,11 +49,12 @@ export interface TestRun {
   results: TestRunResult[];
 }
 
-export type CreateTestRunInput = Pick<TestRun, "title" | "owner" | "projectId"> & {
-  ownerUserId?: string | null;
-  caseIds?: string[];
-  planId?: string;
-  sourceRunId?: string;
-  failedOnly?: boolean;
-  tagIds?: string[];
-};
+export type CreateTestRunInput = Pick<TestRun, "title" | "owner" | "projectId"> &
+  RunReleaseContext & {
+    ownerUserId?: string | null;
+    caseIds?: string[];
+    planId?: string;
+    sourceRunId?: string;
+    failedOnly?: boolean;
+    tagIds?: string[];
+  };

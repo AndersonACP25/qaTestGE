@@ -45,6 +45,9 @@ export function authRouter(auth: AuthProvider) {
   const limiter = authRateLimit();
   router.post("/register", limiter, controller.register);
   router.post("/login", limiter, controller.login);
+  router.get("/account-links", controller.accountLinks);
+  router.post("/account-links/request", authRateLimit(), controller.requestAccountLink);
+  router.post("/account-links/consume", authRateLimit(), controller.consumeAccountLink);
   router.get("/me", controller.me);
   router.patch("/me", controller.updateProfile);
   router.patch("/password", controller.changePassword);

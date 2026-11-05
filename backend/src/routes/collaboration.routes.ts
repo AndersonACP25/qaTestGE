@@ -1,3 +1,5 @@
+import { designTemplatesSchema } from "../models/design-templates.model.js";
+import type { AuthProvider } from "../models/user.model.js";
 import { assignedWorkFiltersSchema } from "../models/assigned-work.model.js";
 import {
   auditSettingsSchema,
@@ -40,6 +42,22 @@ router.get("/assigned-work", async (req, res) => {
     data: await collab(req).assignedWork(project(req), parse(assignedWorkFiltersSchema, req.query)),
   });
 });
+router
+  .route("/design-templates")
+  .get(async (req, res) => {
+    const service = collab(req);
+    if (!service.designTemplates)
+      throw new HttpError(503, "TEMPLATES_UNAVAILABLE", "Plantillas no disponibles.");
+    res.json({ data: await service.designTemplates(project(req)) });
+  })
+  .put(async (req, res) => {
+    const service = collab(req);
+    if (!service.designTemplates)
+      throw new HttpError(503, "TEMPLATES_UNAVAILABLE", "Plantillas no disponibles.");
+    res.json({
+      data: await service.designTemplates(project(req), parse(designTemplatesSchema, req.body)),
+    });
+  });
 router.get("/audit-settings", async (req, res) => {
   res.json({ data: await collab(req).auditSettings(project(req)) });
 });
@@ -50,13 +68,14 @@ router.put("/audit-settings", async (req, res) => {
 });
 router.post("/project-users", async (req, res) => {
   const key = parse(z.uuid(), req.get("Idempotency-Key"));
-  res.status(201).json({
-    data: await collab(req).createProjectUser(
-      project(req),
-      parse(provisionUserSchema, req.body),
-      key,
-    ),
-  });
+  const input = parse(provisionUserSchema, req.body);
+  const auth: AuthProvider = res.locals.auth;
+  const activation = input.password === undefined;
+  if (activation && (!auth?.accountLinksEnabled?.() || !auth.requestAccountLink))
+    throw new HttpError(503, "ACCOUNT_LINKS_DISABLED", "El envío de enlaces no está disponible.");
+  const member = await collab(req).createProjectUser(project(req), input, key);
+  if (activation) await auth.requestAccountLink?.(input.email, member.id);
+  res.status(201).json({ data: member });
 });
 router.get("/project-members", async (req, res) => {
   const candidates = req.query.candidates;
@@ -73,9 +92,23 @@ router.put("/project-members/:userId", async (req, res) => {
   await collab(req).saveMember(project(req), req.params.userId, b.role, b.revision);
   res.status(204).end();
 });
+function cursor(value: unknown, prefix: string) {
+  if (value === undefined) return undefined;
+  const id = parseReference(value, prefix);
+  if (!id) throw new HttpError(400, "INVALID_PAGINATION", "Cursor de página inválido.");
+  return id;
+}
 router.get("/comments", async (req, res) => {
   const t = parse(targetSchema, { kind: req.query.kind, id: req.query.resourceId });
-  res.json({ data: await collab(req).comments(project(req), t) });
+  const page = req.query.page === "true";
+  const rows = await collab(req).comments(
+    project(req),
+    t,
+    cursor(req.query.before, "CMT"),
+    page ? 51 : 100,
+  );
+  if (page && rows.length > 50) res.set("X-Next-Cursor", rows[49].id);
+  res.json({ data: page ? rows.slice(0, 50) : rows });
 });
 router.post("/comments", async (req, res) => {
   const b = parse(z.object({ target: targetSchema, body: bodySchema }), req.body);
@@ -113,7 +146,22 @@ router.get("/activity", async (req, res) => {
   });
 });
 router.get("/mention-notifications", async (req, res) => {
-  res.json({ data: await collab(req).notifications(project(req)) });
+  const p = project(req);
+  const page = req.query.page === "true";
+  const read = parse(z.enum(["true", "false"]).optional(), req.query.read);
+  const repository = collab(req);
+  const [rows, unread] = await Promise.all([
+    repository.notifications(
+      p,
+      cursor(req.query.before, "NTF"),
+      page ? 51 : 100,
+      read === undefined ? undefined : read === "true",
+    ),
+    page ? repository.unreadNotifications(p) : undefined,
+  ]);
+  if (unread !== undefined) res.set("X-Unread-Count", String(unread));
+  if (page && rows.length > 50) res.set("X-Next-Cursor", rows[49].id);
+  res.json({ data: page ? rows.slice(0, 50) : rows });
 });
 router.patch("/mention-notifications/read-all", async (req, res) => {
   res.json({ data: await collab(req).readAllNotifications(project(req)) });

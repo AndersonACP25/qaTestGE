@@ -1,3 +1,4 @@
+import ReleaseReadinessPanel from "./ReleaseReadinessPanel";
 import { reportRangeError } from "../models/reportRange";
 import { useState } from "react";
 import Alert from "../Alert";
@@ -8,11 +9,20 @@ export default function ReportsView({
   refreshRevision = 0,
   projectId,
   projectName,
+  onOpenRun,
+  onOpenBug,
+  openingRun,
+  openRunError,
 }: {
   refreshRevision?: number;
   projectId: string;
   projectName: string;
+  onOpenRun: (id: string) => void;
+  onOpenBug: (id: string) => void;
+  openingRun: boolean;
+  openRunError: string;
 }) {
+  const [showRelease, setShowRelease] = useState(false);
   const [range, setRange] = useState(defaultRange);
   const [draft, setDraft] = useState(range);
   const [message, setMessage] = useState("");
@@ -84,6 +94,28 @@ export default function ReportsView({
       {message && <Alert tone="success">{message}</Alert>}
       {(error || invalid || dateError) && (
         <Alert tone="error">{dateError || invalid || error}</Alert>
+      )}
+      <div className="layout__actions">
+        <button
+          type="button"
+          className="workspace__secondary"
+          aria-expanded={showRelease}
+          onClick={() => setShowRelease((value) => !value)}
+        >
+          Preparación de release
+        </button>
+      </div>
+      {showRelease && (
+        <ReleaseReadinessPanel
+          key={`${range.from}:${range.to}`}
+          projectId={projectId}
+          range={range}
+          revision={`${refreshRevision}:${applied}`}
+          onOpenRun={onOpenRun}
+          onOpenBug={onOpenBug}
+          openingRun={openingRun}
+          openRunError={openRunError}
+        />
       )}
       {!data && !error && <p role="status">Cargando reportes…</p>}
       {data && (

@@ -224,6 +224,11 @@
   display: grid;
   gap: 24px;
 }
+.project-user__activation {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .project-user__form p {
   margin: 0;
 }
@@ -248,4 +253,41 @@
   .work-item__content .record-view__section {
     padding: 16px;
   }
+}
+
+.audit-settings__description {
+  margin-block: 16px 24px;
+}
+.audit-settings__description dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr));
+  gap: 12px;
+  margin: 0;
+}
+.audit-settings__description dl div {
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--panel);
+}
+.audit-settings__description dt {
+  font-weight: 700;
+}
+.audit-settings__description dd {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+.project-activity__changes dd {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.account-settings__template-project {
+  padding-block-start: 24px;
+  border-block-start: 1px solid var(--line);
+}
+.account-settings__template-project > .workspace__secondary {
+  justify-self: start;
+}
+.audit-table__exports {
+  margin-block: 4px;
 }

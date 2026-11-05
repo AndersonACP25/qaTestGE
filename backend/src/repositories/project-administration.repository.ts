@@ -1,4 +1,6 @@
+import { isRecord } from "../validation.js";
 import type { DatabasePool, DatabaseClient } from "../auth/actor-database.js";
+import { randomBytes } from "node:crypto";
 import { hashPassword, verifyPassword } from "../auth/passwords.js";
 import { HttpError } from "../http-error.js";
 import { creationHash } from "./creation-request.js";
@@ -7,6 +9,11 @@ import {
   type AuditSettings,
   type ProvisionUserInput,
 } from "../models/audit.model.js";
+import {
+  designTemplatesSchema,
+  emptyDesignTemplates,
+  type DesignTemplates,
+} from "../models/design-templates.model.js";
 import type { ProjectMember } from "../models/collaboration.model.js";
 export class PostgresProjectAdministration {
   constructor(
@@ -26,6 +33,49 @@ export class PostgresProjectAdministration {
     } finally {
       client.release();
     }
+  }
+  async designTemplates(projectId: string, input?: DesignTemplates): Promise<DesignTemplates> {
+    if (!input) {
+      const { rows } = await this.pool.query<{ templates: unknown; revision: number }>(
+        "SELECT templates,revision FROM qa.project_design_templates WHERE project_id=$1 AND user_id=$2 AND qa.project_role($1,$2) IS NOT NULL",
+        [projectId, this.actorId],
+      );
+      const row = rows[0];
+      if (!row) return emptyDesignTemplates;
+      return designTemplatesSchema.parse(
+        isRecord(row.templates) ? { ...row.templates, revision: row.revision } : row.templates,
+      );
+    }
+    return this.transaction(async (client) => {
+      await client.query("SELECT id FROM qa.projects WHERE id=$1 FOR SHARE", [projectId]);
+      await client.query("SELECT id FROM qa.users WHERE id=$1 AND is_active FOR SHARE", [
+        this.actorId,
+      ]);
+      const access = await client.query("SELECT qa.project_role($1,$2) AS role", [
+        projectId,
+        this.actorId,
+      ]);
+      if (!access.rows[0]?.role)
+        throw new HttpError(404, "PROJECT_NOT_FOUND", "Proyecto no disponible.");
+      const { revision, ...templates } = input;
+      const result =
+        revision === 0
+          ? await client.query(
+              "INSERT INTO qa.project_design_templates(project_id,user_id,revision,templates) VALUES($1,$2,1,$3) ON CONFLICT DO NOTHING",
+              [projectId, this.actorId, templates],
+            )
+          : await client.query(
+              "UPDATE qa.project_design_templates SET templates=$3,revision=revision+1 WHERE project_id=$1 AND user_id=$2 AND revision=$4",
+              [projectId, this.actorId, templates, revision],
+            );
+      if (!result.rowCount)
+        throw new HttpError(
+          409,
+          "TEMPLATE_CONFLICT",
+          "Las plantillas cambiaron. Actualiza la lista antes de guardar.",
+        );
+      return { ...templates, revision: revision + 1 };
+    });
   }
   async settings(projectId: string): Promise<AuditSettings> {
     const result = await this.pool.query<AuditSettings>(
@@ -69,10 +119,12 @@ export class PostgresProjectAdministration {
         await client.query("SELECT qa.require_permission($1,'access.manage')", [projectId]);
         if (!project.rows[0])
           throw new HttpError(404, "PROJECT_NOT_FOUND", "Proyecto no disponible.");
+        const activation = input.password === undefined;
         const fingerprint = creationHash({
           name: input.name,
           email: input.email,
           role: input.role,
+          ...(activation ? { activation: true } : {}),
         });
         const prior = await client.query<{
           request_hash: string;
@@ -86,7 +138,8 @@ export class PostgresProjectAdministration {
         if (userId) {
           if (
             prior.rows[0].request_hash !== fingerprint ||
-            !(await verifyPassword(input.password, prior.rows[0].password_hash))
+            (input.password !== undefined &&
+              !(await verifyPassword(input.password, prior.rows[0].password_hash)))
           )
             throw new HttpError(
               409,
@@ -94,10 +147,12 @@ export class PostgresProjectAdministration {
               "El intento ya se utilizó con otros datos. Revisa el usuario creado.",
             );
         } else {
-          const passwordHash = await hashPassword(input.password);
+          const passwordHash = await hashPassword(
+            input.password ?? randomBytes(32).toString("hex"),
+          );
           const created = await client.query<{ id: string }>(
-            "INSERT INTO qa.users(name,email,password_hash) VALUES($1,$2,$3) RETURNING id::text",
-            [input.name, input.email, passwordHash],
+            "INSERT INTO qa.users(name,email,password_hash,activation_pending) VALUES($1,$2,$3,$4) RETURNING id::text",
+            [input.name, input.email, passwordHash, activation],
           );
           userId = created.rows[0].id;
           const organizationId = project.rows[0].organization_id;

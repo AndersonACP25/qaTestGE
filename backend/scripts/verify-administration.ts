@@ -1,5 +1,7 @@
 // Requires an explicitly selected disposable database; never reads backend/.env.
 import assert from "node:assert/strict";
+import { setTimeout as delay } from "node:timers/promises";
+import type { AccountLinkDelivery } from "../src/auth/account-link-delivery.js";
 import { randomUUID } from "node:crypto";
 import request from "supertest";
 import { createPool } from "../src/database.js";
@@ -8,7 +10,13 @@ import { PostgresRepository } from "../src/repositories/postgres.repository.js";
 import { PostgresAuth } from "../src/auth/auth.js";
 if (!process.env.TEST_DATABASE_URL) throw new Error("TEST_DATABASE_URL efímero requerido.");
 const pool = createPool(process.env.TEST_DATABASE_URL);
-const app = createApp(new PostgresRepository(pool), new PostgresAuth(pool));
+const sent: Parameters<AccountLinkDelivery>[0][] = [];
+let rejectDelivery = false;
+const auth = new PostgresAuth(pool, async (link) => {
+  if (rejectDelivery) throw new Error("Webhook no disponible");
+  sent.push(link);
+});
+const app = createApp(new PostgresRepository(pool), auth);
 const owner = request.agent(app),
   outsider = request.agent(app);
 const users: string[] = [],
@@ -26,10 +34,41 @@ try {
     orgs.push((await agent.get("/api/projects")).body.data[0].organizationId);
   }
   const projectId = (await owner.get("/api/projects")).body.data[0].id;
+  const template = {
+    id: randomUUID(),
+    name: "Smoke",
+    title: "Validar inicio de sesión",
+    testType: "Smoke",
+    suite: "Acceso",
+    preconditions: "",
+    tagIds: [],
+    assigneeUserId: users[0],
+    steps: [{ action: "Abrir login", expectedResult: "Formulario visible" }],
+  };
+  const endpoint = "/api/design-templates";
+  const empty = { revision: 0, cases: [], bugDefaults: [] };
+  const initialTemplates = await owner.get(endpoint).query({ projectId });
+  assert.deepEqual(initialTemplates.body.data, empty);
+  const putTemplates = (agent: typeof owner, revision: number) =>
+    agent
+      .put(endpoint)
+      .query({ projectId })
+      .send({ ...empty, revision, cases: [template] });
+  const competing = await Promise.all([putTemplates(owner, 0), putTemplates(owner, 0)]);
+  assert.deepEqual(competing.map(({ status }) => status).sort(), [200, 409]);
+  assert.deepEqual((await owner.get(endpoint).query({ projectId })).body.data.cases, [template]);
+  assert.equal((await putTemplates(outsider, 0)).status, 404);
+  assert.equal((await outsider.get(endpoint).query({ projectId })).status, 404);
+  assert.equal((await putTemplates(owner, 1)).body.data.revision, 2);
+  assert.equal((await putTemplates(owner, 1)).status, 409);
   const sibling = await owner
     .post("/api/projects")
     .send({ organizationId: orgs[0], name: "Proyecto aislado", description: "" });
   assert.equal(sibling.status, 201);
+  assert.deepEqual(
+    (await owner.get(endpoint).query({ projectId: sibling.body.data.id })).body.data,
+    empty,
+  );
   const agents = [];
   const credentials = [];
   for (const role of ["Admin", "QA", "Dev", "Solo lectura"]) {
@@ -99,6 +138,7 @@ try {
       404,
     );
   }
+  assert.deepEqual((await agents[0].get(endpoint).query({ projectId })).body.data, empty);
   const input = { ...credentials[0], email: `${randomUUID()}@example.test` };
   for (const agent of agents.slice(1)) {
     assert.equal(
@@ -261,8 +301,67 @@ try {
       .status,
     404,
   );
+  const publicClient = request(app);
+  assert.equal((await publicClient.get("/api/auth/account-links")).body.data.enabled, true);
+  const pendingEmail = `${randomUUID()}@example.test`;
+  const activationKey = randomUUID();
+  const provision = () =>
+    owner
+      .post("/api/project-users")
+      .query({ projectId })
+      .set("Idempotency-Key", activationKey)
+      .send({ name: "Cuenta por activar", email: pendingEmail, role: "Dev" });
+  rejectDelivery = true;
+  assert.equal((await provision()).status, 503);
+  const pendingUser = await pool.query<{ id: string }>(
+    "SELECT id::text FROM qa.users WHERE email=$1 AND activation_pending",
+    [pendingEmail],
+  );
+  users.push(pendingUser.rows[0].id);
+  const password = "initial activated password";
+  const login = (agent: typeof owner, value: string) =>
+    agent.post("/api/auth/login").send({ email: pendingEmail, password: value });
+  assert.equal((await login(request.agent(app), password)).status, 401);
+  rejectDelivery = false;
+  const activated = await provision();
+  assert.equal(activated.status, 201);
+  assert.equal(activated.body.data.id, pendingUser.rows[0].id);
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].purpose, "activation");
+  const consume = (token: string, value: string) =>
+    publicClient.post("/api/auth/account-links/consume").send({ token, password: value });
+  assert.equal((await consume(sent[0].token, password)).status, 200);
+  assert.equal((await consume(sent[0].token, password)).status, 400);
+  const existing = request.agent(app);
+  assert.equal((await login(existing, password)).status, 200);
+  assert.equal((await existing.get("/api/auth/me")).status, 200);
+  const requestLink = (email: string) =>
+    publicClient.post("/api/auth/account-links/request").send({ email });
+  const unknown = await requestLink(`${randomUUID()}@example.test`);
+  const known = await requestLink(pendingEmail);
+  assert.equal(known.status, 202);
+  assert.equal(unknown.status, known.status);
+  assert.deepEqual(unknown.body, known.body);
+  for (let i = 0; i < 100 && sent.length < 2; i++) await delay(20);
+  assert.equal(sent[1]?.purpose, "recovery");
+  await pool.query(
+    "UPDATE qa.account_links SET expires_at=now()-interval '1 second' WHERE user_id=$1",
+    [pendingUser.rows[0].id],
+  );
+  assert.equal((await consume(sent[1].token, password)).status, 400);
+  await auth.requestAccountLink(pendingEmail);
+  const newPassword = "recovered account password";
+  const attempts = await Promise.all([
+    consume(sent[2].token, newPassword),
+    consume(sent[2].token, newPassword),
+  ]);
+  assert.deepEqual(attempts.map((response) => response.status).sort(), [200, 400]);
+  assert.equal((await existing.get("/api/auth/me")).status, 401);
+  assert.equal((await login(existing, password)).status, 401);
+  assert.equal((await login(existing, newPassword)).status, 200);
+  assert.equal(sent.length, 3);
   console.info(
-    "Administración: altas concurrentes/idempotentes por rol, login real, aislamiento, denegaciones, auditoría filtrada, conflicto de configuración y lectura masiva >100 verificados.",
+    "Administración: altas concurrentes/idempotentes por rol, login real, aislamiento, denegaciones, auditoría filtrada, conflicto de configuración, lectura masiva >100 y enlaces de cuenta verificados.",
   );
 } finally {
   await pool.query(

@@ -6,7 +6,9 @@
 - React + TypeScript + Vite; Express MVC en backend/; PostgreSQL mediante pg, sin fallback en memoria.
 - Las cuentas representan personas; la membresía y el rol explícito delimitan cada proyecto. Los responsables QA deben ser miembros activos con acceso al proyecto.
 - Mantener relaciones explícitas por ID y claves compuestas de proyecto. Las escrituras de pasos, snapshots y vínculos son transaccionales.
-- IA e imagen de perfil siguen siendo maquetas. No hay proveedores externos reales; futuras integraciones viven en servicios/.
+- IA e imagen de perfil siguen siendo maquetas. El piloto Playwright publica resultados normalizados desde GitHub Actions; el cliente vive en servicios/playwright/.
+
+- Casos y Bugs admiten asignación y tags masivos por página. Bugs también valida las transiciones; CI verifica PostgreSQL 17/18 e incluye un smoke con navegador y API reales. Historial compara y restaura contenido de casos como una nueva versión. Auditoría exporta mediante cursor con prefijo qaTestGe y muestra los cambios en un diálogo; las pruebas verifican la tabla y cierran el diálogo antes de actualizar. La campana puede marcar todas las menciones del proyecto. Vistas guardadas se muestra solo en Casos de prueba. Bugs y Casos comparten una barra de selección adaptable. Mis asignaciones muestra estados con color y Evidencias exporta metadatos por registro. Los enlaces directos de bugs, casos y runs verifican el proyecto antes de abrir el detalle. Comentarios y Mis menciones paginan por cursor. Test Runs pagina resúmenes y carga snapshots al abrir. Reportes incluye preparación de release por período UTC, casos vigentes del plan, versión y entorno, con resultados por origen, requisitos y bugs críticos vinculados.
 
 ## Operación
 
@@ -14,7 +16,7 @@
 - Validar pnpm typecheck, pnpm lint, pnpm test, pnpm format:check y pnpm build.
 - Nunca usar la BD personal para integración destructiva. TEST_DATABASE_URL selecciona una base efímera explícita.
 - Instalación: base qa_test_ge vacía + pnpm db:setup. Actualización: pnpm db:migrate. No reimportar 001 sobre una instalación existente.
-- El catálogo compartido backend/src/migrations.ts instala 001 y aplica 004–018; no carga seed automáticamente.
+- El catálogo compartido backend/src/migrations.ts instala 001 y aplica 004–020; no carga seed automáticamente.
 - CI comprueba PostgreSQL efímero, frontend/API y E2E. Push a main genera artefactos; no hay despliegue automático.
 
 ## Flujos implementados al 2026-11-01
@@ -25,7 +27,7 @@
 - Crear bug con sourceResultId exige fallo registrado del mismo proyecto y enlaza caso, run, snapshot y evidencias en una transacción. Solo un bug de origen por resultado. Nuevos adjuntos al resultado también se enlazan al bug.
 - Test Plan permite crear/editar/buscar planes, buscar y consultar sus casos e iniciar Test Runs enlazados. Los planes con runs no se borran; cambios del plan afectan solo a ciclos nuevos.
 - Clonar y reejecutar fallidos copia snapshots originales y reinicia notas/resultados/progreso. Conserva plan y origen; permite revisar versiones históricas aunque el caso luego quede obsoleto. No ejecuta pruebas automáticamente.
-- Casos obsoletos no se incorporan a nuevas selecciones de ejecución. Orígenes y resultados con bugs/evidencias no se borran ni se retiran silenciosamente.
+- Casos obsoletos no se incorporan a nuevas selecciones de ejecución. Editar un run permite retirar casos pendientes sin vínculos, pero protege los resultados registrados y los vinculados a bugs o evidencias.
 - Cada proyecto configura estados, transiciones, estado inicial y closedStates para métricas. Se comprueba revisión y no se retiran estados usados. Solo Admin configura el flujo; QA/Admin gestionan planes.
 - Bugs tienen severidad independiente de prioridad, entorno y versión afectada; las exportaciones individuales incluyen estos campos y los IDs del origen.
 - Tipo de prueba real desde el diseñador/formulario, filtros por tipo y ciclo documental, cobertura por tipo en Reportes. Cobertura por tipo = casos vigentes distintos con algún resultado registrado; la matriz de requisitos es una capacidad separada.
@@ -38,7 +40,7 @@
 
 - CRUD de bugs/casos/runs/evidencias/tags, asignaciones, adjuntos privados (2 MiB), plantillas personales, invitaciones de equipo de un solo uso y gestión de proyectos/equipos.
 - Resultados manuales por caso, finalización/reapertura y snapshots; los recursos referenciados no se eliminan en cascada.
-- Borradores de bugs y preferencias del diseñador por usuario/proyecto, documentos versionados, revisiones y Web Locks. El diseñador usa ejemplos ilustrativos, no IA.
+- Borradores de bugs y preferencias del diseñador por usuario/proyecto, documentos versionados, revisiones y Web Locks. Las pruebas esperan la confirmación de persistencia antes de recargar. El diseñador usa ejemplos ilustrativos, no IA. La migración 022 guarda plantillas de casos y valores de tags/responsable de bugs por cuenta/proyecto con revisión; se aplican a una copia editable.
 - Claves idempotentes persistentes para bug/case/run/plan por actor/proyecto/recurso; huella y recurso se confirman juntos. No reintentar automáticamente ni renovar la clave tras una respuesta ambigua.
 - Contratos Zod de HTTP/almacenamiento, errores seguros, CSRF, autorización de servidor, X-Request-ID y logs sin cuerpos/cookies/secretos.
 - Tablas con páginas de 50/exportación visible, BEM, alertas superiores, footer compartido y navegación adaptable. Dashboard/Reportes consultan agregados del servidor; los demás listados conservan su carga existente.
@@ -79,7 +81,7 @@
 - Dialog separa encabezado/cierre del cuerpo desplazable y usa overflow clip; WorkItemLayout desplaza solo el cuerpo al Historial y propiedades sticky en escritorio. Foco/Escape y reducción de movimiento intactos. Sidebar usa scrollbar nativo fino con alternativa en colores forzados. Comentarios separan contenido/acciones 16 px y tarjetas 24 px.
 - Wiki agrupa guías por categorías/búsqueda e incluye filtros, asignaciones, Test Plan, auditoría y evidencias opcionales. Reportes renueva tarjetas, tendencias y ranking; valida fechas reales, Desde<=Hasta y máximo 366 días inclusivos antes de consultar.
 
-- Accesos: Admin gestiona integrantes existentes y crea cuentas nuevas mediante POST /project-users idempotente. Alta transaccional de usuario/equipo miembro/rol solo en este proyecto; correo existente=409, sin takeover ni privilegios de equipo. Contraseña inicial 12–128, hash scrypt; no envío de correo/restablecimiento. Reintentos conservan clave/cuerpo; historial solo nombre/rol. Propietario/último Admin, asignaciones y scopes protegidos.
+- Accesos: Admin gestiona integrantes existentes y crea cuentas nuevas mediante POST /project-users idempotente. Alta transaccional de usuario/equipo miembro/rol solo en este proyecto; correo existente=409, sin takeover ni privilegios de equipo. Migración 021 admite contraseña inicial o activación (24 h) y recuperación (30 min) por webhook HTTPS opcional; tokens hasheados de un solo uso y revocación de sesiones al consumir. Reintentos conservan clave/cuerpo; historial solo nombre/rol. Propietario/último Admin, asignaciones y scopes protegidos.
 - Dashboard es la primera opción; presenta 0/0% cuando no hay indicadores evaluables, sin cambiar null del servidor/Reportes. Paneles/tarjetas separan contenido y acciones 16–24 px; hidden se conserva.
 - Unitarias CORE por regla en AGENTS/TESTING: se retiran SSR/markup, tema, pluralización y conteos arbitrarios; se conservan auth/roles, reglas QA, contratos de datos, concurrencia, import/export y rollback. Validación de acceso de theme pasa a auth; diseñador conserva selección/cantidades. Sin filtros para ocultar fallos.
 
@@ -94,4 +96,4 @@
 
 - WorkItemEditor comparte cabecera editable con título/responsable, propiedades y cuerpo al crear/editar bugs/casos/runs, conservando claves y formularios. Test Plan rediseña tarjetas, casos, preparación y selección por búsqueda. ProjectPicker conserva select nativo con estilo propio. Equipos ofrece tarjetas/búsqueda; Descargar no parte el texto. Contador de menciones a 16 px; campana 560 px y lectura masiva propia >100 intactas.
 - PostgreSQL efímero: instalación vacía/repetición y seis integraciones aprobadas (auth, calidad, colaboración, analítica, administración, asignaciones). Actualización 017→018 repetida preserva registros y evita atribuir homónimos; CI la verifica en otra base vacía. Reglas CORE y permisos conservados; 169 unitarias CORE y 285 E2E aprobadas (1440/375/425 px), con TypeScript, lint, formato y build aprobados.
-- Entrega actual en fix/filtros-cobertura-y-alertas hacia qa-env, después de PR #33; no fusionar. Sin dependencias nuevas. Mis asignaciones usa GET /assigned-work: cuenta autenticada, filtros/paginación SQL, bugs/casos por assignee y runs por ownerUserId. Migración 018 vincula solo responsables heredados con coincidencia única, valida acceso y protege retiradas de equipo/proyecto. DesignEvidencePanel cerrado por defecto selecciona File en memoria y lo anexa explícitamente tras guardar el bug/caso, sin borradores binarios ni IA.
+- Migración 019 agrega procedencia de Playwright e identidad única por proyecto. El piloto exige credencial SHA-256 ligada a proyecto y cuenta QA/Admin, registra intentos y conserva ejecuciones publicadas. Migración 020 guarda versión y entorno y recupera el entorno de Playwright histórico. Configuración en docs/PLAYWRIGHT_PILOT.md.

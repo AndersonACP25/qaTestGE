@@ -8,6 +8,10 @@ import type {
   Requirement,
   RequirementInput,
   RunReport,
+  ReleaseCounts,
+  ReleaseOrigin,
+  ReleaseQuery,
+  ReleaseReadiness,
 } from "../models/analytics.model.js";
 import {
   previousCreation,
@@ -55,6 +59,117 @@ export class PostgresAnalyticsRepository implements AnalyticsRepository {
     } finally {
       c.release();
     }
+  }
+  async releaseReadiness(projectId: string, query: ReleaseQuery): Promise<ReleaseReadiness> {
+    return this.transaction(async (client) => {
+      const plan = query.plan ? parseReference(query.plan, "PLAN") : null;
+      if (plan) {
+        const owned = await client.query(
+          "SELECT 1 FROM qa.test_plans WHERE project_id=$1 AND id=$2",
+          [projectId, plan],
+        );
+        if (!owned.rowCount)
+          throw new HttpError(404, "PLAN_NOT_FOUND", "Plan no disponible en el proyecto.");
+      }
+      const { rows } = await client.query<ReleaseReadiness>(
+        `WITH period_runs AS (
+          SELECT * FROM qa.test_runs
+          WHERE project_id=$1 AND created_at >= $2::date AND created_at < ($3::date+1)
+            AND ($8::text IS NULL OR lower(release_version)=lower($8))
+            AND ($9::text IS NULL OR lower(execution_environment)=lower($9))
+        ), eligible_cases AS (
+          SELECT c.id FROM qa.test_cases c WHERE c.project_id=$1 AND c.lifecycle<>'Obsoleto'
+            AND ($4::bigint IS NULL OR EXISTS (
+              SELECT 1 FROM qa.test_plan_cases pc
+              WHERE pc.project_id=$1 AND pc.plan_id=$4 AND pc.test_case_id=c.id
+            ))
+        ), scoped_results AS (
+          SELECT rr.* FROM qa.test_run_results rr JOIN period_runs r
+            ON r.project_id=rr.project_id AND r.id=rr.test_run_id
+          WHERE $4::bigint IS NULL OR rr.test_case_id IN (SELECT id FROM eligible_cases)
+        ), latest AS (
+          SELECT DISTINCT ON (test_case_id) test_case_id,status FROM scoped_results
+          WHERE executed_at IS NOT NULL AND status<>'skipped'
+          ORDER BY test_case_id,executed_at DESC,id DESC
+        ), requirements AS (
+          SELECT req.id,count(ec.id) AS linked,count(latest.test_case_id) AS evaluated,
+            count(*) FILTER(WHERE latest.status='passed') AS passed
+          FROM qa.requirements req
+          LEFT JOIN qa.requirement_cases rc ON rc.requirement_id=req.id AND rc.project_id=req.project_id
+          LEFT JOIN eligible_cases ec ON ec.id=rc.test_case_id
+          LEFT JOIN latest ON latest.test_case_id=ec.id
+          WHERE req.project_id=$1 GROUP BY req.id
+          HAVING $4::bigint IS NULL OR count(ec.id)>0
+        ), critical AS (
+          SELECT b.id,b.title FROM qa.bugs b
+          JOIN qa.project_bug_workflows w ON w.project_id=b.project_id
+          WHERE b.project_id=$1 AND b.severity='Crítica' AND NOT(w.closed_states ? b.status)
+            AND (b.source_result_id IN (SELECT id FROM scoped_results) OR ((($8::text IS NULL AND $9::text IS NULL) OR b.source_result_id IS NULL) AND EXISTS (
+              SELECT 1 FROM qa.bug_test_cases bc WHERE bc.project_id=$1 AND bc.bug_id=b.id
+                AND bc.test_case_id IN (SELECT test_case_id FROM scoped_results)
+            )))
+        ), runs AS (
+          SELECT r.id,r.title,r.created_at AS "createdAt",r.execution_environment AS environment,r.release_version AS "releaseVersion",
+            CASE WHEN r.playwright IS NULL THEN 'manual' ELSE 'playwright' END AS origin,
+            count(rr.id) FILTER (WHERE rr.executed_at IS NULL)::int AS pending,
+            count(*) FILTER (WHERE rr.executed_at IS NOT NULL AND rr.status='passed')::int AS passed,
+            count(*) FILTER (WHERE rr.executed_at IS NOT NULL AND rr.status='failed')::int AS failed,
+            count(*) FILTER (WHERE rr.executed_at IS NOT NULL AND rr.status='blocked')::int AS blocked,
+            count(*) FILTER (WHERE rr.executed_at IS NOT NULL AND rr.status='skipped')::int AS skipped
+          FROM period_runs r
+          LEFT JOIN scoped_results rr ON rr.project_id=r.project_id AND rr.test_run_id=r.id
+          GROUP BY r.id,r.title,r.created_at,r.playwright,r.execution_environment,r.release_version
+          HAVING $4::bigint IS NULL OR count(rr.id)>0
+        ), totals AS (
+          SELECT origin,count(*)::int AS runs,sum(pending)::int AS pending,sum(passed)::int AS passed,
+            sum(failed)::int AS failed,sum(blocked)::int AS blocked,sum(skipped)::int AS skipped
+          FROM runs GROUP BY origin
+        ), filtered AS (
+          SELECT * FROM runs WHERE ($5::text IS NULL OR origin=$5)
+            AND CASE $6::text WHEN 'pending' THEN pending>0 WHEN 'passed' THEN passed>0
+              WHEN 'failed' THEN failed>0 WHEN 'blocked' THEN blocked>0 WHEN 'skipped' THEN skipped>0 ELSE true END
+        ), items AS (
+          SELECT 'RUN-' || lpad(id::text,greatest(3,length(id::text)),'0') AS id,
+            title,"createdAt",environment,"releaseVersion",origin,pending,passed,failed,blocked,skipped,id AS sort
+          FROM filtered ORDER BY sort DESC LIMIT 25 OFFSET $7
+        )
+        SELECT coalesce((SELECT jsonb_object_agg(origin,to_jsonb(totals)-'origin') FROM totals),'{}') AS totals,
+          (SELECT count(*)::int FROM filtered) AS total,
+          (SELECT jsonb_build_object('requirements',count(*),'linked',count(*) FILTER(WHERE linked>0),
+            'executed',count(*) FILTER(WHERE linked>0 AND evaluated=linked),
+            'passed',count(*) FILTER(WHERE linked>0 AND passed=linked)) FROM requirements) AS coverage,
+          jsonb_build_object('total',(SELECT count(*) FROM critical),'rows',coalesce((
+            SELECT jsonb_agg(jsonb_build_object('id','BUG-' || lpad(id::text,greatest(3,length(id::text)),'0'),'title',title) ORDER BY id DESC)
+            FROM (SELECT * FROM critical ORDER BY id DESC LIMIT 10) latest_bugs
+          ),'[]')) AS "criticalBugs",
+          coalesce((SELECT jsonb_agg(to_jsonb(items)-'sort' ORDER BY sort DESC) FROM items),'[]') AS rows`,
+        [
+          projectId,
+          query.from,
+          query.to,
+          plan,
+          query.origin ?? null,
+          query.outcome ?? null,
+          query.offset,
+          query.releaseVersion ?? null,
+          query.environment ?? null,
+        ],
+      );
+      const empty: ReleaseCounts = {
+        runs: 0,
+        pending: 0,
+        passed: 0,
+        failed: 0,
+        blocked: 0,
+        skipped: 0,
+      };
+      const { totals, ...result } = rows[0];
+      const sources: Record<ReleaseOrigin, ReleaseCounts> = {
+        manual: totals.manual ?? empty,
+        playwright: totals.playwright ?? empty,
+      };
+      return { ...result, totals: sources };
+    }, true);
   }
   async overview(projectId: string, range: AnalyticsRange): Promise<AnalyticsData> {
     return this.transaction(async (c) => {

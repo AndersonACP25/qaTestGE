@@ -58,6 +58,7 @@ export const test = base.extend<{
           user: { id: "1", name: "QA Local", email: "qa@example.test" },
           csrfToken: "test-csrf",
         };
+      else if (path === "/design-templates") data = { revision: 0, cases: [], bugDefaults: [] };
       else if (path === "/analytics")
         data = {
           range: {

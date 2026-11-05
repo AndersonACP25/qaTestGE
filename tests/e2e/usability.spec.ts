@@ -123,11 +123,17 @@ test("Configuración reúne flujo y auditoría con búsqueda y feedback de actua
   await expect(
     page.getByRole("heading", { name: "Actividad y auditoría del proyecto" }),
   ).toBeVisible();
-  await expect(page.locator(".project-activity__event")).toHaveCount(2);
+  const table = page.getByRole("table", { name: "Actividad de la página actual" });
+  const rows = table.getByRole("row").filter({ has: page.getByRole("cell") });
+  await expect(rows).toHaveCount(2);
   await page.getByLabel("Buscar en la actividad cargada").fill("REQ-001");
-  await expect(page.locator(".project-activity__event")).toHaveCount(1);
-  await page.getByText("Ver cambios", { exact: true }).click();
-  await expect(page.locator(".project-activity__changes")).toContainText("Acceso seguro");
+  await expect(rows).toHaveCount(1);
+  await expect(rows.getByRole("cell", { name: /REQ-001/ })).toBeVisible();
+  await rows.getByRole("button", { name: "Ver cambios", exact: true }).click();
+  const details = page.getByRole("dialog", { name: "Cambios de auditoría · REQ-001" });
+  await expect(details.getByText("Después: Acceso seguro", { exact: true })).toBeVisible();
+  await details.getByRole("button", { name: "Cerrar ventana", exact: true }).click();
+  await expect(details).toHaveCount(0);
   await page.getByRole("button", { name: "Actualizar actividad", exact: true }).click();
   await expect(page.getByText("Actividad actualizada.", { exact: true })).toBeVisible();
   await page.screenshot({

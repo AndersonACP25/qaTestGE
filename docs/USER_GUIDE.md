@@ -16,7 +16,7 @@ Organiza el trabajo de calidad de tu equipo en un solo lugar: registra bugs, pre
 - **Bugs:** crear, consultar, editar y organizar incidencias con tags y responsables. Puedes usar plantillas personales y exportar registros.
 - **Casos de prueba:** documentar procedimientos, adjuntar imágenes o enlaces y relacionarlos con bugs. La Suite es opcional.
 - **Ejecuciones:** agrupar casos, registrar sus resultados y completar la ejecución cuando todos tengan un resultado. Puedes reabrirla para corregirlos.
-- **Evidencias:** subir y descargar archivos privados de hasta **2 MiB**, vinculados al trabajo del proyecto.
+- **Evidencias:** subir y descargar archivos privados de hasta **2 MiB**, vinculados al trabajo del proyecto. **Exportar** guarda los metadatos del registro en Excel, PDF o Markdown.
 - **Dashboard y reportes:** consultar el estado del proyecto y descargar el reporte en CSV.
 - **Proyectos y equipos:** crear espacios de colaboración y aceptar códigos de invitación de un solo uso. Los integrantes necesitan un rol en cada proyecto; el propietario conserva Admin.
 
@@ -46,7 +46,13 @@ Si administras la instalación y quieres conectar un proveedor de IA, consulta l
 
 ## Personaliza tu cuenta
 
+Si la instancia tiene habilitada la entrega de correos, usa **¿Olvidaste tu contraseña o necesitas activar tu cuenta?** en la pantalla de acceso. Introduce tu correo y abre el enlace recibido para definir una contraseña. El enlace de recuperación vence en 30 minutos y cierra tus sesiones anteriores al confirmar el cambio.
+
+Desde **Configuración → Accesos al proyecto**, Admin puede marcar **Enviar enlace de activación** al crear una cuenta. La persona tiene 24 horas para usar el enlace y establecer su contraseña. Si vence, puede solicitar otro desde la pantalla de acceso.
+
 En **Configuración** puedes actualizar tu nombre y correo, cambiar tu contraseña y crear plantillas personales de bugs. También puedes cambiar el tema de la interfaz.
+
+En **Configuración → Plantillas** puedes crear formatos de bugs y casos. Las plantillas de casos conservan título, tipo, suite, precondiciones, pasos, tags y responsable. Para bugs, primero guarda el formato personal y luego configura **Tags y responsable** para el proyecto actual. Usa la plantilla en un formulario de creación o en el diseñador y revisa la copia antes de guardar el registro.
 
 El cambio de imagen de perfil aparece como una maqueta: todavía no permite seleccionar ni subir imágenes.
 
@@ -54,11 +60,11 @@ Al desactivar tu cuenta se revocan tus sesiones y se anonimizan tus datos person
 
 ## Límites actuales
 
-La conexión con IA es una maqueta: no guarda claves ni envía información a proveedores. Tampoco están disponibles la recuperación de contraseña, la verificación de correo, MFA ni invitaciones por correo. Las ejecuciones registran pruebas manuales; no ejecutan pruebas automáticamente.
+La conexión con IA es una maqueta: no guarda claves ni envía información a proveedores. MFA y las invitaciones de equipo por correo siguen pendientes. Las ejecuciones registran pruebas manuales; no ejecutan pruebas automáticamente.
 
 ## Instalación y documentación técnica
 
-Para ejecutar tu propia instancia, consulta la [guía de desarrollo](DEVELOPMENT.md). Al actualizar una instalación existente, aplica `pnpm db:migrate` antes de iniciar la API; esta versión incorpora la migración 012 para evitar creaciones duplicadas. Encontrarás los detalles técnicos en [Arquitectura](architecture.md), [API](API.md), [Pruebas](TESTING.md) y [Seguridad](../SECURITY.md). Para colaborar con el proyecto, consulta [CONTRIBUTING.md](../CONTRIBUTING.md).
+Para ejecutar tu propia instancia, consulta la [guía de desarrollo](DEVELOPMENT.md). Al actualizar una instalación existente, aplica `pnpm db:migrate` antes de iniciar la API; la migración 021 habilita el almacenamiento de enlaces de cuenta. Encontrarás los detalles técnicos en [Arquitectura](architecture.md), [API](API.md), [Pruebas](TESTING.md) y [Seguridad](../SECURITY.md). Para colaborar con el proyecto, consulta [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 ## Trazabilidad y organización de pruebas
 
@@ -76,7 +82,7 @@ Abre el detalle de un bug, caso o ejecución y utiliza **Comentarios y actividad
 
 **Mis menciones** muestra tus avisos del proyecto. **Abrir registro** abre el bug, caso o ejecución sin cambiar su lectura. Usa el botón verde **Marcar como leída** para actualizarla explícitamente. La lista se actualiza cada 15 segundos mientras está visible y al recuperar el foco; también puedes actualizarla manualmente. Incluye las automenciones. No hay avisos push. Los avisos dejan de mostrarse si se retira la mención, se elimina el comentario o pierdes el acceso al proyecto.
 
-El autor y los Admin pueden editar o eliminar comentarios. El borrado muestra una marca de comentario eliminado; la versión anterior queda en la auditoría. Si otra persona modificó el comentario mientras lo editabas, se rechaza tu actualización para evitar sobrescribirla: actualiza la conversación y revisa la nueva versión. Se muestran los 100 comentarios más recientes del recurso.
+El autor y los Admin pueden editar o eliminar comentarios. El borrado muestra una marca de comentario eliminado; la versión anterior queda en la auditoría. Si otra persona modificó el comentario mientras lo editabas, se rechaza tu actualización para evitar sobrescribirla: actualiza la conversación y revisa la nueva versión. Los comentarios se muestran en páginas de 50. Usa **Comentarios anteriores** para consultar el historial.
 
 En el detalle puedes desplegar **Ver historial de actividad del registro**. La ventana **Actividad y auditoría** permite consultar cambios del proyecto y cargar entradas anteriores. Muestra actor, fecha, registro y cambios antes/después; también registra cambios de roles y permisos. El historial empieza al instalar la migración 014 y no reconstruye acciones anteriores. Los datos de auditoría se confirman junto con el cambio; las operaciones fallidas no dejan eventos de cambio. No se pueden editar ni eliminar desde la aplicación.
 
@@ -109,7 +115,7 @@ En **Configuración → Inteligencia artificial** puedes consultar el catálogo 
 
 ## Bandeja y notificaciones
 
-La campana del navbar muestra las últimas menciones del proyecto, un contador de pendientes y **Ver todas las menciones**. El contador se comparte con Mis menciones; ambos se actualizan cada 15 segundos mientras la aplicación está visible y al recuperar el foco. La bandeja permite filtrar Todas, Sin leer y Leídas. Abrir un registro conserva el aviso pendiente; marcarlo como leído requiere el botón verde. Se consultan los últimos 100 avisos.
+La campana del navbar muestra las últimas menciones del proyecto, un contador de pendientes y **Ver todas las menciones**. El contador se comparte con Mis menciones; ambos se actualizan cada 15 segundos mientras la aplicación está visible y al recuperar el foco. La bandeja permite filtrar Todas, Sin leer y Leídas. Abrir un registro conserva el aviso pendiente; marcarlo como leído requiere **Marcar como leída** o **Marcar todas como leídas**. El filtro se aplica a todos tus avisos del proyecto y los resultados se consultan en páginas de 50.
 
 En la barra de comentarios, **@ Mencionar** abre la búsqueda de integrantes e inserta el nombre seleccionado donde está el cursor. También puedes escribir @ y seleccionar una sugerencia. Los campos largos tienen mayor altura inicial; Lista y Cita usan botones de texto.
 
@@ -118,3 +124,33 @@ En Importar, pulsa **Subir archivo** o arrastra un CSV/Excel al modal; revisa la
 **Test Plan** permite crear, buscar, consultar y editar planes con su descripción y casos. Puedes buscar casos dentro del formulario y consultar los incluidos en cada plan. **Iniciar Test Run** crea una ejecución vinculada; los planes ya utilizados siguen protegidos frente al borrado.
 
 Al ejecutar un Test Run, guardar un resultado conserva la posición del caso y muestra la confirmación junto a él. El historial de actividad se presenta sin numeración, del cambio más reciente al más antiguo.
+
+## Preparación de release
+
+En **Reportes y métricas**, aplica el período UTC y abre **Preparación de release**. El panel compara ejecuciones iniciadas en ese período. **Casos del Test Plan** delimita los casos vigentes del plan y puede incluir resultados de Playwright aunque la ejecución automática no tenga un plan asignado. La fecha es la de creación del Test Run.
+
+Selecciona un total de pendientes, aprobados, fallidos, bloqueados u omitidos para filtrar la tabla y abrir la ejecución. Los indicadores comparativos conservan ambos orígenes. En **Versión del release** y **Entorno de ejecución** puedes registrar valores al crear o editar un Test Run manual, también al iniciarlo desde un Test Plan. Clonar o reejecutar fallidos conserva ambos datos del origen. Los campos vacíos aparecen como **Sin registrar**.
+
+En el panel, **Aplicar versión y entorno** delimita la comparación, la validación de requisitos y los bugs críticos. Los filtros comparan el valor completo sin distinguir mayúsculas. Un campo vacío deja esa dimensión abierta. Las ejecuciones publicadas por Playwright toman el entorno del publicador y la versión de `QATESTGE_RELEASE_VERSION` si se configuró.
+
+La validación de requisitos considera el último resultado evaluable de cada caso vigente. Un requisito queda aprobado si todos sus casos del alcance aprobaron. Los bugs críticos abiertos se identifican según la severidad, el flujo configurado y su vínculo a un caso o resultado de las ejecuciones del período. La lista muestra los diez más recientes y permite abrir el detalle.
+
+## Vistas guardadas y enlaces directos
+
+En **Casos de prueba**, ajusta los filtros, abre **Vistas guardadas** y escribe un nombre. **Guardar filtros actuales** conserva la combinación. Usa **Aplicar vista** para recuperarla desde la primera página o **Eliminar vista** para retirarla. Puedes guardar hasta 20 vistas de casos por cuenta y proyecto en el navegador actual.
+
+En el detalle de un registro, pulsa **Copiar enlace**. La persona que lo abra debe iniciar sesión y tener acceso al proyecto. Si el navegador bloquea el portapapeles, la aplicación muestra el enlace para copiarlo manualmente.
+
+## Operaciones masivas de casos
+
+En **Casos de prueba**, marca las filas o usa **Seleccionar página** para trabajar con los casos visibles. Abre **Operación masiva** y elige **Asignar responsable** o **Añadir tags**. Revisa el cambio por caso antes de pulsar **Confirmar operación**. La asignación permite dejar los casos sin responsable y los tags nuevos se suman a los existentes.
+
+La selección se limita a la página actual. Si un caso cambió desde que abriste la vista previa, actualiza el listado y revisa la selección de nuevo. La operación se aplica completa o se rechaza completa.
+
+En **Bugs** también puedes seleccionar filas de la página y revisar una asignación, añadir tags o cambiar el estado. Para cambiar el estado, el selector ofrece destinos válidos para todos los bugs seleccionados según el flujo vigente. Si alguno cambió desde la revisión o la transición deja de estar permitida, se rechaza el lote completo.
+
+## Comparar versiones de un caso
+
+Abre **Historial de versiones** y usa **Comparar versiones** para ver qué cambió en el título, tipo, suite, estado documental, precondiciones y pasos. **Restaurar versión** crea una nueva versión a partir del contenido histórico. Los tags, el responsable y el estado operativo se conservan.
+
+En **Actividad y auditoría**, **Exportar todo filtrado** recorre las páginas del historial con los filtros vigentes y la búsqueda local. Si el historial supera 10,000 eventos consultados o el contenido de exportación supera 8 MiB, acota los filtros del servidor. La exportación de página sigue disponible.

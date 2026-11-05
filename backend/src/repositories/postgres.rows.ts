@@ -44,6 +44,9 @@ export interface RunRow extends BaseRow {
   owner_user_id?: string | null;
   plan_id?: string | null;
   source_run_id?: string | null;
+  release_version?: string | null;
+  execution_environment?: string | null;
+  playwright?: import("../models/playwright-import.model.js").PlaywrightMetadata | null;
   status: TestRunStatus;
   case_ids: string[];
   progress: number;

@@ -1,5 +1,7 @@
+import type { BugBulkInput } from "../models/bug-bulk.model.js";
+import type { CaseBulkInput } from "../models/case-bulk.model.js";
 import type { CreationContext } from "../repositories/creation-request.js";
-import type { ListQuery } from "../repositories/list-query.js";
+import type { ListQuery, RunListQuery } from "../repositories/list-query.js";
 import type { Repository, Project } from "../repositories/repository.js";
 import type { BugStatus, CreateBugInput, UpdateBugInput } from "../models/bug.model.js";
 import type {
@@ -32,6 +34,12 @@ export class AuthorizedRepository implements Repository {
     const base = this.base.collaboration;
     if (!base) return undefined;
     return {
+      designTemplates:
+        base.designTemplates &&
+        (async (p, input) => {
+          await this.projectIds(p);
+          return base.designTemplates!(p, input);
+        }),
       assignedWork: async (p, filters) => {
         await this.projectIds(p);
         return base.assignedWork(p, filters);
@@ -60,9 +68,9 @@ export class AuthorizedRepository implements Repository {
         await this.projectIds(p);
         return base.saveMember(p, u, r, v);
       },
-      comments: async (p, t) => {
+      comments: async (p, t, before, limit) => {
         await this.projectIds(p);
-        return base.comments(p, t);
+        return base.comments(p, t, before, limit);
       },
       createComment: async (p, t, b, k) => {
         await this.projectIds(p);
@@ -76,9 +84,13 @@ export class AuthorizedRepository implements Repository {
         await this.projectIds(p);
         return base.activity(p, t, b, filters);
       },
-      notifications: async (p) => {
+      notifications: async (p, before, limit, read) => {
         await this.projectIds(p);
-        return base.notifications(p);
+        return base.notifications(p, before, limit, read);
+      },
+      unreadNotifications: async (p) => {
+        await this.projectIds(p);
+        return base.unreadNotifications(p);
       },
       readNotification: async (p, id) => {
         await this.projectIds(p);
@@ -90,6 +102,10 @@ export class AuthorizedRepository implements Repository {
     const base = this.base.analytics;
     if (!base) return undefined;
     return {
+      releaseReadiness: async (p, query) => {
+        await this.projectIds(p);
+        return base.releaseReadiness(p, query);
+      },
       overview: async (p, range) => {
         await this.projectIds(p);
         return base.overview(p, range);
@@ -192,6 +208,14 @@ export class AuthorizedRepository implements Repository {
       options ? this.base.listCases(projectId, options) : this.base.listCases(projectId),
     );
   }
+  async listRunSummaries(projectId: string, options?: RunListQuery) {
+    await this.projectIds(projectId);
+    return this.base.listRunSummaries(projectId, options);
+  }
+  async findRun(id: string, projectId: string) {
+    await this.projectIds(projectId);
+    return this.base.findRun(id, projectId);
+  }
   listRuns(id?: string, options?: ListQuery) {
     return this.list(id, (projectId) =>
       options ? this.base.listRuns(projectId, options) : this.base.listRuns(projectId),
@@ -206,6 +230,10 @@ export class AuthorizedRepository implements Repository {
     return context
       ? this.base.createBug(input, { ...context, actorId: this.actorId! })
       : this.base.createBug(input);
+  }
+  async bulkUpdateBugs(input: BugBulkInput) {
+    await this.projectIds(input.projectId);
+    return this.base.bulkUpdateBugs(input);
   }
   async updateBugStatus(id: string, projectId: string, status: BugStatus) {
     await this.projectIds(projectId);
@@ -225,6 +253,19 @@ export class AuthorizedRepository implements Repository {
     return context
       ? this.base.createCase(input, { ...context, actorId: this.actorId! })
       : this.base.createCase(input);
+  }
+  async bulkUpdateCases(input: CaseBulkInput) {
+    await this.projectIds(input.projectId);
+    return this.base.bulkUpdateCases(input);
+  }
+  async restoreCaseVersion(
+    id: string,
+    projectId: string,
+    version: number,
+    expectedVersion: number,
+  ) {
+    await this.projectIds(projectId);
+    return this.base.restoreCaseVersion(id, projectId, version, expectedVersion);
   }
   async updateCase(id: string, projectId: string, input: UpdateTestCaseInput) {
     await this.projectIds(projectId);
@@ -253,6 +294,15 @@ export class AuthorizedRepository implements Repository {
   async deleteCaseAttachment(id: string, attachmentId: string, projectId: string) {
     await this.projectIds(projectId);
     return this.base.deleteCaseAttachment(id, attachmentId, projectId);
+  }
+  async importPlaywright(
+    projectId: string,
+    _actorId: string,
+    input: import("../models/playwright-import.model.js").PlaywrightImport,
+  ) {
+    await this.projectIds(projectId);
+    if (!this.actorId) throw new HttpError(401, "UNAUTHENTICATED", "Inicia sesión.");
+    return this.base.importPlaywright(projectId, this.actorId, input);
   }
   async createRun(input: CreateTestRunInput, context?: CreationContext) {
     await this.projectIds(input.projectId);

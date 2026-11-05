@@ -1,17 +1,7 @@
 import type { Tag } from "../types";
 import { formatCount } from "../utils/pluralization";
-export const defaultListingFilters = {
-  search: "",
-  statusFilter: "Todos",
-  typeFilter: "Todos",
-  lifecycleFilter: "Todos",
-  priority: "Todos",
-  severity: "Todos",
-  assignee: "Todos",
-  tag: "Todos",
-  plan: "Todos",
-};
-export type ListingFilterState = typeof defaultListingFilters;
+import type { ListingFilterState } from "../models/listingViews";
+export { defaultListingFilters } from "../models/listingViews";
 export default function ListingFilters({
   kind,
   statuses,
@@ -33,6 +23,9 @@ export default function ListingFilters({
   types: string[];
   plans: string[];
 }) {
+  const statusOptions = statuses.includes(values.statusFilter)
+    ? statuses
+    : [...statuses, values.statusFilter];
   const active = Object.entries(values).filter(([key, value]) =>
     key === "search" ? Boolean(value.trim()) : value !== "Todos",
   ).length;
@@ -52,7 +45,7 @@ export default function ListingFilters({
       </header>
       <div className="listing-toolbar listing-filters">
         <div className="listing-filters__tabs" role="group" aria-label="Filtrar por estado">
-          {statuses.map((status) => (
+          {statusOptions.map((status) => (
             <button
               type="button"
               key={status}
@@ -61,12 +54,14 @@ export default function ListingFilters({
               onClick={() => onChange({ statusFilter: status })}
             >
               {status}
+              {statuses.includes(status) ? "" : " (no disponible)"}
             </button>
           ))}
         </div>
         <label className="search-field">
           <input
             type="search"
+            maxLength={200}
             aria-label="Buscar registros"
             value={values.search}
             onChange={(event) => onChange({ search: event.target.value })}
@@ -110,6 +105,9 @@ export default function ListingFilters({
                 onChange={(event) => onChange({ typeFilter: event.target.value })}
               >
                 <option>Todos</option>
+                {values.typeFilter !== "Todos" && !types.includes(values.typeFilter) && (
+                  <option value={values.typeFilter}>{values.typeFilter} (no disponible)</option>
+                )}
                 {types.map((value) => (
                   <option key={value}>{value}</option>
                 ))}
@@ -136,6 +134,11 @@ export default function ListingFilters({
           >
             <option>Todos</option>
             <option value="Sin asignar">Sin asignar</option>
+            {values.assignee !== "Todos" &&
+              values.assignee !== "Sin asignar" &&
+              !members.some((member) => member.id === values.assignee) && (
+                <option value={values.assignee}>Responsable no disponible</option>
+              )}
             {members.map((member) => (
               <option key={member.id} value={member.id}>
                 {member.name}
@@ -148,6 +151,11 @@ export default function ListingFilters({
           <select value={values.tag} onChange={(event) => onChange({ tag: event.target.value })}>
             <option>Todos</option>
             <option value="Sin tags">Sin tags</option>
+            {values.tag !== "Todos" &&
+              values.tag !== "Sin tags" &&
+              !tags.some((tag) => tag.id === values.tag) && (
+                <option value={values.tag}>Tag no disponible</option>
+              )}
             {tags.map((tag) => (
               <option key={tag.id} value={tag.id}>
                 {tag.name}
@@ -164,6 +172,11 @@ export default function ListingFilters({
             >
               <option>Todos</option>
               <option value="Sin plan">Sin plan</option>
+              {values.plan !== "Todos" &&
+                values.plan !== "Sin plan" &&
+                !plans.includes(values.plan) && (
+                  <option value={values.plan}>{values.plan} (no disponible)</option>
+                )}
               {plans.map((plan) => (
                 <option key={plan}>{plan}</option>
               ))}

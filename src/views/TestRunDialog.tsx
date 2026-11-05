@@ -1,3 +1,6 @@
+import RecordLinkButton from "../components/RecordLinkButton";
+import RunReleaseFields from "../components/RunReleaseFields";
+import { formatCount } from "../utils/pluralization";
 import WorkItemEditor from "../components/WorkItemEditor";
 import type { ProjectMember } from "../../backend/src/models/collaboration.model";
 import FileDropzone from "../components/FileDropzone";
@@ -86,8 +89,8 @@ export default function TestRunDialog({
       alive.current = false;
     };
   }, []);
-  const [editing, setEditing] = useState(initialAction === "edit");
-  const [confirmDelete, setConfirmDelete] = useState(initialAction === "delete");
+  const [editing, setEditing] = useState(initialAction === "edit" && !run.playwright);
+  const [confirmDelete, setConfirmDelete] = useState(initialAction === "delete" && !run.playwright);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -165,7 +168,7 @@ export default function TestRunDialog({
           <button
             type="button"
             className="workspace__danger"
-            disabled={busy || readOnly}
+            disabled={busy || readOnly || Boolean(run.playwright)}
             onClick={() =>
               void act(async () => {
                 await deleteTestRun(run.id, run.projectId!);
@@ -215,11 +218,14 @@ export default function TestRunDialog({
       <WorkItemLayout
         kind="run"
         editing={editing}
+        actions={run.projectId && <RecordLinkButton projectId={run.projectId} id={run.id} />}
         id={run.id}
         title={run.title}
         status={run.status}
         fields={[
           { label: "Responsable", value: run.owner },
+          { label: "Versión del release", value: run.releaseVersion ?? "Sin registrar" },
+          { label: "Entorno", value: run.environment ?? "Sin registrar" },
           { label: "Test Plan", value: run.planId || "Sin plan" },
           { label: "Progreso", value: `${run.progress}%` },
           { label: "Casos", value: run.caseIds?.length ?? 0 },
@@ -233,6 +239,39 @@ export default function TestRunDialog({
         <div className="test-run" ref={content}>
           {error && <Alert tone="error">{error}</Alert>}
           {message && <Alert tone="success">{message}</Alert>}
+          {run.playwright && (
+            <section className="layout__stack" aria-label="Origen de la ejecución">
+              <strong>
+                Playwright · {run.playwright.suite} · {run.playwright.environment}
+              </strong>
+              <span>
+                {run.playwright.branch} · {run.playwright.commit.slice(0, 12)}
+              </span>
+              <a
+                className="workspace__secondary"
+                href={run.playwright.runUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Abrir ejecución en GitHub Actions
+              </a>
+              {run.playwright.unknownCaseIds.length > 0 && (
+                <p>
+                  Casos fuera del proyecto, obsoletos o inexistentes:{" "}
+                  {run.playwright.unknownCaseIds.join(", ")}
+                </p>
+              )}
+              {run.playwright.unmappedCount > 0 && (
+                <p>
+                  {formatCount(
+                    run.playwright.unmappedCount,
+                    "prueba sin identificador",
+                    "pruebas sin identificador",
+                  )}
+                </p>
+              )}
+            </section>
+          )}
           <p className="test-run__summary">
             {run.title} · {run.status} · {run.progress}% registrado
           </p>
@@ -313,6 +352,8 @@ export default function TestRunDialog({
                     owner: String(form.get("owner")),
                     ownerUserId: String(form.get("ownerUserId") ?? "") || null,
                     caseIds: form.getAll("caseIds") as string[],
+                    releaseVersion: String(form.get("releaseVersion") ?? "").trim() || null,
+                    environment: String(form.get("environment") ?? "").trim() || null,
                     status: String(form.get("status")) as TestRunStatus,
                     tagIds: run.tagIds ?? [],
                   });
@@ -329,6 +370,10 @@ export default function TestRunDialog({
                     Título
                     <input name="title" defaultValue={run.title} required maxLength={200} />
                   </label>
+                  <RunReleaseFields
+                    releaseVersion={run.releaseVersion}
+                    environment={run.environment}
+                  />
                   <input name="owner" type="hidden" value={run.owner} />
                   <label className="workspace__field">
                     Responsable de ejecución
@@ -391,7 +436,7 @@ export default function TestRunDialog({
               <div className="test-run__actions">
                 <button
                   className="workspace__secondary"
-                  disabled={readOnly || busy}
+                  disabled={readOnly || busy || Boolean(run.playwright)}
                   onClick={() => {
                     setOwnerUserId(run.ownerUserId ?? "");
                     setEditing(true);
@@ -402,7 +447,7 @@ export default function TestRunDialog({
                 </button>
                 <button
                   className="workspace__danger"
-                  disabled={readOnly || busy}
+                  disabled={readOnly || busy || Boolean(run.playwright)}
                   onClick={() => setConfirmDelete(true)}
                 >
                   Eliminar ejecución

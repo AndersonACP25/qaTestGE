@@ -31,7 +31,9 @@ Una plataforma para organizar el trabajo de QA de tu equipo: bugs, casos de prue
 - **Diseñadores:** prepara casos a partir de ejemplos y bugs desde plantillas; revisa el contenido y confirma **Guardar en Bugs** para crearlos en el mantenimiento, incluidos borradores antiguos.
 - **Texto con formato:** los campos de texto largo incluyen negrita, cursiva, tachado, código, listas, citas y vista previa. Se conserva como Markdown y se representa sin HTML.
 
-La IA y el cambio de imagen de perfil siguen siendo maquetas. Las pruebas se ejecutan manualmente.
+La IA y el cambio de imagen de perfil siguen siendo maquetas. Además de las ejecuciones manuales, el [piloto Playwright](docs/PLAYWRIGHT_PILOT.md) permite publicar resultados desde GitHub Actions. Las plantillas personales de casos y los tags/responsables predeterminados por proyecto usan la migración 022.
+
+En **Reportes y métricas → Preparación de release** puedes comparar ejecuciones manuales y Playwright, validar requisitos del alcance y abrir los bugs críticos vinculados.
 
 ## Stack tecnológico
 
@@ -40,7 +42,7 @@ La IA y el cambio de imagen de perfil siguen siendo maquetas. Las pruebas se eje
 ![Vite](https://img.shields.io/badge/Vite-6-646CFF?logo=vite&logoColor=white)
 ![Node.js](https://img.shields.io/badge/Node.js-24-339933?logo=nodedotjs&logoColor=white)
 ![Express](https://img.shields.io/badge/Express-5-000000?logo=express&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-18-4169E1?logo=postgresql&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17%20%7C%2018-4169E1?logo=postgresql&logoColor=white)
 ![pnpm](https://img.shields.io/badge/pnpm-12-F69220?logo=pnpm&logoColor=white)
 ![Vitest](https://img.shields.io/badge/Vitest-4-6E9F18?logo=vitest&logoColor=white)
 ![SwaggerUI](https://img.shields.io/badge/SwaggerUI-85EA2D?logo=swagger&logoColor=black)
@@ -57,7 +59,7 @@ La IA y el cambio de imagen de perfil siguen siendo maquetas. Las pruebas se eje
 
 ## Clonar y ejecutar
 
-Necesitas Git, Node.js 24, pnpm 12.11.2 y PostgreSQL con las herramientas de línea de comandos instaladas.
+Necesitas Git, Node.js 24, pnpm 12.11.2 y PostgreSQL 17 o 18 con las herramientas de línea de comandos instaladas.
 
 ```bash
 git clone https://github.com/AndersonACP25/qaTestGE.git
@@ -89,13 +91,13 @@ La migración **015** incorpora analítica y requisitos; la **016** recupera avi
 
 ## Accesos y verificación del CORE
 
-En Configuración → Accesos al proyecto, un Admin puede agregar integrantes registrados y activos del equipo, consultar/buscar usuarios con acceso, editar su rol (Admin, QA, Dev o Solo lectura) y retirar su acceso a ese proyecto. Los nuevos integrantes se incorporan desde Equipos; Admin también puede crear una cuenta nueva con rol delimitado a este proyecto; un correo registrado devuelve conflicto y no modifica la cuenta existente. El propietario conserva su acceso; antes de retirar a un responsable hay que reasignar sus bugs/casos/ejecuciones. Los cambios concurrentes exigen actualizar la lista.
+En Configuración → Accesos al proyecto, un Admin puede agregar integrantes registrados y activos del equipo, consultar/buscar usuarios con acceso, editar su rol (Admin, QA, Dev o Solo lectura) y retirar su acceso a ese proyecto. Los nuevos integrantes se incorporan desde Equipos; Admin también puede crear una cuenta nueva con rol delimitado a este proyecto; un correo registrado devuelve conflicto y no modifica la cuenta existente. Con la [entrega de enlaces configurada](servicios/account-links/README.md), Admin puede enviar una activación de un solo uso y las personas pueden recuperar el acceso desde la pantalla de inicio. El propietario conserva su acceso; antes de retirar a un responsable hay que reasignar sus bugs/casos/ejecuciones. Los cambios concurrentes exigen actualizar la lista.
 
 Dashboard encabeza el menú lateral y presenta 0/0% cuando no hay indicadores evaluables, sin convertir fechas desconocidas en datos históricos. Las tarjetas separan encabezados, contenido y acciones. Las pruebas unitarias priorizan reglas del CORE, seguridad e integridad; [TESTING](docs/TESTING.md) y AGENTS.md describen qué validar y qué revisar en navegador.
 
 ## Filtros, cobertura y confirmaciones
 
-Bugs, Casos de prueba y Test Runs reúnen búsqueda, estado, responsable y tags en **Filtros**. Bugs añade prioridad/severidad, casos añade tipo/ciclo documental y ejecuciones añade Test Plan. **Limpiar filtros** restaura la lista; cambiar de ventana o proyecto también reinicia la selección. La paginación y exportación conservan el conjunto filtrado.
+Bugs, Casos de prueba y Test Runs reúnen búsqueda, estado, responsable y tags en **Filtros**. Bugs añade prioridad/severidad, casos añade tipo/ciclo documental y ejecuciones añade Test Plan. **Limpiar filtros** restaura la lista; cambiar de ventana o proyecto también reinicia la selección. Test Runs filtra y pagina en el servidor y carga los resultados y pasos al abrir el detalle. Exportar la tabla incluye la página visible.
 
 Cobertura y requisitos ofrece un buscador de casos en filas seleccionables con ID, título y clasificación. Tras vincular un bug, la matriz enfoca la relación confirmada; **Mostrar matriz completa** devuelve la consulta general. Las evidencias de **Diseñar bugs** y **Diseñar test case** están en **Evidencias opcionales**, cerrada por defecto; se anexan explícitamente después de guardar el registro.
 
