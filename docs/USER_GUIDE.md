@@ -128,3 +128,9 @@ Selecciona un total de pendientes, aprobados, fallidos, bloqueados u omitidos pa
 En el panel, **Aplicar versión y entorno** delimita la comparación, la validación de requisitos y los bugs críticos. Los filtros comparan el valor completo sin distinguir mayúsculas. Un campo vacío deja esa dimensión abierta. Las ejecuciones publicadas por Playwright toman el entorno del publicador y la versión de `QATESTGE_RELEASE_VERSION` si se configuró.
 
 La validación de requisitos considera el último resultado evaluable de cada caso vigente. Un requisito queda aprobado si todos sus casos del alcance aprobaron. Los bugs críticos abiertos se identifican según la severidad, el flujo configurado y su vínculo a un caso o resultado de las ejecuciones del período. La lista muestra los diez más recientes y permite abrir el detalle.
+
+## Vistas guardadas y enlaces directos
+
+En **Bugs**, **Casos de prueba** o **Test Runs**, ajusta los filtros, abre **Vistas guardadas** y escribe un nombre. **Guardar filtros actuales** conserva la combinación. Usa **Aplicar vista** para recuperarla desde la primera página o **Eliminar vista** para retirarla. Puedes guardar hasta 20 vistas por cuenta, proyecto y listado en el navegador actual.
+
+En el detalle de un registro, pulsa **Copiar enlace**. La persona que lo abra debe iniciar sesión y tener acceso al proyecto. Si el navegador bloquea el portapapeles, la aplicación muestra el enlace para copiarlo manualmente.

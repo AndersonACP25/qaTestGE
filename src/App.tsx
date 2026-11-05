@@ -1,3 +1,6 @@
+import { readRecordLink } from "./models/recordLinks";
+import SavedListingViews from "./components/SavedListingViews";
+import { listingViewsKey } from "./models/listingViews";
 import ListingFilters, { defaultListingFilters } from "./components/ListingFilters";
 import WorkItemEditor from "./components/WorkItemEditor";
 import ProjectPicker from "./components/ProjectPicker";
@@ -33,7 +36,7 @@ import TableExport from "./TableExport";
 import { bugTableExport, caseTableExport, runTableExport } from "./models/tableExport";
 import TestRunDialog from "./views/TestRunDialog";
 import { version } from "../package.json";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import Alert, { type AlertTone } from "./Alert";
 import Footer from "./Footer";
@@ -123,6 +126,9 @@ function App({
   themeControl: React.ReactNode;
 }) {
   const [activePage, setActivePage] = useState<NavigationPage>("overview");
+  const [requestedLink, setRequestedLink] = useState(() => readRecordLink(window.location.search));
+  const [projectsLoaded, setProjectsLoaded] = useState(false);
+  const [linkError, setLinkError] = useState("");
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectId, setProjectId] = useState("");
   const captureScope = useOperationScope(user.id, projectId);
@@ -261,6 +267,7 @@ function App({
         if (abort.signal.aborted) return;
         setError("");
         setProjects(items);
+        setProjectsLoaded(true);
         setProjectId((current) =>
           items.some((p) => p.id === current) ? current : (items[0]?.id ?? ""),
         );
@@ -407,6 +414,66 @@ function App({
       if (isCurrent() && !controller.signal.aborted) setOpeningRun(false);
     }
   }
+  const openProjectRecord = useCallback(
+    async (target: { kind: "bug" | "case" | "run"; id: string }, signal: AbortSignal) => {
+      const isCurrent = captureScope();
+      const [loaded, targetRun] = await Promise.all([
+        loadProject(projectId, signal, false),
+        target.kind === "run" ? loadRunDetail(projectId, target.id, signal) : null,
+      ]);
+      if (!isCurrent() || signal.aborted) return false;
+      const { bugs, cases } = loaded;
+      const exists =
+        target.kind === "bug"
+          ? bugs.some((b) => b.id === target.id)
+          : target.kind === "case"
+            ? cases.some((c) => c.id === target.id)
+            : Boolean(targetRun);
+      if (!exists) throw new Error("El registro ya no está disponible.");
+      setData((current) => ({ ...loaded, runs: current.runs }));
+      if (target.kind === "bug") {
+        const record = bugs.find((b) => b.id === target.id);
+        if (record) setRecordDetail({ kind: "bug", record });
+      } else if (target.kind === "case") {
+        const record = cases.find((c) => c.id === target.id);
+        if (record) setRecordDetail({ kind: "case", record });
+      } else {
+        const run = targetRun;
+        if (run) {
+          setRunAction("view");
+          setRunDetail(run);
+        }
+      }
+      return true;
+    },
+    [captureScope, projectId, setData],
+  );
+  useEffect(() => {
+    if (!requestedLink || !projectsLoaded) return;
+    if (!projects.some((project) => project.id === requestedLink.projectId)) {
+      setLinkError("El registro no está disponible o no tienes acceso a su proyecto.");
+      setRequestedLink(null);
+      return;
+    }
+    if (projectId !== requestedLink.projectId) {
+      setProjectId(requestedLink.projectId);
+      return;
+    }
+    const controller = new AbortController();
+    setActivePage(
+      requestedLink.kind === "bug" ? "bugs" : requestedLink.kind === "case" ? "cases" : "runs",
+    );
+    void openProjectRecord(requestedLink, controller.signal)
+      .then(() => {
+        if (!controller.signal.aborted) setRequestedLink(null);
+      })
+      .catch(() => {
+        if (controller.signal.aborted) return;
+        setLinkError("El registro no está disponible o no tienes acceso a su proyecto.");
+        setRequestedLink(null);
+      });
+    return () => controller.abort();
+  }, [requestedLink, projectsLoaded, projects, projectId, openProjectRecord]);
   const filteredEvidence = useMemo(() => filterEvidence(evidence, { search }), [evidence, search]);
   const matchedTotal =
     activePage === "bugs"
@@ -450,6 +517,8 @@ function App({
     toastTimer.current = setTimeout(() => setToast(""), 4000);
   };
   function navigate(page: NavigationPage) {
+    setRequestedLink(null);
+    setLinkError("");
     if (page === "mentions") mentionInbox.refresh();
     setActivePage(page);
     setTablePage(1);
@@ -1168,6 +1237,8 @@ function App({
               onChange={(event) => {
                 setData({ bugs: [], cases: [], runs: [], evidence: [] });
                 setLoading(true);
+                setRequestedLink(null);
+                setLinkError("");
                 setProjectId(event.target.value);
                 setModal("");
                 setRunDetail(null);
@@ -1202,6 +1273,8 @@ function App({
             </p>
           )}
           {error && <Alert tone="error">{error}</Alert>}
+          {linkError && <Alert tone="error">{linkError}</Alert>}
+          {requestedLink && <p role="status">Abriendo enlace del registro…</p>}
           {workflowError && <Alert tone="error">{workflowError}</Alert>}
           {preferencesError && <Alert tone="error">{preferencesError}</Alert>}
           {!loading && !error && !projectId && activePage !== "settings" && (
@@ -1218,37 +1291,7 @@ function App({
                 refreshRevision={revision}
                 key={projectId}
                 inbox={mentionInbox}
-                onOpen={async (target, signal) => {
-                  const isCurrent = captureScope();
-                  const [loaded, targetRun] = await Promise.all([
-                    loadProject(projectId, signal, false),
-                    target.kind === "run" ? loadRunDetail(projectId, target.id, signal) : null,
-                  ]);
-                  if (!isCurrent() || signal.aborted) return false;
-                  const { bugs, cases } = loaded;
-                  const exists =
-                    target.kind === "bug"
-                      ? bugs.some((b) => b.id === target.id)
-                      : target.kind === "case"
-                        ? cases.some((c) => c.id === target.id)
-                        : Boolean(targetRun);
-                  if (!exists) throw new Error("El registro ya no está disponible.");
-                  setData((current) => ({ ...loaded, runs: current.runs }));
-                  if (target.kind === "bug") {
-                    const record = bugs.find((b) => b.id === target.id);
-                    if (record) setRecordDetail({ kind: "bug", record });
-                  } else if (target.kind === "case") {
-                    const record = cases.find((c) => c.id === target.id);
-                    if (record) setRecordDetail({ kind: "case", record });
-                  } else {
-                    const run = targetRun;
-                    if (run) {
-                      setRunAction("view");
-                      setRunDetail(run);
-                    }
-                  }
-                  return true;
-                }}
+                onOpen={openProjectRecord}
               />
             )
           ) : activePage === "plans" ? (
@@ -1389,30 +1432,41 @@ function App({
                     />
                   </label>
                 ) : (
-                  <ListingFilters
-                    kind={
-                      activePage === "bugs" ? "bugs" : activePage === "cases" ? "cases" : "runs"
-                    }
-                    statuses={filters}
-                    values={listingFilters}
-                    onChange={(patch) => {
-                      setListingFilters((current) => ({ ...current, ...patch }));
-                      setTablePage(1);
-                    }}
-                    onClear={() => {
-                      setListingFilters(defaultListingFilters);
-                      setTablePage(1);
-                    }}
-                    members={teamMembers}
-                    tags={tags}
-                    types={[...new Set(cases.map((item) => item.testType ?? "Funcional"))].sort()}
-                    plans={[
-                      ...new Set([
-                        ...runPlans,
-                        ...visibleRuns.flatMap((item) => (item.planId ? [item.planId] : [])),
-                      ]),
-                    ].sort()}
-                  />
+                  <>
+                    <ListingFilters
+                      kind={
+                        activePage === "bugs" ? "bugs" : activePage === "cases" ? "cases" : "runs"
+                      }
+                      statuses={filters}
+                      values={listingFilters}
+                      onChange={(patch) => {
+                        setListingFilters((current) => ({ ...current, ...patch }));
+                        setTablePage(1);
+                      }}
+                      onClear={() => {
+                        setListingFilters(defaultListingFilters);
+                        setTablePage(1);
+                      }}
+                      members={teamMembers}
+                      tags={tags}
+                      types={[...new Set(cases.map((item) => item.testType ?? "Funcional"))].sort()}
+                      plans={[
+                        ...new Set([
+                          ...runPlans,
+                          ...visibleRuns.flatMap((item) => (item.planId ? [item.planId] : [])),
+                        ]),
+                      ].sort()}
+                    />
+                    <SavedListingViews
+                      key={listingViewsKey(user.id, projectId, activePage)}
+                      storageKey={listingViewsKey(user.id, projectId, activePage)}
+                      filters={listingFilters}
+                      onApply={(saved) => {
+                        setListingFilters(saved);
+                        setTablePage(1);
+                      }}
+                    />
+                  </>
                 )}
                 {activePage !== "evidence" && (
                   <div className="workspace-table__toolbar">
