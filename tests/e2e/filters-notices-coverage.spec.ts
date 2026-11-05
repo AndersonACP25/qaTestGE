@@ -527,3 +527,106 @@ test("Preparación de release compara orígenes y abre la ejecución filtrada", 
   await expect(page.getByRole("dialog")).toBeVisible();
   await noHorizontalOverflow(page);
 });
+
+test("guarda filtros personales, los restaura al recargar y permite eliminarlos", async ({
+  page,
+  workspace,
+}) => {
+  void workspace;
+  await page.goto("/");
+  await navigate(page, "Casos de prueba");
+  await page.getByRole("searchbox", { name: "Buscar registros" }).fill("Validar acceso");
+  await page.getByText("Vistas guardadas", { exact: true }).click();
+  await page.getByLabel("Nombre de la vista").fill("Acceso");
+  await page.getByRole("button", { name: "Guardar filtros actuales" }).click();
+  await expect(page.getByText("Vista guardada.", { exact: true })).toBeVisible();
+  await page.reload();
+  await navigate(page, "Bugs");
+  await page.getByText("Vistas guardadas", { exact: true }).click();
+  await expect(page.getByRole("combobox", { name: "Vista guardada", exact: true })).toBeDisabled();
+  await navigate(page, "Casos de prueba");
+  await page.getByText("Vistas guardadas", { exact: true }).click();
+  await page
+    .getByRole("combobox", { name: "Vista guardada", exact: true })
+    .selectOption({ label: "Acceso" });
+  await page.getByRole("button", { name: "Aplicar vista" }).click();
+  await expect(page.getByRole("searchbox", { name: "Buscar registros" })).toHaveValue(
+    "Validar acceso",
+  );
+  await page.getByRole("button", { name: "Eliminar vista" }).click();
+  await expect(page.getByText("Vista eliminada.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Vista guardada", exact: true })).toBeDisabled();
+  await noHorizontalOverflow(page);
+});
+
+test("abre un enlace directo con acceso y rechaza un proyecto ajeno", async ({
+  page,
+  workspace,
+}) => {
+  prepareRun(workspace);
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: () => Promise.reject(new Error("Bloqueado")) },
+    });
+  });
+  await page.goto("/?project=1&record=RUN-1");
+  const dialog = page.getByRole("dialog");
+  await expect(
+    dialog.getByRole("heading", { name: "Ejecución con historial", exact: true }),
+  ).toBeVisible();
+  await dialog.getByRole("button", { name: "Copiar enlace" }).click();
+  await expect(dialog.getByLabel("Copia este enlace")).toHaveValue(/project=1&record=RUN-001$/);
+  await page.goto("/?project=1&record=TC-001");
+  await expect(
+    dialog.getByRole("heading", { name: "Validar acceso con un nombre de usuario extenso" }),
+  ).toBeVisible();
+  await page.goto("/?project=999&record=RUN-001");
+  await expect(
+    page.getByText("El registro no está disponible o no tienes acceso a su proyecto."),
+  ).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
+test("selecciona casos y revisa la asignación masiva antes de enviarla", async ({
+  page,
+  workspace,
+}) => {
+  workspace.cases.push({
+    ...workspace.cases[0],
+    id: "TC-002",
+    title: "Verificar cierre de sesión",
+    version: 3,
+  });
+  let requests = 0;
+  await page.route("**/api/test-cases/bulk", (route) => {
+    requests++;
+    expect(route.request().postDataJSON()).toEqual({
+      projectId: "1",
+      cases: [
+        { id: "TC-001", version: 1 },
+        { id: "TC-002", version: 3 },
+      ],
+      action: { kind: "assign", assigneeUserId: "1" },
+    });
+    return route.fulfill({ json: { data: { updated: 2 } } });
+  });
+  await page.goto("/");
+  await navigate(page, "Casos de prueba");
+  await page.getByRole("checkbox", { name: "Seleccionar TC-001" }).check();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.getByRole("button", { name: "Seleccionar página" }).click();
+  await page.getByRole("button", { name: "Operación masiva", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("combobox").nth(1).selectOption({ label: "QA Local" });
+  await dialog.getByRole("button", { name: "Revisar cambios" }).click();
+  await expect(dialog.getByRole("heading", { name: "Vista previa de cambios" })).toBeVisible();
+  await expect(
+    dialog.getByText(/Verificar cierre de sesión · Sin asignar → QA Local/),
+  ).toBeVisible();
+  expect(requests).toBe(0);
+  await dialog.getByRole("button", { name: "Confirmar operación" }).click();
+  await expect(page.getByText("2 casos actualizados.", { exact: true })).toBeVisible();
+  expect(requests).toBe(1);
+  await expect(page.getByRole("checkbox", { name: "Seleccionar TC-001" })).not.toBeChecked();
+  await noHorizontalOverflow(page);
+});

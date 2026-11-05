@@ -8,7 +8,7 @@
 - Mantener relaciones explícitas por ID y claves compuestas de proyecto. Las escrituras de pasos, snapshots y vínculos son transaccionales.
 - IA e imagen de perfil siguen siendo maquetas. El piloto Playwright publica resultados normalizados desde GitHub Actions; el cliente vive en servicios/playwright/.
 
-- Comentarios y Mis menciones paginan por cursor. Test Runs pagina resúmenes y carga snapshots al abrir. Reportes incluye preparación de release por período UTC, casos vigentes del plan, versión y entorno, con resultados por origen, requisitos y bugs críticos vinculados.
+- Casos admite asignación y tags masivos por página con revisión, transacción y control de versión. Vistas guardadas conserva hasta 20 filtros por cuenta, proyecto y listado en el navegador. Los enlaces directos de bugs, casos y runs verifican el proyecto antes de abrir el detalle. Comentarios y Mis menciones paginan por cursor. Test Runs pagina resúmenes y carga snapshots al abrir. Reportes incluye preparación de release por período UTC, casos vigentes del plan, versión y entorno, con resultados por origen, requisitos y bugs críticos vinculados.
 
 ## Operación
 

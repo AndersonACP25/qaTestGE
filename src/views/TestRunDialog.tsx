@@ -1,3 +1,4 @@
+import RecordLinkButton from "../components/RecordLinkButton";
 import RunReleaseFields from "../components/RunReleaseFields";
 import { formatCount } from "../utils/pluralization";
 import WorkItemEditor from "../components/WorkItemEditor";
@@ -217,6 +218,7 @@ export default function TestRunDialog({
       <WorkItemLayout
         kind="run"
         editing={editing}
+        actions={run.projectId && <RecordLinkButton projectId={run.projectId} id={run.id} />}
         id={run.id}
         title={run.title}
         status={run.status}

@@ -1,3 +1,4 @@
+import { caseBulkSchema } from "../models/case-bulk.model.js";
 import { creationContext } from "../repositories/creation-request.js";
 import { listQuery } from "../repositories/list-query.js";
 import type { Request, Response } from "express";
@@ -10,6 +11,16 @@ import {
 } from "../models/test-case.model.js";
 import { HttpError } from "../http-error.js";
 
+export async function bulkUpdateCases(request: Request, response: Response) {
+  const input = caseBulkSchema.safeParse(request.body as unknown);
+  if (!input.success)
+    throw new HttpError(
+      400,
+      "INVALID_CASE_BATCH",
+      "Revisa la selección y la operación de los casos.",
+    );
+  response.json({ data: await repository(request).bulkUpdateCases(input.data) });
+}
 export async function listTestCases(request: Request, response: Response) {
   response.json({
     data: await repository(request).listCases(

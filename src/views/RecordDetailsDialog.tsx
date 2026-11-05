@@ -1,3 +1,4 @@
+import RecordLinkButton from "../components/RecordLinkButton";
 import WorkItemLayout from "../components/WorkItemLayout";
 import FormattedText from "../components/FormattedText";
 import { usePermissions } from "../controllers/ProjectPermissions";
@@ -60,14 +61,21 @@ export default function RecordDetailsDialog({
           { label: "Evidencias", selector: ".work-item__evidence, .workspace__attachments" },
         ]}
         actions={
-          <button
-            type="button"
-            className="button button-primary"
-            disabled={!permission.can(isBug ? "bugs.write" : "cases.write")}
-            onClick={onEdit}
-          >
-            {isBug ? "Editar bug" : "Editar caso"}
-          </button>
+          <>
+            {record.projectId && (
+              <RecordLinkButton key={record.id} projectId={record.projectId} id={record.id} />
+            )}
+            {
+              <button
+                type="button"
+                className="button button-primary"
+                disabled={!permission.can(isBug ? "bugs.write" : "cases.write")}
+                onClick={onEdit}
+              >
+                {isBug ? "Editar bug" : "Editar caso"}
+              </button>
+            }
+          </>
         }
       >
         {bug ? (

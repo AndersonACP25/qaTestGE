@@ -827,6 +827,75 @@ export const openApiDocument = {
         },
       },
     },
+    "/api/test-cases/bulk": {
+      post: {
+        summary: "Asignar responsable o añadir tags a una selección de casos en una transacción",
+        requestBody: {
+          required: true,
+          content: json(
+            object(
+              {
+                projectId,
+                cases: {
+                  type: "array",
+                  minItems: 1,
+                  maxItems: 50,
+                  items: object(
+                    {
+                      id: { type: "string", pattern: "^TC-[0-9]{1,19}$" },
+                      version: { type: "integer", minimum: 1, maximum: 2147483647 },
+                    },
+                    ["id", "version"],
+                  ),
+                },
+                action: {
+                  oneOf: [
+                    object(
+                      {
+                        kind: { type: "string", enum: ["assign"] },
+                        assigneeUserId: { ...projectId, nullable: true },
+                      },
+                      ["kind", "assigneeUserId"],
+                    ),
+                    object(
+                      {
+                        kind: { type: "string", enum: ["addTags"] },
+                        tagIds: {
+                          type: "array",
+                          minItems: 1,
+                          maxItems: 100,
+                          uniqueItems: true,
+                          items: projectId,
+                        },
+                      },
+                      ["kind", "tagIds"],
+                    ),
+                  ],
+                },
+              },
+              ["projectId", "cases", "action"],
+            ),
+          ),
+        },
+        responses: {
+          "200": {
+            description: "Cantidad de casos que cambiaron",
+            content: json(
+              envelope(
+                object({ updated: { type: "integer", minimum: 0, maximum: 50 } }, ["updated"]),
+              ),
+            ),
+          },
+          "400": errorResponse(
+            "INVALID_CASE_BATCH, INVALID_ASSIGNEE, INVALID_TAG o CASE_TAG_LIMIT",
+          ),
+          "401": errorResponse("UNAUTHENTICATED"),
+          "403": errorResponse("FORBIDDEN o INVALID_CSRF"),
+          "404": errorResponse("PROJECT_NOT_FOUND"),
+          "409": errorResponse("CASE_VERSION_CONFLICT"),
+        },
+      },
+    },
     "/api/test-cases/{caseId}/status": {
       patch: {
         security: [{ sessionCookie: [], csrfToken: [] }],

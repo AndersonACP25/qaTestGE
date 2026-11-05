@@ -126,6 +126,14 @@ try {
     steps: [{ action: "Enviar", expectedResult: "Validar" }],
   });
   assert.equal(tc.status, 201);
+  for (const agent of [viewer, dev]) {
+    const deniedBatch = await agent.post("/api/test-cases/bulk").send({
+      projectId,
+      cases: [{ id: tc.body.data.id, version: 1 }],
+      action: { kind: "assign", assigneeUserId: null },
+    });
+    assert.equal(deniedBatch.status, 403);
+  }
   const run = await qa
     .post("/api/test-runs")
     .send({ projectId, title: "Ciclo", owner: "QA", caseIds: [tc.body.data.id] });
