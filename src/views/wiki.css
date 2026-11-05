@@ -92,3 +92,21 @@
     gap: 24px;
   }
 }
+
+.wiki-hub__day {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+.wiki-hub__day-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
+  gap: var(--layout-space-md);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.wiki-hub__day-step {
+  background: var(--color-f7f8fa);
+  border-radius: 10px;
+}
