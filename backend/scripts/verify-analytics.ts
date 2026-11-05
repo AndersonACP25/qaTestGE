@@ -326,6 +326,57 @@ try {
     (await viewer.get("/api/coverage-matrix").query({ projectId, caseId: "BUG-1" })).status,
     400,
   );
+  const linkedCase = {
+    projectId,
+    title: "Caso del requisito",
+    source: { kind: "requirement", id: requirement.id },
+  };
+  const linkedKey = randomUUID();
+  const created = await owner
+    .post("/api/test-cases")
+    .set("Idempotency-Key", linkedKey)
+    .send(linkedCase);
+  assert.equal(created.status, 201, JSON.stringify(created.body));
+  const linkedId = created.body.data.id;
+  const replay = await owner
+    .post("/api/test-cases")
+    .set("Idempotency-Key", linkedKey)
+    .send(linkedCase);
+  assert.equal(replay.status, 201, JSON.stringify(replay.body));
+  assert.equal(replay.body.data.id, linkedId);
+  const linkedMatrix = await viewer
+    .get("/api/coverage-matrix")
+    .query({ projectId, requirementId: requirement.id, caseId: linkedId });
+  assert.equal(linkedMatrix.body.data.total, 1);
+
+  const createdFromBug = await owner.post("/api/test-cases").send({
+    projectId,
+    title: "Caso del bug",
+    source: { kind: "bug", id: bugId },
+  });
+  assert.equal(createdFromBug.status, 201, JSON.stringify(createdFromBug.body));
+  const linkedBugs = await pool.query(
+    "SELECT count(*)::int AS total FROM qa.bug_test_cases WHERE project_id=$1 AND test_case_id=$2 AND bug_id=$3",
+    [projectId, createdFromBug.body.data.id.slice(3), bugId.slice(4)],
+  );
+  assert.equal(linkedBugs.rows[0].total, 1);
+  const before = await other.get("/api/test-cases").query({ projectId: otherId });
+  const foreignSource = await other.post("/api/test-cases").send({
+    ...linkedCase,
+    projectId: otherId,
+  });
+  assert.equal(foreignSource.status, 404, JSON.stringify(foreignSource.body));
+  assert.deepEqual(
+    (await other.get("/api/test-cases").query({ projectId: otherId })).body,
+    before.body,
+  );
+
+  const runContext = await owner.get("/api/ai/run-summary").query({ projectId, runId });
+  assert.equal(runContext.status, 200, JSON.stringify(runContext.body));
+  assert.equal(runContext.body.data.counts.failed, 1);
+  assert.equal(runContext.body.data.findings[0].caseId, caseId);
+  assert.ok(!runContext.text.includes("Respuesta incorrecta"));
+  assert.equal((await viewer.get("/api/ai/run-summary").query({ projectId, runId })).status, 403);
   console.info(
     "Analítica: agregaciones, transiciones, reaperturas, reclasificación, cobertura, permisos, snapshots e importación idempotente verificados.",
   );

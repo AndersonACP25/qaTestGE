@@ -1,3 +1,4 @@
+import type { CaseDesignOrigin } from "../controllers/useCaseDesignController";
 import RecordLinkButton from "../components/RecordLinkButton";
 import WorkItemLayout from "../components/WorkItemLayout";
 import FormattedText from "../components/FormattedText";
@@ -13,11 +14,13 @@ export default function RecordDetailsDialog({
   detail,
   onClose,
   onEdit,
+  onDesignCases,
   children,
 }: {
   detail: RecordDetail;
   onClose: () => void;
   onEdit: () => void;
+  onDesignCases?: (origin: CaseDesignOrigin) => void;
   children?: ReactNode;
 }) {
   const { record } = detail;
@@ -64,6 +67,22 @@ export default function RecordDetailsDialog({
           <>
             {record.projectId && (
               <RecordLinkButton key={record.id} projectId={record.projectId} id={record.id} />
+            )}
+            {bug && onDesignCases && (
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={() =>
+                  onDesignCases({
+                    kind: "bug",
+                    id: bug.id,
+                    title: bug.title,
+                    description: bug.description ?? "",
+                  })
+                }
+              >
+                Diseñar casos con Gemini
+              </button>
             )}
             {
               <button

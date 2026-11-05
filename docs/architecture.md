@@ -92,6 +92,8 @@ Expone operaciones de producto limitadas y tipadas, por ejemplo:
 - Sugerir casos de prueba a partir de un requisito o bug seleccionado.
 - Resumir resultados de una ejecución y señalar patrones o cobertura potencialmente faltante.
 
+Para resumir una ejecución, la API verifica `runs.write`, calcula los estados registrados y pendientes y limita la muestra de hallazgos. Vuelve a comparar el contexto aprobado antes de llamar al proveedor. Los resultados de la ejecución se mantienen como fuente de las cifras mostradas junto al texto editable.
+
 En el piloto, el servicio valida la entrada y la respuesta, registra el estado y duración mediante el contexto HTTP y devuelve propuestas que el usuario puede editar o descartar. No ejecuta consultas arbitrarias, no altera datos de dominio y no accede a archivos salvo que el usuario los seleccione expresamente y la política del proyecto lo permita.
 
 ## Modelo de dominio
@@ -173,7 +175,7 @@ El frontend carga proyectos y recursos reales, muestra estados de carga/error, y
 
 ### Diseñador de test cases
 
-La navegación `case-builder` monta `CaseBuilder`. El catálogo, la selección y las cantidades permiten preparar ejemplos locales. Con Gemini conectado y permiso `cases.write`, el diálogo de consentimiento muestra la descripción, las categorías y las cantidades. `POST /api/ai/case-proposals` valida el alcance, comparte el límite de uso de propuestas de bugs y exige cantidades exactas por categoría. El servidor envía solo la descripción y las categorías solicitadas, sin datos de proyecto ni evidencias.
+La navegación `case-builder` monta `CaseBuilder`. El catálogo, la selección y las cantidades permiten preparar ejemplos locales. Con Gemini conectado y permiso `cases.write`, el diálogo de consentimiento muestra la descripción, las categorías y las cantidades. `POST /api/ai/case-proposals` valida el alcance, comparte el límite de uso de propuestas de bugs y exige cantidades exactas por categoría. El servidor envía solo la descripción y las categorías solicitadas, sin identificadores de proyecto, requisito o bug ni evidencias. Al crear desde un origen, `POST /api/test-cases` vincula el caso en la misma transacción mediante las relaciones de cobertura existentes y avanza la revisión del requisito cuando corresponde.
 
 Cada lote generado usa identificadores locales nuevos para separar ediciones, evidencias e idempotencia de los ejemplos y de lotes anteriores. La vista permite editar títulos y pasos, exportar la vista previa y guardar explícitamente cada caso o todos los pendientes como Borrador. El guardado en lote valida la vista previa, crea en secuencia, se detiene ante el primer error y conserva los resultados confirmados. Los reintentos en la misma vista mantienen la clave y el contenido si el resultado de una creación es incierto. Al cambiar de proyecto, el diseñador cancela la espera y descarta las respuestas tardías.
 

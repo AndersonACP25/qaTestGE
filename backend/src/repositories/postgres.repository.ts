@@ -439,6 +439,49 @@ export class PostgresRepository implements Repository {
           [input.projectId, id, index + 1, step.action.trim(), step.expectedResult.trim()],
         );
       }
+      if (input.source?.kind === "requirement") {
+        const sourceId = parseReference(input.source.id, "REQ");
+        const requirement = await client.query(
+          "UPDATE qa.requirements SET version=version+1 WHERE id=$1 AND project_id=$2 RETURNING id",
+          [sourceId, input.projectId],
+        );
+        if (!requirement.rowCount)
+          throw new HttpError(
+            404,
+            "REQUIREMENT_NOT_FOUND",
+            "El requisito de origen no está disponible en este proyecto.",
+          );
+        const { rows: links } = await client.query<{ total: number }>(
+          "SELECT count(*)::int AS total FROM qa.requirement_cases WHERE requirement_id=$1 AND project_id=$2",
+          [sourceId, input.projectId],
+        );
+        if (links[0].total >= 100)
+          throw new HttpError(
+            409,
+            "REQUIREMENT_CASE_LIMIT",
+            "El requisito de origen ya tiene el máximo de casos vinculados.",
+          );
+        await client.query(
+          "INSERT INTO qa.requirement_cases(project_id,requirement_id,test_case_id) VALUES($1,$2,$3)",
+          [input.projectId, sourceId, id],
+        );
+      } else if (input.source?.kind === "bug") {
+        const sourceId = parseReference(input.source.id, "BUG");
+        const bug = await client.query(
+          "SELECT id FROM qa.bugs WHERE id=$1 AND project_id=$2 FOR KEY SHARE",
+          [sourceId, input.projectId],
+        );
+        if (!bug.rowCount)
+          throw new HttpError(
+            404,
+            "BUG_NOT_FOUND",
+            "El bug de origen no está disponible en este proyecto.",
+          );
+        await client.query(
+          "INSERT INTO qa.bug_test_cases(project_id,bug_id,test_case_id) VALUES($1,$2,$3)",
+          [input.projectId, sourceId, id],
+        );
+      }
       const result = await client.query<CaseRow>(`${casesSql} WHERE c.id=$1`, [id]);
       await rememberCreation(client, "case", input.projectId, id, input, context);
       return testCase(result.rows[0]);

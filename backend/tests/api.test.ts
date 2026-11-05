@@ -983,3 +983,92 @@ it("autoriza y valida propuestas de casos por proyecto y cantidad, sin crear reg
   expect(proposeCases).toHaveBeenLastCalledWith({ description: input.description, categories });
   expect(repo.createCase).not.toHaveBeenCalled();
 });
+
+it("calcula el contexto de una ejecución y solo comparte el contenido autorizado", async () => {
+  const summarizeRun = vi.fn(async () => ({
+    ok: true as const,
+    proposal: { summary: "Revisar el fallo de acceso." },
+  }));
+  const findRun = vi.fn<Repository["findRun"]>().mockResolvedValue({
+    id: "RUN-001",
+    projectId: "1",
+    caseIds: ["TC-001", "TC-002"],
+    title: "Prueba privada",
+    caseCount: 2,
+    progress: 50,
+    status: "En curso",
+    owner: "QA",
+    createdAt: "2026-01-01Z",
+    tagIds: [],
+    results: [
+      {
+        id: "RES-001",
+        caseId: "TC-001",
+        title: "Acceso",
+        status: "failed",
+        notes: "Dato privado",
+        executedAt: "2026-01-01Z",
+        steps: [],
+      },
+      {
+        id: "RES-002",
+        caseId: "TC-002",
+        title: "Pendiente",
+        status: "skipped",
+        notes: "",
+        executedAt: null,
+        steps: [],
+      },
+    ],
+  });
+  const auth = {
+    ...testAuth,
+    projects: async () =>
+      (await testAuth.projects("1")).map((p) => ({ ...p, role: "QA" as const })),
+  };
+  const agent = request
+    .agent(createApp({ ...repo, findRun }, auth, { propose: vi.fn(), summarizeRun }))
+    .set("Cookie", `qa_session=${testToken}`)
+    .set("X-CSRF-Token", testCsrf);
+  const preview = await agent.get("/api/ai/run-summary?projectId=1&runId=RUN-001");
+  expect(preview.status).toBe(200);
+  const context = {
+    counts: { passed: 0, failed: 1, blocked: 0, skipped: 0, pending: 1 },
+    findings: [{ caseId: "TC-001", title: "Acceso", status: "failed" }],
+  };
+  expect(preview.body.data).toEqual(context);
+  expect(findRun).toHaveBeenCalledWith("1", "1");
+  const input = { runId: "RUN-001", projectId: "1", consent: true, context };
+  expect((await agent.post("/api/ai/run-summary").send({ ...input, projectId: "2" })).status).toBe(
+    404,
+  );
+  expect((await agent.post("/api/ai/run-summary").send({ ...input, consent: false })).status).toBe(
+    400,
+  );
+  expect(
+    (
+      await agent
+        .post("/api/ai/run-summary")
+        .send({ ...input, context: { ...context, findings: [] } })
+    ).status,
+  ).toBe(409);
+  expect(summarizeRun).not.toHaveBeenCalled();
+  const generated = await agent.post("/api/ai/run-summary").send(input);
+  expect(generated.status).toBe(200);
+  expect(summarizeRun).toHaveBeenCalledWith(context);
+  expect(generated.body.data.summary).toBe("Revisar el fallo de acceso.");
+});
+
+it("rechaza identificadores cruzados o el cambio de origen de un caso existente", async () => {
+  const input = { projectId: "1", title: "Caso vinculado", source: { kind: "bug", id: "REQ-001" } };
+  expect((await signed().post("/api/test-cases").send(input)).status).toBe(400);
+  expect(
+    (
+      await signed()
+        .patch("/api/test-cases/TC-001")
+        .send({ ...input, source: { kind: "bug", id: "BUG-001" } })
+    ).status,
+  ).toBe(400);
+  expect(repo.createCase).not.toHaveBeenCalled();
+  expect(repo.updateCase).not.toHaveBeenCalled();
+});

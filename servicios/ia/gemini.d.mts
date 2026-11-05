@@ -4,6 +4,10 @@ type ProposalResult =
 
 export interface BugProposalProvider {
   propose(input: { description: string; templateText?: string }): Promise<ProposalResult>;
+  summarizeRun?(input: {
+    counts: { passed: number; failed: number; blocked: number; skipped: number; pending: number };
+    findings: { caseId: string; title: string; status: "failed" | "blocked" }[];
+  }): Promise<ProposalResult>;
   proposeCases?(input: {
     description: string;
     categories: { label: string; count: number }[];

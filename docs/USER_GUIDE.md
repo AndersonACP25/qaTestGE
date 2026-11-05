@@ -137,7 +137,7 @@ La validación de requisitos considera el último resultado evaluable de cada ca
 
 ## Propuestas con Gemini
 
-En **Diseñar bugs**, describe el problema y elige **Proponer con Gemini** cuando la IA esté conectada. Revisa el texto que verá Google y confirma el envío. Edita la propuesta antes de crear el bug o guárdala como borrador local. En **Diseñar test cases**, selecciona las categorías y cantidades para generar propuestas editables. Consulta la [guía de Gemini](AI_INTEGRATION.md) para configurar la conexión.
+En **Diseñar bugs**, describe el problema y elige **Proponer con Gemini** cuando la IA esté conectada. Revisa el texto que verá Google y confirma el envío. Edita la propuesta antes de crear el bug o guárdala como borrador local. En **Diseñar test cases**, selecciona las categorías y cantidades para generar propuestas editables. También puedes iniciar el diseño desde **Cobertura y requisitos** o el detalle de un bug. En un Test Run, **Resumir ejecución con Gemini** prepara un texto editable para compartir. Consulta la [guía de Gemini](AI_INTEGRATION.md) para configurar la conexión.
 
 ## Enlaces directos
 

@@ -1,3 +1,4 @@
+import type { CaseSource, CreateTestCaseInput } from "../../backend/src/models/test-case.model";
 import { caseProposalInput, type CaseProposal } from "../../backend/src/models/case-proposal.model";
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
@@ -14,6 +15,8 @@ import { designedCaseInput } from "../models/designedCaseInput";
 import { useOperationScope } from "./useOperationScope";
 import type { TestCase } from "../types";
 
+export type CaseDesignOrigin = CaseSource & { title: string; description: string };
+
 export interface CaseDesignPreviewCase {
   key: string;
   title?: string;
@@ -28,6 +31,8 @@ export function useCaseDesignController(
   projectId = "",
   defaultSelected: string[] = ["edge"],
   catalog: CaseCategory[] = categories,
+  origin?: CaseDesignOrigin,
+  onSaved?: (testCase: TestCase) => void,
 ) {
   const proposalRequest = useRef<AbortController | null>(null);
   useEffect(() => () => proposalRequest.current?.abort(), []);
@@ -37,11 +42,15 @@ export function useCaseDesignController(
   const captureScope = useOperationScope("", projectId);
   const writeInFlight = useRef(false);
   const pendingCreates = useRef(
-    new Map<string, { requestKey: string; input: ReturnType<typeof designedCaseInput> }>(),
+    new Map<string, { requestKey: string; input: CreateTestCaseInput }>(),
   );
   const [batchProgress, setBatchProgress] = useState<{ done: number; total: number } | null>(null);
   const [batchMessage, setBatchMessage] = useState("");
-  const [text, setText] = useState("");
+  const [text, setText] = useState(() =>
+    origin
+      ? [origin.title, origin.description].filter(Boolean).join("\n\n").trim().slice(0, 3500)
+      : "",
+  );
   const [selected, setSelected] = useState<string[]>(defaultSelected);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [preview, setPreview] = useState(false);
@@ -216,14 +225,17 @@ export function useCaseDesignController(
   const pendingCount = previewCases.filter(({ key }) => !savedCases[key]).length;
 
   function creationInput(testCase: CaseDesignPreviewCase) {
-    const input = designedCaseInput(projectId, text, testCase);
+    const input = {
+      ...designedCaseInput(projectId, text, testCase),
+      ...(origin && { source: { kind: origin.kind, id: origin.id } }),
+    };
     const pending = pendingCreates.current.get(testCase.key);
     if (pending && JSON.stringify(pending.input) !== JSON.stringify(input))
       throw new Error("Restablece el contenido que enviaste para comprobar el guardado pendiente.");
     return pending?.input ?? input;
   }
 
-  async function createPreviewCase(key: string, input: ReturnType<typeof designedCaseInput>) {
+  async function createPreviewCase(key: string, input: CreateTestCaseInput) {
     const previous = pendingCreates.current.get(key);
     const requestKey = previous?.requestKey ?? crypto.randomUUID();
     pendingCreates.current.set(key, { requestKey, input });
@@ -266,7 +278,10 @@ export function useCaseDesignController(
             tagIds: existing.tagIds ?? [],
           })
         : await createPreviewCase(key, creationInput(currentCase));
-      if (isCurrent()) setSavedCases((current) => ({ ...current, [key]: saved }));
+      if (isCurrent()) {
+        setSavedCases((current) => ({ ...current, [key]: saved }));
+        onSaved?.(saved);
+      }
     } catch (cause) {
       if (isCurrent())
         setSaveCaseError(cause instanceof Error ? cause.message : "No se pudo guardar el caso.");
@@ -297,6 +312,7 @@ export function useCaseDesignController(
         const saved = await createPreviewCase(key, input);
         if (!isCurrent()) return;
         setSavedCases((current) => ({ ...current, [key]: saved }));
+        onSaved?.(saved);
         done++;
         setBatchProgress({ done, total: requests.length });
       }
@@ -316,6 +332,7 @@ export function useCaseDesignController(
 
   return {
     categories: catalog,
+    origin,
     text,
     selected,
     counts,
