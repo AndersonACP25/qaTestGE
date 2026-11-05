@@ -1,3 +1,4 @@
+import type { AuthProvider } from "../models/user.model.js";
 import { assignedWorkFiltersSchema } from "../models/assigned-work.model.js";
 import {
   auditSettingsSchema,
@@ -50,13 +51,14 @@ router.put("/audit-settings", async (req, res) => {
 });
 router.post("/project-users", async (req, res) => {
   const key = parse(z.uuid(), req.get("Idempotency-Key"));
-  res.status(201).json({
-    data: await collab(req).createProjectUser(
-      project(req),
-      parse(provisionUserSchema, req.body),
-      key,
-    ),
-  });
+  const input = parse(provisionUserSchema, req.body);
+  const auth: AuthProvider = res.locals.auth;
+  const activation = input.password === undefined;
+  if (activation && (!auth?.accountLinksEnabled?.() || !auth.requestAccountLink))
+    throw new HttpError(503, "ACCOUNT_LINKS_DISABLED", "El envío de enlaces no está disponible.");
+  const member = await collab(req).createProjectUser(project(req), input, key);
+  if (activation) await auth.requestAccountLink?.(input.email, member.id);
+  res.status(201).json({ data: member });
 });
 router.get("/project-members", async (req, res) => {
   const candidates = req.query.candidates;

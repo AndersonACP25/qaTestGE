@@ -1,5 +1,6 @@
 import AuditTable from "./AuditTable";
-import { exportTable } from "../utils/exportTable";
+import { createTableExport } from "../utils/exportTable";
+import { download as saveFile } from "../utils/download";
 import type { ExportFormat } from "../utils/exportRecord";
 import { useOperationScope } from "../controllers/useOperationScope";
 import AuditSettingsPanel from "./AuditSettingsPanel";
@@ -263,16 +264,61 @@ export function ProjectActivityView({
       if (alive.current && isCurrent()) setBusy(false);
     }
   }
-  async function download(format: ExportFormat) {
+  const exportRequest = useRef<AbortController | null>(null);
+  useEffect(
+    () => () => exportRequest.current?.abort(),
+    [queryString, revision, refreshRevision, search],
+  );
+  const matchesLocalSearch = (row: Activity) =>
+    `${row.actorName} ${row.resourceId} ${labels[row.action.split(".")[0]] ?? row.kind}`
+      .toLocaleLowerCase("es")
+      .includes(search.trim().toLocaleLowerCase("es"));
+  const visible = rows.filter(matchesLocalSearch);
+  async function download(format: ExportFormat, all = false) {
     if (exporting || loading || busy) return;
     const isCurrent = captureScope();
+    const controller = new AbortController();
+    exportRequest.current = controller;
     setExporting(true);
     setError("");
     setMessage("");
     try {
-      await exportTable(format, {
+      let source = visible;
+      if (all) {
+        source = [];
+        const params = new URLSearchParams(queryString);
+        params.set("limit", "100");
+        let scanned = 0;
+        let size = 0;
+        const encoder = new TextEncoder();
+        while (!controller.signal.aborted) {
+          const page = await api<Activity[]>(`/activity?${params}`, { signal: controller.signal });
+          if (controller.signal.aborted || !isCurrent()) return;
+          scanned += page.length;
+          for (const row of page.filter(matchesLocalSearch)) {
+            size += encoder.encode(JSON.stringify(row)).byteLength;
+            source.push(row);
+          }
+          if (scanned > 10000 || size > 8 * 1024 * 1024)
+            throw new Error(
+              "El historial supera el límite de exportación. Acota los filtros del servidor e inténtalo de nuevo.",
+            );
+          if (page.length < 100) break;
+          const cursor = page.at(-1)!.id;
+          if (cursor === params.get("before"))
+            throw new Error("No se pudo avanzar por el historial.");
+          params.set("before", cursor);
+        }
+      }
+      if (!source.length) {
+        if (isCurrent() && !controller.signal.aborted)
+          setMessage("No hay eventos que coincidan con los filtros.");
+        return;
+      }
+      const filename = `auditoria-proyecto-${projectId}-${all ? "filtrada" : `pagina-${pageIndex + 1}`}`;
+      const file = await createTableExport(format, {
         title: "Auditoría",
-        filename: `auditoria-proyecto-${projectId}-pagina-${pageIndex + 1}`,
+        filename,
         headers: [
           "Fecha UTC",
           "Autor",
@@ -280,7 +326,7 @@ export function ProjectActivityView({
           "Operación",
           ...(settings?.detail === "Resumen" ? [] : ["Antes", "Después"]),
         ],
-        rows: visible.map((row) => [
+        rows: source.map((row) => [
           row.createdAt,
           row.actorName,
           row.resourceId,
@@ -290,19 +336,17 @@ export function ProjectActivityView({
             : [JSON.stringify(row.before), JSON.stringify(row.after)]),
         ]),
       });
-      if (isCurrent()) setMessage("Página de auditoría exportada.");
+      if (isCurrent() && !controller.signal.aborted) {
+        saveFile(file, `${filename}.${format}`);
+        setMessage(all ? "Auditoría filtrada exportada." : "Página de auditoría exportada.");
+      }
     } catch (cause) {
-      if (isCurrent())
+      if (isCurrent() && !controller.signal.aborted)
         setError(cause instanceof Error ? cause.message : "No se pudo exportar la auditoría.");
     } finally {
       if (alive.current) setExporting(false);
     }
   }
-  const visible = rows.filter((r) =>
-    `${r.actorName} ${r.resourceId} ${labels[r.action.split(".")[0]] ?? r.kind}`
-      .toLocaleLowerCase("es")
-      .includes(search.trim().toLocaleLowerCase("es")),
-  );
   return (
     <section className="project-activity">
       <header className="project-activity__heading">
@@ -499,6 +543,24 @@ export function ProjectActivityView({
                 {exporting
                   ? "Exportando…"
                   : `Exportar página ${format === "xlsx" ? "Excel" : format === "md" ? "Markdown" : "PDF"}`}
+              </button>
+            ))}
+          </div>
+          <div
+            className="audit-table__exports layout__actions"
+            aria-label="Exportación de auditoría filtrada"
+          >
+            {(["xlsx", "pdf", "md"] as const).map((format) => (
+              <button
+                type="button"
+                className="workspace__secondary"
+                disabled={exporting || busy || !settings}
+                key={format}
+                onClick={() => void download(format, true)}
+              >
+                {exporting
+                  ? "Exportando…"
+                  : `Exportar todo filtrado ${format === "xlsx" ? "Excel" : format === "md" ? "Markdown" : "PDF"}`}
               </button>
             ))}
           </div>

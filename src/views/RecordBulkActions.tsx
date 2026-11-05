@@ -1,3 +1,5 @@
+import type { BugBulkInput } from "../../backend/src/models/bug-bulk.model";
+import type { BugWorkflow } from "../../backend/src/models/quality.model";
 import { useState, type ReactNode } from "react";
 import type { CaseBulkInput } from "../../backend/src/models/case-bulk.model";
 import { api } from "../api";
@@ -7,8 +9,15 @@ import TagPicker from "../TagPicker";
 import type { Tag, TestCase } from "../types";
 import { formatCount } from "../utils/pluralization";
 
-export default function CaseBulkActions({
+type BulkItem = Pick<
+  TestCase,
+  "id" | "title" | "version" | "assigneeUserId" | "assigneeName" | "tagIds"
+> & { status: string };
+
+export default function RecordBulkActions({
   projectId,
+  resource,
+  workflow,
   items,
   members,
   tags,
@@ -19,7 +28,9 @@ export default function CaseBulkActions({
   children,
 }: {
   projectId: string;
-  items: TestCase[];
+  items: BulkItem[];
+  resource: "test-cases" | "bugs";
+  workflow?: BugWorkflow | null;
   members: { id: string; name: string }[];
   tags: Tag[];
   tagError: string;
@@ -29,8 +40,9 @@ export default function CaseBulkActions({
   children: (selection?: { ids: Set<string>; toggle: (id: string) => void }) => ReactNode;
 }) {
   const [ids, setIds] = useState<Set<string>>(new Set());
-  const [targets, setTargets] = useState<TestCase[] | null>(null);
-  const [kind, setKind] = useState<CaseBulkInput["action"]["kind"]>("assign");
+  const [targets, setTargets] = useState<BulkItem[] | null>(null);
+  const [kind, setKind] = useState<BugBulkInput["action"]["kind"]>("assign");
+  const [status, setStatus] = useState("");
   const [assignee, setAssignee] = useState("");
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [reviewing, setReviewing] = useState(false);
@@ -39,12 +51,30 @@ export default function CaseBulkActions({
   const selected = items.filter((item) => ids.has(item.id));
   const assigneeName =
     assignee === "none" ? "Sin asignar" : members.find((member) => member.id === assignee)?.name;
-  const action: CaseBulkInput["action"] =
+  const isBug = resource === "bugs";
+  const statusOptions =
+    workflow?.states.filter((candidate) =>
+      targets?.every(
+        (item) =>
+          candidate === item.status || workflow.transitions[item.status]?.includes(candidate),
+      ),
+    ) ?? [];
+  const action =
     kind === "assign"
       ? { kind, assigneeUserId: assignee === "none" ? null : assignee }
-      : { kind, tagIds };
+      : kind === "status"
+        ? { kind, status }
+        : { kind, tagIds };
   const canReview =
-    kind === "assign" ? !membersError && Boolean(assigneeName) : !tagError && tagIds.length > 0;
+    kind === "assign"
+      ? !membersError && Boolean(assigneeName)
+      : kind === "status"
+        ? statusOptions.includes(status)
+        : !tagError && tagIds.length > 0;
+  const selectionLabel = (count: number) =>
+    isBug
+      ? formatCount(count, "bug seleccionado", "bugs seleccionados")
+      : formatCount(count, "caso seleccionado", "casos seleccionados");
   function toggle(id: string) {
     setIds((current) => {
       const next = new Set(current);
@@ -57,21 +87,38 @@ export default function CaseBulkActions({
     setTargets(selected);
     setKind("assign");
     setAssignee("");
+    setStatus("");
     setTagIds([]);
     setReviewing(false);
     setError("");
   }
   async function confirm() {
-    if (!targets || !canReview || busy) return;
+    if (!targets || !canReview || busy || (resource === "test-cases" && action.kind === "status"))
+      return;
     setBusy(true);
     setError("");
     try {
-      const payload: CaseBulkInput = {
-        projectId,
-        cases: targets.map(({ id, version }) => ({ id, version: version ?? 1 })),
-        action,
-      };
-      const result = await api<{ updated: number }>("/test-cases/bulk", {
+      const payload: CaseBulkInput | BugBulkInput | null =
+        resource === "bugs"
+          ? {
+              projectId,
+              bugs: targets.map(({ id, status, assigneeUserId, assigneeName }) => ({
+                id,
+                status,
+                assigneeUserId: assigneeUserId ?? null,
+                assignee: assigneeName ?? null,
+              })),
+              action,
+            }
+          : action.kind === "status"
+            ? null
+            : {
+                projectId,
+                cases: targets.map(({ id, version }) => ({ id, version: version ?? 1 })),
+                action,
+              };
+      if (!payload) return;
+      const result = await api<{ updated: number }>(`/${resource}/bulk`, {
         method: "POST",
         body: JSON.stringify(payload),
       });
@@ -87,10 +134,11 @@ export default function CaseBulkActions({
   return (
     <>
       {enabled && items.length > 0 && (
-        <div className="layout__actions" aria-label="Selección masiva de casos">
-          <span role="status">
-            {formatCount(selected.length, "caso seleccionado", "casos seleccionados")}
-          </span>
+        <div
+          className="layout__actions"
+          aria-label={isBug ? "Selección masiva de bugs" : "Selección masiva de casos"}
+        >
+          <span role="status">{selectionLabel(selected.length)}</span>
           <button
             type="button"
             className="workspace__secondary"
@@ -120,7 +168,7 @@ export default function CaseBulkActions({
       {children(enabled ? { ids, toggle } : undefined)}
       {enabled && targets && (
         <Dialog
-          title="Operación masiva de casos"
+          title={isBug ? "Operación masiva de bugs" : "Operación masiva de casos"}
           onClose={() => {
             if (!busy) setTargets(null);
           }}
@@ -135,14 +183,25 @@ export default function CaseBulkActions({
                     const newTags = tags.filter(
                       (tag) => tagIds.includes(tag.id) && !item.tagIds?.includes(tag.id),
                     );
+                    const currentAssignee =
+                      item.assigneeName && item.assigneeName !== "—"
+                        ? item.assigneeName
+                        : "Sin asignar";
+                    const sameAssignee =
+                      (item.assigneeUserId ?? null) === (assignee === "none" ? null : assignee) &&
+                      (assignee !== "none" || currentAssignee === "Sin asignar");
                     const change =
                       kind === "assign"
-                        ? (item.assigneeUserId ?? null) === (assignee === "none" ? null : assignee)
+                        ? sameAssignee
                           ? "Sin cambios"
-                          : `${item.assigneeName || "Sin asignar"} → ${assigneeName}`
-                        : newTags.length
-                          ? `Añadir ${newTags.map((tag) => tag.name).join(", ")}`
-                          : "Sin cambios";
+                          : `${currentAssignee} → ${assigneeName}`
+                        : kind === "status"
+                          ? item.status === status
+                            ? "Sin cambios"
+                            : `${item.status} → ${status}`
+                          : newTags.length
+                            ? `Añadir ${newTags.map((tag) => tag.name).join(", ")}`
+                            : "Sin cambios";
                     return (
                       <li key={item.id}>
                         <strong>{item.id}</strong> · {item.title} · {change}
@@ -174,17 +233,24 @@ export default function CaseBulkActions({
               </>
             ) : (
               <>
-                <p>{formatCount(targets.length, "caso seleccionado", "casos seleccionados")}</p>
+                <p>{selectionLabel(targets.length)}</p>
                 <label className="workspace__field">
-                  Acción para los casos
+                  {isBug ? "Acción para los bugs" : "Acción para los casos"}
                   <select
                     value={kind}
                     onChange={(event) =>
-                      setKind(event.target.value === "addTags" ? "addTags" : "assign")
+                      setKind(
+                        event.target.value === "addTags"
+                          ? "addTags"
+                          : event.target.value === "status" && isBug
+                            ? "status"
+                            : "assign",
+                      )
                     }
                   >
                     <option value="assign">Asignar responsable</option>
                     <option value="addTags">Añadir tags</option>
+                    {isBug && <option value="status">Cambiar estado</option>}
                   </select>
                 </label>
                 {kind === "assign" ? (
@@ -206,6 +272,20 @@ export default function CaseBulkActions({
                       </select>
                     </label>
                   </>
+                ) : kind === "status" ? (
+                  <label className="workspace__field">
+                    Nuevo estado
+                    <select value={status} onChange={(event) => setStatus(event.target.value)}>
+                      <option value="">
+                        {statusOptions.length
+                          ? "Selecciona un estado"
+                          : "Sin transiciones en común"}
+                      </option>
+                      {statusOptions.map((value) => (
+                        <option key={value}>{value}</option>
+                      ))}
+                    </select>
+                  </label>
                 ) : (
                   <TagPicker
                     tags={tags}

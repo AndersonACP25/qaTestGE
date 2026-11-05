@@ -1,4 +1,5 @@
 import type { DatabasePool, DatabaseClient } from "../auth/actor-database.js";
+import { randomBytes } from "node:crypto";
 import { hashPassword, verifyPassword } from "../auth/passwords.js";
 import { HttpError } from "../http-error.js";
 import { creationHash } from "./creation-request.js";
@@ -69,10 +70,12 @@ export class PostgresProjectAdministration {
         await client.query("SELECT qa.require_permission($1,'access.manage')", [projectId]);
         if (!project.rows[0])
           throw new HttpError(404, "PROJECT_NOT_FOUND", "Proyecto no disponible.");
+        const activation = input.password === undefined;
         const fingerprint = creationHash({
           name: input.name,
           email: input.email,
           role: input.role,
+          ...(activation ? { activation: true } : {}),
         });
         const prior = await client.query<{
           request_hash: string;
@@ -86,7 +89,8 @@ export class PostgresProjectAdministration {
         if (userId) {
           if (
             prior.rows[0].request_hash !== fingerprint ||
-            !(await verifyPassword(input.password, prior.rows[0].password_hash))
+            (input.password !== undefined &&
+              !(await verifyPassword(input.password, prior.rows[0].password_hash)))
           )
             throw new HttpError(
               409,
@@ -94,10 +98,12 @@ export class PostgresProjectAdministration {
               "El intento ya se utilizó con otros datos. Revisa el usuario creado.",
             );
         } else {
-          const passwordHash = await hashPassword(input.password);
+          const passwordHash = await hashPassword(
+            input.password ?? randomBytes(32).toString("hex"),
+          );
           const created = await client.query<{ id: string }>(
-            "INSERT INTO qa.users(name,email,password_hash) VALUES($1,$2,$3) RETURNING id::text",
-            [input.name, input.email, passwordHash],
+            "INSERT INTO qa.users(name,email,password_hash,activation_pending) VALUES($1,$2,$3,$4) RETURNING id::text",
+            [input.name, input.email, passwordHash, activation],
           );
           userId = created.rows[0].id;
           const organizationId = project.rows[0].organization_id;

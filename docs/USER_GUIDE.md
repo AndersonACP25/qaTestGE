@@ -46,6 +46,10 @@ Si administras la instalación y quieres conectar un proveedor de IA, consulta l
 
 ## Personaliza tu cuenta
 
+Si la instancia tiene habilitada la entrega de correos, usa **¿Olvidaste tu contraseña o necesitas activar tu cuenta?** en la pantalla de acceso. Introduce tu correo y abre el enlace recibido para definir una contraseña. El enlace de recuperación vence en 30 minutos y cierra tus sesiones anteriores al confirmar el cambio.
+
+Desde **Configuración → Accesos al proyecto**, Admin puede marcar **Enviar enlace de activación** al crear una cuenta. La persona tiene 24 horas para usar el enlace y establecer su contraseña. Si vence, puede solicitar otro desde la pantalla de acceso.
+
 En **Configuración** puedes actualizar tu nombre y correo, cambiar tu contraseña y crear plantillas personales de bugs. También puedes cambiar el tema de la interfaz.
 
 El cambio de imagen de perfil aparece como una maqueta: todavía no permite seleccionar ni subir imágenes.
@@ -54,11 +58,11 @@ Al desactivar tu cuenta se revocan tus sesiones y se anonimizan tus datos person
 
 ## Límites actuales
 
-La conexión con IA es una maqueta: no guarda claves ni envía información a proveedores. Tampoco están disponibles la recuperación de contraseña, la verificación de correo, MFA ni invitaciones por correo. Las ejecuciones registran pruebas manuales; no ejecutan pruebas automáticamente.
+La conexión con IA es una maqueta: no guarda claves ni envía información a proveedores. MFA y las invitaciones de equipo por correo siguen pendientes. Las ejecuciones registran pruebas manuales; no ejecutan pruebas automáticamente.
 
 ## Instalación y documentación técnica
 
-Para ejecutar tu propia instancia, consulta la [guía de desarrollo](DEVELOPMENT.md). Al actualizar una instalación existente, aplica `pnpm db:migrate` antes de iniciar la API; esta versión incorpora la migración 012 para evitar creaciones duplicadas. Encontrarás los detalles técnicos en [Arquitectura](architecture.md), [API](API.md), [Pruebas](TESTING.md) y [Seguridad](../SECURITY.md). Para colaborar con el proyecto, consulta [CONTRIBUTING.md](../CONTRIBUTING.md).
+Para ejecutar tu propia instancia, consulta la [guía de desarrollo](DEVELOPMENT.md). Al actualizar una instalación existente, aplica `pnpm db:migrate` antes de iniciar la API; la migración 021 habilita el almacenamiento de enlaces de cuenta. Encontrarás los detalles técnicos en [Arquitectura](architecture.md), [API](API.md), [Pruebas](TESTING.md) y [Seguridad](../SECURITY.md). Para colaborar con el proyecto, consulta [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 ## Trazabilidad y organización de pruebas
 
@@ -109,7 +113,7 @@ En **Configuración → Inteligencia artificial** puedes consultar el catálogo 
 
 ## Bandeja y notificaciones
 
-La campana del navbar muestra las últimas menciones del proyecto, un contador de pendientes y **Ver todas las menciones**. El contador se comparte con Mis menciones; ambos se actualizan cada 15 segundos mientras la aplicación está visible y al recuperar el foco. La bandeja permite filtrar Todas, Sin leer y Leídas. Abrir un registro conserva el aviso pendiente; marcarlo como leído requiere el botón verde. El filtro se aplica a todos tus avisos del proyecto y los resultados se consultan en páginas de 50.
+La campana del navbar muestra las últimas menciones del proyecto, un contador de pendientes y **Ver todas las menciones**. El contador se comparte con Mis menciones; ambos se actualizan cada 15 segundos mientras la aplicación está visible y al recuperar el foco. La bandeja permite filtrar Todas, Sin leer y Leídas. Abrir un registro conserva el aviso pendiente; marcarlo como leído requiere **Marcar como leída** o **Marcar todas como leídas**. El filtro se aplica a todos tus avisos del proyecto y los resultados se consultan en páginas de 50.
 
 En la barra de comentarios, **@ Mencionar** abre la búsqueda de integrantes e inserta el nombre seleccionado donde está el cursor. También puedes escribir @ y seleccionar una sugerencia. Los campos largos tienen mayor altura inicial; Lista y Cita usan botones de texto.
 
@@ -140,3 +144,11 @@ En el detalle de un registro, pulsa **Copiar enlace**. La persona que lo abra de
 En **Casos de prueba**, marca las filas o usa **Seleccionar página** para trabajar con los casos visibles. Abre **Operación masiva** y elige **Asignar responsable** o **Añadir tags**. Revisa el cambio por caso antes de pulsar **Confirmar operación**. La asignación permite dejar los casos sin responsable y los tags nuevos se suman a los existentes.
 
 La selección se limita a la página actual. Si un caso cambió desde que abriste la vista previa, actualiza el listado y revisa la selección de nuevo. La operación se aplica completa o se rechaza completa.
+
+En **Bugs** también puedes seleccionar filas de la página y revisar una asignación, añadir tags o cambiar el estado. Para cambiar el estado, el selector ofrece destinos válidos para todos los bugs seleccionados según el flujo vigente. Si alguno cambió desde la revisión o la transición deja de estar permitida, se rechaza el lote completo.
+
+## Comparar versiones de un caso
+
+Abre **Historial de versiones** y usa **Comparar versiones** para ver qué cambió en el título, tipo, suite, estado documental, precondiciones y pasos. **Restaurar versión** crea una nueva versión a partir del contenido histórico. Los tags, el responsable y el estado operativo se conservan.
+
+En **Actividad y auditoría**, **Exportar todo filtrado** recorre las páginas del historial con los filtros vigentes y la búsqueda local. Si el historial supera 10,000 eventos consultados o el contenido de exportación supera 8 MiB, acota los filtros del servidor. La exportación de página sigue disponible.

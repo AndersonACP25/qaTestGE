@@ -15,11 +15,13 @@ export default function CreateProjectUserDialog({
 }: {
   projectId: string;
   onClose: () => void;
-  onCreated: (member: ProjectMember) => void;
+  onCreated: (member: ProjectMember, activation: boolean) => void;
 }) {
   const [name, setName] = useState(""),
     [email, setEmail] = useState(""),
     [password, setPassword] = useState("");
+  const [linksEnabled, setLinksEnabled] = useState(false);
+  const [activation, setActivation] = useState(false);
   const [role, setRole] = useState<ProjectRole>("QA");
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
@@ -28,8 +30,17 @@ export default function CreateProjectUserDialog({
   const alive = useRef(true);
   useEffect(() => {
     alive.current = true;
+    const abort = new AbortController();
+    void api<{ enabled: boolean }>("/auth/account-links", { signal: abort.signal })
+      .then(({ enabled }) => {
+        if (!abort.signal.aborted) setLinksEnabled(enabled);
+      })
+      .catch(() => {
+        /* La capacidad es opcional. */
+      });
     return () => {
       alive.current = false;
+      abort.abort();
     };
   }, []);
   return (
@@ -44,7 +55,12 @@ export default function CreateProjectUserDialog({
         onSubmit={(event) => {
           event.preventDefault();
           if (busy) return;
-          const parsed = provisionUserSchema.safeParse({ name, email, password, role });
+          const parsed = provisionUserSchema.safeParse({
+            name,
+            email,
+            ...(activation ? {} : { password }),
+            role,
+          });
           if (!parsed.success) {
             setError("Revisa nombre, correo, contraseña de 12 a 128 caracteres y rol.");
             return;
@@ -62,7 +78,7 @@ export default function CreateProjectUserDialog({
             .then((member) => {
               if (alive.current) {
                 setPassword("");
-                onCreated(member);
+                onCreated(member, activation);
               }
             })
             .catch((cause: unknown) => {
@@ -100,18 +116,30 @@ export default function CreateProjectUserDialog({
               autoComplete="off"
             />
           </label>
-          <label className="workspace__field">
-            Contraseña inicial
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={12}
-              maxLength={128}
-              autoComplete="new-password"
-            />
-          </label>
+          {linksEnabled && (
+            <label className="project-user__activation">
+              <input
+                type="checkbox"
+                checked={activation}
+                onChange={(event) => setActivation(event.target.checked)}
+              />
+              Enviar enlace de activación
+            </label>
+          )}
+          {!activation && (
+            <label className="workspace__field">
+              Contraseña inicial
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={12}
+                maxLength={128}
+                autoComplete="new-password"
+              />
+            </label>
+          )}
           <label className="workspace__field">
             Rol del nuevo usuario
             <select
@@ -128,8 +156,9 @@ export default function CreateProjectUserDialog({
           </label>
         </fieldset>
         <p className="typography__caption">
-          La persona podrá iniciar sesión con ese correo y contraseña. No se envían correos ni se
-          guardan contraseñas en el navegador.
+          {activation
+            ? "La persona recibirá un enlace de un solo uso para definir su contraseña."
+            : "La persona podrá iniciar sesión con ese correo y contraseña."}
         </p>
         {error && <Alert tone="error">{error}</Alert>}
         {attempted && error && (

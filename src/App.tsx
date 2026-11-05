@@ -1,5 +1,5 @@
 import { formatCount } from "./utils/pluralization";
-import CaseBulkActions from "./views/CaseBulkActions";
+import RecordBulkActions from "./views/RecordBulkActions";
 import { readRecordLink } from "./models/recordLinks";
 import SavedListingViews from "./components/SavedListingViews";
 import { listingViewsKey } from "./models/listingViews";
@@ -1496,26 +1496,58 @@ function App({
                   </div>
                 )}
                 {activePage === "bugs" && (
-                  <BugTable
+                  <RecordBulkActions
+                    key={JSON.stringify([
+                      "bugs",
+                      user.id,
+                      projectId,
+                      currentTablePage,
+                      listingFilters,
+                    ])}
+                    resource="bugs"
                     workflow={workflow}
-                    bugs={visibleBugs}
+                    projectId={projectId}
+                    items={visibleBugs.map((bug) => ({ ...bug, assigneeName: bug.assignee }))}
+                    members={teamMembers}
+                    membersError={teamMemberError}
                     tags={tags}
-                    onSelect={(bug) => setRecordDetail({ kind: "bug", record: bug })}
-                    onExport={(bug) => setExportTarget({ kind: "bug", record: bug })}
-                    onEdit={editBug}
-                    onDelete={(bug) => {
-                      setDeleteBugError("");
-                      setDeleteBugTarget(bug);
+                    tagError={tagError}
+                    enabled={allowed("bugs.write")}
+                    onUpdated={(updated) => {
+                      if (!isRenderCurrent()) return;
+                      setRevision((value) => value + 1);
+                      notify(
+                        updated
+                          ? `${formatCount(updated, "bug actualizado", "bugs actualizados")}.`
+                          : "La selección ya tenía los valores solicitados.",
+                      );
                     }}
-                    onStatusChange={(bug, status) => void changeBugStatus(bug, status)}
-                    updatingStatus={updatingStatus}
-                  />
+                  >
+                    {(selection) => (
+                      <BugTable
+                        workflow={workflow}
+                        selection={selection}
+                        bugs={visibleBugs}
+                        tags={tags}
+                        onSelect={(bug) => setRecordDetail({ kind: "bug", record: bug })}
+                        onExport={(bug) => setExportTarget({ kind: "bug", record: bug })}
+                        onEdit={editBug}
+                        onDelete={(bug) => {
+                          setDeleteBugError("");
+                          setDeleteBugTarget(bug);
+                        }}
+                        onStatusChange={(bug, status) => void changeBugStatus(bug, status)}
+                        updatingStatus={updatingStatus}
+                      />
+                    )}
+                  </RecordBulkActions>
                 )}
                 {activePage === "cases" && (
-                  <CaseBulkActions
+                  <RecordBulkActions
                     key={JSON.stringify([user.id, projectId, currentTablePage, listingFilters])}
                     projectId={projectId}
                     items={visibleCases}
+                    resource="test-cases"
                     members={teamMembers}
                     membersError={teamMemberError}
                     tags={tags}
@@ -1547,7 +1579,7 @@ function App({
                         updatingStatus={updatingStatus}
                       />
                     )}
-                  </CaseBulkActions>
+                  </RecordBulkActions>
                 )}
                 {activePage === "runs" && (
                   <>
@@ -2315,6 +2347,12 @@ function App({
                 key={recordDetail.record.id}
                 caseId={recordDetail.record.id}
                 projectId={projectId}
+                expectedVersion={recordDetail.record.version ?? 1}
+                onRestored={(item) => {
+                  if (!isRenderCurrent()) return;
+                  setRecordDetail({ kind: "case", record: item });
+                  setRevision((value) => value + 1);
+                }}
               />
             </>
           )}

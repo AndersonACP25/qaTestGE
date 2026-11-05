@@ -61,7 +61,7 @@ Usar Vitest determinista sin red ni base personal. Los endpoints en `backend/tes
 
 Las pruebas Vitest no necesitan PostgreSQL. Para integración real usa exclusivamente una instancia efímera y `TEST_DATABASE_URL` explícita según [`backend/sql/README.md`](../backend/sql/README.md). Prepara la base vacía con `pnpm db:setup`; repite el comando y `pnpm db:migrate` para verificar idempotencia antes de `test:db`. CI también prueba actualizar desde el esquema 001 con migraciones 004–012. Nunca uses la base personal: la integración crea y elimina datos. `003_verify.sql` es una comprobación manual del modelo inicial, no sustituye los escenarios de autenticación, aislamiento y concurrencia de la API.
 
-Los scripts SQL iniciales se verificaron con PostgreSQL 18 en una instancia temporal aislada: creación de la base, esquema, seed y comprobaciones de integridad. La API ya usa un repositorio PostgreSQL; el esquema sigue importándose manualmente.
+Los scripts SQL iniciales se verificaron con PostgreSQL 18 en una instancia temporal aislada: creación de la base, esquema, seed y comprobaciones de integridad. La API ya usa un repositorio PostgreSQL; el esquema se instala con `pnpm db:setup`.
 
 ## Integración opcional del repositorio y API
 
@@ -92,3 +92,9 @@ Configuración y aislamiento de red basados en la documentación oficial de [web
 Asignaciones (018): `verify-assigned-work.ts` se ejecuta en `test:db` y verifica identidad frente a nombres repetidos, responsables válidos/inactivos/ajenos, paginación sin duplicados, filtros, aislamiento, reintentos y protección al retirar accesos/equipo. También verifica evidencia enlazada a bugs/casos usando la API del diseñador. `verify-run-upgrade.ts` requiere otra base efímera vacía: instala hasta 017, prepara responsables únicos/ambiguos, aplica 018 y repite migraciones sin perder registros. CI incluye ese escenario. `assigned-editor-refresh.spec.ts` cubre edición/creación, asignaciones y respuestas tardías, evidencias en ambos diseñadores, selección de Test Plan, tabla/exportación/paginación de auditoría, equipos, contador y descargas sin saltos.
 
 `filters-notices-coverage.spec.ts` cubre acceso superior a menciones, chevron SVG, historial largo sin desplazar cabecera, vínculo desde páginas posteriores con foco/restauración, búsqueda de casos sin submit accidental, confirmaciones sobre modales y filtros combinados/reinicio. Las capturas revisan 1440/375/425 px. Las reglas CORE adicionales comprueban clasificación, responsable por ID, tags y registros sin asignación/plan. `verify-analytics.ts` prueba el vínculo idempotente y su consulta enfocada real, incluyendo caso ajeno y prefijos inválidos, en PostgreSQL efímero.
+
+## Smoke integrado
+
+CI comprueba la instalación, migraciones e integraciones PostgreSQL en las versiones 17 y 18. En 18, ejecuta también `pnpm test:smoke` contra navegador, API y una base recién instalada. El recorrido inicia sesión, guarda un fallo, enlaza una evidencia, crea el bug de origen y verifica que otra cuenta no puede descargar el archivo.
+
+Para reproducirlo, prepara una base PostgreSQL efímera con `pnpm db:setup`, instala Chromium, ejecuta `pnpm build` y define `TEST_DATABASE_URL` antes de correr `pnpm test:smoke`. El smoke crea cuentas y registros en la base seleccionada.

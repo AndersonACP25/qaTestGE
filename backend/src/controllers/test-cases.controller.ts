@@ -1,3 +1,4 @@
+import { restoreCaseSchema } from "../models/case-version.model.js";
 import { caseBulkSchema } from "../models/case-bulk.model.js";
 import { creationContext } from "../repositories/creation-request.js";
 import { listQuery } from "../repositories/list-query.js";
@@ -20,6 +21,26 @@ export async function bulkUpdateCases(request: Request, response: Response) {
       "Revisa la selección y la operación de los casos.",
     );
   response.json({ data: await repository(request).bulkUpdateCases(input.data) });
+}
+export async function restoreCaseVersion(request: Request, response: Response) {
+  const id = parseReference(request.params.caseId, "TC");
+  const body: unknown = request.body;
+  const input = restoreCaseSchema.safeParse(body);
+  if (!id || !isRecord(body) || !isId(body.projectId) || !input.success)
+    throw new HttpError(
+      400,
+      "INVALID_CASE_RESTORE",
+      "Selecciona una versión anterior y confirma la versión actual.",
+    );
+  const restored = await repository(request).restoreCaseVersion(
+    id,
+    body.projectId,
+    input.data.version,
+    input.data.expectedVersion,
+  );
+  if (!restored)
+    throw new HttpError(404, "CASE_VERSION_NOT_FOUND", "No se encontró la versión del caso.");
+  response.json({ data: restored });
 }
 export async function listTestCases(request: Request, response: Response) {
   response.json({

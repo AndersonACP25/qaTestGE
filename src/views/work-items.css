@@ -224,6 +224,11 @@
   display: grid;
   gap: 24px;
 }
+.project-user__activation {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .project-user__form p {
   margin: 0;
 }

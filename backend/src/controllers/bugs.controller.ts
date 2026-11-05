@@ -1,3 +1,4 @@
+import { bugBulkSchema } from "../models/bug-bulk.model.js";
 import { creationContext } from "../repositories/creation-request.js";
 import { listQuery } from "../repositories/list-query.js";
 import type { Request, Response } from "express";
@@ -11,6 +12,16 @@ import { repository } from "../repositories/repository.js";
 import { isId, isRecord, parseReference, projectFilter, text } from "../validation.js";
 import { HttpError } from "../http-error.js";
 
+export async function bulkUpdateBugs(request: Request, response: Response) {
+  const input = bugBulkSchema.safeParse(request.body as unknown);
+  if (!input.success)
+    throw new HttpError(
+      400,
+      "INVALID_BUG_BATCH",
+      "Revisa la selección y la operación de los bugs.",
+    );
+  response.json({ data: await repository(request).bulkUpdateBugs(input.data) });
+}
 export async function listBugs(request: Request, response: Response) {
   response.json({
     data: await repository(request).listBugs(projectFilter(request), listQuery(request)),

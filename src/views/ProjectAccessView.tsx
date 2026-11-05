@@ -127,10 +127,12 @@ export default function ProjectAccessView({
           key={projectId}
           projectId={projectId}
           onClose={() => setCreating(false)}
-          onCreated={(member) => {
+          onCreated={(member, activation) => {
             if (!alive.current) return;
             setCreating(false);
-            setMessage(`Usuario ${member.name} creado como ${member.role}.`);
+            setMessage(
+              `Usuario ${member.name} creado como ${member.role}.${activation ? " Se solicitó el envío del enlace de activación." : ""}`,
+            );
             setRevision((value) => value + 1);
             onChanged();
           }}

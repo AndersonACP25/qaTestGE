@@ -3,17 +3,19 @@ import { isId, parseReference } from "../validation.js";
 
 export const caseBulkLimit = 50;
 const id = z.string().refine(isId);
-const action = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("assign"), assigneeUserId: id.nullable() }),
-  z.object({
-    kind: z.literal("addTags"),
-    tagIds: z
-      .array(id)
-      .min(1)
-      .max(100)
-      .refine((ids) => new Set(ids).size === ids.length),
-  }),
-]);
+export const bulkAssignAction = z.object({
+  kind: z.literal("assign"),
+  assigneeUserId: id.nullable(),
+});
+export const bulkTagAction = z.object({
+  kind: z.literal("addTags"),
+  tagIds: z
+    .array(id)
+    .min(1)
+    .max(100)
+    .refine((ids) => new Set(ids).size === ids.length),
+});
+const action = z.discriminatedUnion("kind", [bulkAssignAction, bulkTagAction]);
 export const caseBulkSchema = z.object({
   projectId: id,
   cases: z

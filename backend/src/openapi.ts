@@ -225,6 +225,71 @@ export const openApiDocument = {
     ...analyticsPaths,
     ...qualityPaths,
     ...collaborationPaths,
+    "/api/auth/account-links": {
+      get: {
+        security: [],
+        summary: "Consultar si la instancia permite solicitar enlaces de cuenta",
+        responses: {
+          "200": {
+            description: "Capacidad de envío",
+            content: json(envelope(object({ enabled: { type: "boolean" } }, ["enabled"]))),
+          },
+        },
+      },
+    },
+    "/api/auth/account-links/request": {
+      post: {
+        security: [],
+        summary: "Solicitar activación o recuperación sin revelar la existencia de una cuenta",
+        requestBody: {
+          required: true,
+          content: json(
+            object({ email: { type: "string", format: "email", maxLength: 254 } }, ["email"]),
+          ),
+        },
+        responses: {
+          "202": {
+            description: "Solicitud aceptada",
+            content: json(envelope(object({ accepted: { const: true } }, ["accepted"]))),
+          },
+          "400": errorResponse("INVALID_EMAIL"),
+          "429": errorResponse("TOO_MANY_ATTEMPTS"),
+          "503": errorResponse("ACCOUNT_LINKS_DISABLED"),
+        },
+      },
+    },
+    "/api/auth/account-links/consume": {
+      post: {
+        security: [],
+        summary: "Definir contraseña con un enlace de un solo uso y revocar sesiones",
+        requestBody: {
+          required: true,
+          content: json(
+            object(
+              {
+                token: { type: "string", pattern: "^[a-f0-9]{64}$", writeOnly: true },
+                password: {
+                  type: "string",
+                  minLength: 12,
+                  maxLength: 128,
+                  format: "password",
+                  writeOnly: true,
+                },
+              },
+              ["token", "password"],
+            ),
+          ),
+        },
+        responses: {
+          "200": {
+            description: "Contraseña establecida",
+            content: json(envelope(object({ completed: { const: true } }, ["completed"]))),
+          },
+          "400": errorResponse("INVALID_ACCOUNT_LINK o INVALID_ACCOUNT_LINK_INPUT"),
+          "429": errorResponse("TOO_MANY_ATTEMPTS o AUTH_BUSY"),
+        },
+      },
+    },
     "/api/auth/register": {
       post: {
         security: [],
@@ -827,6 +892,80 @@ export const openApiDocument = {
         },
       },
     },
+    "/api/bugs/bulk": {
+      post: {
+        summary:
+          "Asignar responsable, añadir tags o cambiar estado a una selección de bugs en una transacción",
+        requestBody: {
+          required: true,
+          content: json(
+            object(
+              {
+                projectId,
+                bugs: {
+                  type: "array",
+                  minItems: 1,
+                  maxItems: 50,
+                  items: object(
+                    {
+                      id: { type: "string", pattern: "^BUG-[0-9]{1,19}$" },
+                      status: text(60),
+                      assigneeUserId: { ...projectId, nullable: true },
+                      assignee: { type: "string", maxLength: 120, nullable: true },
+                    },
+                    ["id", "status", "assigneeUserId", "assignee"],
+                  ),
+                },
+                action: {
+                  oneOf: [
+                    object({ kind: { type: "string", enum: ["status"] }, status: text(60) }, [
+                      "kind",
+                      "status",
+                    ]),
+                    object(
+                      {
+                        kind: { type: "string", enum: ["assign"] },
+                        assigneeUserId: { ...projectId, nullable: true },
+                      },
+                      ["kind", "assigneeUserId"],
+                    ),
+                    object(
+                      {
+                        kind: { type: "string", enum: ["addTags"] },
+                        tagIds: {
+                          type: "array",
+                          minItems: 1,
+                          maxItems: 100,
+                          uniqueItems: true,
+                          items: projectId,
+                        },
+                      },
+                      ["kind", "tagIds"],
+                    ),
+                  ],
+                },
+              },
+              ["projectId", "bugs", "action"],
+            ),
+          ),
+        },
+        responses: {
+          "200": {
+            description: "Cantidad de bugs que cambiaron",
+            content: json(
+              envelope(
+                object({ updated: { type: "integer", minimum: 0, maximum: 50 } }, ["updated"]),
+              ),
+            ),
+          },
+          "400": errorResponse("INVALID_BUG_BATCH, INVALID_ASSIGNEE, INVALID_TAG o BUG_TAG_LIMIT"),
+          "401": errorResponse("UNAUTHENTICATED"),
+          "403": errorResponse("FORBIDDEN o INVALID_CSRF"),
+          "404": errorResponse("PROJECT_NOT_FOUND"),
+          "409": errorResponse("BUG_BATCH_CONFLICT o DOMAIN_CONFLICT"),
+        },
+      },
+    },
     "/api/test-cases/bulk": {
       post: {
         summary: "Asignar responsable o añadir tags a una selección de casos en una transacción",
@@ -893,6 +1032,43 @@ export const openApiDocument = {
           "403": errorResponse("FORBIDDEN o INVALID_CSRF"),
           "404": errorResponse("PROJECT_NOT_FOUND"),
           "409": errorResponse("CASE_VERSION_CONFLICT"),
+        },
+      },
+    },
+    "/api/test-cases/{caseId}/history/restore": {
+      post: {
+        summary: "Restaurar contenido histórico como una versión nueva del caso",
+        parameters: [
+          {
+            in: "path",
+            name: "caseId",
+            required: true,
+            schema: { type: "string", pattern: "^TC-[0-9]{1,19}$" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: json(
+            object(
+              {
+                projectId,
+                version: { type: "integer", minimum: 1 },
+                expectedVersion: { type: "integer", minimum: 2 },
+              },
+              ["projectId", "version", "expectedVersion"],
+            ),
+          ),
+        },
+        responses: {
+          "200": {
+            description: "Caso restaurado en una nueva versión",
+            content: json(envelope(ref("TestCase"))),
+          },
+          "400": errorResponse("INVALID_CASE_RESTORE"),
+          "401": errorResponse("UNAUTHENTICATED"),
+          "403": errorResponse("FORBIDDEN o INVALID_CSRF"),
+          "404": errorResponse("CASE_VERSION_NOT_FOUND"),
+          "409": errorResponse("CASE_VERSION_CONFLICT o CASE_SNAPSHOT_INVALID"),
         },
       },
     },

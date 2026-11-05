@@ -11,9 +11,12 @@ permissions:
 jobs:
   postgres:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        postgres: [17, 18]
     services:
       postgres:
-        image: postgres:17
+        image: postgres:${{ matrix.postgres }}
         env:
           POSTGRES_USER: ci
           POSTGRES_PASSWORD: ci-only-password
@@ -60,6 +63,27 @@ jobs:
           dropdb -h localhost -U ci qa_test_ge
           createdb -h localhost -U ci qa_test_ge
           pnpm --dir backend exec tsx scripts/verify-run-upgrade.ts
+      - name: Prepare browser and production build for integrated smoke
+        if: matrix.postgres == 18
+        env:
+          DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
+        run: |
+          dropdb -h localhost -U ci qa_test_ge
+          createdb -h localhost -U ci qa_test_ge
+          pnpm db:setup
+          pnpm build
+          pnpm exec playwright install --with-deps chromium
+      - name: Run browser smoke against real API and PostgreSQL
+        if: matrix.postgres == 18
+        run: pnpm test:smoke
+      - name: Save integrated smoke failure artifacts
+        if: failure() && matrix.postgres == 18
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-postgres-18
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 7
   validate:
     runs-on: ubuntu-latest
     steps:

@@ -219,7 +219,7 @@ export const collaborationPaths = {
   },
   "/api/project-users": {
     post: operation(
-      "Admin crea cuenta local e integrante del equipo con rol únicamente en este proyecto. No envía correos. Clave y contenido deben conservarse al reintentar; correo existente genera 409 sin modificar la cuenta",
+      "Admin crea cuenta local e integrante del equipo con rol únicamente en este proyecto. Omitir password solicita un enlace de activación si el envío está habilitado. Clave y contenido deben conservarse al reintentar; correo existente genera 409 sin modificar la cuenta",
       member,
       [
         {
@@ -232,7 +232,7 @@ export const collaborationPaths = {
       {
         type: "object",
         additionalProperties: false,
-        required: ["name", "email", "password", "role"],
+        required: ["name", "email", "role"],
         properties: {
           name: { type: "string", minLength: 1, maxLength: 100 },
           email: { type: "string", format: "email", maxLength: 254 },

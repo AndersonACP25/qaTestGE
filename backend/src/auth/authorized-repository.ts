@@ -1,3 +1,4 @@
+import type { BugBulkInput } from "../models/bug-bulk.model.js";
 import type { CaseBulkInput } from "../models/case-bulk.model.js";
 import type { CreationContext } from "../repositories/creation-request.js";
 import type { ListQuery, RunListQuery } from "../repositories/list-query.js";
@@ -224,6 +225,10 @@ export class AuthorizedRepository implements Repository {
       ? this.base.createBug(input, { ...context, actorId: this.actorId! })
       : this.base.createBug(input);
   }
+  async bulkUpdateBugs(input: BugBulkInput) {
+    await this.projectIds(input.projectId);
+    return this.base.bulkUpdateBugs(input);
+  }
   async updateBugStatus(id: string, projectId: string, status: BugStatus) {
     await this.projectIds(projectId);
     return this.base.updateBugStatus(id, projectId, status);
@@ -246,6 +251,15 @@ export class AuthorizedRepository implements Repository {
   async bulkUpdateCases(input: CaseBulkInput) {
     await this.projectIds(input.projectId);
     return this.base.bulkUpdateCases(input);
+  }
+  async restoreCaseVersion(
+    id: string,
+    projectId: string,
+    version: number,
+    expectedVersion: number,
+  ) {
+    await this.projectIds(projectId);
+    return this.base.restoreCaseVersion(id, projectId, version, expectedVersion);
   }
   async updateCase(id: string, projectId: string, input: UpdateTestCaseInput) {
     await this.projectIds(projectId);

@@ -630,3 +630,31 @@ test("selecciona casos y revisa la asignación masiva antes de enviarla", async 
   await expect(page.getByRole("checkbox", { name: "Seleccionar TC-001" })).not.toBeChecked();
   await noHorizontalOverflow(page);
 });
+
+test("revisa una transición masiva de bugs según el flujo", async ({ page, workspace }) => {
+  void workspace;
+  let calls = 0;
+  await page.route("**/api/bugs/bulk", (route) => {
+    calls++;
+    expect(route.request().postDataJSON()).toMatchObject({
+      projectId: "1",
+      bugs: [{ id: "BUG-001", status: "Abierto" }],
+      action: { kind: "status", status: "En progreso" },
+    });
+    return route.fulfill({ json: { data: { updated: 1 } } });
+  });
+  await page.goto("/");
+  await navigate(page, "Bugs");
+  await page.getByRole("checkbox", { name: "Seleccionar BUG-001" }).check();
+  await page.getByRole("button", { name: "Operación masiva", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("combobox").first().selectOption("status");
+  const destination = dialog.getByRole("combobox").nth(1);
+  await expect(destination.getByRole("option", { name: "En revisión" })).toHaveCount(0);
+  await destination.selectOption("En progreso");
+  await dialog.getByRole("button", { name: "Revisar cambios" }).click();
+  await expect(dialog.getByText(/Abierto → En progreso/)).toBeVisible();
+  expect(calls).toBe(0);
+  await dialog.getByRole("button", { name: "Confirmar operación" }).click();
+  await expect(page.getByText("1 bug actualizado.", { exact: true })).toBeVisible();
+});
