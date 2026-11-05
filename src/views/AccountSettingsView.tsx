@@ -1,3 +1,4 @@
+import type { GeminiSettingsStatus } from "../contracts/apiContracts";
 import GeminiSettingsPanel from "./GeminiSettingsPanel";
 import ProjectTemplatesPanel from "./ProjectTemplatesPanel";
 import type { DesignTemplatesController } from "../controllers/useDesignTemplates";
@@ -22,6 +23,8 @@ const priorities: BugTemplatePriority[] = ["Crítica", "Alta", "Media", "Baja"];
 const emptyTemplate: BugTemplateInput = { name: "", title: "", description: "", priority: "Media" };
 
 export default function AccountSettingsView({
+  geminiStatus,
+  onGeminiStatusChange,
   projects = [],
   refreshRevision = 0,
   projectId = "",
@@ -38,6 +41,8 @@ export default function AccountSettingsView({
   onUserUpdated,
   onAccountDeleted,
 }: {
+  geminiStatus: GeminiSettingsStatus | null | undefined;
+  onGeminiStatusChange: (status: GeminiSettingsStatus) => void;
   projects?: Project[];
   refreshRevision?: number;
   projectId?: string;
@@ -633,7 +638,7 @@ export default function AccountSettingsView({
           </section>
           {activeSection === "ia" && (
             <section className="account-settings__card">
-              <GeminiSettingsPanel key={user.id} />
+              <GeminiSettingsPanel status={geminiStatus} onStatusChange={onGeminiStatusChange} />
             </section>
           )}
           <section

@@ -673,6 +673,14 @@ textarea:focus-visible {
 .ai-pill svg {
   color: var(--color-d39d52);
 }
+.ai-pill--connected {
+  color: var(--color-202334);
+  border-color: var(--color-48bd8c);
+  background: var(--color-e8f8f1);
+}
+.ai-pill--connected svg {
+  color: currentColor;
+}
 
 .icon-button {
   display: inline-grid;
@@ -4831,6 +4839,10 @@ tbody td {
   align-items: center;
   gap: 12px;
   margin-top: 16px;
+}
+.bug-design__outbound {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 .bug-design__draft {
   border-top: 1px solid var(--line);

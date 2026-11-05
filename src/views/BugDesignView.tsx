@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import Alert from "../Alert";
 import TagPicker from "../TagPicker";
 import { api, createBug, type BugTemplate } from "../api";
+import type { BugProposal } from "../contracts/apiContracts";
 import type { Bug, Tag } from "../types";
 import {
   loadBugDraftDocument,
@@ -19,6 +20,7 @@ import {
 } from "../models/bugDesign";
 
 export default function BugDesignView({
+  canProposeWithGemini,
   userId,
   projectId,
   tags,
@@ -30,6 +32,7 @@ export default function BugDesignView({
   onSaved,
   onOpenBugs,
 }: {
+  canProposeWithGemini: boolean;
   userId: string;
   projectId: string;
   tags: Tag[];
@@ -42,10 +45,12 @@ export default function BugDesignView({
   onOpenBugs: () => void;
 }) {
   const alive = useRef(true);
+  const proposalRequest = useRef<AbortController | null>(null);
   useEffect(() => {
     alive.current = true;
     return () => {
       alive.current = false;
+      proposalRequest.current?.abort();
     };
   }, []);
   const [initial] = useState(() => {
@@ -68,6 +73,9 @@ export default function BugDesignView({
   const [templatesLoading, setTemplatesLoading] = useState(true);
   const [templateError, setTemplateError] = useState("");
   const [preview, setPreview] = useState<BugDraft | null>(null);
+  const [confirmGemini, setConfirmGemini] = useState(false);
+  const [includeTemplate, setIncludeTemplate] = useState(false);
+  const [proposing, setProposing] = useState(false);
   const [confirmSave, setConfirmSave] = useState(false);
   const [reviewed, setReviewed] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -90,6 +98,56 @@ export default function BugDesignView({
       });
     return () => abort.abort();
   }, []);
+
+  const selectedTemplate = templates.find(({ id }) => id === templateId);
+  const templateText = selectedTemplate?.description.trim() ?? "";
+  const locked = busy || proposing;
+
+  function showPreview(fields: Omit<BugDraft, "id" | "tagIds">) {
+    setPreview({
+      ...fields,
+      id: crypto.randomUUID(),
+      ...availableTemplateDefaults(
+        defaults.find((item) => item.templateId === fields.templateId),
+        tags,
+        members,
+      ),
+    });
+    setReviewed(false);
+    setSavedId("");
+  }
+
+  async function propose() {
+    if (!canProposeWithGemini || locked || proposalRequest.current) return;
+    const description = source.trim();
+    const controller = new AbortController();
+    proposalRequest.current = controller;
+    setConfirmGemini(false);
+    setProposing(true);
+    setError("");
+    setMessage("");
+    try {
+      const proposal = await api<BugProposal>("/ai/bug-proposals", {
+        method: "POST",
+        signal: controller.signal,
+        body: JSON.stringify({
+          projectId,
+          consent: true,
+          description,
+          ...(includeTemplate && templateText && { templateText }),
+        }),
+      });
+      if (controller.signal.aborted) return;
+      showPreview({ ...proposal, source: description, templateId: selectedTemplate?.id ?? "" });
+      setMessage("Propuesta de Gemini lista para revisar.");
+    } catch (cause) {
+      if (!controller.signal.aborted)
+        setError(cause instanceof Error ? cause.message : "No se pudo generar la propuesta.");
+    } finally {
+      if (!controller.signal.aborted) setProposing(false);
+      proposalRequest.current = null;
+    }
+  }
 
   function edit(patch: Partial<BugDraft>) {
     setPreview((current) => (current ? { ...current, ...patch } : null));
@@ -135,7 +193,7 @@ export default function BugDesignView({
     return () => window.removeEventListener("storage", changed);
   }, [userId, projectId]);
   async function publish(confirmed = reviewed) {
-    if (!preview || !confirmed || busy || savedId) return;
+    if (!preview || !confirmed || locked || savedId) return;
     setBusy(true);
     setError("");
     setMessage("");
@@ -179,8 +237,9 @@ export default function BugDesignView({
   return (
     <section className="bug-design" aria-label="Diseñar bugs">
       <Alert tone="info">
-        Preparación local · IA no conectada. El texto y la plantilla se combinan en un borrador
-        editable; no se analiza el problema ni se inventan pasos o resultados.
+        {canProposeWithGemini
+          ? "Puedes preparar un borrador local o pedir una propuesta a Gemini. Revisa el contenido antes de guardar."
+          : "La preparación local combina el texto y la plantilla en un borrador editable."}
       </Alert>
       {initial.error && <Alert tone="error">{initial.error}</Alert>}
       {error && !confirmSave && <Alert tone="error">{error}</Alert>}
@@ -204,23 +263,11 @@ export default function BugDesignView({
           <form
             onSubmit={(event) => {
               event.preventDefault();
+              if (locked) return;
               setError("");
               setMessage("");
               try {
-                setPreview({
-                  ...prepareBug(
-                    source,
-                    templates.find(({ id }) => id === templateId),
-                  ),
-                  id: crypto.randomUUID(),
-                  ...availableTemplateDefaults(
-                    defaults.find((item) => item.templateId === templateId),
-                    tags,
-                    members,
-                  ),
-                });
-                setReviewed(false);
-                setSavedId("");
+                showPreview(prepareBug(source, selectedTemplate));
               } catch (cause) {
                 setError(cause instanceof Error ? cause.message : "No se pudo preparar el bug.");
               }
@@ -234,7 +281,7 @@ export default function BugDesignView({
                 maxLength={3500}
                 required
                 rows={6}
-                disabled={busy}
+                disabled={locked}
               />
             </label>
             <label className="workspace__field">
@@ -242,7 +289,7 @@ export default function BugDesignView({
               <select
                 value={templateId}
                 onChange={(event) => setTemplateId(event.target.value)}
-                disabled={templatesLoading || defaultsLoading || busy}
+                disabled={templatesLoading || defaultsLoading || locked}
               >
                 <option value="">Sin plantilla</option>
                 {templates.map((template) => (
@@ -253,19 +300,35 @@ export default function BugDesignView({
               </select>
             </label>
             {templateError && <Alert tone="error">{templateError}</Alert>}
-            <button
-              className="button button-primary bug-design__primary"
-              disabled={!source.trim() || busy}
-              type="submit"
-            >
-              Preparar bug
-            </button>
+            <div className="bug-design__actions">
+              <button
+                className="button button-primary bug-design__primary"
+                disabled={!source.trim() || locked}
+                type="submit"
+              >
+                Preparar bug
+              </button>
+              {canProposeWithGemini && (
+                <button
+                  className="button button-secondary"
+                  disabled={!source.trim() || locked || templatesLoading || defaultsLoading}
+                  type="button"
+                  onClick={() => {
+                    setIncludeTemplate(false);
+                    setConfirmGemini(true);
+                  }}
+                >
+                  Proponer con Gemini
+                </button>
+              )}
+            </div>
+            {proposing && <p role="status">Generando propuesta con Gemini…</p>}
           </form>
           <h2 className="typography__section">Borradores guardados</h2>
           <button
             className="workspace__secondary"
             type="button"
-            disabled={busy}
+            disabled={locked}
             onClick={reloadDrafts}
           >
             Actualizar lista de borradores
@@ -281,7 +344,7 @@ export default function BugDesignView({
               <button
                 className="workspace__secondary"
                 type="button"
-                disabled={busy}
+                disabled={locked}
                 onClick={() => {
                   setPreview({ ...draft, tagIds: [...draft.tagIds] });
                   setSource(draft.source);
@@ -299,7 +362,7 @@ export default function BugDesignView({
               <button
                 className="workspace__danger"
                 type="button"
-                disabled={busy}
+                disabled={locked}
                 aria-label={`Eliminar borrador ${draft.title}`}
                 onClick={() => {
                   void updateDrafts(
@@ -325,7 +388,7 @@ export default function BugDesignView({
                 else setConfirmSave(true);
               }}
             >
-              <fieldset className="bug-design__editor" disabled={busy || Boolean(savedId)}>
+              <fieldset className="bug-design__editor" disabled={locked || Boolean(savedId)}>
                 <label className="workspace__field">
                   Título del bug
                   <input
@@ -441,6 +504,56 @@ export default function BugDesignView({
           )}
         </div>
       </div>
+      {confirmGemini && (
+        <Dialog confirmation title="Enviar texto a Gemini" onClose={() => setConfirmGemini(false)}>
+          <p>
+            Revisa el texto que se enviará a Google. Retira credenciales y datos sensibles antes de
+            continuar.
+          </p>
+          <div className="layout__stack">
+            <div>
+              <strong>Problema observado</strong>
+              <p className="bug-design__outbound">{source.trim()}</p>
+            </div>
+            {templateText && (
+              <label className="workspace__check">
+                <input
+                  type="checkbox"
+                  checked={includeTemplate}
+                  disabled={templateText.length > 1500}
+                  onChange={(event) => setIncludeTemplate(event.target.checked)}
+                />
+                {templateText.length > 1500
+                  ? "La plantilla supera el límite de 1500 caracteres y se omitirá."
+                  : "Incluir el texto de la plantilla"}
+              </label>
+            )}
+            {includeTemplate && (
+              <div>
+                <strong>Texto de la plantilla</strong>
+                <p className="bug-design__outbound">{templateText}</p>
+              </div>
+            )}
+          </div>
+          <div className="workspace__actions workspace__actions--confirmation">
+            <button
+              type="button"
+              className="workspace__secondary"
+              onClick={() => setConfirmGemini(false)}
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              className="button button-primary"
+              disabled={!canProposeWithGemini}
+              onClick={() => void propose()}
+            >
+              Enviar y generar propuesta
+            </button>
+          </div>
+        </Dialog>
+      )}
       {confirmSave && preview && (
         <Dialog
           confirmation
@@ -457,7 +570,7 @@ export default function BugDesignView({
             <button
               className="workspace__secondary"
               type="button"
-              disabled={busy}
+              disabled={locked}
               onClick={() => setConfirmSave(false)}
             >
               Cancelar
@@ -465,7 +578,7 @@ export default function BugDesignView({
             <button
               className="button button-primary"
               type="button"
-              disabled={busy}
+              disabled={locked}
               onClick={() => void publish(true)}
             >
               {busy ? "Guardando…" : "Confirmar y guardar"}

@@ -15,7 +15,8 @@ export interface DesignedExportCase {
   readonly steps: readonly ExportStep[];
 }
 
-const notice = "Ejemplos fijos ilustrativos. IA no conectada. No son casos guardados del proyecto.";
+const notice =
+  "Ejemplos fijos ilustrativos. Sin generación por IA. No son casos guardados del proyecto.";
 export const exportHeaders = ["Categoría", "Paso", "Acción", "Resultado esperado"];
 const designedHeaders = ["Categoría", "Caso", "Paso", "Acción", "Resultado esperado"];
 
@@ -250,7 +251,7 @@ export function createDesignedMarkdownExport(
   return (
     [
       "# qaTestGE · Diseño de casos de prueba",
-      "Vista previa editable e ilustrativa. IA no conectada. No son casos guardados en el proyecto.",
+      "Vista previa editable e ilustrativa. Sin generación por IA. No son casos guardados en el proyecto.",
       "## Descripción",
       markdownText(description),
       ...cases.flatMap((testCase) => [

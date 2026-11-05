@@ -205,11 +205,11 @@ CaseDesignSettings permite editar y eliminar todos los tipos, incluidos los pred
 
 ### Diseñador local de bugs
 
-`BugDesignView` prepara título, descripción y prioridad a partir del texto y una plantilla personal cargada mediante el cliente central. Es una composición determinista, sin análisis semántico ni proveedor de IA. Reutiliza `TagPicker` con tags del proyecto. La creación exige revisión explícita mediante casilla o diálogo de confirmación; llama a `createBug` una vez y bloquea una segunda creación de la misma vista previa tras el éxito. Los errores conservan el contenido editable.
+`BugDesignView` prepara título, descripción y prioridad a partir del texto y una plantilla personal cargada mediante el cliente central. La preparación local es determinista. La acción opcional Proponer con Gemini usa la API después de mostrar el texto que se enviará. Reutiliza `TagPicker` con tags del proyecto. La creación exige revisión explícita mediante casilla o diálogo de confirmación; llama a `createBug` una vez y bloquea una segunda creación de la misma vista previa tras el éxito. Los errores conservan el contenido editable.
 
 `models/bugDesign.ts` mantiene borradores explícitos en localStorage bajo clave por usuario y proyecto; valida la forma del contenido al recuperarlo. No añade un estado Borrador al dominio ni una migración. Cada borrador conserva su propio ID y puede abrirse, actualizarse o eliminarse. Tras publicar se intenta retirar el borrador local; un fallo de limpieza se comunica sin volver a crear el bug. No hay sincronización entre navegadores, subida de archivos ni envío externo. El componente se monta con clave usuario/proyecto para aislar el estado. La preparación rechaza descripciones combinadas mayores a 5000 caracteres sin recortarlas silenciosamente.
 
-El [piloto Gemini](AI_INTEGRATION.md) implementa `POST /api/ai/bug-proposals` con sesión, CSRF, permiso `bugs.write`, consentimiento, validación de salida y límites por proceso. El adaptador vive en `servicios/ia/` y se incluye en el artefacto del backend. La vista de diseño todavía no invoca el endpoint.
+El [piloto Gemini](AI_INTEGRATION.md) implementa `POST /api/ai/bug-proposals` con sesión, CSRF, permiso `bugs.write`, consentimiento, validación de salida y límites por proceso. El adaptador vive en `servicios/ia/` y se incluye en el artefacto del backend. Diseñar bugs muestra el texto aprobado y envía solo ese contenido. La propuesta se carga en el editor del mismo usuario y proyecto. La creación del bug conserva la confirmación explícita existente.
 
 ### Exportación de listados y maqueta de perfil
 

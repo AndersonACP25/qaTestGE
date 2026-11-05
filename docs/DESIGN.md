@@ -67,7 +67,7 @@ El nombre/avatar del usuario es un botón accesible que abre Configuración y ci
 
 Dashboard muestra conteos reales del proyecto y no incluye Nuevo bug. Los bugs se crean desde su listado. El selector usa proyectos autorizados del servidor.
 
-El diseñador tiene 18 categorías con cantidades de 1 a 5 e iniciales configurables por usuario en el navegador. Exige descripción, categoría y cantidades válidas. Cada caso admite edición de pasos y guardado explícito mediante API. Exporta la vista previa editada a Excel, PDF y Markdown localmente. El requisito escrito no genera contenido: mantener los avisos de ejemplos ilustrativos e IA no conectada.
+El diseñador tiene 18 categorías con cantidades de 1 a 5 e iniciales configurables por usuario en el navegador. Exige descripción, categoría y cantidades válidas. Cada caso admite edición de pasos y guardado explícito mediante API. Exporta la vista previa editada a Excel, PDF y Markdown localmente. El requisito escrito no genera contenido: mantener los avisos de ejemplos ilustrativos sin generación por IA.
 
 Las evidencias permiten archivos privados de hasta 2 MiB; los casos admiten imágenes y enlaces. Hay invitaciones por código de un solo uso. La activación y recuperación de cuentas aparecen cuando el envío de enlaces está habilitado. MFA y las invitaciones de equipo por correo siguen pendientes. La configuración de IA sigue deshabilitada y no almacena claves.
 

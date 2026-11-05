@@ -1,6 +1,6 @@
 # Piloto de IA con Google AI Studio
 
-El primer lote implementa en el backend una propuesta de bug con Gemini. La pantalla de configuración permite conectar Gemini con una clave personal. Los diseñadores todavía funcionan como antes. El siguiente lote podrá conectar el endpoint al formulario **Diseñar bugs** y mostrar una vista previa editable antes de guardar.
+Puedes usar Gemini para preparar borradores desde **Diseñar bugs**. La configuración admite una clave personal o una clave compartida del servidor.
 
 ## Conectar desde Configuración
 
@@ -43,6 +43,10 @@ La respuesta devuelve `data.title`, `data.description` y `data.priority` para re
 
 El piloto permite tres solicitudes por cuenta y minuto y dos simultáneas por proceso. Una llamada a Gemini tiene un tiempo máximo de 15 segundos. El endpoint responde `503 AI_DISABLED` si el piloto está desactivado o le falta configuración. Para desactivar la clave compartida del servidor, establece `AI_BUG_PROPOSALS_ENABLED=false` y reinicia el backend. Para desactivar también las claves personales, retira `AI_SETTINGS_ENCRYPTION_KEY` del entorno y de los archivos de configuración.
 
-## Conectar la interfaz
+## Generar un borrador desde Diseñar bugs
 
-Muestra el texto exacto que se enviará, identifica a Gemini y solicita confirmación. Aplica la propuesta al borrador original solo si el usuario y proyecto siguen siendo los mismos. Conserva el borrador cuando el proveedor falle y deja la creación como una acción separada después de revisar la propuesta.
+1. Con Gemini conectado y permiso para crear bugs, describe el problema y pulsa **Proponer con Gemini**.
+2. Revisa el texto que verá Google. Si seleccionaste una plantilla, puedes incluir su descripción cuando tenga hasta 1500 caracteres. Los tags, responsables y evidencias quedan en qaTestGE.
+3. Pulsa **Enviar y generar propuesta**. Edita el título, la descripción y la prioridad sugeridos. Puedes guardar un borrador local o crear el bug después de confirmar la revisión.
+
+Si Gemini falla, el editor conserva el texto y el borrador existente. **Preparar bug** permite seguir con el flujo local.
