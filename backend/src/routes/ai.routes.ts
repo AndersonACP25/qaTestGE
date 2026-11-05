@@ -2,7 +2,9 @@ import { Router } from "express";
 import type { BugProposalProvider } from "../../../servicios/ia/gemini.mjs";
 import { HttpError } from "../http-error.js";
 import { bugPriorities } from "../models/bug.model.js";
-import { can } from "../models/collaboration.model.js";
+import type { Response } from "express";
+import { caseProposalInput, caseProposalList } from "../models/case-proposal.model.js";
+import { can, type Permission } from "../models/collaboration.model.js";
 import type { Repository } from "../repositories/repository.js";
 import { accountGeminiProvider, type GeminiSettings } from "./gemini-settings.routes.js";
 import { isId, isRecord, text } from "../validation.js";
@@ -23,25 +25,21 @@ export function aiRouter(provider?: BugProposalProvider, settings?: GeminiSettin
   const accounts = new Map<string, { attempts: number; resetAt: number }>();
   let pending = 0;
 
-  router.post("/ai/bug-proposals", async (request, response) => {
-    const body: unknown = request.body;
-    if (
-      !isRecord(body) ||
-      !Object.keys(body).every((key) =>
-        ["projectId", "consent", "description", "templateText"].includes(key),
-      ) ||
-      !isId(body.projectId) ||
-      body.consent !== true ||
-      !text(body.description, 3500) ||
-      (body.templateText !== undefined && !text(body.templateText, 1500))
-    )
-      throw new HttpError(400, "INVALID_AI_INPUT", "Revisa el texto y confirma su envío a Gemini.");
-
+  async function generate<T>(
+    response: Response,
+    projectId: string,
+    permission: Permission,
+    propose: (provider: BugProposalProvider) => Promise<T>,
+  ): Promise<T> {
     const repository: Repository = response.locals.repository;
-    const project = (await repository.listProjects()).find(({ id }) => id === body.projectId);
+    const project = (await repository.listProjects()).find(({ id }) => id === projectId);
     if (!project) throw new HttpError(404, "PROJECT_NOT_FOUND", "El proyecto no está disponible.");
-    if (!can(project.role, "bugs.write"))
-      throw new HttpError(403, "FORBIDDEN", "Tu rol no permite preparar bugs en este proyecto.");
+    if (!can(project.role, permission))
+      throw new HttpError(
+        403,
+        "FORBIDDEN",
+        "Tu rol no permite generar propuestas para este proyecto.",
+      );
     const accountId: string = response.locals.user.id;
     const accountKey = await settings?.credentials.key(accountId);
     const selectedProvider =
@@ -69,10 +67,32 @@ export function aiRouter(provider?: BugProposalProvider, settings?: GeminiSettin
     });
     pending++;
     try {
-      const result = await selectedProvider.propose({
-        description: body.description.trim(),
-        ...(body.templateText === undefined ? {} : { templateText: body.templateText.trim() }),
-      });
+      return await propose(selectedProvider);
+    } finally {
+      pending--;
+    }
+  }
+
+  router.post("/ai/bug-proposals", async (request, response) => {
+    const body: unknown = request.body;
+    if (
+      !isRecord(body) ||
+      !Object.keys(body).every((key) =>
+        ["projectId", "consent", "description", "templateText"].includes(key),
+      ) ||
+      !isId(body.projectId) ||
+      body.consent !== true ||
+      !text(body.description, 3500) ||
+      (body.templateText !== undefined && !text(body.templateText, 1500))
+    )
+      throw new HttpError(400, "INVALID_AI_INPUT", "Revisa el texto y confirma su envío a Gemini.");
+
+    const input = {
+      description: body.description.trim(),
+      ...(body.templateText === undefined ? {} : { templateText: body.templateText.trim() }),
+    };
+    const data = await generate(response, body.projectId, "bugs.write", async (provider) => {
+      const result = await provider.propose(input);
       if (!result.ok) throw providerErrors[result.reason];
       const proposal = result.proposal;
       if (
@@ -83,16 +103,52 @@ export function aiRouter(provider?: BugProposalProvider, settings?: GeminiSettin
         !bugPriorities.some((priority) => priority === proposal.priority)
       )
         throw providerErrors.invalid;
-      response.json({
-        data: {
-          title: proposal.title.trim(),
-          description: proposal.description.trim(),
-          priority: proposal.priority,
-        },
-      });
-    } finally {
-      pending--;
-    }
+      return {
+        title: proposal.title.trim(),
+        description: proposal.description.trim(),
+        priority: proposal.priority,
+      };
+    });
+    response.json({ data });
+  });
+
+  router.post("/ai/case-proposals", async (request, response) => {
+    const body: unknown = request.body;
+    if (
+      !isRecord(body) ||
+      Object.keys(body).length !== 4 ||
+      !isId(body.projectId) ||
+      body.consent !== true
+    )
+      throw new HttpError(400, "INVALID_AI_INPUT", "Revisa el texto y confirma su envío a Gemini.");
+    const input = caseProposalInput.safeParse({
+      description: body.description,
+      categories: body.categories,
+    });
+    if (!input.success)
+      throw new HttpError(
+        400,
+        "INVALID_AI_INPUT",
+        "Revisa la descripción, las categorías y sus cantidades.",
+      );
+    const data = await generate(response, body.projectId, "cases.write", async (provider) => {
+      if (!provider.proposeCases)
+        throw new HttpError(503, "AI_DISABLED", "La generación de casos no está disponible.");
+      const result = await provider.proposeCases(input.data);
+      if (!result.ok) throw providerErrors[result.reason];
+      const cases = caseProposalList.safeParse(result.proposal);
+      if (
+        !cases.success ||
+        cases.data.some(({ categoryIndex }) => categoryIndex >= input.data.categories.length) ||
+        input.data.categories.some(
+          ({ count }, index) =>
+            cases.data.filter(({ categoryIndex }) => categoryIndex === index).length !== count,
+        )
+      )
+        throw providerErrors.invalid;
+      return cases.data;
+    });
+    response.json({ data });
   });
 
   return router;

@@ -6,6 +6,7 @@ import CaseDesignView from "./views/CaseDesignView";
 import type { CaseCountDefaults } from "./models/caseCountDefaults";
 
 export default function CaseBuilder({
+  canProposeWithGemini = false,
   catalog,
   defaultCounts,
   projectId,
@@ -13,6 +14,7 @@ export default function CaseBuilder({
   templates = [],
   onOpenTemplate,
 }: {
+  canProposeWithGemini?: boolean;
   catalog?: CaseCategory[];
   defaultCounts?: CaseCountDefaults;
   projectId?: string;
@@ -62,7 +64,7 @@ export default function CaseBuilder({
           </div>
         </div>
       )}
-      <CaseDesignView {...controller} />
+      <CaseDesignView {...controller} canProposeWithGemini={canProposeWithGemini} />
     </div>
   );
 }

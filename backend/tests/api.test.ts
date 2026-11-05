@@ -933,3 +933,53 @@ it("configura la clave personal mediante sesión y CSRF sin devolverla ni guarda
   expect(removed.body.data.source).toBe("environment");
   expect(credentials.remove).toHaveBeenCalledWith("1", revision);
 });
+
+it("autoriza y valida propuestas de casos por proyecto y cantidad, sin crear registros", async () => {
+  const endpoint = "/api/ai/case-proposals";
+  const categories = [{ label: "Funcional", count: 1 }];
+  const input = { projectId: "1", consent: true, description: "Requisito de acceso", categories };
+  const testCase = {
+    title: "Acceso válido",
+    categoryIndex: 0,
+    steps: [{ action: "Ingresar con datos válidos", expected: "Abre la sesión" }],
+  };
+  const proposeCases = vi
+    .fn(async () => ({ ok: true as const, proposal: [testCase] }))
+    .mockResolvedValueOnce({ ok: true, proposal: [{ ...testCase, categoryIndex: 1 }] });
+  const signed = (role: "QA" | "Dev") =>
+    request
+      .agent(
+        createApp(
+          repo,
+          {
+            ...testAuth,
+            projects: async () =>
+              (await testAuth.projects("1")).map((project) => ({ ...project, role })),
+          },
+          { propose: vi.fn(), proposeCases },
+        ),
+      )
+      .set("Cookie", `qa_session=${testToken}`)
+      .set("X-CSRF-Token", testCsrf);
+  const qa = signed("QA");
+  expect((await signed("Dev").post(endpoint).send(input)).status).toBe(403);
+  expect((await qa.post(endpoint).send({ ...input, consent: false })).status).toBe(400);
+  expect(
+    (
+      await qa.post(endpoint).send({
+        ...input,
+        categories: [
+          { label: "A", count: 5 },
+          { label: "B", count: 4 },
+        ],
+      })
+    ).status,
+  ).toBe(400);
+  expect(proposeCases).not.toHaveBeenCalled();
+  expect((await qa.post(endpoint).send(input)).status).toBe(502);
+  const result = await qa.post(endpoint).send(input);
+  expect(result.status).toBe(200);
+  expect(result.body.data).toEqual([testCase]);
+  expect(proposeCases).toHaveBeenLastCalledWith({ description: input.description, categories });
+  expect(repo.createCase).not.toHaveBeenCalled();
+});

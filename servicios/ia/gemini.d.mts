@@ -1,11 +1,13 @@
+type ProposalResult =
+  | { ok: true; proposal: unknown }
+  | { ok: false; reason: "quota" | "timeout" | "unavailable" | "invalid" };
+
 export interface BugProposalProvider {
-  propose(input: {
+  propose(input: { description: string; templateText?: string }): Promise<ProposalResult>;
+  proposeCases?(input: {
     description: string;
-    templateText?: string;
-  }): Promise<
-    | { ok: true; proposal: unknown }
-    | { ok: false; reason: "quota" | "timeout" | "unavailable" | "invalid" }
-  >;
+    categories: { label: string; count: number }[];
+  }): Promise<ProposalResult>;
 }
 
 export function geminiBugProposalProvider(

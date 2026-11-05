@@ -28,7 +28,7 @@ En **Bugs**, **Casos de prueba** y **Test runs**, el botón verde **Exportar tab
 
 ## Diseña tus casos
 
-El **Diseñador de casos** ofrece ejemplos ilustrativos por tipo de prueba. Describe tu flujo, selecciona tipos y cantidades (de 1 a 5), y adapta los pasos y resultados de la vista previa. Puedes exportarla a Excel, PDF o Markdown, o guardar cada caso en el proyecto mediante una acción explícita.
+El **Diseñador de casos** ofrece ejemplos ilustrativos y propuestas con Gemini por tipo de prueba. Describe tu flujo, selecciona tipos y cantidades (de 1 a 5), y adapta los pasos y resultados de la vista previa. Puedes exportarla a Excel, PDF o Markdown, o guardar cada caso en el proyecto mediante una acción explícita.
 
 En **Configuración → Diseño de casos** puedes añadir tipos personalizados y elegir los tipos y cantidades iniciales. Estas preferencias se guardan para tu usuario **en este navegador**; no se sincronizan entre dispositivos. Cada tipo nuevo incluye escenarios de partida que debes adaptar a tus pruebas.
 
@@ -60,7 +60,7 @@ Al desactivar tu cuenta se revocan tus sesiones y se anonimizan tus datos person
 
 ## Límites actuales
 
-La conexión con IA es una maqueta: no guarda claves ni envía información a proveedores. MFA y las invitaciones de equipo por correo siguen pendientes. Las ejecuciones registran pruebas manuales; no ejecutan pruebas automáticamente.
+En Configuración puedes conectar Gemini. qaTestGE cifra la clave de la cuenta y pide confirmación antes de enviar texto para generar propuestas. MFA y las invitaciones de equipo por correo siguen pendientes. Las ejecuciones registran pruebas manuales; no ejecutan pruebas automáticamente.
 
 ## Instalación y documentación técnica
 
@@ -137,7 +137,7 @@ La validación de requisitos considera el último resultado evaluable de cada ca
 
 ## Propuestas con Gemini
 
-En **Diseñar bugs**, describe el problema y elige **Proponer con Gemini** cuando la IA esté conectada. Revisa el texto que verá Google y confirma el envío. Edita la propuesta antes de crear el bug o guárdala como borrador local. Consulta la [guía de Gemini](AI_INTEGRATION.md) para configurar la conexión.
+En **Diseñar bugs**, describe el problema y elige **Proponer con Gemini** cuando la IA esté conectada. Revisa el texto que verá Google y confirma el envío. Edita la propuesta antes de crear el bug o guárdala como borrador local. En **Diseñar test cases**, selecciona las categorías y cantidades para generar propuestas editables. Consulta la [guía de Gemini](AI_INTEGRATION.md) para configurar la conexión.
 
 ## Enlaces directos
 

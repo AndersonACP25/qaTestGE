@@ -5,6 +5,7 @@ export function designedCaseInput(
   description: string,
   testCase: {
     categoryLabel: string;
+    title?: string;
     steps: readonly { action: string; expected: string }[];
   },
 ): CreateTestCaseInput {
@@ -26,9 +27,12 @@ export function designedCaseInput(
     throw new Error(
       "Completa la acción y el resultado esperado de todos los pasos (máximo 10000 caracteres por campo).",
     );
+  const title =
+    testCase.title?.trim() ?? `${testCase.categoryLabel} · ${steps[0].action}`.slice(0, 200);
+  if (!title || title.length > 200) throw new Error("Ingresa un título de hasta 200 caracteres.");
   return {
     projectId,
-    title: `${testCase.categoryLabel} · ${steps[0].action}`.slice(0, 200),
+    title,
     testType: testCase.categoryLabel.slice(0, 100),
     lifecycle: "Borrador",
     preconditions: description,

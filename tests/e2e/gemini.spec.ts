@@ -145,3 +145,57 @@ test("descarta una propuesta pendiente al cambiar de proyecto", async ({ page, w
     release();
   }
 });
+
+test("genera casos de Gemini con consentimiento y guarda solo el caso revisado", async ({
+  page,
+  workspace,
+}) => {
+  const description = "El inicio de sesión bloquea el acceso con una contraseña incorrecta.";
+  const title = "Bloqueo por contraseña incorrecta";
+  await page.route("**/api/ai/settings", (route) =>
+    route.fulfill({
+      json: { data: { source: "environment", revision: null, visualAvailable: true } },
+    }),
+  );
+  let requests = 0;
+  await page.route("**/api/ai/case-proposals", async (route) => {
+    requests++;
+    expect(route.request().postDataJSON()).toEqual({
+      projectId: "1",
+      consent: true,
+      description,
+      categories: [{ label: "Edge cases", count: 1 }],
+    });
+    await route.fulfill({
+      json: {
+        data: [
+          {
+            categoryIndex: 0,
+            title,
+            steps: [
+              { action: "Introduce una contraseña incorrecta", expected: "El acceso se bloquea" },
+            ],
+          },
+        ],
+      },
+    });
+  });
+  await page.goto("/");
+  await navigate(page, "Diseñar test cases");
+  await page.getByLabel("Descripción o requisito", { exact: true }).fill(description);
+  await page.getByRole("button", { name: "Proponer con Gemini" }).click();
+  const dialog = page.getByRole("dialog", { name: "Enviar texto a Gemini" });
+  await expect(dialog.getByText(description)).toBeVisible();
+  await dialog.getByRole("button", { name: "Cancelar" }).click();
+  expect(requests).toBe(0);
+  await page.getByRole("button", { name: "Proponer con Gemini" }).click();
+  await dialog.getByRole("button", { name: "Enviar y generar propuesta" }).click();
+  await expect(page.getByLabel("Título del caso", { exact: true })).toHaveValue(title);
+  expect(workspace.writes.filter(({ path }) => path === "/test-cases")).toHaveLength(0);
+  await page.getByLabel("Título del caso", { exact: true }).fill("Rechazo de contraseña inválida");
+  await page.getByRole("button", { name: "Guardar en casos de prueba" }).click();
+  await expect
+    .poll(() => workspace.writes.find(({ path }) => path === "/test-cases")?.body.title)
+    .toBe("Rechazo de contraseña inválida");
+  await noHorizontalOverflow(page);
+});

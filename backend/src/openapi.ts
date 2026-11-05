@@ -175,6 +175,20 @@ const geminiSettingsErrors = {
   "503": errorResponse("AI_SETTINGS_DISABLED, AI_PROVIDER_UNAVAILABLE o DATABASE_UNAVAILABLE"),
 };
 
+const aiProposalErrors = {
+  "400": errorResponse("INVALID_AI_INPUT o INVALID_JSON"),
+  "401": errorResponse("UNAUTHENTICATED"),
+  "403": errorResponse("FORBIDDEN, INVALID_CSRF o INVALID_ORIGIN"),
+  "404": errorResponse("PROJECT_NOT_FOUND"),
+  "413": errorResponse("PAYLOAD_TOO_LARGE"),
+  "429": errorResponse("AI_RATE_LIMIT o AI_PROVIDER_QUOTA"),
+  "502": errorResponse("AI_INVALID_PROPOSAL"),
+  "503": errorResponse(
+    "AI_DISABLED, AI_CREDENTIAL_UNREADABLE, AI_PROVIDER_UNAVAILABLE o DATABASE_UNAVAILABLE",
+  ),
+  "504": errorResponse("AI_TIMEOUT"),
+};
+
 export const openApiDocument = {
   openapi: "3.0.3",
   info: {
@@ -275,17 +289,69 @@ export const openApiDocument = {
               ),
             ),
           },
-          "400": errorResponse("INVALID_AI_INPUT o INVALID_JSON"),
-          "401": errorResponse("UNAUTHENTICATED"),
-          "403": errorResponse("FORBIDDEN, INVALID_CSRF o INVALID_ORIGIN"),
-          "404": errorResponse("PROJECT_NOT_FOUND"),
-          "413": errorResponse("PAYLOAD_TOO_LARGE"),
-          "429": errorResponse("AI_RATE_LIMIT o AI_PROVIDER_QUOTA"),
-          "502": errorResponse("AI_INVALID_PROPOSAL"),
-          "503": errorResponse(
-            "AI_DISABLED, AI_CREDENTIAL_UNREADABLE, AI_PROVIDER_UNAVAILABLE o DATABASE_UNAVAILABLE",
-          ),
-          "504": errorResponse("AI_TIMEOUT"),
+          ...aiProposalErrors,
+        },
+      },
+    },
+    "/api/ai/case-proposals": {
+      post: {
+        summary: "Proponer casos de prueba editables con Gemini",
+        description: "Requiere cases.write y consentimiento. Admite hasta ocho casos en total.",
+        security: [{ sessionCookie: [], csrfToken: [] }],
+        requestBody: {
+          required: true,
+          content: json({
+            ...object(
+              {
+                projectId,
+                consent: { type: "boolean", enum: [true] },
+                description: text(3500),
+                categories: {
+                  type: "array",
+                  minItems: 1,
+                  maxItems: 8,
+                  items: {
+                    ...object(
+                      { label: text(100), count: { type: "integer", minimum: 1, maximum: 5 } },
+                      ["label", "count"],
+                    ),
+                    additionalProperties: false,
+                  },
+                },
+              },
+              ["projectId", "consent", "description", "categories"],
+            ),
+            additionalProperties: false,
+          }),
+        },
+        responses: {
+          "200": {
+            description: "Propuestas con el índice de su categoría, comenzando en cero",
+            content: json(
+              envelope({
+                type: "array",
+                minItems: 1,
+                maxItems: 8,
+                items: object(
+                  {
+                    categoryIndex: { type: "integer", minimum: 0, maximum: 7 },
+                    title: text(200),
+                    steps: {
+                      type: "array",
+                      minItems: 1,
+                      maxItems: 5,
+                      items: object({ action: text(1000), expected: text(1000) }, [
+                        "action",
+                        "expected",
+                      ]),
+                    },
+                  },
+                  ["categoryIndex", "title", "steps"],
+                ),
+              }),
+            ),
+          },
+          ...aiProposalErrors,
         },
       },
     },

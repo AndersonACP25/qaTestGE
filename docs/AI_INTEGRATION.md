@@ -1,6 +1,6 @@
 # Piloto de IA con Google AI Studio
 
-Puedes usar Gemini para preparar borradores desde **Diseñar bugs**. La configuración admite una clave personal o una clave compartida del servidor.
+Puedes usar Gemini para preparar borradores desde **Diseñar bugs** y **Diseñar test cases**. La configuración admite una clave personal o una clave compartida del servidor.
 
 ## Conectar desde Configuración
 
@@ -50,3 +50,9 @@ El piloto permite tres solicitudes por cuenta y minuto y dos simultáneas por pr
 3. Pulsa **Enviar y generar propuesta**. Edita el título, la descripción y la prioridad sugeridos. Puedes guardar un borrador local o crear el bug después de confirmar la revisión.
 
 Si Gemini falla, el editor conserva el texto y el borrador existente. **Preparar bug** permite seguir con el flujo local.
+
+## Proponer casos de prueba
+
+En **Diseñar test cases**, describe el requisito, selecciona las categorías y ajusta las cantidades. Con permiso para crear casos y Gemini conectado, pulsa **Proponer con Gemini**. El diálogo muestra la descripción y las categorías con su cantidad. El proveedor recibe solo esos datos, con un máximo de ocho casos por solicitud.
+
+Edita el título, las acciones y los resultados esperados. Puedes exportar la vista previa o guardar cada caso individualmente en el proyecto como **Borrador**. Si Gemini falla, puedes seguir usando **Mostrar tabla de ejemplo** o conservar la vista previa abierta.

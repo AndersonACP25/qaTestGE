@@ -52,7 +52,7 @@ const guides = [
   },
   {
     title: "Diseñador y configuración",
-    text: "El diseñador ofrece ejemplos ilustrativos que puedes editar, exportar y guardar explícitamente. No utiliza IA. En Configuración → Plantillas puedes gestionar los formatos personales de bugs y casos. En cada proyecto puedes guardar tags y un responsable predeterminado. El diseñador de casos abre una copia editable de la plantilla; guarda solo después de revisarla. En Configuración también puedes gestionar tu cuenta y las preferencias del diseñador; la conexión de IA es una maqueta.",
+    text: "El diseñador ofrece ejemplos ilustrativos que puedes editar, exportar y guardar explícitamente. Con Gemini conectado, puedes generar propuestas de casos según la descripción, las categorías y las cantidades. En Configuración → Plantillas puedes gestionar los formatos personales de bugs y casos. En cada proyecto puedes guardar tags y un responsable predeterminado. El diseñador de casos abre una copia editable de la plantilla; guarda solo después de revisarla. En Configuración también puedes gestionar tu cuenta y las preferencias del diseñador; puedes conectar Gemini y gestionar la clave de tu cuenta.",
   },
   {
     title: "Mis asignaciones",
