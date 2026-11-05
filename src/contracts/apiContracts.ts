@@ -215,7 +215,11 @@ export function parseApiData(path: string, method: string, input: unknown): unkn
   else if (resource === "test-cases" && detail === "history" && method === "GET")
     schema = z.array(history);
   else if (resource === "auth") {
-    if (action === "bug-templates")
+    if (action === "account-links") {
+      if (method === "GET") schema = z.object({ enabled: z.boolean() });
+      else if (detail === "request") schema = z.object({ accepted: z.literal(true) });
+      else schema = z.object({ completed: z.literal(true) });
+    } else if (action === "bug-templates")
       schema = parts.length === 2 && method === "GET" ? z.array(template) : template;
     else if (action === "me" && method === "PATCH") schema = user;
     else schema = session;

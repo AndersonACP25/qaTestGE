@@ -162,7 +162,50 @@ export function createAuthController(auth: AuthProvider) {
     response.status(204).end();
   };
 
+  const accountLinks: RequestHandler = (_request, response) => {
+    response.json({ data: { enabled: auth.accountLinksEnabled?.() ?? false } });
+  };
+
+  const requestAccountLink: RequestHandler = (request, response) => {
+    const body: unknown = request.body;
+    if (!isRecord(body) || !emailValid(body.email))
+      throw new HttpError(400, "INVALID_EMAIL", "Introduce un correo válido.");
+    if (!auth.accountLinksEnabled?.() || !auth.requestAccountLink)
+      throw new HttpError(503, "ACCOUNT_LINKS_DISABLED", "El envío de enlaces no está disponible.");
+    void auth.requestAccountLink(body.email).catch(() => {
+      console.error("No se pudo procesar una solicitud de enlace de cuenta.");
+    });
+    response.status(202).json({ data: { accepted: true } });
+  };
+
+  const consumeAccountLink: RequestHandler = async (request, response) => {
+    const body: unknown = request.body;
+    if (
+      !isRecord(body) ||
+      typeof body.token !== "string" ||
+      !/^[a-f0-9]{64}$/.test(body.token) ||
+      !passwordValid(body.password)
+    )
+      throw new HttpError(
+        400,
+        "INVALID_ACCOUNT_LINK_INPUT",
+        "Revisa el enlace y usa una contraseña de 12 a 128 caracteres.",
+      );
+    if (!auth.consumeAccountLink)
+      throw new HttpError(
+        503,
+        "ACCOUNT_LINKS_DISABLED",
+        "Los enlaces de cuenta no están disponibles.",
+      );
+    await auth.consumeAccountLink(body.token, body.password);
+    response.clearCookie(cookieName, cookieOptions());
+    response.json({ data: { completed: true } });
+  };
+
   return {
+    accountLinks,
+    requestAccountLink,
+    consumeAccountLink,
     register,
     login,
     me,

@@ -153,7 +153,7 @@ Correlacionar solicitudes y errores con identificadores de operación. Medir lat
 ## Decisiones pendientes antes de implementar
 
 - Migraciones automáticas y proveedor de almacenamiento binario; PostgreSQL, el driver pg, React/TypeScript y Express ya están implementados.
-- Recuperación de contraseña, verificación de correo y MFA; invitaciones, permisos de proyecto y sesiones ya están implementados.
+- MFA, verificación general de cambios de correo e invitaciones de equipo por correo.
 - - Carga binaria de evidencias, límites y retención; las imágenes adjuntas a casos tienen límite 2 MiB y se guardan en PostgreSQL.
 - Proveedores de IA permitidos, ubicación de procesamiento, consentimiento, costos y cuotas.
 - Mapeo de formatos de importación adicionales a la plantilla CSV/XLSX implementada.
@@ -248,6 +248,8 @@ Las comprobaciones PostgreSQL incluyen instalación/repetición, snapshots, conc
 La migración `014_collaboration_permissions.sql` añade `project_members` con roles Admin/QA/Dev/Solo lectura, comentarios con versión, menciones y avisos privados por destinatario, y `activity` como registro inmutable. El propietario tiene Admin implícito. Los miembros heredados reciben QA explícito solo en los proyectos actuales; aceptar una invitación nueva no concede proyectos. Las asignaciones y menciones exigen un usuario activo con acceso al proyecto. La revocación mantiene una fila sin rol y aumenta su revisión, evitando reutilizar revisiones tras retirar y restaurar acceso.
 
 `qa.project_role` consulta membresía, usuario activo y rol del proyecto. `qa.require_permission` comprueba la capacidad y mantiene un bloqueo compartido del proyecto durante la transacción. Cambiar accesos bloquea el proyecto en exclusivo; así se serializa con escrituras y menciones. Los triggers comprueban permisos en bugs, casos/pasos/adjuntos, runs/resultados, evidencias/vínculos, tags/asociaciones, planes, flujo y comentarios. El decorador autorizado sigue filtrando proyectos de lectura; sin acceso devuelve 404, con rol insuficiente una escritura devuelve 403. El UI usa la misma matriz para orientar a la persona, sin sustituir la comprobación del servidor.
+
+La migración 021 incorpora activación (24 h) y recuperación (30 min) con [entrega HTTPS opcional](../servicios/account-links/README.md). PostgreSQL guarda el hash SHA-256 de un token aleatorio por cuenta. La operación de consumo bloquea la cuenta, verifica vigencia y propósito, y actualiza contraseña y sesiones en una transacción. Los cambios de correo, contraseña o estado invalidan los enlaces pendientes. El navegador extrae el token del fragmento de URL y lo retira del historial de navegación actual.
 
 `actorDatabase` mantiene actor y request ID en variables de PostgreSQL de alcance transaccional (`set_config(..., true)`); cada consulta independiente usa una transacción y las operaciones existentes conservan su cliente transaccional. El contexto nunca se comparte mediante variables globales ni queda en una sesión reutilizada del pool. Los proveedores de auth y dominio se vinculan a la identidad autenticada; no aceptan el actor desde el cuerpo HTTP.
 

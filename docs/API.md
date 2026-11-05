@@ -68,7 +68,15 @@ Los recursos y proyectos requieren la cookie. Todas las escrituras protegidas (P
 
 En SwaggerUI, iniciar sesión con el endpoint login, consultar me y copiar csrfToken al campo X-CSRF-Token de **Authorize** para probar POST. La cookie se envía automáticamente desde el mismo origen. No introducir el token de sesión manualmente en JavaScript.
 
-Login y registro comparten un límite básico en memoria por proceso: 20 solicitudes por IP/15 minutos, con Retry-After y 429. La derivación de contraseñas limita también la concurrencia; ante saturación se devuelve AUTH_BUSY. Cambiar la contraseña requiere la contraseña actual; se mantiene la sesión actual y se revocan las demás. No hay recuperación de contraseña, verificación de correo ni MFA.
+Login y registro comparten un límite básico en memoria por proceso: 20 solicitudes por IP/15 minutos, con Retry-After y 429. La derivación de contraseñas limita también la concurrencia; ante saturación se devuelve AUTH_BUSY. Cambiar la contraseña requiere la contraseña actual; se mantiene la sesión actual y se revocan las demás. La activación y la recuperación requieren [entrega de enlaces configurada](../servicios/account-links/README.md).
+
+| Método | Ruta                          | Entrada / respuesta                                                                                                       |
+| ------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/auth/account-links`         | 200 con `enabled` para indicar si se pueden pedir enlaces                                                                 |
+| POST   | `/auth/account-links/request` | `email`; 202 con `accepted: true` para correos válidos, con respuesta uniforme                                            |
+| POST   | `/auth/account-links/consume` | `token` hexadecimal de 64 caracteres y `password` de 12–128; 200 con `completed: true`, revoca sesiones y borra la cookie |
+
+Admin puede omitir `password` al crear un usuario con `POST /project-users` para activar la cuenta por enlace. Si el webhook falla tras el alta, repite la solicitud con la misma clave y el mismo contenido. Las dos escrituras públicas tienen límites independientes de 20 solicitudes por IP cada 15 minutos.
 
 ### Plantillas de bugs
 

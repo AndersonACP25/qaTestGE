@@ -46,6 +46,10 @@ Si administras la instalación y quieres conectar un proveedor de IA, consulta l
 
 ## Personaliza tu cuenta
 
+Si la instancia tiene habilitada la entrega de correos, usa **¿Olvidaste tu contraseña o necesitas activar tu cuenta?** en la pantalla de acceso. Introduce tu correo y abre el enlace recibido para definir una contraseña. El enlace de recuperación vence en 30 minutos y cierra tus sesiones anteriores al confirmar el cambio.
+
+Desde **Configuración → Accesos al proyecto**, Admin puede marcar **Enviar enlace de activación** al crear una cuenta. La persona tiene 24 horas para usar el enlace y establecer su contraseña. Si vence, puede solicitar otro desde la pantalla de acceso.
+
 En **Configuración** puedes actualizar tu nombre y correo, cambiar tu contraseña y crear plantillas personales de bugs. También puedes cambiar el tema de la interfaz.
 
 El cambio de imagen de perfil aparece como una maqueta: todavía no permite seleccionar ni subir imágenes.
@@ -54,11 +58,11 @@ Al desactivar tu cuenta se revocan tus sesiones y se anonimizan tus datos person
 
 ## Límites actuales
 
-La conexión con IA es una maqueta: no guarda claves ni envía información a proveedores. Tampoco están disponibles la recuperación de contraseña, la verificación de correo, MFA ni invitaciones por correo. Las ejecuciones registran pruebas manuales; no ejecutan pruebas automáticamente.
+La conexión con IA es una maqueta: no guarda claves ni envía información a proveedores. MFA y las invitaciones de equipo por correo siguen pendientes. Las ejecuciones registran pruebas manuales; no ejecutan pruebas automáticamente.
 
 ## Instalación y documentación técnica
 
-Para ejecutar tu propia instancia, consulta la [guía de desarrollo](DEVELOPMENT.md). Al actualizar una instalación existente, aplica `pnpm db:migrate` antes de iniciar la API; esta versión incorpora la migración 012 para evitar creaciones duplicadas. Encontrarás los detalles técnicos en [Arquitectura](architecture.md), [API](API.md), [Pruebas](TESTING.md) y [Seguridad](../SECURITY.md). Para colaborar con el proyecto, consulta [CONTRIBUTING.md](../CONTRIBUTING.md).
+Para ejecutar tu propia instancia, consulta la [guía de desarrollo](DEVELOPMENT.md). Al actualizar una instalación existente, aplica `pnpm db:migrate` antes de iniciar la API; la migración 021 habilita el almacenamiento de enlaces de cuenta. Encontrarás los detalles técnicos en [Arquitectura](architecture.md), [API](API.md), [Pruebas](TESTING.md) y [Seguridad](../SECURITY.md). Para colaborar con el proyecto, consulta [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 ## Trazabilidad y organización de pruebas
 

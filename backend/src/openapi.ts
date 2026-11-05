@@ -225,6 +225,71 @@ export const openApiDocument = {
     ...analyticsPaths,
     ...qualityPaths,
     ...collaborationPaths,
+    "/api/auth/account-links": {
+      get: {
+        security: [],
+        summary: "Consultar si la instancia permite solicitar enlaces de cuenta",
+        responses: {
+          "200": {
+            description: "Capacidad de envío",
+            content: json(envelope(object({ enabled: { type: "boolean" } }, ["enabled"]))),
+          },
+        },
+      },
+    },
+    "/api/auth/account-links/request": {
+      post: {
+        security: [],
+        summary: "Solicitar activación o recuperación sin revelar la existencia de una cuenta",
+        requestBody: {
+          required: true,
+          content: json(
+            object({ email: { type: "string", format: "email", maxLength: 254 } }, ["email"]),
+          ),
+        },
+        responses: {
+          "202": {
+            description: "Solicitud aceptada",
+            content: json(envelope(object({ accepted: { const: true } }, ["accepted"]))),
+          },
+          "400": errorResponse("INVALID_EMAIL"),
+          "429": errorResponse("TOO_MANY_ATTEMPTS"),
+          "503": errorResponse("ACCOUNT_LINKS_DISABLED"),
+        },
+      },
+    },
+    "/api/auth/account-links/consume": {
+      post: {
+        security: [],
+        summary: "Definir contraseña con un enlace de un solo uso y revocar sesiones",
+        requestBody: {
+          required: true,
+          content: json(
+            object(
+              {
+                token: { type: "string", pattern: "^[a-f0-9]{64}$", writeOnly: true },
+                password: {
+                  type: "string",
+                  minLength: 12,
+                  maxLength: 128,
+                  format: "password",
+                  writeOnly: true,
+                },
+              },
+              ["token", "password"],
+            ),
+          ),
+        },
+        responses: {
+          "200": {
+            description: "Contraseña establecida",
+            content: json(envelope(object({ completed: { const: true } }, ["completed"]))),
+          },
+          "400": errorResponse("INVALID_ACCOUNT_LINK o INVALID_ACCOUNT_LINK_INPUT"),
+          "429": errorResponse("TOO_MANY_ATTEMPTS o AUTH_BUSY"),
+        },
+      },
+    },
     "/api/auth/register": {
       post: {
         security: [],

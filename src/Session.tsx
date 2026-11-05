@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
+import AccountLinkForm from "./AccountLinkForm";
 import Alert from "./Alert";
 import App from "./App";
 import Footer from "./Footer";
@@ -21,6 +22,12 @@ export function resolveTheme(saved: string | null, prefersDark: boolean): Theme 
 }
 export default function Session() {
   const [user, setUser] = useState<User | null>(null);
+  const [linkToken, setLinkToken] = useState(() =>
+    new URLSearchParams(window.location.hash.slice(1)).get("account-link"),
+  );
+  const [linkRequested, setLinkRequested] = useState(false);
+  const [linksEnabled, setLinksEnabled] = useState(false);
+  const [linkCompleted, setLinkCompleted] = useState(false);
   const [register, setRegister] = useState(false);
   const [checking, setChecking] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -72,6 +79,25 @@ export default function Session() {
       window.removeEventListener("qa:unauthorized", expired);
     };
   }, []);
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (new URLSearchParams(url.hash.slice(1)).has("account-link")) {
+      url.hash = "";
+      window.history.replaceState(window.history.state, "", url);
+    }
+  }, []);
+  useEffect(() => {
+    if (checking || user) return;
+    const abort = new AbortController();
+    void api<{ enabled: boolean }>("/auth/account-links", { signal: abort.signal })
+      .then(({ enabled }) => {
+        if (!abort.signal.aborted) setLinksEnabled(enabled);
+      })
+      .catch(() => {
+        /* La capacidad es opcional. */
+      });
+    return () => abort.abort();
+  }, [checking, user]);
   const themeControl = (
     <button
       className="session__theme"
@@ -111,6 +137,7 @@ export default function Session() {
       setCsrfToken(session.csrfToken);
       setUser(session.user);
       setAccountDeleted(false);
+      setLinkCompleted(false);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se pudo iniciar sesión.");
     } finally {
@@ -140,7 +167,7 @@ export default function Session() {
         {themeControl}
       </main>
     );
-  if (user)
+  if (user && linkToken === null)
     return (
       <>
         {error && (
@@ -174,98 +201,139 @@ export default function Session() {
           qaTest<span>GE</span>
         </div>
         <p className="session__eyebrow">TU ESPACIO DE CALIDAD</p>
-        <h1 id="session-title">{register ? "Crea tu cuenta" : "Inicia sesión"}</h1>
-        <p className="session__intro">Organiza tus bugs, pruebas y evidencias en un solo lugar.</p>
-        {accountDeleted && (
-          <Alert tone="success">
-            Tu cuenta se desactivó y anonimizó correctamente. Los recursos QA relacionados se
-            conservaron.
-          </Alert>
-        )}
-        <div className="session__tabs" role="group" aria-label="Modo de acceso">
-          <button
-            disabled={busy}
-            className={`session__tab${!register ? " session__tab--active" : ""}`}
-            aria-pressed={!register}
-            onClick={() => {
+        {linkToken !== null || linkRequested ? (
+          <AccountLinkForm
+            token={linkToken}
+            onBack={() => {
+              setLinkToken(null);
+              setLinkRequested(false);
+              setError("");
+            }}
+            onCompleted={() => {
+              setCsrfToken("");
+              setUser(null);
+              setLinkToken(null);
               setRegister(false);
               setError("");
+              setAccountDeleted(false);
+              setLinkCompleted(true);
             }}
-          >
-            Inicio de sesión
-          </button>
-          <button
-            disabled={busy}
-            className={`session__tab${register ? " session__tab--active" : ""}`}
-            aria-pressed={register}
-            onClick={() => {
-              setRegister(true);
-              setError("");
-            }}
-          >
-            Registro
-          </button>
-        </div>
-        <form
-          key={String(register)}
-          className="session__form"
-          onSubmit={(event) => void submit(event)}
-          aria-busy={busy}
-        >
-          {register && (
-            <label className="session__field">
-              Nombre
-              <input disabled={busy} name="name" autoComplete="name" maxLength={100} required />
-            </label>
-          )}
-          <label className="session__field">
-            Correo electrónico
-            <input
-              disabled={busy}
-              name="email"
-              type="email"
-              autoComplete="username"
-              maxLength={254}
-              placeholder="tu@correo.com"
-              required
-            />
-          </label>
-          <label className="session__field">
-            Contraseña
-            <input
-              disabled={busy}
-              name="password"
-              type="password"
-              autoComplete={register ? "new-password" : "current-password"}
-              minLength={register ? 12 : undefined}
-              maxLength={128}
-              placeholder={register ? "Al menos 12 caracteres" : "Tu contraseña"}
-              required
-            />
-          </label>
-          {register && (
-            <label className="session__field">
-              Confirmar contraseña
-              <input
+          />
+        ) : (
+          <>
+            <h1 id="session-title">{register ? "Crea tu cuenta" : "Inicia sesión"}</h1>
+            <p className="session__intro">
+              Organiza tus bugs, pruebas y evidencias en un solo lugar.
+            </p>
+            {linkCompleted && (
+              <Alert tone="success">Contraseña guardada. Ya puedes iniciar sesión.</Alert>
+            )}
+            {accountDeleted && (
+              <Alert tone="success">
+                Tu cuenta se desactivó y anonimizó correctamente. Los recursos QA relacionados se
+                conservaron.
+              </Alert>
+            )}
+            <div className="session__tabs" role="group" aria-label="Modo de acceso">
+              <button
                 disabled={busy}
-                name="confirmation"
-                type="password"
-                autoComplete="new-password"
-                maxLength={128}
-                required
-              />
-            </label>
-          )}
-          {error && <Alert tone="error">{error}</Alert>}
-          <button disabled={busy} className="session__submit" type="submit">
-            {busy ? "Conectando…" : register ? "Crear cuenta y entrar →" : "Entrar al workspace →"}
-          </button>
-        </form>
-        <p className="session__notice">
-          {register
-            ? "Tu cuenta tendrá un espacio y un proyecto propios. El acceso a otros espacios requiere una membresía explícita."
-            : "Acceso con tu correo y contraseña. La sesión permanece activa al recargar y se revoca al salir."}
-        </p>
+                className={`session__tab${!register ? " session__tab--active" : ""}`}
+                aria-pressed={!register}
+                onClick={() => {
+                  setRegister(false);
+                  setError("");
+                }}
+              >
+                Inicio de sesión
+              </button>
+              <button
+                disabled={busy}
+                className={`session__tab${register ? " session__tab--active" : ""}`}
+                aria-pressed={register}
+                onClick={() => {
+                  setRegister(true);
+                  setError("");
+                }}
+              >
+                Registro
+              </button>
+            </div>
+            <form
+              key={String(register)}
+              className="session__form"
+              onSubmit={(event) => void submit(event)}
+              aria-busy={busy}
+            >
+              {register && (
+                <label className="session__field">
+                  Nombre
+                  <input disabled={busy} name="name" autoComplete="name" maxLength={100} required />
+                </label>
+              )}
+              <label className="session__field">
+                Correo electrónico
+                <input
+                  disabled={busy}
+                  name="email"
+                  type="email"
+                  autoComplete="username"
+                  maxLength={254}
+                  placeholder="tu@correo.com"
+                  required
+                />
+              </label>
+              <label className="session__field">
+                Contraseña
+                <input
+                  disabled={busy}
+                  name="password"
+                  type="password"
+                  autoComplete={register ? "new-password" : "current-password"}
+                  minLength={register ? 12 : undefined}
+                  maxLength={128}
+                  placeholder={register ? "Al menos 12 caracteres" : "Tu contraseña"}
+                  required
+                />
+              </label>
+              {register && (
+                <label className="session__field">
+                  Confirmar contraseña
+                  <input
+                    disabled={busy}
+                    name="confirmation"
+                    type="password"
+                    autoComplete="new-password"
+                    maxLength={128}
+                    required
+                  />
+                </label>
+              )}
+              {error && <Alert tone="error">{error}</Alert>}
+              <button disabled={busy} className="session__submit" type="submit">
+                {busy
+                  ? "Conectando…"
+                  : register
+                    ? "Crear cuenta y entrar →"
+                    : "Entrar al workspace →"}
+              </button>
+            </form>
+            {!register && linksEnabled && (
+              <button
+                className="workspace__secondary"
+                type="button"
+                disabled={busy}
+                onClick={() => setLinkRequested(true)}
+              >
+                ¿Olvidaste tu contraseña o necesitas activar tu cuenta?
+              </button>
+            )}
+            <p className="session__notice">
+              {register
+                ? "Tu cuenta tendrá un espacio y un proyecto propios. El acceso a otros espacios requiere una membresía explícita."
+                : "Acceso con tu correo y contraseña. La sesión permanece activa al recargar y se revoca al salir."}
+            </p>
+          </>
+        )}
       </section>
       <Footer status="Calidad en cada entrega" compact />
     </main>

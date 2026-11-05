@@ -1,3 +1,4 @@
+import type { AccountLinkDelivery, AccountLinkPurpose } from "./account-link-delivery.js";
 import { actorDatabase } from "./actor-database.js";
 import type { DatabasePool, DatabaseClient } from "./actor-database.js";
 import { createHash, randomBytes } from "node:crypto";
@@ -43,9 +44,113 @@ const bugTemplate = (row: BugTemplateRow): BugTemplate => ({
 
 export class PostgresAuth implements AuthProvider {
   forActor(actorId: string, requestId: string) {
-    return new PostgresAuth(actorDatabase(this.pool, actorId, requestId));
+    return new PostgresAuth(actorDatabase(this.pool, actorId, requestId), this.delivery);
   }
-  constructor(private readonly pool: DatabasePool) {}
+  constructor(
+    private readonly pool: DatabasePool,
+    private readonly delivery?: AccountLinkDelivery,
+  ) {}
+  accountLinksEnabled() {
+    return this.delivery !== undefined;
+  }
+  async requestAccountLink(email: string, activationUserId?: string): Promise<void> {
+    if (!this.delivery)
+      throw new HttpError(503, "ACCOUNT_LINKS_DISABLED", "El envío de enlaces no está disponible.");
+    const client = await this.pool.connect();
+    const token = randomBytes(32).toString("hex");
+    const hash = sessionHash(token);
+    let account: { id: string; email: string; activation_pending: boolean } | undefined;
+    let purpose: AccountLinkPurpose = "recovery";
+    let expiresAt: Date | undefined;
+    try {
+      await client.query("BEGIN");
+      const result = await client.query<{ id: string; email: string; activation_pending: boolean }>(
+        `SELECT id::text,email,activation_pending FROM qa.users WHERE email=$1 AND is_active
+         AND ($2::bigint IS NULL OR (id=$2 AND activation_pending)) FOR UPDATE`,
+        [email.trim().toLowerCase(), activationUserId ?? null],
+      );
+      account = result.rows[0];
+      if (account) {
+        purpose = account.activation_pending ? "activation" : "recovery";
+        const issued = await client.query<{ expires_at: Date }>(
+          `INSERT INTO qa.account_links(user_id,token_hash,purpose,expires_at)
+           VALUES($1,$2,$3,now()+($4::int * interval '1 minute'))
+           ON CONFLICT(user_id) DO UPDATE SET token_hash=EXCLUDED.token_hash,purpose=EXCLUDED.purpose,
+           issued_at=EXCLUDED.issued_at,expires_at=EXCLUDED.expires_at
+           WHERE qa.account_links.issued_at <= now() - interval '1 minute' OR qa.account_links.expires_at <= now()
+           RETURNING expires_at`,
+          [account.id, hash, purpose, purpose === "activation" ? 1440 : 30],
+        );
+        expiresAt = issued.rows[0]?.expires_at;
+      }
+      await client.query("COMMIT");
+    } catch (cause) {
+      await client.query("ROLLBACK");
+      throw cause;
+    } finally {
+      client.release();
+    }
+    if (!account || !expiresAt) return;
+    try {
+      await this.delivery({
+        email: account.email,
+        token,
+        purpose,
+        expiresAt: expiresAt.toISOString(),
+      });
+    } catch {
+      await this.pool.query("DELETE FROM qa.account_links WHERE user_id=$1 AND token_hash=$2", [
+        account.id,
+        hash,
+      ]);
+      throw new HttpError(
+        503,
+        "ACCOUNT_LINK_DELIVERY_FAILED",
+        "No se pudo enviar el enlace. Intenta de nuevo.",
+      );
+    }
+  }
+  async consumeAccountLink(token: string, password: string): Promise<void> {
+    const hash = sessionHash(token);
+    const invalid = () =>
+      new HttpError(
+        400,
+        "INVALID_ACCOUNT_LINK",
+        "El enlace venció o ya se utilizó. Solicita uno nuevo.",
+      );
+    const target = await this.pool.query<{ user_id: string }>(
+      "SELECT user_id::text FROM qa.account_links WHERE token_hash=$1 AND expires_at>now()",
+      [hash],
+    );
+    if (!target.rows[0]) throw invalid();
+    const id = target.rows[0].user_id;
+    const passwordHash = await hashPassword(password);
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const user = await client.query<{ activation_pending: boolean }>(
+        "SELECT activation_pending FROM qa.users WHERE id=$1 AND is_active FOR UPDATE",
+        [id],
+      );
+      if (!user.rows[0]) throw invalid();
+      const consumed = await client.query(
+        "DELETE FROM qa.account_links WHERE user_id=$1 AND token_hash=$2 AND expires_at>now() AND purpose=$3",
+        [id, hash, user.rows[0].activation_pending ? "activation" : "recovery"],
+      );
+      if (!consumed.rowCount) throw invalid();
+      await client.query(
+        "UPDATE qa.users SET password_hash=$2,activation_pending=false WHERE id=$1",
+        [id, passwordHash],
+      );
+      await client.query("DELETE FROM qa.auth_sessions WHERE user_id=$1", [id]);
+      await client.query("COMMIT");
+    } catch (cause) {
+      await client.query("ROLLBACK");
+      throw cause;
+    } finally {
+      client.release();
+    }
+  }
   async register(
     input: { name: string; email: string; password: string },
     previousToken?: string,
@@ -83,18 +188,26 @@ export class PostgresAuth implements AuthProvider {
     }
   }
   async login(email: string, password: string, previousToken?: string): Promise<AuthGrant> {
-    const { rows } = await this.pool.query<User & { password_hash: string; is_active: boolean }>(
-      "SELECT id::text,name,email,password_hash,is_active FROM qa.users WHERE email=$1",
+    const { rows } = await this.pool.query<
+      User & { password_hash: string; is_active: boolean; activation_pending: boolean }
+    >(
+      "SELECT id::text,name,email,password_hash,is_active,activation_pending FROM qa.users WHERE email=$1",
       [email.trim().toLowerCase()],
     );
     const user = rows[0];
     const valid = await verifyPassword(password, user?.password_hash);
-    if (!valid || !user?.is_active)
+    if (!valid || !user?.is_active || user.activation_pending)
       throw new HttpError(401, "INVALID_CREDENTIALS", "Correo o contraseña incorrectos.");
     const grant = newSession();
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
+      const fresh = await client.query(
+        "SELECT id FROM qa.users WHERE id=$1 AND password_hash=$2 AND email=$3 AND is_active AND NOT activation_pending FOR UPDATE",
+        [user.id, user.password_hash, user.email],
+      );
+      if (!fresh.rowCount)
+        throw new HttpError(401, "INVALID_CREDENTIALS", "Correo o contraseña incorrectos.");
       await this.saveSession(client, user.id, grant, previousToken);
       await client.query("COMMIT");
     } catch (error) {
@@ -375,8 +488,8 @@ export class PostgresAuth implements AuthProvider {
     try {
       await client.query("BEGIN");
       const updated = await client.query(
-        "UPDATE qa.users SET password_hash=$2 WHERE id=$1 AND is_active",
-        [userId, passwordHash],
+        "UPDATE qa.users SET password_hash=$2 WHERE id=$1 AND is_active AND password_hash=$3",
+        [userId, passwordHash, rows[0]?.password_hash],
       );
       if (!updated.rowCount)
         throw new HttpError(401, "UNAUTHENTICATED", "La cuenta ya no está activa.");
