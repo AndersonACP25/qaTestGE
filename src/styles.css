@@ -3796,16 +3796,6 @@ tbody td {
   flex-wrap: wrap;
   gap: 8px;
 }
-.account-settings__mock {
-  display: grid;
-  gap: 4px;
-}
-.account-settings__mock .button:disabled,
-.account-settings__mock .workspace__field select:disabled,
-.account-settings__mock .workspace__field input:disabled {
-  opacity: 0.65;
-  cursor: not-allowed;
-}
 .account-settings__delete-button {
   padding: 10px 14px;
   border: 1px solid #b42318;

@@ -32,6 +32,7 @@ export function createPool(connectionString: string): pg.Pool {
 }
 
 export async function checkDatabase(pool: pg.Pool): Promise<void> {
+  await pool.query("SELECT user_id, revision, ciphertext FROM qa.user_gemini_credentials LIMIT 0");
   await pool.query(
     "SELECT project_id,user_id,revision,templates FROM qa.project_design_templates LIMIT 0",
   );

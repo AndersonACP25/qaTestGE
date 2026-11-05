@@ -8,7 +8,7 @@ La Wiki del frontend documenta el flujo implementado. Las tablas de bugs, casos 
 
 ## Estado del documento
 
-Este documento combina la arquitectura objetivo de la v1.0 con el estado real del repositorio. El frontend usa React, Vite y TypeScript; existe una API Express MVC en TypeScript con repositorio PostgreSQL sobre qa_test_ge. Hay cuentas locales de una persona, sesiones persistidas, autorización de los proyectos de la cuenta, plantillas personales de bugs y CRUD de casos con adjuntos privados de imágenes/enlaces. Las imágenes de casos se guardan en PostgreSQL; la carga binaria general de evidencias está implementada y la integración con proveedores de IA sigue pendiente. GitHub Actions valida cambios y publica artefactos compilados al hacer push a main; el despliegue a un proveedor aún no está configurado.
+Este documento combina la arquitectura objetivo de la v1.0 con el estado real del repositorio. El frontend usa React, Vite y TypeScript; existe una API Express MVC en TypeScript con repositorio PostgreSQL sobre qa_test_ge. Hay cuentas locales de una persona, sesiones persistidas, autorización de los proyectos de la cuenta, plantillas personales de bugs y CRUD de casos con adjuntos privados de imágenes/enlaces. Las imágenes de casos se guardan en PostgreSQL; la carga binaria general de evidencias está implementada y Gemini está disponible como piloto opcional en la API de borradores de bugs. GitHub Actions valida cambios y publica artefactos compilados al hacer push a main; el despliegue a un proveedor aún no está configurado.
 
 ## Objetivos
 
@@ -92,7 +92,7 @@ Expone operaciones de producto limitadas y tipadas, por ejemplo:
 - Sugerir casos de prueba a partir de un requisito o bug seleccionado.
 - Resumir resultados de una ejecución y señalar patrones o cobertura potencialmente faltante.
 
-El servicio valida la entrada y la respuesta, registra el proveedor/modelo y el resultado de la operación sin guardar secretos, y devuelve propuestas que el usuario puede editar o descartar. No ejecuta consultas arbitrarias, no altera datos de dominio y no accede a archivos salvo que el usuario los seleccione expresamente y la política del proyecto lo permita.
+En el piloto, el servicio valida la entrada y la respuesta, registra el estado y duración mediante el contexto HTTP y devuelve propuestas que el usuario puede editar o descartar. No ejecuta consultas arbitrarias, no altera datos de dominio y no accede a archivos salvo que el usuario los seleccione expresamente y la política del proyecto lo permita.
 
 ## Modelo de dominio
 
@@ -161,7 +161,7 @@ Correlacionar solicitudes y errores con identificadores de operación. Medir lat
 
 ### Autenticación local y tema
 
-Session comprueba /api/auth/me al cargar, usa /register y /login y revoca la sesión en /logout. Configuración permite cambiar nombre/correo, actualizar la contraseña con verificación de la contraseña actual, gestionar plantillas personales de bugs y desactivar/anonimizar la cuenta. Al desactivar, la operación verifica contraseña y confirmación, elimina plantillas, revoca sesiones y conserva recursos relacionados. Cambiar contraseña revoca las otras sesiones. La configuración de proveedor de IA es solo maqueta y no almacena claves. No mantiene tokens de autenticación en localStorage. El tema sigue siendo una preferencia local independiente de la autenticación.
+Session comprueba /api/auth/me al cargar, usa /register y /login y revoca la sesión en /logout. Configuración permite cambiar nombre/correo, actualizar la contraseña con verificación de la contraseña actual, gestionar plantillas personales de bugs y desactivar/anonimizar la cuenta. Al desactivar, la operación verifica contraseña y confirmación, elimina plantillas, revoca sesiones y conserva recursos relacionados. Cambiar contraseña revoca las otras sesiones. La migración 023 agrega credenciales Gemini cifradas por cuenta con AES-256-GCM y revisiones. La clave maestra se carga desde el servidor. La API comprueba el modelo con Google antes de persistir, devuelve solo estado y elimina la clave al desactivar la cuenta. No mantiene tokens de autenticación en localStorage. El tema sigue siendo una preferencia local independiente de la autenticación.
 
 La migración 022 persiste un documento de plantillas por cuenta y proyecto. Incluye plantillas de casos y los valores de tags/responsable para las plantillas personales de bugs existentes. La API comprueba acceso vigente y revisión antes de guardar, y solo la cuenta propietaria consulta su documento. Al aplicar una plantilla, los diseñadores omiten referencias que ya no están disponibles; la creación de registros vuelve a validarlas en PostgreSQL.
 
@@ -175,7 +175,7 @@ El frontend carga proyectos y recursos reales, muestra estados de carga/error, y
 
 La navegación `case-builder` monta el componente `CaseBuilder`. El texto, la selección múltiple, las cantidades y la visibilidad de la tabla viven en estado React. El catálogo define categorías con pruebas ilustrativas; cada categoría seleccionada tiene una cantidad permitida conservada durante la interacción. Los valores inválidos impiden mostrar la tabla. La vista previa y las exportaciones comparten la selección y las cantidades; el texto introducido no se procesa. Al usar la acción explícita de guardado, el controlador crea un caso mediante la API, asociando categoría como Suite, descripción como precondición y los pasos editados. La vista previa no se guarda automáticamente; las propuestas no son generadas por IA.
 
-El flujo futuro podrá partir de una descripción, categorías y cantidades y solicitar propuestas mediante la interfaz opcional de proveedor en el servidor. Cualquier propuesta requerirá revisión y confirmación antes de crear casos con identificadores y referencias de proyecto explícitos. La integración de IA sigue sin implementarse.
+El flujo futuro podrá partir de una descripción, categorías y cantidades y solicitar propuestas mediante la interfaz opcional de proveedor en el servidor. Cualquier propuesta requerirá revisión y confirmación antes de crear casos con identificadores y referencias de proyecto explícitos. La generación de casos con IA sigue pendiente.
 
 ## Documentación complementaria
 
@@ -209,7 +209,7 @@ CaseDesignSettings permite editar y eliminar todos los tipos, incluidos los pred
 
 `models/bugDesign.ts` mantiene borradores explícitos en localStorage bajo clave por usuario y proyecto; valida la forma del contenido al recuperarlo. No añade un estado Borrador al dominio ni una migración. Cada borrador conserva su propio ID y puede abrirse, actualizarse o eliminarse. Tras publicar se intenta retirar el borrador local; un fallo de limpieza se comunica sin volver a crear el bug. No hay sincronización entre navegadores, subida de archivos ni envío externo. El componente se monta con clave usuario/proyecto para aislar el estado. La preparación rechaza descripciones combinadas mayores a 5000 caracteres sin recortarlas silenciosamente.
 
-La [guía de integración de IA](AI_INTEGRATION.md) describe una implementación futura bajo `servicios/`, con endpoint autenticado, consentimiento, salida estructurada, cuotas y revisión humana. No hay proveedor real implementado.
+El [piloto Gemini](AI_INTEGRATION.md) implementa `POST /api/ai/bug-proposals` con sesión, CSRF, permiso `bugs.write`, consentimiento, validación de salida y límites por proceso. El adaptador vive en `servicios/ia/` y se incluye en el artefacto del backend. La vista de diseño todavía no invoca el endpoint.
 
 ### Exportación de listados y maqueta de perfil
 
@@ -301,7 +301,7 @@ Las unitarias se concentran en CORE: dominio QA, acceso/autenticación, contrato
 
 `RichTextarea` comparte la barra de formato y vista previa en todos los campos largos, conservando los formularios controlados y los basados en FormData. Se guarda texto Markdown en las mismas columnas y se mantienen los límites de longitud. `FormattedText` permite negrita, cursiva, tachado, código, listas y citas; no interpreta HTML, URLs ni imágenes. Las exportaciones conservan el texto fuente.
 
-El listado se conserva montado durante su recarga para que Importar, situado junto a Exportar tabla, mantenga las claves idempotentes y el progreso parcial. La exportación individual de runs utiliza el informe autenticado existente, con diálogo específico. La eliminación usa un diálogo compacto sin montar resultados o conversación; las relaciones siguen protegiéndose en servidor. Los proveedores visibles en Configuración son un catálogo de futuras integraciones, sin nuevas dependencias ni llamadas externas.
+El listado se conserva montado durante su recarga para que Importar, situado junto a Exportar tabla, mantenga las claves idempotentes y el progreso parcial. La exportación individual de runs utiliza el informe autenticado existente, con diálogo específico. La eliminación usa un diálogo compacto sin montar resultados o conversación; las relaciones siguen protegiéndose en servidor. La configuración de Gemini usa el cliente central y valida el acceso al modelo antes de guardar una clave personal.
 
 ## Interacción de registros y notificaciones
 

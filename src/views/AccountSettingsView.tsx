@@ -1,3 +1,4 @@
+import GeminiSettingsPanel from "./GeminiSettingsPanel";
 import ProjectTemplatesPanel from "./ProjectTemplatesPanel";
 import type { DesignTemplatesController } from "../controllers/useDesignTemplates";
 import type { Tag } from "../types";
@@ -630,56 +631,11 @@ export default function AccountSettingsView({
           >
             <CaseDesignSettings preferences={preferences} onSave={onPreferencesChanged} />
           </section>
-          <section className="account-settings__card" hidden={activeSection !== "ia"}>
-            <div className="account-settings__heading">
-              <h2 className="typography__section">Conexión con IA</h2>
-              <p>
-                Vista preliminar de una futura configuración de proveedores. Esta sección es solo
-                una maqueta.
-              </p>
-            </div>
-            <ul className="account-settings__providers" aria-label="Proveedores previstos">
-              {[
-                ["OpenAI", "Generación y revisión de casos y bugs"],
-                ["Anthropic", "Análisis de requisitos y documentación"],
-                ["Google Gemini", "Análisis de texto y contenido multimodal"],
-                ["Azure OpenAI", "Integración en entornos empresariales"],
-                ["Mistral AI", "Alternativa de modelos y despliegue"],
-                ["Ollama", "Modelos locales en infraestructura propia"],
-              ].map(([name, purpose]) => (
-                <li key={name}>
-                  <strong>{name}</strong>
-                  <span>{purpose}</span>
-                  <span className="account-settings__provider-status">Integración futura</span>
-                </li>
-              ))}
-            </ul>
-            <div className="account-settings__mock">
-              <label className="workspace__field">
-                Proveedor
-                <select disabled value="">
-                  <option value="">Sin conectar</option>
-                  <option>OpenAI</option>
-                  <option>Anthropic</option>
-                  <option>Google Gemini</option>
-                  <option>Azure OpenAI</option>
-                  <option>Mistral AI</option>
-                  <option>Ollama (local)</option>
-                  <option>Proveedor compatible</option>
-                </select>
-              </label>
-              <label className="workspace__field">
-                Clave del proveedor
-                <input type="password" disabled placeholder="No disponible en esta versión" />
-              </label>
-              <button className="button button-primary" type="button" disabled>
-                Conectar proveedor (próximamente)
-              </button>
-              <p className="workspace__notice">
-                No se almacenan credenciales ni se envían datos a proveedores de IA.
-              </p>
-            </div>
-          </section>
+          {activeSection === "ia" && (
+            <section className="account-settings__card">
+              <GeminiSettingsPanel key={user.id} />
+            </section>
+          )}
           <section
             className="account-settings__card account-settings__card--danger"
             hidden={activeSection !== "cuenta"}

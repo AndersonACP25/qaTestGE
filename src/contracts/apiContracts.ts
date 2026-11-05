@@ -188,6 +188,13 @@ export type ApiCase = z.output<typeof testCase>;
 export type ApiRun = z.output<typeof run>;
 export type ApiEvidence = z.output<typeof evidence>;
 
+const geminiSettings = z.strictObject({
+  visualAvailable: z.boolean(),
+  source: z.enum(["account", "environment", "none"]),
+  revision: z.uuid().nullable(),
+});
+export type GeminiSettingsStatus = z.output<typeof geminiSettings>;
+
 export function parseApiData(path: string, method: string, input: unknown): unknown {
   const url = new URL(path, "http://contracts.local");
   const parts = url.pathname.split("/").filter(Boolean);
@@ -201,6 +208,7 @@ export function parseApiData(path: string, method: string, input: unknown): unkn
   else if (resource === "imports" && action === "tags") schema = importResultSchema;
   else if (resource === "test-runs" && detail === "report") schema = runReportSchema;
   else if (resource === "assigned-work") schema = assignedWorkPageSchema;
+  else if (resource === "ai" && action === "settings") schema = geminiSettings;
   else if (resource === "design-templates") schema = designTemplatesSchema;
   else if (resource === "audit-settings") schema = auditSettingsSchema;
   else if (resource === "project-users") schema = projectMember;

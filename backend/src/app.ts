@@ -18,7 +18,16 @@ import type { AuthProvider } from "./models/user.model.js";
 import { authRouter, requireAuth, sameOrigin } from "./auth/routes.js";
 import { workspaceRouter } from "./routes/workspace.routes.js";
 
-export function createApp(repository: Repository, auth: AuthProvider) {
+import { geminiSettingsRouter, type GeminiSettings } from "./routes/gemini-settings.routes.js";
+import { aiRouter } from "./routes/ai.routes.js";
+import type { BugProposalProvider } from "../../servicios/ia/gemini.mjs";
+
+export function createApp(
+  repository: Repository,
+  auth: AuthProvider,
+  bugProposalProvider?: BugProposalProvider,
+  geminiSettings?: GeminiSettings,
+) {
   const app = express();
 
   app.disable("x-powered-by");
@@ -57,6 +66,8 @@ export function createApp(repository: Repository, auth: AuthProvider) {
   });
   app.post("/api/integrations/playwright", publishPlaywright(repository, auth));
   app.use("/api", requireAuth(auth, repository));
+  app.use("/api", geminiSettingsRouter(Boolean(bugProposalProvider), geminiSettings));
+  app.use("/api", aiRouter(bugProposalProvider, geminiSettings));
   app.use("/api", workspaceRouter(auth));
   app.use("/api", qualityRouter);
   app.use("/api", analyticsRouter);
