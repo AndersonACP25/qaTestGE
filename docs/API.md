@@ -86,6 +86,10 @@ Las plantillas son privadas por usuario y se guardan en `qa.bug_templates`. El p
 
 `DELETE /auth/me` requiere cookie de sesión, `X-CSRF-Token` y JSON `{"currentPassword":"...","confirmation":"ELIMINAR CUENTA"}`. Verifica la contraseña actual y la frase exacta. Responde 204 y borra la cookie; la cuenta queda inactiva y nombre/correo/contraseña se anonimizan, se revocan todas las sesiones y se eliminan sus plantillas. Se conservan la fila de usuario inactiva, membresías, proyectos y recursos QA para preservar referencias e historial. La operación se ejecuta en una transacción.
 
+## Plantillas de diseño por proyecto
+
+`GET /design-templates?projectId=…` devuelve el documento personal del proyecto con `revision`, `cases` y `bugDefaults`. `PUT` guarda el documento completo y devuelve la revisión siguiente. Si otra sesión ya modificó la revisión, responde 409 y permite recargar antes de editar. Los tags y el responsable son valores predeterminados; la creación de cada bug o caso verifica los permisos y las referencias vigentes.
+
 ## Creación de recursos
 
 Todos los POST requieren `projectId` y validan que el proyecto exista. Los textos obligatorios no pueden quedar vacíos tras trim; las longitudes máximas se comprueban antes del recorte. Las respuestas incluyen `id`, `projectId` y `createdAt` ISO UTC.

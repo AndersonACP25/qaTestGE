@@ -1,3 +1,6 @@
+import { useDesignTemplates } from "./controllers/useDesignTemplates";
+import { availableTemplateDefaults } from "./models/templateDefaults";
+import type { CaseTemplate } from "../backend/src/models/design-templates.model";
 import { formatCount } from "./utils/pluralization";
 import RecordBulkActions from "./views/RecordBulkActions";
 import { readRecordLink } from "./models/recordLinks";
@@ -134,9 +137,12 @@ function App({
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectId, setProjectId] = useState("");
   const captureScope = useOperationScope(user.id, projectId);
+  const designTemplates = useDesignTemplates(user.id, projectId);
+  const [selectedCaseTemplate, setSelectedCaseTemplate] = useState<CaseTemplate | null>(null);
   const mentionInbox = useMentionNotifications(user.id, projectId);
   const [tags, setTags] = useState<Tag[]>([]);
   const [tagError, setTagError] = useState("");
+  const [loadedTagProject, setLoadedTagProject] = useState("");
   const [revision, setRevision] = useState(0);
   const [projectError, setError] = useState("");
   const {
@@ -200,6 +206,7 @@ function App({
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [assigneeUserId, setAssigneeUserId] = useState("");
   const [teamMembers, setTeamMembers] = useState<{ id: string; name: string }[]>([]);
+  const [loadedMemberProject, setLoadedMemberProject] = useState("");
   const [teamMemberError, setTeamMemberError] = useState("");
   const [editingCase, setEditingCase] = useState<TestCase | null>(null);
   const [caseImageFiles, setCaseImageFiles] = useState<File[]>([]);
@@ -257,6 +264,9 @@ function App({
           setTeamMemberError(
             cause instanceof Error ? cause.message : "No se pudieron cargar los integrantes.",
           );
+      })
+      .finally(() => {
+        if (!abort.signal.aborted) setLoadedMemberProject(project.id);
       });
     return () => abort.abort();
   }, [project?.organizationId, project?.id]);
@@ -319,9 +329,14 @@ function App({
           setTags([]);
           setTagError(cause instanceof Error ? cause.message : "No se pudieron cargar los tags.");
         }
+      })
+      .finally(() => {
+        if (!abort.signal.aborted) setLoadedTagProject(projectId);
       });
     return () => abort.abort();
   }, [projectId, revision]);
+  const templateResourcesLoading =
+    Boolean(projectId) && (loadedTagProject !== projectId || loadedMemberProject !== projectId);
   const filteredBugs = useMemo(() => filterBugs(bugs, listingFilters), [bugs, listingFilters]);
   const filteredCases = useMemo(
     () =>
@@ -548,7 +563,10 @@ function App({
       });
       setSelectedBugTemplateId("");
     }
-    if (value === "case") setCaseSteps([{ action: "", expectedResult: "" }]);
+    if (value === "case") {
+      setSelectedCaseTemplate(null);
+      setCaseSteps([{ action: "", expectedResult: "" }]);
+    }
     setSelectedTagIds([]);
     if (value === "evidence") {
       setEvidenceForm({ name: "", type: "Archivo", sizeBytes: 0, related: "" });
@@ -671,6 +689,13 @@ function App({
   function applyBugTemplate(templateId: string) {
     setSelectedBugTemplateId(templateId);
     const template = bugTemplates.find((item) => item.id === templateId);
+    const defaults = availableTemplateDefaults(
+      designTemplates.data.bugDefaults.find((item) => item.templateId === template?.id),
+      tags,
+      teamMembers,
+    );
+    setSelectedTagIds(defaults.tagIds);
+    setAssigneeUserId(defaults.assigneeUserId ?? "");
     setBugForm(
       template
         ? {
@@ -682,6 +707,13 @@ function App({
           }
         : { title: "", description: "", priority: "Media", status: "Abierto", assignee: "" },
     );
+  }
+  function applyCaseTemplate(template: CaseTemplate | null) {
+    setSelectedCaseTemplate(template);
+    setCaseSteps(template?.steps ?? [{ action: "", expectedResult: "" }]);
+    const defaults = availableTemplateDefaults(template ?? undefined, tags, teamMembers);
+    setSelectedTagIds(defaults.tagIds);
+    setAssigneeUserId(defaults.assigneeUserId ?? "");
   }
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1279,6 +1311,7 @@ function App({
           {requestedLink && <p role="status">Abriendo enlace del registro…</p>}
           {workflowError && <Alert tone="error">{workflowError}</Alert>}
           {preferencesError && <Alert tone="error">{preferencesError}</Alert>}
+          {mentionInbox.message && <Alert tone="success">{mentionInbox.message}</Alert>}
           {!loading && !error && !projectId && activePage !== "settings" && (
             <p className="workspace__notice">
               No tienes proyectos disponibles. El administrador debe conceder acceso a un espacio
@@ -1319,6 +1352,11 @@ function App({
               user={user}
               onUserUpdated={onUserUpdated}
               onAccountDeleted={onAccountDeleted}
+              designTemplates={designTemplates}
+              templateResourcesLoading={templateResourcesLoading}
+              tags={tags}
+              members={teamMembers}
+              templateResourcesError={tagError || teamMemberError}
               preferences={preferences}
               onPreferencesChanged={savePreferences}
             />
@@ -1334,6 +1372,10 @@ function App({
                 projectId={projectId}
                 tags={tags}
                 tagError={tagError}
+                members={teamMembers}
+                memberError={teamMemberError}
+                defaults={designTemplates.data.bugDefaults}
+                defaultsLoading={designTemplates.loading || templateResourcesLoading}
                 onOpenBugs={() => {
                   setSearch("");
                   setStatusFilter("Todos");
@@ -1356,6 +1398,15 @@ function App({
               defaultCounts={caseCountDefaults}
               defaultSelectedCategories={caseDesignCategories}
               projectId={projectId}
+              templates={templateResourcesLoading ? [] : designTemplates.data.cases}
+              onOpenTemplate={
+                allowed("cases.write")
+                  ? (template) => {
+                      openModal("case");
+                      applyCaseTemplate(template);
+                    }
+                  : undefined
+              }
             />
           ) : activePage === "tags" ? (
             projectId && (
@@ -1684,7 +1735,7 @@ function App({
                 {modal === "bug" && (
                   <label className="workspace__field" data-editor-property="true">
                     Cargar plantilla
-                    {bugTemplatesLoading ? (
+                    {bugTemplatesLoading || designTemplates.loading || templateResourcesLoading ? (
                       <span className="workspace__notice">Cargando plantillas…</span>
                     ) : (
                       <select
@@ -1699,6 +1750,28 @@ function App({
                         ))}
                       </select>
                     )}
+                  </label>
+                )}
+                {modal === "case" && designTemplates.data.cases.length > 0 && (
+                  <label className="workspace__field" data-editor-property="true">
+                    Cargar plantilla de caso
+                    <select
+                      value={selectedCaseTemplate?.id ?? ""}
+                      disabled={templateResourcesLoading}
+                      onChange={(event) =>
+                        applyCaseTemplate(
+                          designTemplates.data.cases.find(({ id }) => id === event.target.value) ??
+                            null,
+                        )
+                      }
+                    >
+                      <option value="">Sin plantilla</option>
+                      {designTemplates.data.cases.map(({ id, name }) => (
+                        <option key={id} value={id}>
+                          {name}
+                        </option>
+                      ))}
+                    </select>
                   </label>
                 )}
                 {modal !== "evidence" &&
@@ -1720,7 +1793,11 @@ function App({
                         <input
                           name="title"
                           maxLength={200}
-                          defaultValue={editingCase?.title ?? ""}
+                          key={modal === "case" ? selectedCaseTemplate?.id : editingCase?.id}
+                          defaultValue={
+                            (modal === "case" ? selectedCaseTemplate?.title : editingCase?.title) ??
+                            ""
+                          }
                           required
                         />
                       )}
@@ -1863,7 +1940,12 @@ function App({
                         required
                         maxLength={100}
                         list="case-types"
-                        defaultValue={editingCase?.testType ?? "Funcional"}
+                        key={modal === "case" ? selectedCaseTemplate?.id : editingCase?.id}
+                        defaultValue={
+                          (modal === "case"
+                            ? selectedCaseTemplate?.testType
+                            : editingCase?.testType) ?? "Funcional"
+                        }
                       />
                       <datalist id="case-types">
                         {[
@@ -1891,14 +1973,27 @@ function App({
                     </label>
                     <label className="workspace__field">
                       Suite (opcional)
-                      <input name="suite" maxLength={100} defaultValue={editingCase?.suite ?? ""} />
+                      <input
+                        name="suite"
+                        maxLength={100}
+                        key={modal === "case" ? selectedCaseTemplate?.id : editingCase?.id}
+                        defaultValue={
+                          (modal === "case" ? selectedCaseTemplate?.suite : editingCase?.suite) ??
+                          ""
+                        }
+                      />
                     </label>
                     <label className="workspace__field">
                       Precondiciones
                       <RichTextarea
                         name="preconditions"
                         maxLength={10000}
-                        defaultValue={editingCase?.preconditions ?? ""}
+                        key={modal === "case" ? selectedCaseTemplate?.id : editingCase?.id}
+                        defaultValue={
+                          (modal === "case"
+                            ? selectedCaseTemplate?.preconditions
+                            : editingCase?.preconditions) ?? ""
+                        }
                       />
                     </label>
                     <TagPicker

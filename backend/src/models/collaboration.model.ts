@@ -68,6 +68,10 @@ export interface MentionNotification {
   readAt: string | null;
 }
 export interface CollaborationRepository {
+  designTemplates?(
+    projectId: string,
+    input?: import("./design-templates.model.js").DesignTemplates,
+  ): Promise<import("./design-templates.model.js").DesignTemplates>;
   assignedWork(projectId: string, filters: AssignedWorkFilters): Promise<AssignedWorkPage>;
   auditSettings(projectId: string): Promise<AuditSettings>;
   saveAuditSettings(projectId: string, input: AuditSettings): Promise<AuditSettings>;

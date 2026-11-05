@@ -1,3 +1,5 @@
+import { z } from "zod";
+import { designTemplatesSchema } from "./models/design-templates.model.js";
 const id = { type: "string", pattern: "^[1-9][0-9]{0,18}$" };
 const text = { type: "string" };
 const revision = { type: "integer", minimum: 1 };
@@ -203,6 +205,18 @@ export const collaborationPaths = {
           schema: { type: "integer", enum: [10, 25, 50], default: 25 },
         },
       ],
+    ),
+  },
+  "/api/design-templates": {
+    get: operation(
+      "Consultar plantillas personales del proyecto",
+      z.toJSONSchema(designTemplatesSchema),
+    ),
+    put: operation(
+      "Guardar plantillas personales con revisión",
+      z.toJSONSchema(designTemplatesSchema),
+      [],
+      z.toJSONSchema(designTemplatesSchema),
     ),
   },
   "/api/audit-settings": {

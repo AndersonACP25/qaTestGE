@@ -1,3 +1,4 @@
+import { designTemplatesSchema } from "../../backend/src/models/design-templates.model";
 import { playwrightMetadataSchema } from "../../backend/src/models/playwright-import.model";
 import { assignedWorkPageSchema } from "../../backend/src/models/assigned-work.model";
 import { auditSettingsSchema } from "../../backend/src/models/audit.model";
@@ -200,6 +201,7 @@ export function parseApiData(path: string, method: string, input: unknown): unkn
   else if (resource === "imports" && action === "tags") schema = importResultSchema;
   else if (resource === "test-runs" && detail === "report") schema = runReportSchema;
   else if (resource === "assigned-work") schema = assignedWorkPageSchema;
+  else if (resource === "design-templates") schema = designTemplatesSchema;
   else if (resource === "audit-settings") schema = auditSettingsSchema;
   else if (resource === "project-users") schema = projectMember;
   else if (resource === "mention-notifications" && url.pathname.endsWith("/read-all"))

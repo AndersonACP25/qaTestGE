@@ -282,7 +282,11 @@ test("auditoría navega por páginas, conserva la página tras un error y export
   await expect(page.locator(".audit-table tbody tr")).toHaveCount(2);
   await expect(paginator).toContainText("Página 2");
   const download = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Exportar página Markdown", exact: true }).click();
+  await page.getByRole("button", { name: "Exportar página", exact: true }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Exportar Markdown", exact: true })
+    .click();
   const file = await download;
   const content = await readFile((await file.path())!, "utf8");
   expect(content).toContain("BUG-50");

@@ -34,6 +34,12 @@ export class AuthorizedRepository implements Repository {
     const base = this.base.collaboration;
     if (!base) return undefined;
     return {
+      designTemplates:
+        base.designTemplates &&
+        (async (p, input) => {
+          await this.projectIds(p);
+          return base.designTemplates!(p, input);
+        }),
       assignedWork: async (p, filters) => {
         await this.projectIds(p);
         return base.assignedWork(p, filters);

@@ -52,6 +52,8 @@ Desde **Configuración → Accesos al proyecto**, Admin puede marcar **Enviar en
 
 En **Configuración** puedes actualizar tu nombre y correo, cambiar tu contraseña y crear plantillas personales de bugs. También puedes cambiar el tema de la interfaz.
 
+En **Configuración → Plantillas** puedes crear formatos de bugs y casos. Las plantillas de casos conservan título, tipo, suite, precondiciones, pasos, tags y responsable. Para bugs, primero guarda el formato personal y luego configura **Tags y responsable** para el proyecto actual. Usa la plantilla en un formulario de creación o en el diseñador y revisa la copia antes de guardar el registro.
+
 El cambio de imagen de perfil aparece como una maqueta: todavía no permite seleccionar ni subir imágenes.
 
 Al desactivar tu cuenta se revocan tus sesiones y se anonimizan tus datos personales; los recursos QA y las membresías se conservan para mantener la trazabilidad.

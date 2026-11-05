@@ -1,3 +1,5 @@
+import { availableTemplateDefaults } from "../models/templateDefaults";
+import type { DesignTemplates } from "../../backend/src/models/design-templates.model";
 import DesignEvidencePanel from "./DesignEvidencePanel";
 import Dialog from "../Dialog";
 import RichTextarea from "../components/RichTextarea";
@@ -21,6 +23,10 @@ export default function BugDesignView({
   projectId,
   tags,
   tagError,
+  members,
+  memberError,
+  defaults,
+  defaultsLoading,
   onSaved,
   onOpenBugs,
 }: {
@@ -28,6 +34,10 @@ export default function BugDesignView({
   projectId: string;
   tags: Tag[];
   tagError: string;
+  members: { id: string; name: string }[];
+  memberError: string;
+  defaults: DesignTemplates["bugDefaults"];
+  defaultsLoading: boolean;
   onSaved: (bug: Bug) => void;
   onOpenBugs: () => void;
 }) {
@@ -133,6 +143,8 @@ export default function BugDesignView({
       const validTags = new Set(tags.map(({ id }) => id));
       if (preview.tagIds.some((id) => !validTags.has(id)))
         throw new Error("Revisa los tags del borrador antes de guardar.");
+      if (preview.assigneeUserId && !members.some(({ id }) => id === preview.assigneeUserId))
+        throw new Error("Selecciona un responsable disponible o deja el bug sin asignar.");
       const saved = await createBug(
         {
           projectId,
@@ -140,6 +152,7 @@ export default function BugDesignView({
           description: preview.description,
           priority: preview.priority,
           tagIds: preview.tagIds,
+          ...(preview.assigneeUserId ? { assigneeUserId: preview.assigneeUserId } : {}),
         },
         await bugDraftRequestKey(userId, projectId, preview.id),
       );
@@ -200,7 +213,11 @@ export default function BugDesignView({
                     templates.find(({ id }) => id === templateId),
                   ),
                   id: crypto.randomUUID(),
-                  tagIds: [],
+                  ...availableTemplateDefaults(
+                    defaults.find((item) => item.templateId === templateId),
+                    tags,
+                    members,
+                  ),
                 });
                 setReviewed(false);
                 setSavedId("");
@@ -225,7 +242,7 @@ export default function BugDesignView({
               <select
                 value={templateId}
                 onChange={(event) => setTemplateId(event.target.value)}
-                disabled={templatesLoading || busy}
+                disabled={templatesLoading || defaultsLoading || busy}
               >
                 <option value="">Sin plantilla</option>
                 {templates.map((template) => (
@@ -337,6 +354,25 @@ export default function BugDesignView({
                   >
                     {["Crítica", "Alta", "Media", "Baja"].map((priority) => (
                       <option key={priority}>{priority}</option>
+                    ))}
+                  </select>
+                </label>
+                {memberError && <Alert tone="error">{memberError}</Alert>}
+                <label className="workspace__field">
+                  Responsable QA
+                  <select
+                    value={preview.assigneeUserId ?? ""}
+                    onChange={(event) => edit({ assigneeUserId: event.target.value || null })}
+                  >
+                    <option value="">Sin asignar</option>
+                    {preview.assigneeUserId &&
+                      !members.some(({ id }) => id === preview.assigneeUserId) && (
+                        <option value={preview.assigneeUserId}>Responsable no disponible</option>
+                      )}
+                    {members.map(({ id, name }) => (
+                      <option key={id} value={id}>
+                        {name}
+                      </option>
                     ))}
                   </select>
                 </label>

@@ -8,7 +8,7 @@ const guides = [
   },
   {
     title: "Dashboard y analítica",
-    text: "Dashboard resume el estado actual con indicadores y gráficos. Reportes y métricas permite seleccionar un período, consultar aprobación por ejecución, bugs abiertos/cerrados y casos que fallan con frecuencia, y exportar CSV. Los días anteriores al inicio del historial de bugs aparecen sin datos. La cobertura por tipo cuenta casos activos con resultados registrados.",
+    text: "Dashboard resume el estado actual con indicadores y gráficos. Reportes y métricas permite seleccionar un período, consultar aprobación por ejecución, bugs abiertos/cerrados y casos que fallan con frecuencia, y exportar CSV. En Preparación de release, filtra por versión, entorno o plan para comparar resultados manuales y de Playwright, ver requisitos evaluados y localizar bugs críticos. Los días anteriores al historial de bugs aparecen sin datos. La cobertura por tipo cuenta casos activos con resultados registrados.",
   },
   {
     title: "Cobertura de requisitos",
@@ -36,7 +36,7 @@ const guides = [
   },
   {
     title: "5. Guarda evidencias y clasifica",
-    text: "En Evidencias pulsa Subir evidencia para cargar archivos de hasta 2 MiB y relaciónalos con la actividad de QA. En Tags crea etiquetas por proyecto y asígnalas a bugs, casos o ejecuciones.",
+    text: "En Evidencias pulsa Subir evidencia para cargar archivos de hasta 2 MiB y relaciónalos con la actividad de QA. Descargar guarda el archivo adjunto y Exportar guarda los metadatos del registro. En Tags crea etiquetas por proyecto y asígnalas a bugs, casos o ejecuciones.",
   },
   {
     title: "Equipos y acceso",
@@ -44,7 +44,7 @@ const guides = [
   },
   {
     title: "Comentarios, menciones y auditoría",
-    text: "Comenta en el detalle de bugs, casos y ejecuciones. Escribe @ y selecciona un integrante con acceso, o escribe su nombre completo si es único. La campana del navbar y Mis menciones se actualizan cada 15 segundos; abrir un registro no marca la mención como leída. Usa Marcar como leída o Marcar todas como leídas; también incluye tus propias menciones. El acceso Ver todas las menciones aparece arriba en la campana. El autor y los Admin pueden editar o eliminar comentarios, conservando el historial. En Configuración, la pestaña Actividad y auditoría muestra los cambios confirmados y sus actores desde que se habilitó el historial. No se envían correos.",
+    text: "Comenta en el detalle de bugs, casos y ejecuciones. Escribe @ y selecciona un integrante con acceso, o escribe su nombre completo si es único. La campana del navbar y Mis menciones se actualizan cada 15 segundos; abrir un registro no marca la mención como leída. Usa Marcar como leída o Marcar todas como leídas; también incluye tus propias menciones. La campana ofrece Ver todas las menciones y Marcar todas como leídas. El autor y los Admin pueden editar o eliminar comentarios, conservando el historial. En Configuración, la pestaña Actividad y auditoría muestra los cambios confirmados y sus actores desde que se habilitó el historial. No se envían correos.",
   },
   {
     title: "Flujo de bugs en Configuración",
@@ -52,7 +52,7 @@ const guides = [
   },
   {
     title: "Diseñador y configuración",
-    text: "El diseñador ofrece ejemplos ilustrativos que puedes editar, exportar y guardar explícitamente. No utiliza IA. En Configuración puedes administrar tu cuenta, plantillas de bugs y preferencias del diseñador; la conexión de IA es una maqueta.",
+    text: "El diseñador ofrece ejemplos ilustrativos que puedes editar, exportar y guardar explícitamente. No utiliza IA. En Configuración → Plantillas puedes gestionar los formatos personales de bugs y casos. En cada proyecto puedes guardar tags y un responsable predeterminado. El diseñador de casos abre una copia editable de la plantilla; guarda solo después de revisarla. En Configuración también puedes gestionar tu cuenta y las preferencias del diseñador; la conexión de IA es una maqueta.",
   },
   {
     title: "Mis asignaciones",
@@ -68,7 +68,7 @@ const guides = [
   },
   {
     title: "Auditoría paginada y exportación",
-    text: "En Configuración → Actividad y auditoría aplica perfil, recurso, operación, autor, fechas UTC y búsqueda. Anterior/Siguiente navega por páginas; Exportar página genera Excel, PDF o Markdown de la página visible. Un Admin puede guardar el perfil, detalle y tamaño de página predeterminados. Esta configuración no elimina ni desactiva el historial.",
+    text: "En Configuración → Actividad y auditoría aplica perfil, recurso, operación, autor, fechas UTC y búsqueda. Anterior/Siguiente navega por páginas; Ver cambios abre un diálogo con los valores anteriores y nuevos. Exportar página descarga la vista actual y Exportar todo filtrado recorre el historial que coincide con los filtros. Ambos permiten Excel, PDF o Markdown. Un Admin puede guardar el perfil, detalle y tamaño de página predeterminados. Esta configuración no elimina ni desactiva el historial.",
   },
   {
     title: "Evidencias opcionales en diseñadores",
@@ -100,6 +100,24 @@ const categories = [
   "Administración",
   "Trabajo de QA",
   "Primeros pasos",
+];
+const dailyWorkflow = [
+  {
+    title: "Empieza por tus pendientes",
+    text: "Selecciona el proyecto y revisa Mis asignaciones y la campana para saber qué validar y a quién responder.",
+  },
+  {
+    title: "Prepara el smoke",
+    text: "Abre un caso desde una plantilla, ajusta pasos y resultados y vincúlalo al requisito. Reutiliza tags y responsables del proyecto.",
+  },
+  {
+    title: "Ejecuta y documenta el fallo",
+    text: "Abre el Test Run, registra el resultado y adjunta evidencia. Si falla, crea un bug vinculado y menciona a quien debe revisarlo.",
+  },
+  {
+    title: "Cierra el día con trazabilidad",
+    text: "Revisa cobertura y bugs críticos en Preparación de release. Usa Actividad y auditoría para consultar cambios y exportar el historial filtrado.",
+  },
 ];
 export default function WikiView() {
   const [category, setCategory] = useState("Todas"),
@@ -133,6 +151,26 @@ export default function WikiView() {
             placeholder="Pruebas, menciones, reportes…"
           />
         </label>
+      </section>
+      <section className="wiki-hub__day layout__panel layout__stack" aria-labelledby="wiki-qa-day">
+        <h2 className="typography__section" id="wiki-qa-day">
+          Un día de QA con qaTestGE
+        </h2>
+        <p>Ejemplo: validar el inicio de sesión antes de liberar una versión del portal.</p>
+        <ol className="wiki-hub__day-steps">
+          {dailyWorkflow.map(({ title, text }, index) => (
+            <li className="wiki-hub__day-step layout__inset layout__stack" key={title}>
+              <h3 className="typography__heading">
+                {index + 1}. {title}
+              </h3>
+              <p>{text}</p>
+            </li>
+          ))}
+        </ol>
+        <p>
+          <strong>Beneficio para QA.</strong> Reutilizas trabajo repetitivo y puedes rastrear cada
+          decisión desde el requisito hasta la ejecución, la evidencia y el bug.
+        </p>
       </section>
       <nav className="wiki-hub__filters" aria-label="Categorías de la Wiki">
         {["Todas", "Primeros pasos", "Trabajo de QA", "Analítica", "Administración"].map((name) => (

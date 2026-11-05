@@ -36,9 +36,35 @@
   min-height: 32px;
   font-size: var(--font-body);
 }
-.project-access__roles p {
+.project-access__create-heading {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: start;
+  gap: 16px;
+}
+.project-access__role-preview {
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--panel);
+}
+.project-access__role-preview p {
+  margin: 0;
+}
+.project-access__role-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 205px), 1fr));
+  gap: 12px;
   margin: 16px 0 0;
-  line-height: 1.7;
+}
+.project-access__role {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.project-access__role dd {
+  margin: 8px 0 0;
+  line-height: 1.5;
 }
 .project-access__list-heading {
   display: flex;

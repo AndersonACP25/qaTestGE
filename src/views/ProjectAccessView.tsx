@@ -12,6 +12,15 @@ import {
 } from "../../backend/src/models/collaboration.model";
 import "./project-access.css";
 
+const roleDetails: Record<ProjectRole, string> = {
+  Admin: "Administra accesos y configuración del proyecto, además de los recursos de QA.",
+  QA: "Gestiona bugs, casos, planes, ejecuciones, evidencias y comentarios.",
+  Dev: "Gestiona bugs, evidencias y comentarios. Consulta casos y ejecuciones.",
+  "Solo lectura": "Consulta recursos y descarga evidencias con acceso al proyecto.",
+};
+const roleBadge = (role: ProjectRole | null) =>
+  `role-badge role-badge--${role === "Solo lectura" ? "reader" : role?.toLowerCase()}`;
+
 export default function ProjectAccessView({
   projectId,
   onChanged,
@@ -158,20 +167,21 @@ export default function ProjectAccessView({
       {error && !action && <Alert tone="error">{error}</Alert>}
       {message && <Alert tone="success">{message}</Alert>}
       {loading && <p role="status">Cargando accesos…</p>}
-      <button
-        type="button"
-        className="button button-primary"
-        disabled={busy}
-        onClick={() => setCreating(true)}
-      >
-        Crear usuario nuevo
-      </button>
-      <form className="project-access__create layout__inset layout__stack" onSubmit={grant}>
-        <h3 className="typography__heading">Agregar usuario al proyecto</h3>
-        <p>
-          Selecciona un integrante existente del equipo o usa Crear usuario nuevo para registrar una
-          cuenta y asignarle un rol.
-        </p>
+      <form className="project-access__create layout__panel layout__stack" onSubmit={grant}>
+        <div className="project-access__create-heading">
+          <div className="layout__stack">
+            <h3 className="typography__heading">Agregar usuario al proyecto</h3>
+            <p>Da acceso a un integrante del equipo o crea una cuenta nueva para este proyecto.</p>
+          </div>
+          <button
+            type="button"
+            className="workspace__secondary"
+            disabled={busy}
+            onClick={() => setCreating(true)}
+          >
+            Crear usuario nuevo
+          </button>
+        </div>
         <div className="project-access__fields">
           <label className="workspace__field">
             Usuario del equipo
@@ -208,18 +218,28 @@ export default function ProjectAccessView({
             {busy ? "Guardando…" : "Agregar usuario"}
           </button>
         </div>
+        <div className="project-access__role-preview layout__actions">
+          <span className={roleBadge(grantRole)}>{grantRole}</span>
+          <p className="typography__caption">{roleDetails[grantRole]}</p>
+        </div>
         {!loading && !error && !candidates.length && (
           <p className="typography__caption">
             Todos los integrantes activos del equipo ya tienen acceso.
           </p>
         )}
       </form>
-      <details className="project-access__roles layout__inset">
+      <details className="project-access__roles layout__panel">
         <summary>Qué permite cada rol</summary>
-        <p>
-          Admin administra configuración y accesos. QA gestiona recursos de prueba. Dev gestiona
-          bugs, evidencias y comentarios. Solo lectura consulta y descarga.
-        </p>
+        <dl className="project-access__role-grid">
+          {projectRoles.map((role) => (
+            <div className="project-access__role layout__inset" key={role}>
+              <dt>
+                <span className={roleBadge(role)}>{role}</span>
+              </dt>
+              <dd>{roleDetails[role]}</dd>
+            </div>
+          ))}
+        </dl>
       </details>
       <div className="project-access__list-heading">
         <h3 className="typography__heading">Usuarios con acceso</h3>
@@ -247,11 +267,7 @@ export default function ProjectAccessView({
               <h4 className="typography__heading">{m.name}</h4>
               <p className="typography__caption">ID de usuario: {m.id}</p>
             </div>
-            <span
-              className={`role-badge role-badge--${m.role === "Solo lectura" ? "reader" : m.role?.toLowerCase()}`}
-            >
-              {m.role}
-            </span>
+            <span className={roleBadge(m.role)}>{m.role}</span>
             {m.owner ? (
               <p className="typography__caption">Propietario · Admin permanente</p>
             ) : (

@@ -1,3 +1,4 @@
+import { designTemplatesSchema } from "../models/design-templates.model.js";
 import type { AuthProvider } from "../models/user.model.js";
 import { assignedWorkFiltersSchema } from "../models/assigned-work.model.js";
 import {
@@ -41,6 +42,22 @@ router.get("/assigned-work", async (req, res) => {
     data: await collab(req).assignedWork(project(req), parse(assignedWorkFiltersSchema, req.query)),
   });
 });
+router
+  .route("/design-templates")
+  .get(async (req, res) => {
+    const service = collab(req);
+    if (!service.designTemplates)
+      throw new HttpError(503, "TEMPLATES_UNAVAILABLE", "Plantillas no disponibles.");
+    res.json({ data: await service.designTemplates(project(req)) });
+  })
+  .put(async (req, res) => {
+    const service = collab(req);
+    if (!service.designTemplates)
+      throw new HttpError(503, "TEMPLATES_UNAVAILABLE", "Plantillas no disponibles.");
+    res.json({
+      data: await service.designTemplates(project(req), parse(designTemplatesSchema, req.body)),
+    });
+  });
 router.get("/audit-settings", async (req, res) => {
   res.json({ data: await collab(req).auditSettings(project(req)) });
 });

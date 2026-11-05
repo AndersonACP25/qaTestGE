@@ -74,16 +74,26 @@ export default function NotificationBell({
               ×
             </button>
           </header>
-          <button
-            className="notification-bell__view-all"
-            type="button"
-            onClick={() => {
-              setOpen(false);
-              onViewAll();
-            }}
-          >
-            Ver todas las menciones →
-          </button>
+          <div className="notification-bell__actions layout__actions">
+            <button
+              className="notification-bell__view-all"
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                onViewAll();
+              }}
+            >
+              Ver todas las menciones →
+            </button>
+            <button
+              type="button"
+              className="mentions-view__read-button"
+              disabled={!inbox.unread || Boolean(inbox.busyId)}
+              onClick={() => void inbox.markAllRead()}
+            >
+              {inbox.busyId === "all" ? "Marcando…" : "Marcar todas como leídas"}
+            </button>
+          </div>
           {inbox.error && <Alert tone="error">{inbox.error}</Alert>}
           {inbox.loading && !inbox.recent.length && <p role="status">Cargando…</p>}
           {!inbox.loading && !inbox.recent.length && <p>No tienes notificaciones.</p>}
