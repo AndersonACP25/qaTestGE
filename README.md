@@ -42,7 +42,7 @@ En **Reportes y métricas → Preparación de release** puedes comparar ejecucio
 ![Vite](https://img.shields.io/badge/Vite-6-646CFF?logo=vite&logoColor=white)
 ![Node.js](https://img.shields.io/badge/Node.js-24-339933?logo=nodedotjs&logoColor=white)
 ![Express](https://img.shields.io/badge/Express-5-000000?logo=express&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-18-4169E1?logo=postgresql&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17%20%7C%2018-4169E1?logo=postgresql&logoColor=white)
 ![pnpm](https://img.shields.io/badge/pnpm-12-F69220?logo=pnpm&logoColor=white)
 ![Vitest](https://img.shields.io/badge/Vitest-4-6E9F18?logo=vitest&logoColor=white)
 ![SwaggerUI](https://img.shields.io/badge/SwaggerUI-85EA2D?logo=swagger&logoColor=black)
@@ -59,7 +59,7 @@ En **Reportes y métricas → Preparación de release** puedes comparar ejecucio
 
 ## Clonar y ejecutar
 
-Necesitas Git, Node.js 24, pnpm 12.11.2 y PostgreSQL con las herramientas de línea de comandos instaladas.
+Necesitas Git, Node.js 24, pnpm 12.11.2 y PostgreSQL 17 o 18 con las herramientas de línea de comandos instaladas.
 
 ```bash
 git clone https://github.com/AndersonACP25/qaTestGE.git
