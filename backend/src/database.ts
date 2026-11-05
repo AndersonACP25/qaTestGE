@@ -32,6 +32,9 @@ export function createPool(connectionString: string): pg.Pool {
 }
 
 export async function checkDatabase(pool: pg.Pool): Promise<void> {
+  await pool.query(
+    "SELECT project_id,user_id,revision,templates FROM qa.project_design_templates LIMIT 0",
+  );
   await pool.query(`SELECT p.id, o.id, b.id, c.id, s.id, r.id, rr.id, bc.bug_id, e.id, el.id
     FROM qa.projects p JOIN qa.organizations o ON o.id = p.organization_id
     LEFT JOIN qa.bugs b ON b.project_id = p.id

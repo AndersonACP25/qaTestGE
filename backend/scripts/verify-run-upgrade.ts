@@ -14,13 +14,7 @@ try {
     "Esta prueba requiere una base efímera vacía.",
   );
   await client.query(await readFile(new URL("../sql/001_schema.sql", import.meta.url), "utf8"));
-  for (const migration of migrationFiles.filter(
-    (name) =>
-      !name.startsWith("018") &&
-      !name.startsWith("019") &&
-      !name.startsWith("020") &&
-      !name.startsWith("021"),
-  ))
+  for (const migration of migrationFiles.filter((name) => name.slice(0, 3) <= "017"))
     await client.query(await readFile(new URL(`../sql/${migration}`, import.meta.url), "utf8"));
   const users: string[] = [];
   for (const name of ["Único", "Duplicado", "Duplicado"]) {

@@ -570,6 +570,7 @@ export class PostgresAuth implements AuthProvider {
         throw new HttpError(401, "UNAUTHENTICATED", "La cuenta ya no está activa.");
       await client.query("DELETE FROM qa.auth_sessions WHERE user_id=$1", [userId]);
       await client.query("DELETE FROM qa.bug_templates WHERE user_id=$1", [userId]);
+      await client.query("DELETE FROM qa.project_design_templates WHERE user_id=$1", [userId]);
       await client.query("COMMIT");
     } catch (error) {
       await client.query("ROLLBACK");

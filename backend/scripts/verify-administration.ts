@@ -34,10 +34,41 @@ try {
     orgs.push((await agent.get("/api/projects")).body.data[0].organizationId);
   }
   const projectId = (await owner.get("/api/projects")).body.data[0].id;
+  const template = {
+    id: randomUUID(),
+    name: "Smoke",
+    title: "Validar inicio de sesión",
+    testType: "Smoke",
+    suite: "Acceso",
+    preconditions: "",
+    tagIds: [],
+    assigneeUserId: users[0],
+    steps: [{ action: "Abrir login", expectedResult: "Formulario visible" }],
+  };
+  const endpoint = "/api/design-templates";
+  const empty = { revision: 0, cases: [], bugDefaults: [] };
+  const initialTemplates = await owner.get(endpoint).query({ projectId });
+  assert.deepEqual(initialTemplates.body.data, empty);
+  const putTemplates = (agent: typeof owner, revision: number) =>
+    agent
+      .put(endpoint)
+      .query({ projectId })
+      .send({ ...empty, revision, cases: [template] });
+  const competing = await Promise.all([putTemplates(owner, 0), putTemplates(owner, 0)]);
+  assert.deepEqual(competing.map(({ status }) => status).sort(), [200, 409]);
+  assert.deepEqual((await owner.get(endpoint).query({ projectId })).body.data.cases, [template]);
+  assert.equal((await putTemplates(outsider, 0)).status, 404);
+  assert.equal((await outsider.get(endpoint).query({ projectId })).status, 404);
+  assert.equal((await putTemplates(owner, 1)).body.data.revision, 2);
+  assert.equal((await putTemplates(owner, 1)).status, 409);
   const sibling = await owner
     .post("/api/projects")
     .send({ organizationId: orgs[0], name: "Proyecto aislado", description: "" });
   assert.equal(sibling.status, 201);
+  assert.deepEqual(
+    (await owner.get(endpoint).query({ projectId: sibling.body.data.id })).body.data,
+    empty,
+  );
   const agents = [];
   const credentials = [];
   for (const role of ["Admin", "QA", "Dev", "Solo lectura"]) {
@@ -107,6 +138,7 @@ try {
       404,
     );
   }
+  assert.deepEqual((await agents[0].get(endpoint).query({ projectId })).body.data, empty);
   const input = { ...credentials[0], email: `${randomUUID()}@example.test` };
   for (const agent of agents.slice(1)) {
     assert.equal(

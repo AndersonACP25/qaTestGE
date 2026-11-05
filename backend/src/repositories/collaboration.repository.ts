@@ -1,3 +1,4 @@
+import type { DesignTemplates } from "../models/design-templates.model.js";
 import { assignedWorkPageSchema, type AssignedWorkFilters } from "../models/assigned-work.model.js";
 import { PostgresProjectAdministration } from "./project-administration.repository.js";
 import type { AuditFilters, AuditSettings, ProvisionUserInput } from "../models/audit.model.js";
@@ -68,6 +69,12 @@ export class PostgresCollaborationRepository implements CollaborationRepository 
     private readonly pool: DatabasePool,
     private readonly actorId: string,
   ) {}
+  designTemplates(projectId: string, input?: DesignTemplates) {
+    return new PostgresProjectAdministration(this.pool, this.actorId).designTemplates(
+      projectId,
+      input,
+    );
+  }
   auditSettings(projectId: string) {
     return new PostgresProjectAdministration(this.pool, this.actorId).settings(projectId);
   }

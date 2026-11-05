@@ -8,6 +8,7 @@ export interface BugDraft {
   description: string;
   priority: BugTemplatePriority;
   tagIds: string[];
+  assigneeUserId?: string | null;
 }
 
 export function prepareBug(
@@ -70,7 +71,8 @@ export function loadBugDrafts(
       typeof draft.templateId === "string" &&
       ["Crítica", "Alta", "Media", "Baja"].includes(draft.priority) &&
       Array.isArray(draft.tagIds) &&
-      draft.tagIds.every((id: unknown) => typeof id === "string");
+      draft.tagIds.every((id: unknown) => typeof id === "string") &&
+      (draft.assigneeUserId == null || typeof draft.assigneeUserId === "string");
     if (valid) ids.add(draft.id);
     return valid;
   });
