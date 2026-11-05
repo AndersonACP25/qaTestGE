@@ -4,8 +4,7 @@ import type { CaseTemplate } from "../backend/src/models/design-templates.model"
 import { formatCount } from "./utils/pluralization";
 import RecordBulkActions from "./views/RecordBulkActions";
 import { readRecordLink } from "./models/recordLinks";
-import SavedListingViews from "./components/SavedListingViews";
-import { listingViewsKey } from "./models/listingViews";
+import type { GeminiSettingsStatus } from "./contracts/apiContracts";
 import ListingFilters, { defaultListingFilters } from "./components/ListingFilters";
 import WorkItemEditor from "./components/WorkItemEditor";
 import ProjectPicker from "./components/ProjectPicker";
@@ -130,6 +129,19 @@ function App({
   onLogout: () => void;
   themeControl: React.ReactNode;
 }) {
+  const [geminiStatus, setGeminiStatus] = useState<GeminiSettingsStatus | null>();
+  useEffect(() => {
+    const controller = new AbortController();
+    void api<GeminiSettingsStatus>("/ai/settings", { signal: controller.signal })
+      .then((status) => {
+        if (!controller.signal.aborted) setGeminiStatus(status);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setGeminiStatus(null);
+      });
+    return () => controller.abort();
+  }, []);
+  const aiConnected = Boolean(geminiStatus && geminiStatus.source !== "none");
   const [activePage, setActivePage] = useState<NavigationPage>("overview");
   const [requestedLink, setRequestedLink] = useState(() => readRecordLink(window.location.search));
   const [projectsLoaded, setProjectsLoaded] = useState(false);
@@ -1190,8 +1202,15 @@ function App({
             <button className="session__logout" onClick={onLogout}>
               Salir
             </button>
-            <span className="ai-pill">
-              <Icon name="sparkle" size={15} /> IA no conectada
+            <span className={`ai-pill${aiConnected ? " ai-pill--connected" : ""}`} role="status">
+              <Icon name="sparkle" size={15} />
+              {aiConnected
+                ? "IA conectada"
+                : geminiStatus === undefined
+                  ? "Consultando IA…"
+                  : geminiStatus === null
+                    ? "Estado de IA no disponible"
+                    : "IA no conectada"}
             </span>
           </div>
         </header>
@@ -1342,6 +1361,8 @@ function App({
             )
           ) : activePage === "settings" ? (
             <AccountSettingsView
+              geminiStatus={geminiStatus}
+              onGeminiStatusChange={setGeminiStatus}
               projects={projects}
               projectId={projectId}
               projectName={project?.name ?? "Proyecto"}
@@ -1367,6 +1388,7 @@ function App({
             !error &&
             projectId && (
               <BugDesignView
+                canProposeWithGemini={aiConnected && allowed("bugs.write")}
                 key={`${user.id}:${projectId}`}
                 userId={user.id}
                 projectId={projectId}
@@ -1513,17 +1535,6 @@ function App({
                         ]),
                       ].sort()}
                     />
-                    {activePage === "cases" && (
-                      <SavedListingViews
-                        key={listingViewsKey(user.id, projectId, "cases")}
-                        storageKey={listingViewsKey(user.id, projectId, "cases")}
-                        filters={listingFilters}
-                        onApply={(saved) => {
-                          setListingFilters(saved);
-                          setTablePage(1);
-                        }}
-                      />
-                    )}
                   </>
                 )}
                 {activePage !== "evidence" && (

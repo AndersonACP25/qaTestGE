@@ -240,14 +240,16 @@
 }
 .notification-bell__view-all {
   border: 0;
-  border-top: 1px solid var(--line);
-  padding: 16px 0 0;
+  padding: 8px 0;
   background: transparent;
   color: var(--purple);
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
   text-align: left;
+}
+.notification-bell__view-all:hover {
+  color: var(--color-202334);
 }
 .collaboration__mention-picker {
   padding: 16px;

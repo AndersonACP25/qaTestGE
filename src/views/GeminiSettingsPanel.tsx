@@ -1,32 +1,20 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import Alert from "../Alert";
 import { api } from "../api";
 import type { GeminiSettingsStatus } from "../contracts/apiContracts";
 
 const path = "/ai/settings";
 
-export default function GeminiSettingsPanel() {
-  const [status, setStatus] = useState<GeminiSettingsStatus>();
-  const [loading, setLoading] = useState(true);
+export default function GeminiSettingsPanel({
+  status,
+  onStatusChange,
+}: {
+  status: GeminiSettingsStatus | null | undefined;
+  onStatusChange: (status: GeminiSettingsStatus) => void;
+}) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-
-  useEffect(() => {
-    const controller = new AbortController();
-    void api<GeminiSettingsStatus>(path, { signal: controller.signal })
-      .then((data) => {
-        if (!controller.signal.aborted) setStatus(data);
-      })
-      .catch((cause: unknown) => {
-        if (!controller.signal.aborted)
-          setError(cause instanceof Error ? cause.message : "No se pudo consultar la conexión.");
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
-      });
-    return () => controller.abort();
-  }, []);
 
   async function update(method: "PUT" | "DELETE", key?: FormDataEntryValue | null) {
     if (!status || busy) return;
@@ -41,7 +29,7 @@ export default function GeminiSettingsPanel() {
           ...(method === "PUT" && { apiKey: key }),
         }),
       });
-      setStatus(data);
+      onStatusChange(data);
       setMessage(
         method === "PUT" ? "Tu clave de Gemini se guardó." : "La clave de tu cuenta se eliminó.",
       );
@@ -69,7 +57,8 @@ export default function GeminiSettingsPanel() {
       </div>
       {error && <Alert tone="error">{error}</Alert>}
       {message && <Alert tone="success">{message}</Alert>}
-      {loading && <p role="status">Consultando conexión…</p>}
+      {status === undefined && <p role="status">Consultando conexión…</p>}
+      {status === null && <Alert tone="error">No se pudo consultar la conexión.</Alert>}
       {status && (
         <div className="layout__stack">
           <p role="status">

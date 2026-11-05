@@ -135,9 +135,11 @@ En el panel, **Aplicar versión y entorno** delimita la comparación, la validac
 
 La validación de requisitos considera el último resultado evaluable de cada caso vigente. Un requisito queda aprobado si todos sus casos del alcance aprobaron. Los bugs críticos abiertos se identifican según la severidad, el flujo configurado y su vínculo a un caso o resultado de las ejecuciones del período. La lista muestra los diez más recientes y permite abrir el detalle.
 
-## Vistas guardadas y enlaces directos
+## Propuestas con Gemini
 
-En **Casos de prueba**, ajusta los filtros, abre **Vistas guardadas** y escribe un nombre. **Guardar filtros actuales** conserva la combinación. Usa **Aplicar vista** para recuperarla desde la primera página o **Eliminar vista** para retirarla. Puedes guardar hasta 20 vistas de casos por cuenta y proyecto en el navegador actual.
+En **Diseñar bugs**, describe el problema y elige **Proponer con Gemini** cuando la IA esté conectada. Revisa el texto que verá Google y confirma el envío. Edita la propuesta antes de crear el bug o guárdala como borrador local. Consulta la [guía de Gemini](AI_INTEGRATION.md) para configurar la conexión.
+
+## Enlaces directos
 
 En el detalle de un registro, pulsa **Copiar enlace**. La persona que lo abra debe iniciar sesión y tener acceso al proyecto. Si el navegador bloquea el portapapeles, la aplicación muestra el enlace para copiarlo manualmente.
 

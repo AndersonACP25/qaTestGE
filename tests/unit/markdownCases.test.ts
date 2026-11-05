@@ -23,7 +23,7 @@ describe("exportación Markdown del diseñador", () => {
     expect(result).toContain("| --- | --- | --- |\n| 1 |");
     expect(result).toContain("Enviar \\| petición<br>y revisar &lt;script&gt;");
     expect(result).toContain("| 2 | Leer | Respuesta |");
-    expect(result).toContain("IA no conectada");
+    expect(result).toContain("Sin generación por IA");
     expect(createDesignedMarkdownExport("", [])).not.toContain("| Paso |");
   });
 

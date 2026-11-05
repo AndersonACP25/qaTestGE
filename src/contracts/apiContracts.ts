@@ -188,6 +188,13 @@ export type ApiCase = z.output<typeof testCase>;
 export type ApiRun = z.output<typeof run>;
 export type ApiEvidence = z.output<typeof evidence>;
 
+const bugProposal = z.strictObject({
+  title: z.string().trim().min(1).max(200),
+  description: z.string().trim().min(1).max(5000),
+  priority: z.enum(["Crítica", "Alta", "Media", "Baja"]),
+});
+export type BugProposal = z.output<typeof bugProposal>;
+
 const geminiSettings = z.strictObject({
   visualAvailable: z.boolean(),
   source: z.enum(["account", "environment", "none"]),
@@ -209,6 +216,7 @@ export function parseApiData(path: string, method: string, input: unknown): unkn
   else if (resource === "test-runs" && detail === "report") schema = runReportSchema;
   else if (resource === "assigned-work") schema = assignedWorkPageSchema;
   else if (resource === "ai" && action === "settings") schema = geminiSettings;
+  else if (resource === "ai" && action === "bug-proposals") schema = bugProposal;
   else if (resource === "design-templates") schema = designTemplatesSchema;
   else if (resource === "audit-settings") schema = auditSettingsSchema;
   else if (resource === "project-users") schema = projectMember;

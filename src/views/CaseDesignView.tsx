@@ -34,7 +34,7 @@ export default function CaseDesignView({
   return (
     <section className="case-builder" aria-label="Maqueta de diseño de casos de prueba">
       <div className="case-builder__notice">
-        <strong>Maqueta interactiva · IA no conectada</strong>
+        <strong>Maqueta interactiva · Sin generación por IA</strong>
         <p>
           Prueba el flujo con texto de ejemplo. Los casos iniciales son ilustrativos; puedes editar
           y añadir pasos. No se analiza tu descripción ni se generan propuestas; cada caso solo se
