@@ -1,3 +1,4 @@
+import { caseProposalList } from "../../backend/src/models/case-proposal.model";
 import { designTemplatesSchema } from "../../backend/src/models/design-templates.model";
 import { playwrightMetadataSchema } from "../../backend/src/models/playwright-import.model";
 import { assignedWorkPageSchema } from "../../backend/src/models/assigned-work.model";
@@ -217,6 +218,7 @@ export function parseApiData(path: string, method: string, input: unknown): unkn
   else if (resource === "assigned-work") schema = assignedWorkPageSchema;
   else if (resource === "ai" && action === "settings") schema = geminiSettings;
   else if (resource === "ai" && action === "bug-proposals") schema = bugProposal;
+  else if (resource === "ai" && action === "case-proposals") schema = caseProposalList;
   else if (resource === "design-templates") schema = designTemplatesSchema;
   else if (resource === "audit-settings") schema = auditSettingsSchema;
   else if (resource === "project-users") schema = projectMember;

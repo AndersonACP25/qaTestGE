@@ -1,3 +1,7 @@
+import Dialog from "../Dialog";
+import { useState } from "react";
+import GeminiConsentDialog, { GeminiOutboundText } from "../components/GeminiConsentDialog";
+import { maxAiCases } from "../../backend/src/models/case-proposal.model";
 import DesignEvidencePanel from "./DesignEvidencePanel";
 import RichTextarea from "../components/RichTextarea";
 import type { CaseDesignController } from "../controllers/useCaseDesignController";
@@ -5,15 +9,27 @@ import { formatCount } from "../utils/pluralization";
 import Alert from "../Alert";
 
 export default function CaseDesignView({
+  canProposeWithGemini,
+  canSave,
   categories,
   text,
   selected,
   counts,
   defaultCounts,
   preview,
+  generated,
+  generating,
+  generationError,
+  generationInput,
+  generateCases,
+  updateTitle,
   exporting,
   exportError,
   savingCaseKey,
+  batchProgress,
+  batchMessage,
+  pendingCount,
+  savePendingCases,
   savedCases,
   saveCaseError,
   projectId,
@@ -30,15 +46,23 @@ export default function CaseDesignView({
   removeExampleStep,
   exportPreview,
   savePreviewCase,
-}: CaseDesignController) {
+}: CaseDesignController & { canProposeWithGemini: boolean; canSave: boolean }) {
+  const [consentOpen, setConsentOpen] = useState(false);
+  const [confirmBatch, setConfirmBatch] = useState(false);
+  const locked = generating || Boolean(savingCaseKey || batchProgress);
+  const canGenerate = canProposeWithGemini && Boolean(generationInput) && countsValid && !locked;
+
   return (
-    <section className="case-builder" aria-label="Maqueta de diseño de casos de prueba">
+    <section className="case-builder" aria-label="Diseño de casos de prueba">
       <div className="case-builder__notice">
-        <strong>Maqueta interactiva · Sin generación por IA</strong>
+        <strong>
+          {canProposeWithGemini ? "Diseño de casos de prueba" : "Ejemplos de casos de prueba"}
+        </strong>
         <p>
-          Prueba el flujo con texto de ejemplo. Los casos iniciales son ilustrativos; puedes editar
-          y añadir pasos. No se analiza tu descripción ni se generan propuestas; cada caso solo se
-          crea en el proyecto cuando eliges guardarlo.
+          {canProposeWithGemini
+            ? "Usa ejemplos locales o solicita casos a Gemini a partir de tu descripción."
+            : "Explora los ejemplos disponibles y adapta los pasos a tu proyecto."}{" "}
+          Revisa cada caso antes de guardarlo.
         </p>
       </div>
       <div className="case-builder__layout">
@@ -60,6 +84,7 @@ export default function CaseDesignView({
             onChange={(event) => updateDescription(event.target.value)}
             placeholder="Ej.: Una persona puede registrarse con su nombre, correo y contraseña. Los campos son obligatorios y el correo debe ser único."
             rows={7}
+            disabled={locked}
             required
             aria-describedby="case-builder-help"
           />
@@ -69,6 +94,7 @@ export default function CaseDesignView({
           </div>
           <button
             className="case-builder__example"
+            disabled={locked}
             type="button"
             onClick={() =>
               updateDescription(
@@ -78,7 +104,7 @@ export default function CaseDesignView({
           >
             Usar descripción de ejemplo ↗
           </button>
-          <fieldset className="case-builder__fieldset">
+          <fieldset className="case-builder__fieldset" disabled={locked}>
             <legend>02 · Selecciona los tipos de prueba</legend>
             <p className="case-builder__hint">Puedes combinar varias categorías.</p>
             <div className="case-builder__options">
@@ -126,8 +152,7 @@ export default function CaseDesignView({
               ))}
             </div>
             <p id="case-count-help" className="case-builder__hint">
-              De 1 a {maxCaseCount} pruebas distintas por categoría: son los ejemplos disponibles,
-              sin generación con IA.
+              De 1 a {maxCaseCount} pruebas por categoría.
             </p>
             {!countsValid && (
               <Alert tone="warning">
@@ -139,13 +164,28 @@ export default function CaseDesignView({
           <button
             className="case-builder__submit"
             type="submit"
-            disabled={!text.trim() || !selected.length || !countsValid}
+            disabled={!text.trim() || !selected.length || !countsValid || locked}
           >
             Mostrar tabla de ejemplo →
           </button>
-          <p className="case-builder__hint">
-            En el futuro, aquí podrás solicitar propuestas de IA y revisarlas antes de guardarlas.
-          </p>
+          {canProposeWithGemini && (
+            <>
+              <button
+                type="button"
+                className="button button-secondary"
+                disabled={!canGenerate}
+                onClick={() => setConsentOpen(true)}
+              >
+                Proponer con Gemini
+              </button>
+              <p className="case-builder__hint">
+                Gemini admite hasta {formatCount(maxAiCases, "caso", "casos")} por solicitud y una
+                descripción de hasta 3500 caracteres.
+              </p>
+            </>
+          )}
+          {generating && <p role="status">Generando casos con Gemini…</p>}
+          {generationError && <Alert tone="error">{generationError}</Alert>}
         </form>
         <section className="case-builder__results" aria-labelledby="case-builder-results">
           <div className="case-builder__heading">
@@ -156,7 +196,11 @@ export default function CaseDesignView({
               </h2>
               <p>
                 {preview
-                  ? `${formatCount(total, "caso de ejemplo", "casos de ejemplo")} · guardado manual`
+                  ? `${
+                      generated
+                        ? formatCount(previewCases.length, "caso propuesto", "casos propuestos")
+                        : formatCount(total, "caso de ejemplo", "casos de ejemplo")
+                    } · guardado manual`
                   : "Tu vista previa aparecerá aquí."}
               </p>
             </div>
@@ -165,8 +209,10 @@ export default function CaseDesignView({
             {preview ? (
               <>
                 <p className="case-builder__preview-note">
-                  Ejemplos ilustrativos sobre un sistema hipotético. Cada caso puede tener hasta 100
-                  pasos con su resultado esperado; guárdalo explícitamente para crear un caso real.
+                  {generated
+                    ? "Propuestas de Gemini. Revisa los títulos, los pasos y los resultados esperados."
+                    : "Ejemplos ilustrativos sobre un sistema hipotético."}{" "}
+                  Guarda cada caso que quieras crear en el proyecto.
                 </p>
                 <div className="case-builder__exports">
                   <button
@@ -194,23 +240,52 @@ export default function CaseDesignView({
                     Exportar PDF
                   </button>
                 </div>
+                {canSave && (
+                  <div className="layout__actions">
+                    <button
+                      type="button"
+                      className="button button-primary"
+                      disabled={!projectId || !pendingCount || locked}
+                      onClick={() => setConfirmBatch(true)}
+                    >
+                      Guardar todos
+                    </button>
+                    <span>{formatCount(pendingCount, "caso pendiente", "casos pendientes")}</span>
+                  </div>
+                )}
+                {batchProgress && (
+                  <p role="status">
+                    Guardando casos… {batchProgress.done}/{batchProgress.total}
+                  </p>
+                )}
+                {batchMessage && <Alert tone="success">{batchMessage}</Alert>}
                 {exporting && <p role="status">Preparando archivo…</p>}
                 {exportError && <Alert tone="error">{exportError}</Alert>}
                 {saveCaseError && <Alert tone="error">{saveCaseError}</Alert>}
                 {previewCases.map((testCase) => (
-                  <section
-                    className="case-builder__case"
-                    key={`${testCase.categoryId}:${testCase.caseNumber}`}
-                  >
+                  <section className="case-builder__case" key={testCase.key}>
                     <h3
                       className="typography__heading case-builder__case-title"
                       style={{ borderInlineStartColor: testCase.color }}
                     >
-                      {testCase.categoryLabel} · Caso de ejemplo {testCase.caseNumber}
+                      {testCase.categoryLabel} · {generated ? "Propuesta" : "Caso de ejemplo"}{" "}
+                      {testCase.caseNumber}
                     </h3>
+                    {generated && (
+                      <label className="workspace__field">
+                        Título del caso
+                        <input
+                          value={testCase.title ?? ""}
+                          maxLength={200}
+                          required
+                          disabled={locked}
+                          onChange={(event) => updateTitle(testCase.key, event.target.value)}
+                        />
+                      </label>
+                    )}
                     <div className="case-builder__steps">
                       {testCase.steps.map((step, index) => (
-                        <fieldset className="case-builder__step-card" key={index}>
+                        <fieldset className="case-builder__step-card" key={index} disabled={locked}>
                           <legend>Paso {index + 1}</legend>
                           <label className="case-builder__label">
                             Acción
@@ -219,13 +294,7 @@ export default function CaseDesignView({
                               rows={2}
                               value={step.action}
                               onChange={(event) =>
-                                updateExampleStep(
-                                  testCase.categoryId,
-                                  testCase.caseNumber,
-                                  index,
-                                  "action",
-                                  event.target.value,
-                                )
+                                updateExampleStep(testCase, index, "action", event.target.value)
                               }
                             />
                           </label>
@@ -236,13 +305,7 @@ export default function CaseDesignView({
                               rows={2}
                               value={step.expected}
                               onChange={(event) =>
-                                updateExampleStep(
-                                  testCase.categoryId,
-                                  testCase.caseNumber,
-                                  index,
-                                  "expected",
-                                  event.target.value,
-                                )
+                                updateExampleStep(testCase, index, "expected", event.target.value)
                               }
                             />
                           </label>
@@ -250,9 +313,7 @@ export default function CaseDesignView({
                             type="button"
                             className="case-builder__remove-step"
                             disabled={testCase.steps.length <= 1}
-                            onClick={() =>
-                              removeExampleStep(testCase.categoryId, testCase.caseNumber, index)
-                            }
+                            onClick={() => removeExampleStep(testCase, index)}
                           >
                             Eliminar paso
                           </button>
@@ -261,33 +322,33 @@ export default function CaseDesignView({
                     </div>
                     <DesignEvidencePanel
                       projectId={projectId}
-                      targetId={savedCases[`${testCase.categoryId}:${testCase.caseNumber}`]?.id}
+                      targetId={savedCases[testCase.key]?.id}
                     />
                     <button
                       type="button"
                       className="case-builder__add-step"
-                      disabled={testCase.steps.length >= 100}
-                      onClick={() => addExampleStep(testCase.categoryId, testCase.caseNumber)}
+                      disabled={locked || testCase.steps.length >= 100}
+                      onClick={() => addExampleStep(testCase)}
                     >
                       Añadir paso ({testCase.steps.length}/100)
                     </button>
                     <button
                       type="button"
-                      className={`case-builder__save-case${savedCases[`${testCase.categoryId}:${testCase.caseNumber}`] ? " case-builder__save-case--saved" : ""}`}
-                      disabled={!projectId || Boolean(savingCaseKey)}
+                      className={`case-builder__save-case${savedCases[testCase.key] ? " case-builder__save-case--saved" : ""}`}
+                      disabled={!projectId || !canSave || locked}
                       onClick={() => void savePreviewCase(testCase)}
                     >
-                      {savedCases[`${testCase.categoryId}:${testCase.caseNumber}`]
-                        ? `Actualizar ${savedCases[`${testCase.categoryId}:${testCase.caseNumber}`].id} con todos los pasos`
-                        : savingCaseKey === `${testCase.categoryId}:${testCase.caseNumber}`
+                      {savedCases[testCase.key]
+                        ? `Actualizar ${savedCases[testCase.key].id} con todos los pasos`
+                        : savingCaseKey === testCase.key
                           ? "Guardando…"
                           : "Guardar en casos de prueba"}
                     </button>
                   </section>
                 ))}
                 <p className="case-builder__hint">
-                  La vista previa y las exportaciones reflejan los pasos editados. Solo se guardan
-                  los casos en los que pulses «Guardar en casos de prueba».
+                  La vista previa y las exportaciones reflejan los pasos editados. Puedes guardar
+                  cada caso por separado o confirmar el guardado de todos los pendientes.
                 </p>
               </>
             ) : (
@@ -297,15 +358,67 @@ export default function CaseDesignView({
                 </span>
                 <h3 className="typography__heading">Visualiza tu próximo plan de pruebas</h3>
                 <p>
-                  Escribe una descripción, marca los tipos de prueba y pulsa «Mostrar tabla de
-                  ejemplo» para recorrer la maqueta.
+                  Escribe una descripción y elige los tipos de prueba para preparar tu vista previa.
                 </p>
-                <span className="case-builder__badge">Vista previa · sin generación real</span>
               </div>
             )}
           </div>
         </section>
       </div>
+      {confirmBatch && (
+        <Dialog
+          confirmation
+          title="Guardar casos pendientes"
+          onClose={() => setConfirmBatch(false)}
+        >
+          <p>
+            Vas a crear {formatCount(pendingCount, "caso", "casos")} como borrador en este proyecto.
+            Confirma que revisaste el contenido.
+          </p>
+          <div className="workspace__actions workspace__actions--confirmation">
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={() => setConfirmBatch(false)}
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              className="button button-primary"
+              disabled={!canSave || locked || !pendingCount}
+              onClick={() => {
+                setConfirmBatch(false);
+                if (canSave) void savePendingCases();
+              }}
+            >
+              Confirmar guardado
+            </button>
+          </div>
+        </Dialog>
+      )}
+      {consentOpen && generationInput && (
+        <GeminiConsentDialog
+          onClose={() => setConsentOpen(false)}
+          onConfirm={() => {
+            setConsentOpen(false);
+            if (canGenerate) void generateCases();
+          }}
+          disabled={!canGenerate}
+        >
+          <GeminiOutboundText label="Descripción o requisito" text={generationInput.description} />
+          <div className="gemini-consent__text">
+            <strong>Categorías solicitadas</strong>
+            <ul>
+              {generationInput.categories.map(({ label, count }, index) => (
+                <li key={index}>
+                  {label} · {formatCount(count, "caso", "casos")}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </GeminiConsentDialog>
+      )}
     </section>
   );
 }
