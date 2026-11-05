@@ -6,7 +6,14 @@ import type { TableExportData } from "./models/tableExport";
 import { recordExportFormats, type ExportFormat } from "./utils/exportRecord";
 import { exportTable } from "./utils/exportTable";
 
-export default function TableExport({ data }: { data: TableExportData }) {
+export default function TableExport({
+  data,
+  singleRecord = false,
+}: {
+  data: TableExportData;
+  singleRecord?: boolean;
+}) {
+  const title = singleRecord ? `Exportar ${data.title}` : `Exportar tabla de ${data.title}`;
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const alive = useRef(true);
@@ -48,21 +55,27 @@ export default function TableExport({ data }: { data: TableExportData }) {
           setError("");
           setOpen(true);
         }}
-        aria-label={`Exportar tabla de ${data.title}`}
+        aria-label={title}
       >
-        Exportar tabla
+        {singleRecord ? "Exportar" : "Exportar tabla"}
       </button>
       {open && (
         <Dialog
-          title={`Exportar tabla de ${data.title}`}
+          title={title}
           onClose={() => {
             if (!busy) setOpen(false);
           }}
         >
           <p className="workspace__notice">
-            {pluralize(data.rows.length, "Se exportará", "Se exportarán")}{" "}
-            {formatCount(data.rows.length, "registro", "registros")} de la página visible con los
-            filtros actuales y las columnas del listado.
+            {singleRecord ? (
+              "Se exportarán los metadatos de la evidencia. Usa Descargar para obtener el archivo adjunto."
+            ) : (
+              <>
+                {pluralize(data.rows.length, "Se exportará", "Se exportarán")}{" "}
+                {formatCount(data.rows.length, "registro", "registros")} de la página visible con
+                los filtros actuales y las columnas del listado.
+              </>
+            )}
           </p>
           {error && <Alert tone="error">{error}</Alert>}
           <div className="workspace__export-options" aria-busy={busy}>

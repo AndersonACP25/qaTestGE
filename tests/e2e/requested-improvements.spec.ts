@@ -139,6 +139,18 @@ test("avisos flotantes mantienen ancho compacto y descargas de evidencia están 
   await expect(
     page.getByRole("button", { name: "Descargar captura.png", exact: true }),
   ).toBeVisible();
+  await page.getByRole("searchbox", { name: "Buscar registros" }).fill("captura");
+  await page.getByRole("button", { name: /^Exportar evidencia EVD-002$/ }).click();
+  const exporting = page.getByRole("dialog", { name: "Exportar evidencia EVD-002" });
+  const download = page.waitForEvent("download");
+  await exporting.getByRole("button", { name: "Exportar como Markdown" }).click();
+  expect((await download).suggestedFilename()).toBe("evd-002.md");
+  await expect(page.getByText("Archivo preparado para descargar.")).toBeVisible();
+  await page.getByRole("button", { name: "Gestionar captura.png" }).click();
+  await expect(
+    page.getByRole("dialog").getByRole("button", { name: "Editar metadatos" }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
   await noHorizontalOverflow(page);
 });
 

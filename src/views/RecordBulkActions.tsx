@@ -135,34 +135,39 @@ export default function RecordBulkActions({
     <>
       {enabled && items.length > 0 && (
         <div
-          className="layout__actions"
+          className="bulk-selection layout__panel"
+          role="group"
           aria-label={isBug ? "Selección masiva de bugs" : "Selección masiva de casos"}
         >
-          <span role="status">{selectionLabel(selected.length)}</span>
-          <button
-            type="button"
-            className="workspace__secondary"
-            disabled={selected.length === items.length}
-            onClick={() => setIds(new Set(items.map(({ id }) => id)))}
-          >
-            Seleccionar página
-          </button>
-          <button
-            type="button"
-            className="workspace__secondary"
-            disabled={!selected.length}
-            onClick={() => setIds(new Set())}
-          >
-            Limpiar selección
-          </button>
-          <button
-            type="button"
-            className="workspace__secondary"
-            disabled={!selected.length}
-            onClick={open}
-          >
-            Operación masiva
-          </button>
+          <span className="bulk-selection__count" role="status">
+            {selectionLabel(selected.length)}
+          </span>
+          <div className="bulk-selection__actions layout__actions">
+            <button
+              type="button"
+              className="workspace__secondary"
+              disabled={selected.length === items.length}
+              onClick={() => setIds(new Set(items.map(({ id }) => id)))}
+            >
+              Seleccionar página
+            </button>
+            <button
+              type="button"
+              className="workspace__secondary"
+              disabled={!selected.length}
+              onClick={() => setIds(new Set())}
+            >
+              Limpiar selección
+            </button>
+            <button
+              type="button"
+              className="button button-primary"
+              disabled={!selected.length}
+              onClick={open}
+            >
+              Operación masiva
+            </button>
+          </div>
         </div>
       )}
       {children(enabled ? { ids, toggle } : undefined)}

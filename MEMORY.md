@@ -8,7 +8,7 @@
 - Mantener relaciones explícitas por ID y claves compuestas de proyecto. Las escrituras de pasos, snapshots y vínculos son transaccionales.
 - IA e imagen de perfil siguen siendo maquetas. El piloto Playwright publica resultados normalizados desde GitHub Actions; el cliente vive en servicios/playwright/.
 
-- Casos y Bugs admiten asignación y tags masivos por página. Bugs también valida las transiciones; CI verifica PostgreSQL 17/18 e incluye un smoke con navegador y API reales. Historial compara y restaura contenido de casos como una nueva versión. Auditoría exporta el conjunto filtrado mediante su cursor. Vistas guardadas conserva hasta 20 filtros por cuenta, proyecto y listado en el navegador. Los enlaces directos de bugs, casos y runs verifican el proyecto antes de abrir el detalle. Comentarios y Mis menciones paginan por cursor. Test Runs pagina resúmenes y carga snapshots al abrir. Reportes incluye preparación de release por período UTC, casos vigentes del plan, versión y entorno, con resultados por origen, requisitos y bugs críticos vinculados.
+- Casos y Bugs admiten asignación y tags masivos por página. Bugs también valida las transiciones; CI verifica PostgreSQL 17/18 e incluye un smoke con navegador y API reales. Historial compara y restaura contenido de casos como una nueva versión. Auditoría exporta el conjunto filtrado mediante su cursor. Vistas guardadas se muestra solo en Casos de prueba. Bugs y Casos comparten una barra de selección adaptable. Mis asignaciones muestra estados con color y Evidencias exporta metadatos por registro. Los enlaces directos de bugs, casos y runs verifican el proyecto antes de abrir el detalle. Comentarios y Mis menciones paginan por cursor. Test Runs pagina resúmenes y carga snapshots al abrir. Reportes incluye preparación de release por período UTC, casos vigentes del plan, versión y entorno, con resultados por origen, requisitos y bugs críticos vinculados.
 
 ## Operación
 
@@ -40,7 +40,7 @@
 
 - CRUD de bugs/casos/runs/evidencias/tags, asignaciones, adjuntos privados (2 MiB), plantillas personales, invitaciones de equipo de un solo uso y gestión de proyectos/equipos.
 - Resultados manuales por caso, finalización/reapertura y snapshots; los recursos referenciados no se eliminan en cascada.
-- Borradores de bugs y preferencias del diseñador por usuario/proyecto, documentos versionados, revisiones y Web Locks. El diseñador usa ejemplos ilustrativos, no IA.
+- Borradores de bugs y preferencias del diseñador por usuario/proyecto, documentos versionados, revisiones y Web Locks. Las pruebas esperan la confirmación de persistencia antes de recargar. El diseñador usa ejemplos ilustrativos, no IA.
 - Claves idempotentes persistentes para bug/case/run/plan por actor/proyecto/recurso; huella y recurso se confirman juntos. No reintentar automáticamente ni renovar la clave tras una respuesta ambigua.
 - Contratos Zod de HTTP/almacenamiento, errores seguros, CSRF, autorización de servidor, X-Request-ID y logs sin cuerpos/cookies/secretos.
 - Tablas con páginas de 50/exportación visible, BEM, alertas superiores, footer compartido y navegación adaptable. Dashboard/Reportes consultan agregados del servidor; los demás listados conservan su carga existente.

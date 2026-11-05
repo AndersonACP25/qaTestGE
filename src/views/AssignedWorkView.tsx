@@ -4,6 +4,17 @@ import Alert from "../Alert";
 import { formatCount } from "../utils/pluralization";
 import type { ResourceTarget } from "../../backend/src/models/collaboration.model";
 import type { AssignedWorkPage } from "../../backend/src/models/assigned-work.model";
+const statusTones = new Map([
+  ["Abierto", "warning"],
+  ["En revisión", "warning"],
+  ["En progreso", "info"],
+  ["En curso", "info"],
+  ["Fallido", "error"],
+  ["Resuelto", "success"],
+  ["Cerrado", "success"],
+  ["Aprobado", "success"],
+  ["Completado", "success"],
+]);
 const kindLabels = { bug: "Bug", case: "Test Case", run: "Test Run" };
 export default function AssignedWorkView({
   projectId,
@@ -151,8 +162,16 @@ export default function AssignedWorkView({
                     <strong>{item.id}</strong>
                     {item.title}
                   </button>
-                  <span className="work-item__status">{item.status}</span>
-                  <span>{item.classification}</span>
+                  <div className="assigned-work__metadata">
+                    <span
+                      className={`assigned-work__status assigned-work__status--${statusTones.get(item.status) ?? "neutral"}`}
+                    >
+                      {item.status}
+                    </span>
+                    {item.kind !== "run" && (
+                      <span className="assigned-work__classification">{item.classification}</span>
+                    )}
+                  </div>
                 </article>
               ))}
             </div>

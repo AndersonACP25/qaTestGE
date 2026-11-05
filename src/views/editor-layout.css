@@ -97,6 +97,9 @@
 .file-dropzone--disabled {
   opacity: 0.65;
 }
+.file-dropzone__trigger {
+  justify-self: center;
+}
 .file-dropzone__label {
   font-weight: 600;
 }
