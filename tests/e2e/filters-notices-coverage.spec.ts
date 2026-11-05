@@ -528,35 +528,18 @@ test("Preparación de release compara orígenes y abre la ejecución filtrada", 
   await noHorizontalOverflow(page);
 });
 
-test("guarda filtros personales, los restaura al recargar y permite eliminarlos", async ({
+test("mantiene los filtros de casos sin el panel de vistas guardadas", async ({
   page,
   workspace,
 }) => {
   void workspace;
   await page.goto("/");
-  await navigate(page, "Casos de prueba");
-  await page.getByRole("searchbox", { name: "Buscar registros" }).fill("Validar acceso");
-  await page.getByText("Vistas guardadas", { exact: true }).click();
-  await page.getByLabel("Nombre de la vista").fill("Acceso");
-  await page.getByRole("button", { name: "Guardar filtros actuales" }).click();
-  await expect(page.getByText("Vista guardada.", { exact: true })).toBeVisible();
-  await page.reload();
-  for (const listing of ["Bugs", "Test runs"]) {
+  for (const listing of ["Bugs", "Test runs", "Casos de prueba"]) {
     await navigate(page, listing);
     await expect(page.getByText("Vistas guardadas", { exact: true })).toHaveCount(0);
   }
-  await navigate(page, "Casos de prueba");
-  await page.getByText("Vistas guardadas", { exact: true }).click();
-  await page
-    .getByRole("combobox", { name: "Vista guardada", exact: true })
-    .selectOption({ label: "Acceso" });
-  await page.getByRole("button", { name: "Aplicar vista" }).click();
-  await expect(page.getByRole("searchbox", { name: "Buscar registros" })).toHaveValue(
-    "Validar acceso",
-  );
-  await page.getByRole("button", { name: "Eliminar vista" }).click();
-  await expect(page.getByText("Vista eliminada.", { exact: true })).toBeVisible();
-  await expect(page.getByRole("combobox", { name: "Vista guardada", exact: true })).toBeDisabled();
+  await page.getByRole("searchbox", { name: "Buscar registros" }).fill("Validar acceso");
+  await expect(page.getByText("Validar acceso con un nombre de usuario extenso")).toBeVisible();
   await noHorizontalOverflow(page);
 });
 

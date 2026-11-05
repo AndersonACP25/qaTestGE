@@ -4,8 +4,6 @@ import type { CaseTemplate } from "../backend/src/models/design-templates.model"
 import { formatCount } from "./utils/pluralization";
 import RecordBulkActions from "./views/RecordBulkActions";
 import { readRecordLink } from "./models/recordLinks";
-import SavedListingViews from "./components/SavedListingViews";
-import { listingViewsKey } from "./models/listingViews";
 import type { GeminiSettingsStatus } from "./contracts/apiContracts";
 import ListingFilters, { defaultListingFilters } from "./components/ListingFilters";
 import WorkItemEditor from "./components/WorkItemEditor";
@@ -1537,17 +1535,6 @@ function App({
                         ]),
                       ].sort()}
                     />
-                    {activePage === "cases" && (
-                      <SavedListingViews
-                        key={listingViewsKey(user.id, projectId, "cases")}
-                        storageKey={listingViewsKey(user.id, projectId, "cases")}
-                        filters={listingFilters}
-                        onApply={(saved) => {
-                          setListingFilters(saved);
-                          setTablePage(1);
-                        }}
-                      />
-                    )}
                   </>
                 )}
                 {activePage !== "evidence" && (
