@@ -16,7 +16,7 @@ Organiza el trabajo de calidad de tu equipo en un solo lugar: registra bugs, pre
 - **Bugs:** crear, consultar, editar y organizar incidencias con tags y responsables. Puedes usar plantillas personales y exportar registros.
 - **Casos de prueba:** documentar procedimientos, adjuntar imágenes o enlaces y relacionarlos con bugs. La Suite es opcional.
 - **Ejecuciones:** agrupar casos, registrar sus resultados y completar la ejecución cuando todos tengan un resultado. Puedes reabrirla para corregirlos.
-- **Evidencias:** subir y descargar archivos privados de hasta **2 MiB**, vinculados al trabajo del proyecto.
+- **Evidencias:** subir y descargar archivos privados de hasta **2 MiB**, vinculados al trabajo del proyecto. **Exportar** guarda los metadatos del registro en Excel, PDF o Markdown.
 - **Dashboard y reportes:** consultar el estado del proyecto y descargar el reporte en CSV.
 - **Proyectos y equipos:** crear espacios de colaboración y aceptar códigos de invitación de un solo uso. Los integrantes necesitan un rol en cada proyecto; el propietario conserva Admin.
 
@@ -135,7 +135,7 @@ La validación de requisitos considera el último resultado evaluable de cada ca
 
 ## Vistas guardadas y enlaces directos
 
-En **Bugs**, **Casos de prueba** o **Test Runs**, ajusta los filtros, abre **Vistas guardadas** y escribe un nombre. **Guardar filtros actuales** conserva la combinación. Usa **Aplicar vista** para recuperarla desde la primera página o **Eliminar vista** para retirarla. Puedes guardar hasta 20 vistas por cuenta, proyecto y listado en el navegador actual.
+En **Casos de prueba**, ajusta los filtros, abre **Vistas guardadas** y escribe un nombre. **Guardar filtros actuales** conserva la combinación. Usa **Aplicar vista** para recuperarla desde la primera página o **Eliminar vista** para retirarla. Puedes guardar hasta 20 vistas de casos por cuenta y proyecto en el navegador actual.
 
 En el detalle de un registro, pulsa **Copiar enlace**. La persona que lo abra debe iniciar sesión y tener acceso al proyecto. Si el navegador bloquea el portapapeles, la aplicación muestra el enlace para copiarlo manualmente.
 

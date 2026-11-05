@@ -1,4 +1,4 @@
-import type { Bug, Tag, TestCase, TestRun } from "../types";
+import type { Bug, Evidence, Tag, TestCase, TestRun } from "../types";
 
 export interface TableExportData {
   title: string;
@@ -56,6 +56,25 @@ export function runTableExport(runs: TestRun[], tags: Tag[]): TableExportData {
       item.status,
       item.owner,
     ]),
+  };
+}
+
+export function evidenceTableExport(item: Evidence): TableExportData {
+  return {
+    title: `evidencia ${item.id}`,
+    filename: item.id.toLowerCase(),
+    headers: ["ID", "NOMBRE", "TIPO", "VINCULADO A", "TAMAÑO", "FECHA", "ARCHIVO"],
+    rows: [
+      [
+        item.id,
+        item.name,
+        item.type,
+        item.related,
+        item.size,
+        item.date,
+        item.hasFile ? "Archivo disponible" : "Solo metadatos",
+      ],
+    ],
   };
 }
 

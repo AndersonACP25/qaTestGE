@@ -1,3 +1,5 @@
+import TableExport from "../TableExport";
+import { evidenceTableExport } from "../models/tableExport";
 import { usePermissions } from "../controllers/ProjectPermissions";
 import type { BugWorkflow } from "../../backend/src/models/quality.model";
 import { Avatar, Icon, Priority, StatusBadge } from "../components/RecordPrimitives";
@@ -423,7 +425,7 @@ export function EvidenceTable({
 }) {
   return (
     <div className="workspace-table__scroll">
-      <table className="workspace-table__table">
+      <table className="workspace-table__table evidence-list__table">
         <thead>
           <tr>
             <th>NOMBRE</th>
@@ -431,7 +433,7 @@ export function EvidenceTable({
             <th>VINCULADO A</th>
             <th>TAMAÑO</th>
             <th>FECHA</th>
-            <th />
+            <th>ACCIONES</th>
           </tr>
         </thead>
         <tbody>
@@ -462,31 +464,28 @@ export function EvidenceTable({
               <td data-label="FECHA" className="muted-cell">
                 {item.date}
               </td>
-              <td data-label="Acciones">
-                {item.hasFile && (
+              <td data-label="Acciones" onClick={(event) => event.stopPropagation()}>
+                <div className="evidence-list__actions layout__actions">
+                  <TableExport data={evidenceTableExport(item)} singleRecord />
+                  {item.hasFile && (
+                    <button
+                      type="button"
+                      className="workspace__secondary workspace-table__action--download"
+                      aria-label={`Descargar ${item.name}`}
+                      onClick={() => onDownload(item)}
+                    >
+                      Descargar
+                    </button>
+                  )}
                   <button
                     type="button"
-                    className="workspace__secondary workspace-table__action--download"
-                    aria-label={`Descargar ${item.name}`}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onDownload(item);
-                    }}
+                    className="workspace__secondary"
+                    aria-label={`Gestionar ${item.name}`}
+                    onClick={() => onActions(item)}
                   >
-                    Descargar
+                    Gestionar
                   </button>
-                )}
-                <button
-                  type="button"
-                  className="row-more"
-                  aria-label={`Más opciones para ${item.name}`}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onActions(item);
-                  }}
-                >
-                  <Icon name="dots" size={18} />
-                </button>
+                </div>
               </td>
             </tr>
           ))}

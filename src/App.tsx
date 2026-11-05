@@ -1421,18 +1421,21 @@ function App({
             ) : isListing ? (
               <section className="listing-card">
                 {activePage === "evidence" ? (
-                  <label className="search-field">
-                    <Icon name="search" />
-                    <input
-                      aria-label="Buscar registros"
-                      value={search}
-                      onChange={(event) => {
-                        setSearch(event.target.value);
-                        setTablePage(1);
-                      }}
-                      placeholder="Buscar evidencias…"
-                    />
-                  </label>
+                  <div className="evidence-list__toolbar">
+                    <label className="search-field evidence-list__search">
+                      <Icon name="search" />
+                      <input
+                        aria-label="Buscar registros"
+                        value={search}
+                        onChange={(event) => {
+                          setSearch(event.target.value);
+                          setTablePage(1);
+                        }}
+                        type="search"
+                        placeholder="Buscar evidencias…"
+                      />
+                    </label>
+                  </div>
                 ) : (
                   <>
                     <ListingFilters
@@ -1459,15 +1462,17 @@ function App({
                         ]),
                       ].sort()}
                     />
-                    <SavedListingViews
-                      key={listingViewsKey(user.id, projectId, activePage)}
-                      storageKey={listingViewsKey(user.id, projectId, activePage)}
-                      filters={listingFilters}
-                      onApply={(saved) => {
-                        setListingFilters(saved);
-                        setTablePage(1);
-                      }}
-                    />
+                    {activePage === "cases" && (
+                      <SavedListingViews
+                        key={listingViewsKey(user.id, projectId, "cases")}
+                        storageKey={listingViewsKey(user.id, projectId, "cases")}
+                        filters={listingFilters}
+                        onApply={(saved) => {
+                          setListingFilters(saved);
+                          setTablePage(1);
+                        }}
+                      />
+                    )}
                   </>
                 )}
                 {activePage !== "evidence" && (

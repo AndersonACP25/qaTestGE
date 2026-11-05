@@ -541,9 +541,10 @@ test("guarda filtros personales, los restaura al recargar y permite eliminarlos"
   await page.getByRole("button", { name: "Guardar filtros actuales" }).click();
   await expect(page.getByText("Vista guardada.", { exact: true })).toBeVisible();
   await page.reload();
-  await navigate(page, "Bugs");
-  await page.getByText("Vistas guardadas", { exact: true }).click();
-  await expect(page.getByRole("combobox", { name: "Vista guardada", exact: true })).toBeDisabled();
+  for (const listing of ["Bugs", "Test runs"]) {
+    await navigate(page, listing);
+    await expect(page.getByText("Vistas guardadas", { exact: true })).toHaveCount(0);
+  }
   await navigate(page, "Casos de prueba");
   await page.getByText("Vistas guardadas", { exact: true }).click();
   await page
