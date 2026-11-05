@@ -111,9 +111,12 @@ test("descarta una propuesta pendiente al cambiar de proyecto", async ({ page, w
       json: { data: { visualAvailable: true, source: "environment", revision: null } },
     }),
   );
-  const release = Promise.withResolvers<void>();
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => {
+    release = resolve;
+  });
   await page.route("**/api/ai/bug-proposals", async (route) => {
-    await release.promise;
+    await pending;
     await route.fulfill({
       json: {
         data: {
@@ -134,11 +137,11 @@ test("descarta una propuesta pendiente al cambiar de proyecto", async ({ page, w
     expect((await started).postDataJSON().projectId).toBe("1");
     await expect(page.getByText("Generando propuesta con Gemini…")).toBeVisible();
     await page.getByRole("combobox", { name: "Proyecto", exact: true }).selectOption("2");
-    release.resolve();
+    release();
     await expect(page.getByLabel("Problema observado")).toHaveValue("");
     await expect(page.getByLabel("Título del bug")).toHaveCount(0);
     await expect(page.getByText("Propuesta de Gemini lista para revisar.")).toHaveCount(0);
   } finally {
-    release.resolve();
+    release();
   }
 });
