@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 export function loadEnvironment(): void {
   // Paths work from src/ and dist/, regardless of the terminal's working directory.
-  for (const relative of ["../../.env", "../../../.env"]) {
+  for (const relative of ["../../.env.ai.local", "../../.env", "../../../.env"]) {
     const path = fileURLToPath(new URL(relative, import.meta.url));
     if (existsSync(path)) loadEnvFile(path);
   }

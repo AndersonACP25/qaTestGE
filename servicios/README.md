@@ -6,4 +6,4 @@ El [piloto Playwright](../docs/PLAYWRIGHT_PILOT.md) incluye un publicador para G
 
 El [contrato de enlaces de cuenta](account-links/README.md) permite delegar la entrega de correos a un webhook HTTPS.
 
-La [guía de integración de IA](../docs/AI_INTEGRATION.md) describe el contrato de propuestas, el adaptador futuro y los controles de privacidad antes de conectar un proveedor.
+La [guía de integración de IA](../docs/AI_INTEGRATION.md) describe el contrato de propuestas, el adaptador Gemini en `ia/` y los controles de privacidad del piloto.

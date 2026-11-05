@@ -161,6 +161,55 @@ export const openApiDocument = {
   servers: [{ url: "/", description: "Servidor actual (directo o proxy /api)" }],
   security: [{ sessionCookie: [] as string[] }],
   paths: {
+    "/api/ai/bug-proposals": {
+      post: {
+        security: [{ sessionCookie: [], csrfToken: [] }],
+        summary: "Proponer un borrador de bug con Gemini sin guardarlo",
+        description:
+          "Requiere bugs.write y consentimiento explícito para enviar el texto a Google.",
+        requestBody: {
+          required: true,
+          content: json({
+            ...object(
+              {
+                projectId,
+                consent: { type: "boolean", enum: [true] },
+                description: text(3500),
+                templateText: text(1500),
+              },
+              ["projectId", "consent", "description"],
+            ),
+            additionalProperties: false,
+          }),
+        },
+        responses: {
+          "200": {
+            description: "Borrador editable",
+            content: json(
+              envelope(
+                object(
+                  {
+                    title: text(200),
+                    description: text(5000),
+                    priority: { type: "string", enum: bugPriorities },
+                  },
+                  ["title", "description", "priority"],
+                ),
+              ),
+            ),
+          },
+          "400": errorResponse("INVALID_AI_INPUT o INVALID_JSON"),
+          "401": errorResponse("UNAUTHENTICATED"),
+          "403": errorResponse("FORBIDDEN, INVALID_CSRF o INVALID_ORIGIN"),
+          "404": errorResponse("PROJECT_NOT_FOUND"),
+          "413": errorResponse("PAYLOAD_TOO_LARGE"),
+          "429": errorResponse("AI_RATE_LIMIT o AI_PROVIDER_QUOTA"),
+          "502": errorResponse("AI_INVALID_PROPOSAL"),
+          "503": errorResponse("AI_DISABLED, AI_PROVIDER_UNAVAILABLE o DATABASE_UNAVAILABLE"),
+          "504": errorResponse("AI_TIMEOUT"),
+        },
+      },
+    },
     "/api/integrations/playwright": {
       post: {
         summary: "Publicar resultados normalizados de Playwright en el proyecto configurado",

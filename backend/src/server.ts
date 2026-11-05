@@ -5,7 +5,11 @@ import { accountLinkDelivery } from "./auth/account-link-delivery.js";
 import { createApp } from "./app.js";
 import { PostgresAuth } from "./auth/auth.js";
 
+import { geminiBugProposalProvider } from "../../servicios/ia/gemini.mjs";
+import { bugPriorities } from "./models/bug.model.js";
+
 loadEnvironment();
+const bugProposalProvider = geminiBugProposalProvider(process.env, bugPriorities);
 const port = Number(process.env.PORT ?? 3000);
 if (!Number.isInteger(port) || port < 1 || port > 65535)
   throw new Error("PORT debe ser un puerto TCP válido entre 1 y 65535.");
@@ -13,7 +17,11 @@ const delivery = accountLinkDelivery(process.env);
 const pool = createPool(databaseUrl());
 try {
   await checkDatabase(pool);
-  const app = createApp(new PostgresRepository(pool), new PostgresAuth(pool, delivery));
+  const app = createApp(
+    new PostgresRepository(pool),
+    new PostgresAuth(pool, delivery),
+    bugProposalProvider,
+  );
   const server = app.listen(port, () => {
     console.info(`qaTestGE API disponible en http://localhost:${port} · PostgreSQL conectado`);
   });
