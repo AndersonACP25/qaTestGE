@@ -270,23 +270,6 @@
   color: var(--purple);
   overflow-wrap: anywhere;
 }
-.account-settings__providers {
-  display: grid;
-  gap: 16px;
-  list-style: none;
-  padding: 0;
-}
-.account-settings__providers li {
-  display: grid;
-  gap: 8px;
-  padding: 16px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-}
-.account-settings__provider-status {
-  font-size: var(--font-caption);
-  color: var(--color-626678);
-}
 .rich-textarea {
   display: grid;
   min-width: 0;

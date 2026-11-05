@@ -880,3 +880,56 @@ describe("Propuestas de bugs con IA", () => {
     expect(disabled.body.error.code).toBe("AI_DISABLED");
   });
 });
+
+it("configura la clave personal mediante sesión y CSRF sin devolverla ni guardar una rechazada", async () => {
+  const endpoint = "/api/ai/settings";
+  const apiKey = "fake-gemini-key-for-testing";
+  const revision = "d8462c84-2c14-4226-8a37-aadbb7c746d1";
+  const credentials = {
+    revision: vi.fn(async () => revision),
+    key: vi.fn(async () => apiKey),
+    save: vi.fn(async () => revision),
+    remove: vi.fn(async () => {}),
+  };
+  const fetchRequest = vi
+    .fn<typeof fetch>()
+    .mockResolvedValueOnce(Response.json({ error: { message: apiKey } }, { status: 403 }))
+    .mockResolvedValueOnce(Response.json({ supportedGenerationMethods: ["generateContent"] }));
+  const app = createApp(
+    repo,
+    testAuth,
+    { propose: vi.fn() },
+    {
+      model: "gemini-3.1-flash-lite",
+      credentials,
+      fetchRequest,
+    },
+  );
+  const session = () =>
+    request.agent(app).set("Cookie", `qa_session=${testToken}`).set("X-CSRF-Token", testCsrf);
+  const input = { apiKey, revision: null };
+  expect((await request(app).put(endpoint).send(input)).status).toBe(401);
+  expect(
+    (await request(app).put(endpoint).set("Cookie", `qa_session=${testToken}`).send(input)).status,
+  ).toBe(403);
+  expect(
+    (
+      await session()
+        .put(endpoint)
+        .send({ ...input, userId: "2" })
+    ).status,
+  ).toBe(400);
+  expect(fetchRequest).not.toHaveBeenCalled();
+  const rejected = await session().put(endpoint).send(input);
+  expect(rejected.status).toBe(422);
+  expect(rejected.text).not.toContain(apiKey);
+  expect(credentials.save).not.toHaveBeenCalled();
+  const saved = await session().put(endpoint).send(input);
+  expect(saved.status).toBe(200);
+  expect(saved.body.data).toEqual({ visualAvailable: true, revision, source: "account" });
+  expect(credentials.save).toHaveBeenCalledWith("1", apiKey, null);
+  expect((await session().get(endpoint)).text).not.toContain(apiKey);
+  const removed = await session().delete(endpoint).send({ revision });
+  expect(removed.body.data.source).toBe("environment");
+  expect(credentials.remove).toHaveBeenCalledWith("1", revision);
+});

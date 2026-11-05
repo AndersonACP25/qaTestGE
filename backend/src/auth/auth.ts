@@ -571,6 +571,7 @@ export class PostgresAuth implements AuthProvider {
       await client.query("DELETE FROM qa.auth_sessions WHERE user_id=$1", [userId]);
       await client.query("DELETE FROM qa.bug_templates WHERE user_id=$1", [userId]);
       await client.query("DELETE FROM qa.project_design_templates WHERE user_id=$1", [userId]);
+      await client.query("DELETE FROM qa.user_gemini_credentials WHERE user_id=$1", [userId]);
       await client.query("COMMIT");
     } catch (error) {
       await client.query("ROLLBACK");

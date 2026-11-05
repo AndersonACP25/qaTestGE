@@ -1,10 +1,37 @@
+export const defaultGeminiModel = "gemini-3.1-flash-lite";
+
+const modelsUrl = "https://generativelanguage.googleapis.com/v1beta/models";
+
+export async function verifyGeminiKey(key, model, fetchRequest = globalThis.fetch) {
+  const signal = globalThis.AbortSignal.timeout(10_000);
+  try {
+    const response = await fetchRequest(`${modelsUrl}/${encodeURIComponent(model)}`, {
+      headers: { "x-goog-api-key": key },
+      redirect: "error",
+      signal,
+    });
+    if (response.ok) {
+      const data = await response.json();
+      return Array.isArray(data?.supportedGenerationMethods) &&
+        data.supportedGenerationMethods.includes("generateContent")
+        ? "valid"
+        : "rejected";
+    }
+    if (response.body) await response.body.cancel();
+    if ([400, 401, 403, 404].includes(response.status)) return "rejected";
+    return response.status === 429 ? "quota" : "unavailable";
+  } catch {
+    return signal.aborted ? "timeout" : "unavailable";
+  }
+}
+
 export function geminiBugProposalProvider(env, priorities, fetchRequest = globalThis.fetch) {
   const key = env.GEMINI_API_KEY?.trim();
-  const model = env.GEMINI_MODEL?.trim() || "gemini-3.1-flash-lite";
+  const model = env.GEMINI_MODEL?.trim() || defaultGeminiModel;
   if (env.AI_BUG_PROPOSALS_ENABLED !== "true" || !key || !/^gemini-[a-z0-9.-]+$/.test(model))
     return undefined;
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+  const url = `${modelsUrl}/${model}:generateContent`;
   return {
     async propose(input) {
       const signal = globalThis.AbortSignal.timeout(15_000);

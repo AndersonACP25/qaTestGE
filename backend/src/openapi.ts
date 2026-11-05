@@ -150,6 +150,31 @@ const playwrightFields = {
 };
 const unknownPlaywrightCases = { type: "array", items: { type: "string" } };
 
+const geminiRevision = { type: "string", format: "uuid" };
+const geminiSettingsResponse = {
+  description: "Estado de la conexión de la cuenta. Nunca incluye la clave.",
+  content: json(
+    envelope(
+      object(
+        {
+          visualAvailable: { type: "boolean" },
+          source: { type: "string", enum: ["account", "environment", "none"] },
+          revision: { ...geminiRevision, nullable: true },
+        },
+        ["visualAvailable", "source", "revision"],
+      ),
+    ),
+  ),
+};
+const geminiSettingsErrors = {
+  "400": errorResponse("INVALID_AI_SETTINGS o INVALID_JSON"),
+  "401": errorResponse("UNAUTHENTICATED"),
+  "403": errorResponse("INVALID_CSRF o INVALID_ORIGIN"),
+  "409": errorResponse("AI_SETTINGS_CONFLICT"),
+  "413": errorResponse("PAYLOAD_TOO_LARGE"),
+  "503": errorResponse("AI_SETTINGS_DISABLED, AI_PROVIDER_UNAVAILABLE o DATABASE_UNAVAILABLE"),
+};
+
 export const openApiDocument = {
   openapi: "3.0.3",
   info: {
@@ -161,6 +186,58 @@ export const openApiDocument = {
   servers: [{ url: "/", description: "Servidor actual (directo o proxy /api)" }],
   security: [{ sessionCookie: [] as string[] }],
   paths: {
+    "/api/ai/settings": {
+      get: {
+        summary: "Consultar el estado de la conexión de Gemini de la cuenta",
+        responses: {
+          "200": geminiSettingsResponse,
+          "401": errorResponse("UNAUTHENTICATED"),
+          "503": unavailable,
+        },
+      },
+      put: {
+        summary: "Validar y guardar una clave de Gemini para la cuenta",
+        security: [{ sessionCookie: [], csrfToken: [] }],
+        requestBody: {
+          required: true,
+          content: json({
+            ...object(
+              {
+                apiKey: {
+                  type: "string",
+                  minLength: 20,
+                  maxLength: 256,
+                  format: "password",
+                  writeOnly: true,
+                },
+                revision: { ...geminiRevision, nullable: true },
+              },
+              ["apiKey", "revision"],
+            ),
+            additionalProperties: false,
+          }),
+        },
+        responses: {
+          "200": geminiSettingsResponse,
+          ...geminiSettingsErrors,
+          "422": errorResponse("AI_KEY_REJECTED"),
+          "429": errorResponse("TOO_MANY_ATTEMPTS o AI_PROVIDER_QUOTA"),
+          "504": errorResponse("AI_TIMEOUT"),
+        },
+      },
+      delete: {
+        summary: "Eliminar la clave de Gemini de la cuenta",
+        security: [{ sessionCookie: [], csrfToken: [] }],
+        requestBody: {
+          required: true,
+          content: json({
+            ...object({ revision: geminiRevision }, ["revision"]),
+            additionalProperties: false,
+          }),
+        },
+        responses: { "200": geminiSettingsResponse, ...geminiSettingsErrors },
+      },
+    },
     "/api/ai/bug-proposals": {
       post: {
         security: [{ sessionCookie: [], csrfToken: [] }],
@@ -205,7 +282,9 @@ export const openApiDocument = {
           "413": errorResponse("PAYLOAD_TOO_LARGE"),
           "429": errorResponse("AI_RATE_LIMIT o AI_PROVIDER_QUOTA"),
           "502": errorResponse("AI_INVALID_PROPOSAL"),
-          "503": errorResponse("AI_DISABLED, AI_PROVIDER_UNAVAILABLE o DATABASE_UNAVAILABLE"),
+          "503": errorResponse(
+            "AI_DISABLED, AI_CREDENTIAL_UNREADABLE, AI_PROVIDER_UNAVAILABLE o DATABASE_UNAVAILABLE",
+          ),
           "504": errorResponse("AI_TIMEOUT"),
         },
       },

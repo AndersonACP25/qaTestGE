@@ -4,6 +4,7 @@ import { HttpError } from "../http-error.js";
 import { bugPriorities } from "../models/bug.model.js";
 import { can } from "../models/collaboration.model.js";
 import type { Repository } from "../repositories/repository.js";
+import { accountGeminiProvider, type GeminiSettings } from "./gemini-settings.routes.js";
 import { isId, isRecord, text } from "../validation.js";
 
 const providerErrors = {
@@ -17,7 +18,7 @@ const providerErrors = {
   ),
 };
 
-export function aiRouter(provider?: BugProposalProvider): Router {
+export function aiRouter(provider?: BugProposalProvider, settings?: GeminiSettings): Router {
   const router = Router();
   const accounts = new Map<string, { attempts: number; resetAt: number }>();
   let pending = 0;
@@ -41,11 +42,15 @@ export function aiRouter(provider?: BugProposalProvider): Router {
     if (!project) throw new HttpError(404, "PROJECT_NOT_FOUND", "El proyecto no está disponible.");
     if (!can(project.role, "bugs.write"))
       throw new HttpError(403, "FORBIDDEN", "Tu rol no permite preparar bugs en este proyecto.");
-    if (!provider) throw new HttpError(503, "AI_DISABLED", "La asistencia de IA está desactivada.");
+    const accountId: string = response.locals.user.id;
+    const accountKey = await settings?.credentials.key(accountId);
+    const selectedProvider =
+      accountKey && settings ? accountGeminiProvider(settings, accountKey) : provider;
+    if (!selectedProvider)
+      throw new HttpError(503, "AI_DISABLED", "La asistencia de IA está desactivada.");
 
     const now = Date.now();
     for (const [id, usage] of accounts) if (usage.resetAt <= now) accounts.delete(id);
-    const accountId: string = response.locals.user.id;
     const usage = accounts.get(accountId);
     if (pending >= 2 || (usage?.attempts ?? 0) >= 3 || (!usage && accounts.size >= 1000)) {
       response.setHeader(
@@ -64,7 +69,7 @@ export function aiRouter(provider?: BugProposalProvider): Router {
     });
     pending++;
     try {
-      const result = await provider.propose({
+      const result = await selectedProvider.propose({
         description: body.description.trim(),
         ...(body.templateText === undefined ? {} : { templateText: body.templateText.trim() }),
       });

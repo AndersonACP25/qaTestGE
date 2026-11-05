@@ -13,3 +13,10 @@ export function geminiBugProposalProvider(
   priorities: readonly string[],
   fetchRequest?: typeof fetch,
 ): BugProposalProvider | undefined;
+
+export const defaultGeminiModel: string;
+export function verifyGeminiKey(
+  key: string,
+  model: string,
+  fetchRequest?: typeof fetch,
+): Promise<"valid" | "rejected" | "quota" | "unavailable" | "timeout">;

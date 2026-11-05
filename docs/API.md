@@ -226,3 +226,5 @@ La matriz de permisos está en la guía de uso. Owner/member continúa describie
 ## Propuestas de bugs con IA
 
 `POST /api/ai/bug-proposals` requiere sesión, `X-CSRF-Token`, acceso al proyecto y permiso `bugs.write`. Envía `projectId`, `consent: true`, `description` (1–3500 caracteres) y, opcionalmente, `templateText` (1–1500 caracteres). Devuelve `{ data: { title, description, priority } }` sin crear registros. Consulta [cómo habilitar y probar el piloto](AI_INTEGRATION.md).
+
+`GET /api/ai/settings` devuelve el origen activo, si se permite la conexión visual y la revisión de la clave personal. `PUT` comprueba y guarda `{ apiKey, revision }`, donde `revision` es `null` para la primera conexión. `DELETE` elimina la clave personal con `{ revision }`. Ambas escrituras requieren sesión y CSRF. La cuenta se toma de la sesión y la clave jamás aparece en respuestas.
