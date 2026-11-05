@@ -7,7 +7,12 @@ import { caseProposalInput, caseProposalList } from "../models/case-proposal.mod
 import { can, type Permission } from "../models/collaboration.model.js";
 import type { Repository } from "../repositories/repository.js";
 import { accountGeminiProvider, type GeminiSettings } from "./gemini-settings.routes.js";
-import { isId, isRecord, text } from "../validation.js";
+import {
+  runSummaryContext,
+  runSummaryOutput,
+  summarizeRunContext,
+} from "../models/run-summary.model.js";
+import { isId, isRecord, parseReference, text } from "../validation.js";
 
 const providerErrors = {
   quota: new HttpError(429, "AI_PROVIDER_QUOTA", "Gemini alcanzó su límite de solicitudes."),
@@ -25,12 +30,7 @@ export function aiRouter(provider?: BugProposalProvider, settings?: GeminiSettin
   const accounts = new Map<string, { attempts: number; resetAt: number }>();
   let pending = 0;
 
-  async function generate<T>(
-    response: Response,
-    projectId: string,
-    permission: Permission,
-    propose: (provider: BugProposalProvider) => Promise<T>,
-  ): Promise<T> {
+  async function authorizedProject(response: Response, projectId: string, permission: Permission) {
     const repository: Repository = response.locals.repository;
     const project = (await repository.listProjects()).find(({ id }) => id === projectId);
     if (!project) throw new HttpError(404, "PROJECT_NOT_FOUND", "El proyecto no está disponible.");
@@ -40,6 +40,16 @@ export function aiRouter(provider?: BugProposalProvider, settings?: GeminiSettin
         "FORBIDDEN",
         "Tu rol no permite generar propuestas para este proyecto.",
       );
+    return repository;
+  }
+
+  async function generate<T>(
+    response: Response,
+    projectId: string,
+    permission: Permission,
+    propose: (provider: BugProposalProvider, repository: Repository) => Promise<T>,
+  ): Promise<T> {
+    const repository = await authorizedProject(response, projectId, permission);
     const accountId: string = response.locals.user.id;
     const accountKey = await settings?.credentials.key(accountId);
     const selectedProvider =
@@ -67,7 +77,7 @@ export function aiRouter(provider?: BugProposalProvider, settings?: GeminiSettin
     });
     pending++;
     try {
-      return await propose(selectedProvider);
+      return await propose(selectedProvider, repository);
     } finally {
       pending--;
     }
@@ -147,6 +157,55 @@ export function aiRouter(provider?: BugProposalProvider, settings?: GeminiSettin
       )
         throw providerErrors.invalid;
       return cases.data;
+    });
+    response.json({ data });
+  });
+
+  async function loadRunContext(repository: Repository, projectId: string, runId: string) {
+    const run = await repository.findRun(runId, projectId);
+    if (!run) throw new HttpError(404, "TEST_RUN_NOT_FOUND", "No se encontró la ejecución.");
+    return summarizeRunContext(run);
+  }
+
+  router.get("/ai/run-summary", async (request, response) => {
+    const { projectId } = request.query;
+    const runId = parseReference(request.query.runId, "RUN");
+    if (!isId(projectId) || !runId)
+      throw new HttpError(400, "INVALID_AI_INPUT", "Selecciona una ejecución válida.");
+    const repository = await authorizedProject(response, projectId, "runs.write");
+    response.json({ data: await loadRunContext(repository, projectId, runId) });
+  });
+
+  router.post("/ai/run-summary", async (request, response) => {
+    const body: unknown = request.body;
+    const runId = isRecord(body) ? parseReference(body.runId, "RUN") : null;
+    if (
+      !isRecord(body) ||
+      Object.keys(body).length !== 4 ||
+      !isId(body.projectId) ||
+      !runId ||
+      body.consent !== true
+    )
+      throw new HttpError(400, "INVALID_AI_INPUT", "Confirma el envío del resumen a Gemini.");
+    const context = runSummaryContext.safeParse(body.context);
+    if (!context.success)
+      throw new HttpError(400, "INVALID_AI_INPUT", "Revisa los datos de la ejecución.");
+    const projectId = body.projectId;
+    const data = await generate(response, projectId, "runs.write", async (provider, repository) => {
+      const current = await loadRunContext(repository, projectId, runId);
+      if (JSON.stringify(current) !== JSON.stringify(context.data))
+        throw new HttpError(
+          409,
+          "AI_RUN_CHANGED",
+          "Los resultados cambiaron. Vuelve a abrir el resumen para revisar los datos actuales.",
+        );
+      if (!provider.summarizeRun)
+        throw new HttpError(503, "AI_DISABLED", "El resumen de ejecución no está disponible.");
+      const result = await provider.summarizeRun(current);
+      if (!result.ok) throw providerErrors[result.reason];
+      const summary = runSummaryOutput.safeParse(result.proposal);
+      if (!summary.success) throw providerErrors.invalid;
+      return summary.data;
     });
     response.json({ data });
   });

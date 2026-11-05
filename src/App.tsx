@@ -1,3 +1,4 @@
+import type { CaseDesignOrigin } from "./controllers/useCaseDesignController";
 import { useDesignTemplates } from "./controllers/useDesignTemplates";
 import { availableTemplateDefaults } from "./models/templateDefaults";
 import type { CaseTemplate } from "../backend/src/models/design-templates.model";
@@ -142,12 +143,18 @@ function App({
     return () => controller.abort();
   }, []);
   const aiConnected = Boolean(geminiStatus && geminiStatus.source !== "none");
+  const [caseDesignOrigin, setCaseDesignOrigin] = useState<{
+    projectId: string;
+    origin: CaseDesignOrigin;
+  }>();
   const [activePage, setActivePage] = useState<NavigationPage>("overview");
   const [requestedLink, setRequestedLink] = useState(() => readRecordLink(window.location.search));
   const [projectsLoaded, setProjectsLoaded] = useState(false);
   const [linkError, setLinkError] = useState("");
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectId, setProjectId] = useState("");
+  const designerOrigin =
+    caseDesignOrigin?.projectId === projectId ? caseDesignOrigin.origin : undefined;
   const captureScope = useOperationScope(user.id, projectId);
   const designTemplates = useDesignTemplates(user.id, projectId);
   const [selectedCaseTemplate, setSelectedCaseTemplate] = useState<CaseTemplate | null>(null);
@@ -546,6 +553,7 @@ function App({
     toastTimer.current = setTimeout(() => setToast(""), 4000);
   };
   function navigate(page: NavigationPage) {
+    setCaseDesignOrigin(undefined);
     setRequestedLink(null);
     setLinkError("");
     if (page === "mentions") mentionInbox.refresh();
@@ -554,6 +562,11 @@ function App({
     setSearch("");
     setStatusFilter("Todos");
     setMobileNav(false);
+  }
+  function designCasesFrom(origin: CaseDesignOrigin) {
+    setRecordDetail(null);
+    navigate("case-builder");
+    setCaseDesignOrigin({ projectId, origin });
   }
   function openModal(value: string) {
     setEvidenceFile(null);
@@ -1293,6 +1306,7 @@ function App({
                 setRequestedLink(null);
                 setLinkError("");
                 setProjectId(event.target.value);
+                setCaseDesignOrigin(undefined);
                 setModal("");
                 setRunDetail(null);
                 setRecordDetail(null);
@@ -1417,7 +1431,17 @@ function App({
             <CaseBuilder
               canSave={allowed("cases.write")}
               canProposeWithGemini={Boolean(projectId) && aiConnected && allowed("cases.write")}
-              key={`${user.id}:${projectId}`}
+              key={`${user.id}:${projectId}:${designerOrigin?.id ?? ""}`}
+              origin={designerOrigin}
+              onSaved={((isCurrent) => (saved) => {
+                if (isCurrent())
+                  setData((current) => ({
+                    ...current,
+                    cases: current.cases.some((item) => item.id === saved.id)
+                      ? current.cases.map((item) => (item.id === saved.id ? saved : item))
+                      : [saved, ...current.cases],
+                  }));
+              })(captureScope())}
               catalog={caseCatalog}
               defaultCounts={caseCountDefaults}
               defaultSelectedCategories={caseDesignCategories}
@@ -1463,6 +1487,7 @@ function App({
           ) : activePage === "coverage" ? (
             projectId && (
               <CoverageView
+                onDesignCases={aiConnected && allowed("cases.write") ? designCasesFrom : undefined}
                 key={`${user.id}:${projectId}`}
                 projectId={projectId}
                 refreshRevision={revision}
@@ -2356,6 +2381,7 @@ function App({
       {runDetail && (
         <TestRunDialog
           key={runDetail.id}
+          canSummarizeWithGemini={aiConnected && allowed("runs.write")}
           run={runDetail}
           bugs={bugs}
           evidence={evidence}
@@ -2384,6 +2410,7 @@ function App({
       {recordDetail && (
         <RecordDetailsDialog
           detail={recordDetail}
+          onDesignCases={aiConnected && allowed("cases.write") ? designCasesFrom : undefined}
           onClose={() => setRecordDetail(null)}
           onEdit={() => {
             if (recordDetail.kind === "bug") editBug(recordDetail.record);
@@ -2721,7 +2748,7 @@ function pageDescription(page: NavigationPage): string {
     settings: "Administra tu cuenta, los accesos y la configuración del proyecto.",
     wiki: "Aprende a utilizar las funciones disponibles de qaTestGE.",
     "bug-builder": "Convierte tu descripción en un borrador de bug y revísalo antes de guardar.",
-    "case-builder": "De una idea a un plan de pruebas: explora la maqueta del futuro asistente.",
+    "case-builder": "Prepara casos de prueba desde una descripción, requisito o bug.",
   }[page];
 }
 

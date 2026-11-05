@@ -12,6 +12,7 @@ export default function CaseDesignView({
   canProposeWithGemini,
   canSave,
   categories,
+  origin,
   text,
   selected,
   counts,
@@ -65,6 +66,17 @@ export default function CaseDesignView({
           Revisa cada caso antes de guardarlo.
         </p>
       </div>
+      {origin && (
+        <div className="case-builder__notice">
+          <strong>
+            Origen · {origin.id} · {origin.title}
+          </strong>
+          <p>
+            Los casos que guardes desde esta vista quedarán vinculados al{" "}
+            {origin.kind === "requirement" ? "requisito" : "bug"}.
+          </p>
+        </div>
+      )}
       <div className="case-builder__layout">
         <form className="case-builder__form" onSubmit={submit}>
           <div className="case-builder__heading">

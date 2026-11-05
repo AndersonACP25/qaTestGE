@@ -56,3 +56,15 @@ Si Gemini falla, el editor conserva el texto y el borrador existente. **Preparar
 En **Diseñar test cases**, describe el requisito, selecciona las categorías y ajusta las cantidades. Con permiso para crear casos y Gemini conectado, pulsa **Proponer con Gemini**. El diálogo muestra la descripción y las categorías con su cantidad. El proveedor recibe solo esos datos, con un máximo de ocho casos por solicitud.
 
 Edita el título, las acciones y los resultados esperados. Puedes exportar la vista previa o guardar los casos como **Borrador**, uno a uno o mediante **Guardar todos**. Si Gemini falla, puedes seguir usando **Mostrar tabla de ejemplo** o conservar la vista previa abierta.
+
+## Diseñar casos desde un requisito o bug
+
+En **Cobertura y requisitos** o en el detalle de un bug, pulsa **Diseñar casos con Gemini**. El diseñador usa el título y la descripción del origen como punto de partida. Edita ese texto, selecciona categorías y confirma el contenido que se enviará. El identificador del registro se usa en qaTestGE al guardar y queda fuera de la solicitud a Google.
+
+Los casos guardados desde esta vista se vinculan al requisito o bug en la misma transacción que su creación. Si el origen no está disponible en el proyecto, qaTestGE rechaza la operación completa.
+
+## Resumir una ejecución
+
+En el detalle de un **Test Run**, pulsa **Resumir ejecución con Gemini**. La vista de consentimiento muestra los totales calculados por qaTestGE y una muestra de hasta doce fallos o bloqueos con ID y título del caso. Si cambian los datos que aprobaste, vuelve a abrir el diálogo para revisar la versión actual.
+
+Gemini redacta un resumen editable. Compáralo con las cifras mostradas y pulsa **Copiar resumen** para compartir el texto. Google recibe solo el contenido aprobado. Las notas, los pasos, los archivos, la persona responsable y los identificadores del proyecto y la ejecución quedan en qaTestGE.

@@ -175,6 +175,39 @@ const geminiSettingsErrors = {
   "503": errorResponse("AI_SETTINGS_DISABLED, AI_PROVIDER_UNAVAILABLE o DATABASE_UNAVAILABLE"),
 };
 
+const resultCount = { type: "integer", minimum: 0 };
+const runSummaryContextSchema = {
+  ...object(
+    {
+      counts: object(
+        {
+          passed: resultCount,
+          failed: resultCount,
+          blocked: resultCount,
+          skipped: resultCount,
+          pending: resultCount,
+        },
+        ["passed", "failed", "blocked", "skipped", "pending"],
+      ),
+      findings: {
+        type: "array",
+        maxItems: 12,
+        items: object(
+          {
+            caseId: { type: "string", pattern: "^TC-[0-9]{1,19}$" },
+            title: { type: "string", maxLength: 200 },
+            status: { type: "string", enum: ["failed", "blocked"] },
+          },
+          ["caseId", "title", "status"],
+        ),
+      },
+    },
+    ["counts", "findings"],
+  ),
+  additionalProperties: false,
+};
+const runSummaryId = { type: "string", pattern: "^RUN-[0-9]{1,19}$" };
+
 const aiProposalErrors = {
   "400": errorResponse("INVALID_AI_INPUT o INVALID_JSON"),
   "401": errorResponse("UNAUTHENTICATED"),
@@ -352,6 +385,56 @@ export const openApiDocument = {
             ),
           },
           ...aiProposalErrors,
+        },
+      },
+    },
+    "/api/ai/run-summary": {
+      get: {
+        summary: "Consultar los datos que se pueden compartir para resumir la ejecución",
+        description: "Requiere runs.write. Devuelve cifras y una muestra de fallos y bloqueos.",
+        parameters: [
+          { in: "query", name: "projectId", required: true, schema: projectId },
+          { in: "query", name: "runId", required: true, schema: runSummaryId },
+        ],
+        responses: {
+          "200": {
+            description: "Datos calculados en el servidor",
+            content: json(envelope(runSummaryContextSchema)),
+          },
+          "400": errorResponse("INVALID_AI_INPUT"),
+          "401": errorResponse("UNAUTHENTICATED"),
+          "403": errorResponse("FORBIDDEN"),
+          "404": errorResponse("PROJECT_NOT_FOUND o TEST_RUN_NOT_FOUND"),
+          "503": unavailable,
+        },
+      },
+      post: {
+        summary: "Redactar un resumen con Gemini tras aprobar los datos de la ejecución",
+        description: "Requiere runs.write y consentimiento. Devuelve texto editable.",
+        security: [{ sessionCookie: [], csrfToken: [] }],
+        requestBody: {
+          required: true,
+          content: json({
+            ...object(
+              {
+                projectId,
+                runId: runSummaryId,
+                consent: { type: "boolean", enum: [true] },
+                context: runSummaryContextSchema,
+              },
+              ["projectId", "runId", "consent", "context"],
+            ),
+            additionalProperties: false,
+          }),
+        },
+        responses: {
+          ...aiProposalErrors,
+          "200": {
+            description: "Resumen editable",
+            content: json(envelope(object({ summary: text(3500) }, ["summary"]))),
+          },
+          "404": errorResponse("PROJECT_NOT_FOUND o TEST_RUN_NOT_FOUND"),
+          "409": errorResponse("AI_RUN_CHANGED"),
         },
       },
     },
@@ -1700,7 +1783,41 @@ export const openApiDocument = {
                   },
                 ]
               : [],
-            requestBody: { required: true, content: json(ref(`${schema}Input`)) },
+            requestBody: {
+              required: true,
+              content: json(
+                path === "test-cases"
+                  ? {
+                      allOf: [
+                        ref("TestCaseInput"),
+                        {
+                          type: "object",
+                          properties: {
+                            source: {
+                              oneOf: [
+                                object(
+                                  {
+                                    kind: { type: "string", enum: ["requirement"] },
+                                    id: { type: "string", pattern: "^REQ-[0-9]{1,19}$" },
+                                  },
+                                  ["kind", "id"],
+                                ),
+                                object(
+                                  {
+                                    kind: { type: "string", enum: ["bug"] },
+                                    id: { type: "string", pattern: "^BUG-[0-9]{1,19}$" },
+                                  },
+                                  ["kind", "id"],
+                                ),
+                              ],
+                            },
+                          },
+                        },
+                      ],
+                    }
+                  : ref(`${schema}Input`),
+              ),
+            },
             responses: {
               "201": { description: "Recurso persistido", content: json(envelope(ref(schema))) },
               "400": errorResponse(
@@ -1709,7 +1826,18 @@ export const openApiDocument = {
               "401": errorResponse("UNAUTHENTICATED"),
               "403": errorResponse("INVALID_CSRF o INVALID_ORIGIN"),
               "404": errorResponse("PROJECT_NOT_FOUND"),
-              "409": errorResponse("CONFLICT, REQUEST_KEY_CONFLICT o CREATED_RESOURCE_REMOVED."),
+              "409": errorResponse(
+                path === "test-cases"
+                  ? "REQUIREMENT_CASE_LIMIT, CONFLICT, REQUEST_KEY_CONFLICT o CREATED_RESOURCE_REMOVED."
+                  : "CONFLICT, REQUEST_KEY_CONFLICT o CREATED_RESOURCE_REMOVED.",
+              ),
+              ...(path === "test-cases"
+                ? {
+                    "404": errorResponse(
+                      "PROJECT_NOT_FOUND, BUG_NOT_FOUND o REQUIREMENT_NOT_FOUND",
+                    ),
+                  }
+                : {}),
               "413": errorResponse("PAYLOAD_TOO_LARGE: cuerpo superior a 1 MB."),
               "500": errorResponse("INTERNAL_ERROR: error interno."),
               "503": unavailable,
