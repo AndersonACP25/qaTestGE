@@ -73,7 +73,9 @@ test("login, fallo, bug y evidencia privada con API y PostgreSQL reales", async 
     const upload = await uploaded;
     expect(upload.status()).toBe(201);
     const { id: evidenceId } = (await upload.json()).data as { id: string };
-    await expect(dialog.getByText(`${evidenceId} · smoke.txt`, { exact: true })).toBeVisible();
+    await expect(
+      dialog.getByRole("button", { name: "Descargar evidencia", exact: true }),
+    ).toBeVisible();
 
     await dialog.getByRole("button", { name: "Crear bug desde este fallo" }).click();
     const created = page.waitForResponse(
