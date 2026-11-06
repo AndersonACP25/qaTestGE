@@ -248,7 +248,9 @@
   cursor: pointer;
   text-align: left;
 }
-.notification-bell__view-all:hover {
+.notification-bell__view-all:enabled:hover {
+  box-shadow: none;
+  filter: none;
   color: var(--color-202334);
 }
 .collaboration__mention-picker {

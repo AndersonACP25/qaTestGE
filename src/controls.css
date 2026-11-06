@@ -34,6 +34,50 @@ a.button {
   border-color: var(--purple);
   color: var(--color-303346);
 }
+/* Keep the browser's native disclosure behavior and share its visual treatment. */
+details > summary {
+  position: relative;
+  display: block;
+  list-style: none;
+  padding: 10px 36px 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--color-f7f8fa);
+  color: var(--color-202334);
+  font-weight: 600;
+  line-height: 1.45;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+  transition: border-color 0.16s ease;
+}
+details > summary::-webkit-details-marker {
+  display: none;
+}
+details > summary::after {
+  content: "";
+  position: absolute;
+  inset-block-start: calc(50% - 6px);
+  inset-inline-end: 15px;
+  width: 8px;
+  height: 8px;
+  border: solid var(--purple);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+details > summary:hover {
+  border-color: var(--purple);
+}
+details > summary:focus-visible {
+  outline: 2px solid var(--purple);
+  outline-offset: 2px;
+}
+details[open] > summary {
+  background: var(--color-f1efff);
+}
+details[open] > summary::after {
+  inset-block-start: calc(50% - 2px);
+  transform: rotate(225deg);
+}
 /* AI actions use a shared blue accent across designers, dialogs and settings. */
 .button.button--ai {
   color: #fff;
@@ -111,7 +155,8 @@ a.button {
 @media (prefers-reduced-motion: reduce) {
   button,
   a.workspace__secondary,
-  a.button {
+  a.button,
+  details > summary {
     transition: none;
   }
 }
@@ -183,10 +228,8 @@ a.button {
   color: var(--color-626678);
 }
 .project-activity__event summary {
-  cursor: pointer;
   color: var(--purple);
   font-size: var(--font-caption);
-  font-weight: 600;
 }
 .project-activity__changes {
   padding: 12px;

@@ -179,30 +179,32 @@ export default function CaseDesignView({
               </Alert>
             )}
           </fieldset>
-          <button
-            className="case-builder__submit"
-            type="submit"
-            disabled={!text.trim() || !selected.length || !countsValid || locked}
-          >
-            Mostrar tabla de ejemplo →
-          </button>
-          {canProposeWithGemini && (
-            <>
+          <div className="case-builder__actions">
+            <button
+              className="case-builder__submit"
+              type="submit"
+              disabled={!text.trim() || !selected.length || !countsValid || locked}
+            >
+              Mostrar tabla de ejemplo →
+            </button>
+            {canProposeWithGemini && (
               <button
                 type="button"
-                className="button button--ai case-builder__ai-submit"
+                className="button button--ai"
                 disabled={!canGenerate}
                 onClick={() => setConsentOpen(true)}
               >
                 Proponer con Gemini
               </button>
-              <p className="case-builder__hint">
-                Gemini admite hasta {formatCount(maxAiCases, "caso", "casos")} por solicitud y una
-                descripción de hasta 3500 caracteres.
-              </p>
-            </>
+            )}
+            <ClearDesignerButton disabled={locked || exporting} onClear={onClear} />
+          </div>
+          {canProposeWithGemini && (
+            <p className="case-builder__hint">
+              Gemini admite hasta {formatCount(maxAiCases, "caso", "casos")} por solicitud y una
+              descripción de hasta 3500 caracteres.
+            </p>
           )}
-          <ClearDesignerButton disabled={locked || exporting} onClear={onClear} />
           {generating && <p role="status">Generando casos con Gemini…</p>}
           {generationError && <Alert tone="error">{generationError}</Alert>}
         </form>
