@@ -1,3 +1,4 @@
+import ClearDesignerButton from "../components/ClearDesignerButton";
 import GeminiConsentDialog, { GeminiOutboundText } from "../components/GeminiConsentDialog";
 import { availableTemplateDefaults } from "../models/templateDefaults";
 import type { DesignTemplates } from "../../backend/src/models/design-templates.model";
@@ -148,6 +149,20 @@ export default function BugDesignView({
       if (!controller.signal.aborted) setProposing(false);
       proposalRequest.current = null;
     }
+  }
+
+  function clearDesign() {
+    if (locked) return;
+    setSource("");
+    setTemplateId("");
+    setPreview(null);
+    setReviewed(false);
+    setSavedId("");
+    setConfirmSave(false);
+    setConfirmGemini(false);
+    setIncludeTemplate(false);
+    setError("");
+    setMessage("Ventana de diseño limpia.");
   }
 
   function edit(patch: Partial<BugDraft>) {
@@ -311,7 +326,7 @@ export default function BugDesignView({
               </button>
               {canProposeWithGemini && (
                 <button
-                  className="button button-secondary"
+                  className="button button--ai"
                   disabled={!source.trim() || locked || templatesLoading || defaultsLoading}
                   type="button"
                   onClick={() => {
@@ -322,6 +337,10 @@ export default function BugDesignView({
                   Proponer con Gemini
                 </button>
               )}
+              <ClearDesignerButton
+                disabled={locked || !(source || templateId || preview)}
+                onClear={clearDesign}
+              />
             </div>
             {proposing && <p role="status">Generando propuesta con Gemini…</p>}
           </form>

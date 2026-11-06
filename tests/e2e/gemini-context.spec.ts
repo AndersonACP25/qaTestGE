@@ -82,6 +82,12 @@ for (const kind of ["requirement", "bug"] as const) {
     await expect
       .poll(() => workspace.writes.find(({ path }) => path === "/test-cases")?.body.source)
       .toEqual({ kind, id });
+    await page.getByRole("button", { name: "Limpiar ventana", exact: true }).click();
+    await page.getByRole("button", { name: "Confirmar limpieza", exact: true }).click();
+    await expect(page.getByText(new RegExp(`Origen · ${id}`))).toHaveCount(0);
+    await expect(page.getByLabel("Descripción o requisito", { exact: true })).toHaveValue("");
+    await expect(page.getByLabel("Título del caso", { exact: true })).toHaveCount(0);
+    expect(workspace.cases.some(({ title }) => title === "Prueba de acceso")).toBe(true);
     await noHorizontalOverflow(page);
   });
 }

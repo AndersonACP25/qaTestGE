@@ -1433,6 +1433,10 @@ function App({
               canProposeWithGemini={Boolean(projectId) && aiConnected && allowed("cases.write")}
               key={`${user.id}:${projectId}:${designerOrigin?.id ?? ""}`}
               origin={designerOrigin}
+              onCleared={() => {
+                setCaseDesignOrigin(undefined);
+                notify("Ventana de diseño limpia.");
+              }}
               onSaved={((isCurrent) => (saved) => {
                 if (isCurrent())
                   setData((current) => ({

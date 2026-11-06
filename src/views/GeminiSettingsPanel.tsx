@@ -87,12 +87,12 @@ export default function GeminiSettingsPanel({
                 La clave se comprueba con Google y queda cifrada en el servidor para tu cuenta.
               </p>
               <div className="layout__actions">
-                <button className="button button-primary" type="submit" disabled={busy}>
+                <button className="button button--ai" type="submit" disabled={busy}>
                   {status.revision ? "Reemplazar clave" : "Conectar Gemini"}
                 </button>
                 {status.revision && (
                   <button
-                    className="button button-secondary"
+                    className="button button--ai"
                     type="button"
                     disabled={busy}
                     onClick={() => void update("DELETE")}
