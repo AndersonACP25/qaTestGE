@@ -2955,9 +2955,16 @@ tbody td {
   font-size: var(--font-caption);
   line-height: 1.6;
 }
-.case-builder__submit {
+.case-builder__actions {
+  display: grid;
+  gap: 12px;
+  margin-top: var(--layout-space-md);
+}
+.case-builder__actions > button {
   width: 100%;
   padding: 13px;
+}
+.case-builder__submit {
   border: 0;
   border-radius: 7px;
   background: #6553cf;
@@ -2965,10 +2972,6 @@ tbody td {
   font-size: var(--font-control);
   font-weight: 600;
   cursor: pointer;
-}
-.case-builder__ai-submit {
-  width: 100%;
-  padding: 13px;
 }
 .case-builder__submit:disabled {
   opacity: 0.5;
