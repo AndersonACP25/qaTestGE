@@ -31,7 +31,7 @@ Los asuntos de commit usan Conventional Commits en español (`feat: ...`, `fix(a
 | `pnpm dev:frontend`                          | Solo Vite                                                   |
 | `pnpm dev:backend` / `pnpm dev:api`          | API con tsx watch y PostgreSQL                              |
 | `pnpm db:setup`                              | Instala esquema inicial y migraciones, repetible            |
-| `pnpm db:migrate`                            | Aplica/verifica las migraciones aditivas 004–012, repetible |
+| `pnpm db:migrate`                            | Aplica/verifica las migraciones aditivas 004–023, repetible |
 | `pnpm db:check`                              | Conexión y tablas del esquema qa, solo lectura              |
 | `pnpm build`                                 | Tipos y compilación del frontend y backend                  |
 | `pnpm build:frontend` / `pnpm build:backend` | Compilación por separado                                    |
@@ -70,13 +70,13 @@ pnpm test
 
 Las pruebas de endpoints usan un repositorio simulado inyectado, sin cargar `.env` ni necesitar PostgreSQL. Las de repositorio comprueban parámetros y rollback mediante dobles. [TESTING.md](./TESTING.md) explica la verificación opcional con PostgreSQL real.
 
-Los datos viven en qa_test_ge. La API no modifica el esquema al arrancar: `db:setup` instala y `db:migrate` actualiza mediante el catálogo común de `backend/src/migrations.ts` (004–012). Las migraciones históricas se conservan sin fusionarlas ni reescribirlas. La baja de cuenta revoca sesiones y anonimiza identidad, pero conserva membresías y recursos QA. Un puerto ocupado requiere detener su proceso o cambiar PORT; `pnpm db:check` verifica conexión y esquema sin escrituras.
+Los datos viven en qa_test_ge. La API no modifica el esquema al arrancar: `db:setup` instala y `db:migrate` actualiza mediante el catálogo común de `backend/src/migrations.ts` (004–023). Las migraciones históricas se conservan sin fusionarlas ni reescribirlas. La baja de cuenta revoca sesiones y anonimiza identidad, pero conserva membresías y recursos QA. Un puerto ocupado requiere detener su proceso o cambiar PORT; `pnpm db:check` verifica conexión y esquema sin escrituras.
 
 ## CI y entrega
 
 `pnpm format:check` valida el código, la documentación y las skills propias de `.opencode/skills/`. `.prettierignore` excluye las skills importadas de `.agents/skills/` para conservar su formato original, además de compilados, dependencias e informes generados de pruebas. No desactivar el paso de formato ni añadir `continue-on-error` para resolver errores de estilo: los archivos mantenidos por el proyecto deben seguir pasando Prettier.
 
-`.github/workflows/ci.yml` ejecuta `pnpm install --frozen-lockfile`, `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm test` y `pnpm build` en pull requests y pushes a `main`. En pushes a `main`, guarda `dist/` y `backend/dist/` como artefacto de Actions durante 14 días. No configura un despliegue a infraestructura: falta definir proveedor y destino.
+`.github/workflows/ci.yml` ejecuta `pnpm install --frozen-lockfile`, `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm test` y `pnpm build` en pull requests y pushes a `main` o `qa-env`. También ejecuta regresiones Playwright e integración en PostgreSQL 17 y 18, con smoke de navegador en PostgreSQL 18. En pushes a `main`, guarda el frontend compilado, la API y el adaptador Gemini como artefacto durante 14 días. No configura un despliegue a infraestructura: falta definir proveedor y destino.
 
 ## Verificaciones de robustez
 

@@ -121,7 +121,7 @@ En la barra de comentarios, **@ Mencionar** abre la búsqueda de integrantes e i
 
 En Importar, pulsa **Subir archivo** o arrastra un CSV/Excel al modal; revisa la vista previa antes de confirmar. En el detalle de un bug, **Subir evidencia** abre una ventana específica para seleccionar o arrastrar un archivo de hasta 2 MiB.
 
-**Test Plan** permite crear, buscar, consultar y editar planes con su descripción y casos. Puedes buscar casos dentro del formulario y consultar los incluidos en cada plan. **Iniciar Test Run** crea una ejecución vinculada; los planes ya utilizados siguen protegidos frente al borrado.
+**Test Plan** muestra primero el catálogo del proyecto. Busca por nombre, ID o descripción y revisa la preparación y los casos incluidos en cada fila. **Ir al editor** lleva al formulario; **Editar Test Plan** abre el plan seleccionado en ese mismo editor. **Iniciar Test Run** crea una ejecución vinculada; los planes ya utilizados siguen protegidos frente al borrado.
 
 Al ejecutar un Test Run, guardar un resultado conserva la posición del caso y muestra la confirmación junto a él. El historial de actividad se presenta sin numeración, del cambio más reciente al más antiguo.
 
@@ -138,6 +138,10 @@ La validación de requisitos considera el último resultado evaluable de cada ca
 ## Propuestas con Gemini
 
 En **Diseñar bugs**, describe el problema y elige **Proponer con Gemini** cuando la IA esté conectada. Revisa el texto que verá Google y confirma el envío. Edita la propuesta antes de crear el bug o guárdala como borrador local. En **Diseñar test cases**, selecciona las categorías y cantidades para generar propuestas editables. También puedes iniciar el diseño desde **Cobertura y requisitos** o el detalle de un bug. En un Test Run, **Resumir ejecución con Gemini** prepara un texto editable para compartir. Consulta la [guía de Gemini](AI_INTEGRATION.md) para configurar la conexión.
+
+## Limpiar la ventana de diseño
+
+En **Diseñar bugs** y **Diseñar test cases**, pulsa **Limpiar ventana** y confirma para empezar de nuevo. Se limpian el contenido, la plantilla seleccionada y la vista previa actual. En casos, se restauran los tipos y cantidades predeterminados y se retira el requisito o bug de origen. Los borradores de bugs guardados y los registros ya creados siguen disponibles.
 
 ## Enlaces directos
 

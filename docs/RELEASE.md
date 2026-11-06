@@ -12,8 +12,8 @@ Este documento define el cierre técnico; preparar cambios no crea una etiqueta 
 
 ## Entrega
 
-La instalación nueva requiere una base `qa_test_ge` vacía y `DATABASE_URL` configurada, seguida de `pnpm db:setup`. Las instalaciones existentes aplican `pnpm db:migrate`; el historial llega a 014 y no se fusiona ni reimporta. No se cargan ejemplos automáticamente.
+La instalación nueva requiere una base `qa_test_ge` vacía y `DATABASE_URL` configurada, seguida de `pnpm db:setup`. Las instalaciones existentes aplican `pnpm db:migrate`; el catálogo vigente de migraciones llega a 023. Conserva los archivos históricos y aplica los cambios en orden. No se cargan ejemplos automáticamente.
 
 Antes de desplegar en una instalación existente, obtener un respaldo por el procedimiento del operador y verificar su recuperación en un entorno separado. El repositorio no implementa respaldos ni despliegue a un proveedor. GitHub Actions valida PR/push a main y qa-env y publica artefactos compilados únicamente desde main.
 
-IA y cambio de imagen siguen siendo maquetas. Dashboard/Reportes conservan el snapshot completo; las páginas de 50 filas de la interfaz no son paginación remota. El guardián de textos requiere revisar vocabulario nuevo. No presentar esos límites como capacidades resueltas.
+Gemini requiere una credencial configurada y confirmación antes del envío. El cambio de imagen de perfil continúa como maqueta. Dashboard y Reportes usan agregaciones del servidor. Test Runs usa filtros y paginación remota y carga resultados al abrir el detalle. Revisa el vocabulario nuevo con el guardián de textos.
