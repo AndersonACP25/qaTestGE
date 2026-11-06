@@ -149,6 +149,22 @@ export function useCaseDesignController(
     );
   }
 
+  function clearDesign() {
+    if (writeInFlight.current || proposalRequest.current || exporting) return;
+    setText("");
+    setSelected(defaultSelected);
+    setCounts({});
+    setPreview(false);
+    setGenerated(null);
+    setExampleSteps({});
+    setSavedCases({});
+    pendingCreates.current.clear();
+    setGenerationError("");
+    setExportError("");
+    setSaveCaseError("");
+    setBatchMessage("");
+  }
+
   function updateDescription(value: string) {
     setText(value);
     setPreview(false);
@@ -358,6 +374,7 @@ export function useCaseDesignController(
     countsValid,
     total,
     maxCaseCount,
+    clearDesign,
     updateDescription,
     toggleCategory,
     updateCount,

@@ -71,7 +71,7 @@ export default function RecordDetailsDialog({
             {bug && onDesignCases && (
               <button
                 type="button"
-                className="button button-secondary"
+                className="button button--ai"
                 onClick={() =>
                   onDesignCases({
                     kind: "bug",

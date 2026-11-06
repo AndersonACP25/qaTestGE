@@ -302,7 +302,7 @@ export default function TestRunDialog({
             {canSummarizeWithGemini && run.projectId && (
               <button
                 type="button"
-                className="workspace__secondary"
+                className="button button--ai"
                 disabled={busy}
                 onClick={() => setSummaryOpen(true)}
               >

@@ -236,7 +236,7 @@ export default function CoverageView({
                   {onDesignCases && (
                     <button
                       type="button"
-                      className="workspace__secondary"
+                      className="button button--ai"
                       disabled={busy}
                       onClick={() =>
                         onDesignCases({

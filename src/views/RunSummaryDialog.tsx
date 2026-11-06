@@ -117,7 +117,7 @@ export default function RunSummaryDialog({
           <div className="layout__actions">
             <button
               type="button"
-              className="button button-primary"
+              className="button button--ai"
               onClick={() => void copy()}
               disabled={!summary.trim()}
             >

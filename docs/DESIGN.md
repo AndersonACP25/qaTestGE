@@ -98,3 +98,9 @@ Proyectos y Equipos están en pestañas de Configuración, junto a Flujo de bugs
 Accesos al proyecto también vive en Configuración y solo aparece para Admin. Se separan agregar, consultar, editar rol y retirar acceso; los formularios explican que gestionan integrantes activos del equipo y únicamente ese proyecto. El listado utiliza badges de rol, búsqueda local y tarjetas con acciones explícitas; los conflictos preservan el diálogo y muestran el error.
 
 Las tarjetas reservan 16–24 px entre encabezado, contenido y acciones, además del padding interior. Reutilizar `layout__stack` y evitar márgenes acumulados; los títulos/párrafos directos de paneles reinician márgenes dentro de su bloque. Las tarjetas ocultas con `hidden` deben conservarse ocultas. Dashboard muestra 0% sin resultados evaluables y 0 en su gráfico vacío; Reportes conserva sus estados de ausencia de datos e historia desconocida.
+
+## Acciones de IA y Test Plan
+
+Los botones de Gemini usan `button--ai` en `src/controls.css`, con contraste y foco en ambos temas. En el diseñador de casos, **Proponer con Gemini** ocupa el mismo ancho que **Mostrar tabla de ejemplo**. **Limpiar ventana** usa el estilo secundario y pide confirmación.
+
+Test Plan muestra el catálogo en filas con identidad, revisión, preparación y acciones. Los casos incluidos se expanden en cada fila. El editor queda debajo del catálogo y recibe el foco al pulsar **Editar Test Plan** o **Ir al editor**.

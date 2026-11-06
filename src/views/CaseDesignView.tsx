@@ -1,3 +1,4 @@
+import ClearDesignerButton from "../components/ClearDesignerButton";
 import Dialog from "../Dialog";
 import { useState } from "react";
 import GeminiConsentDialog, { GeminiOutboundText } from "../components/GeminiConsentDialog";
@@ -11,6 +12,7 @@ import Alert from "../Alert";
 export default function CaseDesignView({
   canProposeWithGemini,
   canSave,
+  onClear,
   categories,
   origin,
   text,
@@ -47,7 +49,11 @@ export default function CaseDesignView({
   removeExampleStep,
   exportPreview,
   savePreviewCase,
-}: CaseDesignController & { canProposeWithGemini: boolean; canSave: boolean }) {
+}: CaseDesignController & {
+  canProposeWithGemini: boolean;
+  canSave: boolean;
+  onClear: () => void;
+}) {
   const [consentOpen, setConsentOpen] = useState(false);
   const [confirmBatch, setConfirmBatch] = useState(false);
   const locked = generating || Boolean(savingCaseKey || batchProgress);
@@ -184,7 +190,7 @@ export default function CaseDesignView({
             <>
               <button
                 type="button"
-                className="button button-secondary"
+                className="button button--ai case-builder__ai-submit"
                 disabled={!canGenerate}
                 onClick={() => setConsentOpen(true)}
               >
@@ -196,6 +202,7 @@ export default function CaseDesignView({
               </p>
             </>
           )}
+          <ClearDesignerButton disabled={locked || exporting} onClear={onClear} />
           {generating && <p role="status">Generando casos con Gemini…</p>}
           {generationError && <Alert tone="error">{generationError}</Alert>}
         </form>

@@ -2966,6 +2966,10 @@ tbody td {
   font-weight: 600;
   cursor: pointer;
 }
+.case-builder__ai-submit {
+  width: 100%;
+  padding: 13px;
+}
 .case-builder__submit:disabled {
   opacity: 0.5;
   cursor: not-allowed;

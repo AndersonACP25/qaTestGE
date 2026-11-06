@@ -49,7 +49,7 @@ export default function GeminiConsentDialog({
           </button>
           <button
             type="button"
-            className="button button-primary"
+            className="button button--ai"
             disabled={disabled}
             onClick={onConfirm}
           >

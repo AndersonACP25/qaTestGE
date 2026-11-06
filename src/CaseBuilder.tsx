@@ -14,6 +14,7 @@ export default function CaseBuilder({
   canSave = false,
   origin,
   onSaved,
+  onCleared,
   catalog,
   defaultCounts,
   projectId,
@@ -24,6 +25,7 @@ export default function CaseBuilder({
   canProposeWithGemini?: boolean;
   canSave?: boolean;
   origin?: CaseDesignOrigin;
+  onCleared?: () => void;
   onSaved?: (testCase: TestCase) => void;
   catalog?: CaseCategory[];
   defaultCounts?: CaseCountDefaults;
@@ -80,6 +82,11 @@ export default function CaseBuilder({
         {...controller}
         canProposeWithGemini={canProposeWithGemini}
         canSave={canSave}
+        onClear={() => {
+          controller.clearDesign();
+          setTemplateId("");
+          onCleared?.();
+        }}
       />
     </div>
   );

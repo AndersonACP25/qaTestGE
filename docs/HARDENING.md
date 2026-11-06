@@ -37,7 +37,7 @@ Los formularios y diseñadores conservan la clave durante cada creación; un rep
 
 Los GET de bugs/casos/ejecuciones aceptan `limit` 1–100 (50 al activar opciones), `offset` 0–1000000, `search` de hasta 200 caracteres y `status` válido. Usar estas opciones exige `projectId`. Se escapan los comodines de búsqueda y se ordena por ID descendente. Sin opciones se conserva el contrato de colección completa.
 
-La UI pagina el snapshot filtrado a 50 filas, y Exportar tabla utiliza esa página. Dashboard y Reportes siguen calculándose desde el snapshot completo: sustituirlo por agregados y paginación remota es una evolución de capacidad cuando crezca el volumen. La paginación visual no reduce ese snapshot. No se afirma haber hecho pruebas de carga ni optimizado ILIKE con índices nuevos.
+Bugs y casos conservan paginación visual de 50 filas, y Exportar tabla utiliza esa página. Dashboard y Reportes consultan agregados del servidor. Test Runs usa filtros y paginación remota y consulta los resultados al abrir el detalle.
 
 ## Verificación y operación
 
@@ -46,4 +46,4 @@ La UI pagina el snapshot filtrado a 50 filas, y Exportar tabla utiliza esa pági
 - Regresiones Playwright: respuesta tardía de A mientras B está seleccionado, contrato inválido recuperable, edición/eliminación de tipos predeterminados, paginación de 55 filas y exportación visible, además de los flujos existentes.
 - Unitarias: contratos inválidos, migración de preferencias, conflictos de revisión, cuota/corrupción, SQL parametrizado, huella estable y logs sin valores sensibles.
 
-La adopción de comprobaciones TypeScript adicionales sigue siendo gradual. No se instaló Testcontainers ni un servicio de monitoreo: se reutilizan PostgreSQL efímero y logs JSON. IA sigue siendo una maqueta, sin proveedores ni envíos externos.
+La adopción de comprobaciones TypeScript adicionales sigue siendo gradual. No se instaló Testcontainers ni un servicio de monitoreo: se reutilizan PostgreSQL efímero y logs JSON. Gemini es opcional, valida su respuesta, limita el uso y solo recibe contenido autorizado de forma explícita. Las credenciales se gestionan en el servidor.

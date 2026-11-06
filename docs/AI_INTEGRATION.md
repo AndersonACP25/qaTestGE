@@ -2,6 +2,8 @@
 
 Puedes usar Gemini para preparar borradores desde **Diseñar bugs** y **Diseñar test cases**. La configuración admite una clave personal o una clave compartida del servidor.
 
+Las acciones de Gemini usan el mismo acento azul en Configuración, los diseñadores y los detalles de registros. En los diseñadores, **Limpiar ventana** permite descartar la propuesta abierta tras confirmar y conservar los registros que ya guardaste.
+
 ## Conectar desde Configuración
 
 1. Ejecuta `pnpm db:migrate` para aplicar la migración 023.
