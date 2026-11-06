@@ -88,7 +88,10 @@ export default function BugWorkflowView({
             Añadir estado
           </button>
           {current.states.map((state, index) => (
-            <article className="quality__panel" key={state}>
+            <article
+              className={`quality__panel bug-workflow__state${index === 0 ? " bug-workflow__state--initial" : ""}`}
+              key={state}
+            >
               <h3 className="typography__heading">
                 {state}
                 {index === 0 ? " (inicial)" : ""}
@@ -147,7 +150,7 @@ export default function BugWorkflowView({
                   Retirar estado
                 </button>
               </div>
-              <fieldset disabled={readOnly || busy}>
+              <fieldset className="bug-workflow__transitions" disabled={readOnly || busy}>
                 <legend>Puede pasar a</legend>
                 {current.states
                   .filter((s) => s !== state)

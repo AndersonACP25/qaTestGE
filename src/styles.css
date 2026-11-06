@@ -1380,11 +1380,6 @@ h1 {
 .test-run__result details {
   white-space: pre-wrap;
 }
-.test-run__result summary {
-  cursor: pointer;
-  padding: 8px 0;
-}
-
 table {
   width: 100%;
   border-collapse: collapse;

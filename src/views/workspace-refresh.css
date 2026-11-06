@@ -554,10 +554,6 @@
   border-block: 1px solid var(--line);
   padding-block: 12px;
 }
-.test-plan__card summary {
-  cursor: pointer;
-  font-weight: 600;
-}
 .test-plan__card ul {
   list-style: none;
   padding: 0;
