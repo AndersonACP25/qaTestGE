@@ -28,7 +28,7 @@ const guides = [
   },
   {
     title: "3. Registra bugs",
-    text: "En Bugs documenta la incidencia, su prioridad y descripción. Diseñar bugs prepara una vista previa local a partir del texto y una plantilla; permite tags, borradores en este navegador y creación tras revisión. No utiliza IA. Puedes asignarla a un integrante activo del equipo, editarla y cambiar su estado. Los responsables históricos escritos como texto se conservan.",
+    text: "En Bugs documenta la incidencia, su prioridad y descripción. Diseñar bugs prepara una vista previa local a partir del texto y una plantilla; permite tags, borradores en este navegador y creación tras revisión. Con Gemini conectado, puedes pedir una propuesta después de revisar y autorizar el texto enviado. Puedes asignarla a un integrante activo del equipo, editarla y cambiar su estado. Los responsables históricos escritos como texto se conservan.",
   },
   {
     title: "4. Ejecuta pruebas",
@@ -52,7 +52,7 @@ const guides = [
   },
   {
     title: "Diseñador y configuración",
-    text: "El diseñador ofrece ejemplos ilustrativos que puedes editar, exportar y guardar explícitamente. No utiliza IA. En Configuración → Plantillas puedes gestionar los formatos personales de bugs y casos. En cada proyecto puedes guardar tags y un responsable predeterminado. El diseñador de casos abre una copia editable de la plantilla; guarda solo después de revisarla. En Configuración también puedes gestionar tu cuenta y las preferencias del diseñador; la conexión de IA es una maqueta.",
+    text: "El diseñador ofrece ejemplos ilustrativos que puedes editar, exportar y guardar explícitamente. Con Gemini conectado, puedes generar propuestas de casos según la descripción, las categorías y las cantidades. En Configuración → Plantillas puedes gestionar los formatos personales de bugs y casos. En cada proyecto puedes guardar tags y un responsable predeterminado. El diseñador de casos abre una copia editable de la plantilla; guarda solo después de revisarla. En Configuración también puedes gestionar tu cuenta y las preferencias del diseñador; puedes conectar Gemini y gestionar la clave de tu cuenta.",
   },
   {
     title: "Mis asignaciones",

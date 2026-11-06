@@ -68,7 +68,13 @@ export async function createTestCase(request: Request, response: Response) {
 export async function updateTestCase(request: Request, response: Response) {
   const body: unknown = request.body;
   const id = parseReference(request.params.caseId, "TC");
-  if (!id || !isRecord(body) || !isId(body.projectId) || !validCaseFields(body)) {
+  if (
+    !id ||
+    !isRecord(body) ||
+    !isId(body.projectId) ||
+    body.source !== undefined ||
+    !validCaseFields(body)
+  ) {
     response.status(400).json({
       error: {
         code: "INVALID_TEST_CASE",
@@ -139,7 +145,15 @@ export async function updateTestCaseStatus(request: Request, response: Response)
   response.json({ data: updated });
 }
 function valid(body: unknown): body is CreateTestCaseInput {
-  return isRecord(body) && isId(body.projectId) && validCaseFields(body);
+  if (!isRecord(body) || !isId(body.projectId) || !validCaseFields(body)) return false;
+  const source = body.source;
+  return (
+    source === undefined ||
+    (isRecord(source) &&
+      Object.keys(source).length === 2 &&
+      ((source.kind === "requirement" && Boolean(parseReference(source.id, "REQ"))) ||
+        (source.kind === "bug" && Boolean(parseReference(source.id, "BUG")))))
+  );
 }
 function validCaseFields(
   body: Record<string, unknown>,

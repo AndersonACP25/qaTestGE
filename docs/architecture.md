@@ -8,7 +8,7 @@ La Wiki del frontend documenta el flujo implementado. Las tablas de bugs, casos 
 
 ## Estado del documento
 
-Este documento combina la arquitectura objetivo de la v1.0 con el estado real del repositorio. El frontend usa React, Vite y TypeScript; existe una API Express MVC en TypeScript con repositorio PostgreSQL sobre qa_test_ge. Hay cuentas locales de una persona, sesiones persistidas, autorización de los proyectos de la cuenta, plantillas personales de bugs y CRUD de casos con adjuntos privados de imágenes/enlaces. Las imágenes de casos se guardan en PostgreSQL; la carga binaria general de evidencias está implementada y la integración con proveedores de IA sigue pendiente. GitHub Actions valida cambios y publica artefactos compilados al hacer push a main; el despliegue a un proveedor aún no está configurado.
+Este documento combina la arquitectura objetivo de la v1.0 con el estado real del repositorio. El frontend usa React, Vite y TypeScript; existe una API Express MVC en TypeScript con repositorio PostgreSQL sobre qa_test_ge. Hay cuentas locales de una persona, sesiones persistidas, autorización de los proyectos de la cuenta, plantillas personales de bugs y CRUD de casos con adjuntos privados de imágenes/enlaces. Las imágenes de casos se guardan en PostgreSQL; la carga binaria general de evidencias está implementada y Gemini está disponible como piloto opcional en la API de borradores de bugs. GitHub Actions valida cambios y publica artefactos compilados al hacer push a main; el despliegue a un proveedor aún no está configurado.
 
 ## Objetivos
 
@@ -22,7 +22,7 @@ Este documento combina la arquitectura objetivo de la v1.0 con el estado real de
 
 - Workspace pnpm con frontend en la raíz y API en `backend/`. `pnpm dev` (alias `pnpm dev:all`) ejecuta ambos scripts de desarrollo en paralelo; `pnpm dev:frontend` inicia solo Vite.
 - El backend organiza Bugs y Test Case en rutas, controladores, modelos y repositorios. Usuarios/autenticación sigue la misma separación mediante rutas HTTP, controlador de autenticación, modelo tipado y proveedor PostgreSQL.
-- El diseñador de casos usa ejemplos ilustrativos: `src/models/caseDesign.model.ts` mantiene el catálogo/validación, un hook controlador gestiona estado y exportación, y la vista permite guardar explícitamente cada ejemplo como caso del proyecto. No genera casos dinámicamente ni usa IA.
+- El diseñador de casos usa ejemplos ilustrativos: `src/models/caseDesign.model.ts` mantiene el catálogo/validación, un hook controlador gestiona estado y exportación, y la vista permite guardar explícitamente cada ejemplo como caso del proyecto. Gemini agrega una ruta opcional de generación con consentimiento.
 - La API requiere DATABASE_URL, usa un pool pg y comprueba el esquema qa al arrancar. No existe fallback en memoria ni importación automática del SQL.
 - Los endpoints permiten listar y crear bugs, casos de prueba, ejecuciones y metadatos de evidencias. Los bugs y casos se pueden editar; los casos se pueden eliminar si no tienen referencias a ejecuciones, y sus imágenes/enlaces se administran por separado. Los metadatos de evidencias permiten editarse y eliminarse.
 - Bugs y casos de prueba permiten actualizar su estado mediante endpoints PATCH, con los valores validados por modelo y las restricciones existentes de PostgreSQL. La configuración de vocabulario y transiciones de bugs se conserva por proyecto (migración 013).
@@ -92,7 +92,9 @@ Expone operaciones de producto limitadas y tipadas, por ejemplo:
 - Sugerir casos de prueba a partir de un requisito o bug seleccionado.
 - Resumir resultados de una ejecución y señalar patrones o cobertura potencialmente faltante.
 
-El servicio valida la entrada y la respuesta, registra el proveedor/modelo y el resultado de la operación sin guardar secretos, y devuelve propuestas que el usuario puede editar o descartar. No ejecuta consultas arbitrarias, no altera datos de dominio y no accede a archivos salvo que el usuario los seleccione expresamente y la política del proyecto lo permita.
+Para resumir una ejecución, la API verifica `runs.write`, calcula los estados registrados y pendientes y limita la muestra de hallazgos. Vuelve a comparar el contexto aprobado antes de llamar al proveedor. Los resultados de la ejecución se mantienen como fuente de las cifras mostradas junto al texto editable.
+
+En el piloto, el servicio valida la entrada y la respuesta, registra el estado y duración mediante el contexto HTTP y devuelve propuestas que el usuario puede editar o descartar. No ejecuta consultas arbitrarias, no altera datos de dominio y no accede a archivos salvo que el usuario los seleccione expresamente y la política del proyecto lo permita.
 
 ## Modelo de dominio
 
@@ -161,7 +163,7 @@ Correlacionar solicitudes y errores con identificadores de operación. Medir lat
 
 ### Autenticación local y tema
 
-Session comprueba /api/auth/me al cargar, usa /register y /login y revoca la sesión en /logout. Configuración permite cambiar nombre/correo, actualizar la contraseña con verificación de la contraseña actual, gestionar plantillas personales de bugs y desactivar/anonimizar la cuenta. Al desactivar, la operación verifica contraseña y confirmación, elimina plantillas, revoca sesiones y conserva recursos relacionados. Cambiar contraseña revoca las otras sesiones. La configuración de proveedor de IA es solo maqueta y no almacena claves. No mantiene tokens de autenticación en localStorage. El tema sigue siendo una preferencia local independiente de la autenticación.
+Session comprueba /api/auth/me al cargar, usa /register y /login y revoca la sesión en /logout. Configuración permite cambiar nombre/correo, actualizar la contraseña con verificación de la contraseña actual, gestionar plantillas personales de bugs y desactivar/anonimizar la cuenta. Al desactivar, la operación verifica contraseña y confirmación, elimina plantillas, revoca sesiones y conserva recursos relacionados. Cambiar contraseña revoca las otras sesiones. La migración 023 agrega credenciales Gemini cifradas por cuenta con AES-256-GCM y revisiones. La clave maestra se carga desde el servidor. La API comprueba el modelo con Google antes de persistir, devuelve solo estado y elimina la clave al desactivar la cuenta. No mantiene tokens de autenticación en localStorage. El tema sigue siendo una preferencia local independiente de la autenticación.
 
 La migración 022 persiste un documento de plantillas por cuenta y proyecto. Incluye plantillas de casos y los valores de tags/responsable para las plantillas personales de bugs existentes. La API comprueba acceso vigente y revisión antes de guardar, y solo la cuenta propietaria consulta su documento. Al aplicar una plantilla, los diseñadores omiten referencias que ya no están disponibles; la creación de registros vuelve a validarlas en PostgreSQL.
 
@@ -169,15 +171,13 @@ PostgresAuth deriva contraseñas con scrypt (N=131072, r=8, p=1) y sal aleatoria
 
 Cada registro crea usuario, organización, proyecto, membresía owner y sesión en una transacción. Nunca reclama organizaciones existentes. AuthorizedRepository consulta las membresías actuales y no lee/crea recursos de proyectos ajenos. Owner/member describe el equipo; los roles por proyecto y su administración HTTP se implementan con la migración 014. Las rutas de salud, contrato Swagger y autenticación son públicas; los datos del proyecto están protegidos.
 
-El frontend carga proyectos y recursos reales, muestra estados de carga/error, y permite crear y editar bugs, casos con pasos, ejecuciones con casos seleccionados y evidencias con archivos. Bugs y casos tienen una vista modal de detalle; los casos también se pueden eliminar si ninguna ejecución los referencia, y el formulario permite adjuntar imágenes o enlaces. Los metadatos de evidencias se pueden editar y eliminar; los archivos se pueden subir, reemplazar y descargar autenticadamente. Los contadores del resumen se calculan de los registros del proyecto. No se muestran gráficos con cifras ficticias. El diseñador de test cases continúa siendo una maqueta: el usuario puede guardar cada ejemplo de forma explícita, pero no se generan casos por IA ni hay guardado automático.
+El frontend carga proyectos y recursos reales, muestra estados de carga/error, y permite crear y editar bugs, casos con pasos, ejecuciones con casos seleccionados y evidencias con archivos. Bugs y casos tienen una vista modal de detalle; los casos también se pueden eliminar si ninguna ejecución los referencia, y el formulario permite adjuntar imágenes o enlaces. Los metadatos de evidencias se pueden editar y eliminar; los archivos se pueden subir, reemplazar y descargar autenticadamente. Los contadores del resumen se calculan de los registros del proyecto. No se muestran gráficos con cifras ficticias. El diseñador de test cases permite guardar cada ejemplo o propuesta revisada de forma explícita.
 
-### Maqueta del diseñador de test cases
+### Diseñador de test cases
 
-La navegación `case-builder` monta el componente `CaseBuilder`. El texto, la selección múltiple, las cantidades y la visibilidad de la tabla viven en estado React. El catálogo define categorías con pruebas ilustrativas; cada categoría seleccionada tiene una cantidad permitida conservada durante la interacción. Los valores inválidos impiden mostrar la tabla. La vista previa y las exportaciones comparten la selección y las cantidades; el texto introducido no se procesa. Al usar la acción explícita de guardado, el controlador crea un caso mediante la API, asociando categoría como Suite, descripción como precondición y los pasos editados. La vista previa no se guarda automáticamente; las propuestas no son generadas por IA.
+La navegación `case-builder` monta `CaseBuilder`. El catálogo, la selección y las cantidades permiten preparar ejemplos locales. Con Gemini conectado y permiso `cases.write`, el diálogo de consentimiento muestra la descripción, las categorías y las cantidades. `POST /api/ai/case-proposals` valida el alcance, comparte el límite de uso de propuestas de bugs y exige cantidades exactas por categoría. El servidor envía solo la descripción y las categorías solicitadas, sin identificadores de proyecto, requisito o bug ni evidencias. Al crear desde un origen, `POST /api/test-cases` vincula el caso en la misma transacción mediante las relaciones de cobertura existentes y avanza la revisión del requisito cuando corresponde.
 
-El flujo futuro podrá partir de una descripción, categorías y cantidades y solicitar propuestas mediante la interfaz opcional de proveedor en el servidor. Cualquier propuesta requerirá revisión y confirmación antes de crear casos con identificadores y referencias de proyecto explícitos. La integración de IA sigue sin implementarse.
-
-## Documentación complementaria
+Cada lote generado usa identificadores locales nuevos para separar ediciones, evidencias e idempotencia de los ejemplos y de lotes anteriores. Limpiar ventana requiere confirmación, retira la vista previa y el origen, y restaura las preferencias iniciales del diseñador. La vista permite editar títulos y pasos, exportar la vista previa y guardar explícitamente cada caso o todos los pendientes como Borrador. El guardado en lote valida la vista previa, crea en secuencia, se detiene ante el primer error y conserva los resultados confirmados. Los reintentos en la misma vista mantienen la clave y el contenido si el resultado de una creación es incierto. Al cambiar de proyecto, el diseñador cancela la espera y descarta las respuestas tardías.
 
 ### Ejecuciones manuales y QA en 1.1.0
 
@@ -193,7 +193,7 @@ Playwright ejecuta regresiones sobre Vite aislado y una API simulada por prueba,
 
 El portal enlaza `/api/docs/`. En un despliegue separado se requiere reenviar `/api` al backend.
 
-`src/utils/exportCases.ts` genera Excel `.xlsx` con ExcelJS y PDF con jsPDF y AutoTable, mediante importaciones dinámicas al exportar. El diseñador exporta la vista previa seleccionada y su descripción, con aviso de contenido ilustrativo. No envía información fuera del navegador ni crea entidades del dominio. El PDF ajusta texto y repite encabezados al paginar; Excel conserva las entradas como texto, sin convertirlas en fórmulas. No hay cambios de persistencia ni integración de IA.
+`src/utils/exportCases.ts` genera Excel `.xlsx` con ExcelJS y PDF con jsPDF y AutoTable, mediante importaciones dinámicas al exportar. El diseñador exporta la vista previa seleccionada y su descripción, con sus títulos y pasos editados. No envía información fuera del navegador ni crea entidades del dominio. El PDF ajusta texto y repite encabezados al paginar; Excel conserva las entradas como texto, sin convertirlas en fórmulas. La exportación ocurre localmente.
 
 Consultar [API.md](./API.md) para el contrato implementado, [DESIGN.md](./DESIGN.md) para la interfaz, [RULES.md](./RULES.md) para convenciones y [DEVELOPMENT.md](./DEVELOPMENT.md) para comandos y entorno. [CONTRIBUTING.md](../CONTRIBUTING.md) describe el flujo de contribución y [SECURITY.md](../SECURITY.md) los límites de seguridad actuales.
 
@@ -205,11 +205,11 @@ CaseDesignSettings permite editar y eliminar todos los tipos, incluidos los pred
 
 ### Diseñador local de bugs
 
-`BugDesignView` prepara título, descripción y prioridad a partir del texto y una plantilla personal cargada mediante el cliente central. Es una composición determinista, sin análisis semántico ni proveedor de IA. Reutiliza `TagPicker` con tags del proyecto. La creación exige revisión explícita mediante casilla o diálogo de confirmación; llama a `createBug` una vez y bloquea una segunda creación de la misma vista previa tras el éxito. Los errores conservan el contenido editable.
+`BugDesignView` prepara título, descripción y prioridad a partir del texto y una plantilla personal cargada mediante el cliente central. La preparación local es determinista. La acción opcional Proponer con Gemini usa la API después de mostrar el texto que se enviará. Reutiliza `TagPicker` con tags del proyecto. La creación exige revisión explícita mediante casilla o diálogo de confirmación; llama a `createBug` una vez y bloquea una segunda creación de la misma vista previa tras el éxito. Los errores conservan el contenido editable.
 
 `models/bugDesign.ts` mantiene borradores explícitos en localStorage bajo clave por usuario y proyecto; valida la forma del contenido al recuperarlo. No añade un estado Borrador al dominio ni una migración. Cada borrador conserva su propio ID y puede abrirse, actualizarse o eliminarse. Tras publicar se intenta retirar el borrador local; un fallo de limpieza se comunica sin volver a crear el bug. No hay sincronización entre navegadores, subida de archivos ni envío externo. El componente se monta con clave usuario/proyecto para aislar el estado. La preparación rechaza descripciones combinadas mayores a 5000 caracteres sin recortarlas silenciosamente.
 
-La [guía de integración de IA](AI_INTEGRATION.md) describe una implementación futura bajo `servicios/`, con endpoint autenticado, consentimiento, salida estructurada, cuotas y revisión humana. No hay proveedor real implementado.
+El [piloto Gemini](AI_INTEGRATION.md) implementa `POST /api/ai/bug-proposals` con sesión, CSRF, permiso `bugs.write`, consentimiento, validación de salida y límites por proceso. El adaptador vive en `servicios/ia/` y se incluye en el artefacto del backend. Diseñar bugs muestra el texto aprobado y envía solo ese contenido. La propuesta se carga en el editor del mismo usuario y proyecto. La creación del bug conserva la confirmación explícita existente.
 
 ### Exportación de listados y maqueta de perfil
 
@@ -301,7 +301,7 @@ Las unitarias se concentran en CORE: dominio QA, acceso/autenticación, contrato
 
 `RichTextarea` comparte la barra de formato y vista previa en todos los campos largos, conservando los formularios controlados y los basados en FormData. Se guarda texto Markdown en las mismas columnas y se mantienen los límites de longitud. `FormattedText` permite negrita, cursiva, tachado, código, listas y citas; no interpreta HTML, URLs ni imágenes. Las exportaciones conservan el texto fuente.
 
-El listado se conserva montado durante su recarga para que Importar, situado junto a Exportar tabla, mantenga las claves idempotentes y el progreso parcial. La exportación individual de runs utiliza el informe autenticado existente, con diálogo específico. La eliminación usa un diálogo compacto sin montar resultados o conversación; las relaciones siguen protegiéndose en servidor. Los proveedores visibles en Configuración son un catálogo de futuras integraciones, sin nuevas dependencias ni llamadas externas.
+El listado se conserva montado durante su recarga para que Importar, situado junto a Exportar tabla, mantenga las claves idempotentes y el progreso parcial. La exportación individual de runs utiliza el informe autenticado existente, con diálogo específico. La eliminación usa un diálogo compacto sin montar resultados o conversación; las relaciones siguen protegiéndose en servidor. La configuración de Gemini usa el cliente central y valida el acceso al modelo antes de guardar una clave personal.
 
 ## Interacción de registros y notificaciones
 
@@ -321,7 +321,7 @@ La migración 017 añade project_audit_settings y project_user_requests, sus con
 
 POST /project-users exige access.manage, UUID Idempotency-Key y nombre/correo/contraseña inicial/rol validados. Crea una cuenta global, membresía de equipo sin administración y rol exclusivamente en el proyecto elegido dentro de una sola transacción. Un correo ya existente devuelve 409 sin tomar control de esa cuenta. El bloqueo por proyecto serializa las altas/reintentos y la comprobación de contraseña con scrypt evita guardar una huella rápida de la contraseña. El historial solo registra nombre/rol, nunca correo, contraseña ni hash. El administrador comunica las credenciales iniciales por su propio canal; no se envían correos y no hay flujo de restablecimiento. QA, Dev y Solo lectura no pueden crear cuentas ni cambiar configuración.
 
-WorkItemLayout compone identidad con acento por tipo, navegación a las secciones existentes y propiedades laterales adaptables para bugs, casos, ejecuciones y evidencias. No cambia contratos de los recursos. Los formularios amplían el espacio en escritorio, conservando el editor de pasos adaptable y el scroll de ejecución. Test Plan separa edición y catálogo con tarjetas y mantiene selección, revisiones, roles e idempotencia existentes.
+WorkItemLayout compone identidad con acento por tipo, navegación a las secciones existentes y propiedades laterales adaptables para bugs, casos, ejecuciones y evidencias. No cambia contratos de los recursos. Los formularios amplían el espacio en escritorio, conservando el editor de pasos adaptable y el scroll de ejecución. Test Plan presenta un catálogo en filas de ancho completo con búsqueda, preparación y acciones. El editor aparece debajo y recibe el foco al seleccionar un plan para editar. La selección, las revisiones, los roles y la idempotencia siguen vigentes.
 
 FileDropzone permite selección y arrastre en alta/reemplazo de evidencia y resultados de Test Run, además de importación/carga del bug. El mismo objeto File se conserva en FormData tras un drop; se mantienen 2 MiB y autorización por proyecto. La lectura masiva comparte estado con la campana, bloquea acciones simultáneas y descarta respuestas de otro alcance. Abrir un registro sigue sin marcarlo leído.
 
@@ -335,7 +335,7 @@ WorkItemEditor reagrupa campos existentes en cabecera editable (título/responsa
 
 DesignEvidencePanel prepara el File en memoria y exige guardar el bug/caso antes de anexarlo con la API privada existente. No persiste binarios en borradores locales ni los envía a IA; la carga es explícita, con feedback y advertencia para consultar Evidencias antes de repetir un fallo incierto. El usuario puede anexar más archivos secuencialmente. Las instancias se delimitan por diseño/proyecto y descartan respuestas tardías. No se introduce una carga automática ni un proveedor nuevo.
 
-Actividad y auditoría presenta tabla paginada con cursor descendente y páginas anteriores en memoria. Cambiar filtros/configuración o actualizar inicia de nuevo en la primera página. Exportar genera Excel/PDF/Markdown solo de la página visible y su búsqueda local, con los mismos límites y generadores existentes; el modo Resumen omite antes/después. No se cambia la auditoría inmutable ni se confunde el total de páginas cargadas con el total del historial.
+Actividad y auditoría presenta tabla paginada con cursor descendente y páginas anteriores en memoria. Cambiar filtros/configuración o actualizar inicia de nuevo en la primera página. Exportar permite elegir la página visible o recorrer el historial que coincide con los filtros y la búsqueda local. Exportar todo filtrado admite hasta 10,000 eventos consultados y 8 MiB de contenido. El modo Resumen omite antes/después. No se cambia la auditoría inmutable ni se confunde el total de páginas cargadas con el total del historial.
 
 ## Filtros y navegación de cobertura
 

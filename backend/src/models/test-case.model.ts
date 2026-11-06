@@ -22,7 +22,9 @@ export interface TestStep {
   action: string;
   expectedResult: string;
 }
+export type CaseSource = { kind: "requirement" | "bug"; id: string };
 export type CreateTestCaseInput = Pick<TestCase, "title" | "projectId"> & {
+  source?: CaseSource;
   suite?: string;
   testType?: string;
   lifecycle?: "Borrador" | "Listo" | "Obsoleto";
@@ -32,7 +34,7 @@ export type CreateTestCaseInput = Pick<TestCase, "title" | "projectId"> & {
   steps?: TestStep[];
   tagIds?: string[];
 };
-export type UpdateTestCaseInput = Omit<CreateTestCaseInput, "projectId">;
+export type UpdateTestCaseInput = Omit<CreateTestCaseInput, "projectId" | "source">;
 
 export interface TestCaseAttachment {
   id: string;

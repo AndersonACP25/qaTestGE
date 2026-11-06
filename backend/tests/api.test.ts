@@ -792,3 +792,283 @@ describe("qaTestGE API with an injected repository (no database)", () => {
     expect(repo.createBug).not.toHaveBeenCalled();
   });
 });
+
+describe("Propuestas de bugs con IA", () => {
+  const endpoint = "/api/ai/bug-proposals";
+  const input = { projectId: "1", description: "El botón Guardar queda inactivo", consent: true };
+  const proposal = { title: "Guardar inactivo", description: input.description, priority: "Media" };
+  const authWithRole = (role: "QA" | "Solo lectura") => ({
+    ...testAuth,
+    projects: async () => (await testAuth.projects("1")).map((project) => ({ ...project, role })),
+  });
+  const session = (api: ReturnType<typeof createApp>) =>
+    request.agent(api).set("Cookie", `qa_session=${testToken}`).set("X-CSRF-Token", testCsrf);
+
+  it("protege el envío a Google mediante sesión, CSRF, alcance, permiso y consentimiento", async () => {
+    const propose = vi.fn(async () => ({ ok: true as const, proposal }));
+    const api = createApp(repo, authWithRole("QA"), { propose });
+    expect((await request(api).post(endpoint).send(input)).status).toBe(401);
+    expect(
+      (await request(api).post(endpoint).set("Cookie", `qa_session=${testToken}`).send(input))
+        .status,
+    ).toBe(403);
+    expect(
+      (
+        await session(api)
+          .post(endpoint)
+          .send({ ...input, projectId: "2" })
+      ).status,
+    ).toBe(404);
+    expect(
+      (
+        await session(createApp(repo, authWithRole("Solo lectura"), { propose }))
+          .post(endpoint)
+          .send(input)
+      ).status,
+    ).toBe(403);
+    expect(
+      (
+        await session(api)
+          .post(endpoint)
+          .send({ ...input, consent: false })
+      ).status,
+    ).toBe(400);
+    expect(
+      (
+        await session(api)
+          .post(endpoint)
+          .send({ ...input, evidence: "archivo" })
+      ).status,
+    ).toBe(400);
+    expect(propose).not.toHaveBeenCalled();
+  });
+
+  it("envía solo los campos aprobados, valida la propuesta y conserva la creación manual", async () => {
+    const propose = vi
+      .fn(async () => ({ ok: true as const, proposal }))
+      .mockResolvedValueOnce({ ok: true, proposal: { ...proposal, priority: "Inventada" } });
+    const api = createApp(repo, authWithRole("QA"), { propose });
+    expect((await session(api).post(endpoint).send(input)).status).toBe(502);
+    const response = await session(api)
+      .post(endpoint)
+      .send({ ...input, templateText: "  Pasos  " });
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ data: proposal });
+    expect(propose).toHaveBeenLastCalledWith({
+      description: input.description,
+      templateText: "Pasos",
+    });
+    expect(repo.createBug).not.toHaveBeenCalled();
+  });
+
+  it("limita solicitudes por cuenta y mantiene el endpoint opcional", async () => {
+    const propose = vi.fn(async () => ({ ok: false as const, reason: "quota" as const }));
+    const api = createApp(repo, authWithRole("QA"), { propose });
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const response = await session(api).post(endpoint).send(input);
+      expect(response.status).toBe(429);
+      expect(response.body.error.code).toBe("AI_PROVIDER_QUOTA");
+    }
+    const limited = await session(api).post(endpoint).send(input);
+    expect(limited.body.error.code).toBe("AI_RATE_LIMIT");
+    expect(limited.headers["retry-after"]).toBeDefined();
+    expect(propose).toHaveBeenCalledTimes(3);
+    const disabled = await session(createApp(repo, authWithRole("QA")))
+      .post(endpoint)
+      .send(input);
+    expect(disabled.status).toBe(503);
+    expect(disabled.body.error.code).toBe("AI_DISABLED");
+  });
+});
+
+it("configura la clave personal mediante sesión y CSRF sin devolverla ni guardar una rechazada", async () => {
+  const endpoint = "/api/ai/settings";
+  const apiKey = "fake-gemini-key-for-testing";
+  const revision = "d8462c84-2c14-4226-8a37-aadbb7c746d1";
+  const credentials = {
+    revision: vi.fn(async () => revision),
+    key: vi.fn(async () => apiKey),
+    save: vi.fn(async () => revision),
+    remove: vi.fn(async () => {}),
+  };
+  const fetchRequest = vi
+    .fn<typeof fetch>()
+    .mockResolvedValueOnce(Response.json({ error: { message: apiKey } }, { status: 403 }))
+    .mockResolvedValueOnce(Response.json({ supportedGenerationMethods: ["generateContent"] }));
+  const app = createApp(
+    repo,
+    testAuth,
+    { propose: vi.fn() },
+    {
+      model: "gemini-3.1-flash-lite",
+      credentials,
+      fetchRequest,
+    },
+  );
+  const session = () =>
+    request.agent(app).set("Cookie", `qa_session=${testToken}`).set("X-CSRF-Token", testCsrf);
+  const input = { apiKey, revision: null };
+  expect((await request(app).put(endpoint).send(input)).status).toBe(401);
+  expect(
+    (await request(app).put(endpoint).set("Cookie", `qa_session=${testToken}`).send(input)).status,
+  ).toBe(403);
+  expect(
+    (
+      await session()
+        .put(endpoint)
+        .send({ ...input, userId: "2" })
+    ).status,
+  ).toBe(400);
+  expect(fetchRequest).not.toHaveBeenCalled();
+  const rejected = await session().put(endpoint).send(input);
+  expect(rejected.status).toBe(422);
+  expect(rejected.text).not.toContain(apiKey);
+  expect(credentials.save).not.toHaveBeenCalled();
+  const saved = await session().put(endpoint).send(input);
+  expect(saved.status).toBe(200);
+  expect(saved.body.data).toEqual({ visualAvailable: true, revision, source: "account" });
+  expect(credentials.save).toHaveBeenCalledWith("1", apiKey, null);
+  expect((await session().get(endpoint)).text).not.toContain(apiKey);
+  const removed = await session().delete(endpoint).send({ revision });
+  expect(removed.body.data.source).toBe("environment");
+  expect(credentials.remove).toHaveBeenCalledWith("1", revision);
+});
+
+it("autoriza y valida propuestas de casos por proyecto y cantidad, sin crear registros", async () => {
+  const endpoint = "/api/ai/case-proposals";
+  const categories = [{ label: "Funcional", count: 1 }];
+  const input = { projectId: "1", consent: true, description: "Requisito de acceso", categories };
+  const testCase = {
+    title: "Acceso válido",
+    categoryIndex: 0,
+    steps: [{ action: "Ingresar con datos válidos", expected: "Abre la sesión" }],
+  };
+  const proposeCases = vi
+    .fn(async () => ({ ok: true as const, proposal: [testCase] }))
+    .mockResolvedValueOnce({ ok: true, proposal: [{ ...testCase, categoryIndex: 1 }] });
+  const signed = (role: "QA" | "Dev") =>
+    request
+      .agent(
+        createApp(
+          repo,
+          {
+            ...testAuth,
+            projects: async () =>
+              (await testAuth.projects("1")).map((project) => ({ ...project, role })),
+          },
+          { propose: vi.fn(), proposeCases },
+        ),
+      )
+      .set("Cookie", `qa_session=${testToken}`)
+      .set("X-CSRF-Token", testCsrf);
+  const qa = signed("QA");
+  expect((await signed("Dev").post(endpoint).send(input)).status).toBe(403);
+  expect((await qa.post(endpoint).send({ ...input, consent: false })).status).toBe(400);
+  expect(
+    (
+      await qa.post(endpoint).send({
+        ...input,
+        categories: [
+          { label: "A", count: 5 },
+          { label: "B", count: 4 },
+        ],
+      })
+    ).status,
+  ).toBe(400);
+  expect(proposeCases).not.toHaveBeenCalled();
+  expect((await qa.post(endpoint).send(input)).status).toBe(502);
+  const result = await qa.post(endpoint).send(input);
+  expect(result.status).toBe(200);
+  expect(result.body.data).toEqual([testCase]);
+  expect(proposeCases).toHaveBeenLastCalledWith({ description: input.description, categories });
+  expect(repo.createCase).not.toHaveBeenCalled();
+});
+
+it("calcula el contexto de una ejecución y solo comparte el contenido autorizado", async () => {
+  const summarizeRun = vi.fn(async () => ({
+    ok: true as const,
+    proposal: { summary: "Revisar el fallo de acceso." },
+  }));
+  const findRun = vi.fn<Repository["findRun"]>().mockResolvedValue({
+    id: "RUN-001",
+    projectId: "1",
+    caseIds: ["TC-001", "TC-002"],
+    title: "Prueba privada",
+    caseCount: 2,
+    progress: 50,
+    status: "En curso",
+    owner: "QA",
+    createdAt: "2026-01-01Z",
+    tagIds: [],
+    results: [
+      {
+        id: "RES-001",
+        caseId: "TC-001",
+        title: "Acceso",
+        status: "failed",
+        notes: "Dato privado",
+        executedAt: "2026-01-01Z",
+        steps: [],
+      },
+      {
+        id: "RES-002",
+        caseId: "TC-002",
+        title: "Pendiente",
+        status: "skipped",
+        notes: "",
+        executedAt: null,
+        steps: [],
+      },
+    ],
+  });
+  const auth = {
+    ...testAuth,
+    projects: async () =>
+      (await testAuth.projects("1")).map((p) => ({ ...p, role: "QA" as const })),
+  };
+  const agent = request
+    .agent(createApp({ ...repo, findRun }, auth, { propose: vi.fn(), summarizeRun }))
+    .set("Cookie", `qa_session=${testToken}`)
+    .set("X-CSRF-Token", testCsrf);
+  const preview = await agent.get("/api/ai/run-summary?projectId=1&runId=RUN-001");
+  expect(preview.status).toBe(200);
+  const context = {
+    counts: { passed: 0, failed: 1, blocked: 0, skipped: 0, pending: 1 },
+    findings: [{ caseId: "TC-001", title: "Acceso", status: "failed" }],
+  };
+  expect(preview.body.data).toEqual(context);
+  expect(findRun).toHaveBeenCalledWith("1", "1");
+  const input = { runId: "RUN-001", projectId: "1", consent: true, context };
+  expect((await agent.post("/api/ai/run-summary").send({ ...input, projectId: "2" })).status).toBe(
+    404,
+  );
+  expect((await agent.post("/api/ai/run-summary").send({ ...input, consent: false })).status).toBe(
+    400,
+  );
+  expect(
+    (
+      await agent
+        .post("/api/ai/run-summary")
+        .send({ ...input, context: { ...context, findings: [] } })
+    ).status,
+  ).toBe(409);
+  expect(summarizeRun).not.toHaveBeenCalled();
+  const generated = await agent.post("/api/ai/run-summary").send(input);
+  expect(generated.status).toBe(200);
+  expect(summarizeRun).toHaveBeenCalledWith(context);
+  expect(generated.body.data.summary).toBe("Revisar el fallo de acceso.");
+});
+
+it("rechaza identificadores cruzados o el cambio de origen de un caso existente", async () => {
+  const input = { projectId: "1", title: "Caso vinculado", source: { kind: "bug", id: "REQ-001" } };
+  expect((await signed().post("/api/test-cases").send(input)).status).toBe(400);
+  expect(
+    (
+      await signed()
+        .patch("/api/test-cases/TC-001")
+        .send({ ...input, source: { kind: "bug", id: "BUG-001" } })
+    ).status,
+  ).toBe(400);
+  expect(repo.createCase).not.toHaveBeenCalled();
+  expect(repo.updateCase).not.toHaveBeenCalled();
+});

@@ -34,6 +34,36 @@ a.button {
   border-color: var(--purple);
   color: var(--color-303346);
 }
+/* AI actions use a shared blue accent across designers, dialogs and settings. */
+.button.button--ai {
+  color: #fff;
+  background: #08658b;
+  border: 1px solid #08658b;
+}
+.button.button--ai:enabled:hover {
+  color: #fff;
+  background: #074b69;
+  border-color: #074b69;
+}
+.button.button--ai:focus-visible {
+  outline-color: #08759e;
+}
+.button.button--ai:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+:root[data-theme="dark"] .button.button--ai {
+  color: #e0f6ff;
+  background: #174961;
+  border-color: #4ca8cc;
+}
+:root[data-theme="dark"] .button.button--ai:enabled:hover {
+  background: #1b5873;
+  border-color: #7bd1f0;
+}
+:root[data-theme="dark"] .button.button--ai:focus-visible {
+  outline-color: #7bd1f0;
+}
 .import-panel__trigger {
   display: inline-flex;
   align-items: center;

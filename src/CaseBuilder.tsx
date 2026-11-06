@@ -1,11 +1,20 @@
+import type { TestCase } from "./types";
 import { useState } from "react";
 import type { CaseTemplate } from "../backend/src/models/design-templates.model";
 import type { CaseCategory } from "./models/caseDesign.model";
-import { useCaseDesignController } from "./controllers/useCaseDesignController";
+import {
+  useCaseDesignController,
+  type CaseDesignOrigin,
+} from "./controllers/useCaseDesignController";
 import CaseDesignView from "./views/CaseDesignView";
 import type { CaseCountDefaults } from "./models/caseCountDefaults";
 
 export default function CaseBuilder({
+  canProposeWithGemini = false,
+  canSave = false,
+  origin,
+  onSaved,
+  onCleared,
   catalog,
   defaultCounts,
   projectId,
@@ -13,6 +22,11 @@ export default function CaseBuilder({
   templates = [],
   onOpenTemplate,
 }: {
+  canProposeWithGemini?: boolean;
+  canSave?: boolean;
+  origin?: CaseDesignOrigin;
+  onCleared?: () => void;
+  onSaved?: (testCase: TestCase) => void;
   catalog?: CaseCategory[];
   defaultCounts?: CaseCountDefaults;
   projectId?: string;
@@ -25,6 +39,8 @@ export default function CaseBuilder({
     projectId,
     defaultSelectedCategories,
     catalog,
+    origin,
+    onSaved,
   );
   const [templateId, setTemplateId] = useState("");
   const selected = templates.find(({ id }) => id === templateId);
@@ -62,7 +78,16 @@ export default function CaseBuilder({
           </div>
         </div>
       )}
-      <CaseDesignView {...controller} />
+      <CaseDesignView
+        {...controller}
+        canProposeWithGemini={canProposeWithGemini}
+        canSave={canSave}
+        onClear={() => {
+          controller.clearDesign();
+          setTemplateId("");
+          onCleared?.();
+        }}
+      />
     </div>
   );
 }

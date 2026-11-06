@@ -222,3 +222,15 @@ Todos los endpoints siguientes requieren sesión y `projectId` en query; las esc
 | PATCH  | `/mention-notifications/{notificationId}` | JSON `{}`; marca un aviso propio leído de forma idempotente. 204.                                                                                                             |
 
 La matriz de permisos está en la guía de uso. Owner/member continúa describiendo el equipo; los permisos de trabajo se asignan por proyecto. No existe API para alterar auditoría ni enviar notificaciones externas. El borrado de comentarios conserva su contenido anterior en el historial autorizado del proyecto.
+
+## Propuestas de bugs con IA
+
+`POST /api/ai/bug-proposals` requiere sesión, `X-CSRF-Token`, acceso al proyecto y permiso `bugs.write`. Envía `projectId`, `consent: true`, `description` (1–3500 caracteres) y, opcionalmente, `templateText` (1–1500 caracteres). Devuelve `{ data: { title, description, priority } }` sin crear registros. Consulta [cómo habilitar y probar el piloto](AI_INTEGRATION.md).
+
+`GET /api/ai/settings` devuelve el origen activo, si se permite la conexión visual y la revisión de la clave personal. `PUT` comprueba y guarda `{ apiKey, revision }`, donde `revision` es `null` para la primera conexión. `DELETE` elimina la clave personal con `{ revision }`. Ambas escrituras requieren sesión y CSRF. La cuenta se toma de la sesión y la clave jamás aparece en respuestas.
+
+`POST /api/ai/case-proposals` requiere sesión, CSRF, consentimiento y permiso `cases.write`. Recibe `{ projectId, consent: true, description, categories: [{ label, count }] }` con hasta ocho casos en total. Devuelve `{ data: [{ categoryIndex, title, steps: [{ action, expected }] }] }`. El índice empieza en cero y las cantidades por categoría deben coincidir con la solicitud. Comparte el límite por cuenta con las propuestas de bugs.
+
+`GET /api/ai/run-summary?projectId=…&runId=RUN-…` calcula totales y devuelve una muestra de fallos y bloqueos. `POST /api/ai/run-summary` recibe `{ projectId, runId, context, consent: true }`, comprueba que el contexto siga vigente y devuelve `{ data: { summary } }`. Ambos requieren `runs.write`. Un cambio en el contexto devuelve `409 AI_RUN_CHANGED`.
+
+`POST /api/test-cases` admite `source: { kind: "requirement", id: "REQ-…" }` o `source: { kind: "bug", id: "BUG-…" }`. El vínculo y el caso se crean juntos dentro del mismo proyecto. El origen forma parte de la huella de idempotencia.

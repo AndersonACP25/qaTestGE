@@ -1,5 +1,18 @@
 # Changelog
 
+## Sin publicar
+
+- Añadir una variante azul compartida para las acciones de Gemini.
+- Permitir limpiar los diseñadores con confirmación y conservar lo guardado.
+- Presentar Test Plans en filas con preparación, detalles y acceso al editor.
+
+## 2026-11-05 · Flujos de Gemini y trazabilidad
+
+- Conectar Gemini por cuenta o mediante configuración del servidor.
+- Proponer bugs y casos tras revisar y aprobar el contenido a enviar.
+- Guardar en lote los casos pendientes y vincular los casos creados desde requisitos o bugs.
+- Resumir Test Runs con cifras del servidor, consentimiento y texto editable.
+
 ## 2026-11-02 · Filtros, cobertura y confirmaciones
 
 - Colocar Ver todas las menciones arriba en notificaciones y sustituir la flecha de proyecto por un icono SVG.

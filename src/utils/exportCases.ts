@@ -12,10 +12,12 @@ export interface ExportCategory {
 export interface DesignedExportCase {
   readonly categoryLabel: string;
   readonly caseNumber: number;
+  readonly title?: string;
   readonly steps: readonly ExportStep[];
 }
 
-const notice = "Ejemplos fijos ilustrativos. IA no conectada. No son casos guardados del proyecto.";
+const notice =
+  "Ejemplos fijos ilustrativos. Sin generación por IA. No son casos guardados del proyecto.";
 export const exportHeaders = ["Categoría", "Paso", "Acción", "Resultado esperado"];
 const designedHeaders = ["Categoría", "Caso", "Paso", "Acción", "Resultado esperado"];
 
@@ -38,7 +40,7 @@ export function designedCaseExportRows(cases: readonly DesignedExportCase[]) {
   return cases.flatMap((testCase) =>
     testCase.steps.map((step, index) => [
       testCase.categoryLabel,
-      testCase.caseNumber,
+      testCase.title ?? testCase.caseNumber,
       index + 1,
       step.action,
       stepExpected(step),
@@ -250,11 +252,13 @@ export function createDesignedMarkdownExport(
   return (
     [
       "# qaTestGE · Diseño de casos de prueba",
-      "Vista previa editable e ilustrativa. IA no conectada. No son casos guardados en el proyecto.",
+      cases.some(({ title }) => title !== undefined)
+        ? "Propuestas de Gemini. Revisa los casos antes de usarlos."
+        : "Vista previa editable e ilustrativa. Sin generación por IA. No son casos guardados en el proyecto.",
       "## Descripción",
       markdownText(description),
       ...cases.flatMap((testCase) => [
-        `## ${markdownText(testCase.categoryLabel)} · Caso ${testCase.caseNumber}`,
+        `## ${markdownText(testCase.categoryLabel)} · ${markdownText(testCase.title ?? `Caso ${testCase.caseNumber}`)}`,
         [
           "| Paso | Acción | Resultado esperado |",
           "| --- | --- | --- |",

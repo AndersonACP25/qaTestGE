@@ -43,6 +43,15 @@ test("Diseñar bugs conserva borradores y solo crea tras revisión", async ({
   await page.getByRole("button", { name: "Guardar borrador", exact: true }).click();
   await expect(page.getByRole("button", { name: "Abrir borrador", exact: true })).toBeVisible();
   expect(workspace.writes.filter((item) => item.path === "/bugs")).toHaveLength(0);
+  await page.getByRole("button", { name: "Limpiar ventana", exact: true }).click();
+  const cleanup = page.getByRole("dialog", { name: "Limpiar ventana", exact: true });
+  await cleanup.getByRole("button", { name: "Cancelar", exact: true }).click();
+  await expect(page.getByLabel("Título del bug")).toHaveValue("Error de acceso revisado");
+  await page.getByRole("button", { name: "Limpiar ventana", exact: true }).click();
+  await cleanup.getByRole("button", { name: "Confirmar limpieza", exact: true }).click();
+  await expect(page.getByLabel("Problema observado")).toHaveValue("");
+  await expect(page.getByLabel("Título del bug")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Abrir borrador", exact: true })).toBeVisible();
   await page.reload();
   await navigate(page, "Diseñar bugs");
   await page.getByRole("button", { name: "Abrir borrador", exact: true }).click();

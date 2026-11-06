@@ -1,3 +1,4 @@
+import type { CaseDesignOrigin } from "../controllers/useCaseDesignController";
 import ResourceSearch from "../components/CoverageResourceSearch";
 import RichTextarea from "../components/RichTextarea";
 import { useEffect, useRef, useState } from "react";
@@ -9,9 +10,11 @@ import { formatCount } from "../utils/pluralization";
 export default function CoverageView({
   projectId,
   refreshRevision = 0,
+  onDesignCases,
 }: {
   projectId: string;
   refreshRevision?: number;
+  onDesignCases?: (origin: CaseDesignOrigin) => void;
 }) {
   const canWrite = usePermissions().can("cases.write");
   const [offset, setOffset] = useState(0),
@@ -230,6 +233,23 @@ export default function CoverageView({
               </strong>
               {canWrite && (
                 <div className="quality__actions">
+                  {onDesignCases && (
+                    <button
+                      type="button"
+                      className="button button--ai"
+                      disabled={busy}
+                      onClick={() =>
+                        onDesignCases({
+                          kind: "requirement",
+                          id: r.id,
+                          title: r.title,
+                          description: r.description,
+                        })
+                      }
+                    >
+                      Diseñar casos con Gemini
+                    </button>
+                  )}
                   <button
                     className="workspace__secondary"
                     disabled={busy}

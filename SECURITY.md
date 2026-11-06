@@ -2,9 +2,9 @@
 
 ## Capacidades actuales
 
-El backend usa PostgreSQL y autenticación local con usuarios y sesiones persistidas. Registro crea un workspace/proyecto propio. La API exige membresía en la organización del proyecto tanto para lectura como para creación; las claves foráneas verifican además integridad de las relaciones. No hay carga binaria de evidencias ni integración con IA.
+El backend usa PostgreSQL y autenticación local con usuarios y sesiones persistidas. Registro crea un workspace/proyecto propio. La API exige membresía en la organización del proyecto tanto para lectura como para creación; las claves foráneas verifican además integridad de las relaciones. Los archivos de evidencia se autorizan por proyecto y tienen un límite de 2 MiB. Gemini se habilita de forma opcional.
 
-Las organizaciones previamente importadas no se asignan al primer usuario registrado. Un administrador debe conceder explícitamente las membresías desde SQL; no existe endpoint de autoasignación o cambio de roles. Owner y member pueden leer/crear en la organización; permisos más granulares e invitaciones quedan pendientes.
+Las organizaciones previamente importadas no se asignan al primer usuario registrado. El acceso se concede mediante invitaciones de equipo de un solo uso y roles por proyecto. El propietario conserva Admin; los Admin gestionan accesos del proyecto según los permisos vigentes. Solo lectura permite consultar recursos autorizados.
 
 ## Credenciales y sesiones
 
@@ -19,9 +19,9 @@ DATABASE_URL solo se carga en el servidor desde backend/.env; ese archivo está 
 
 ## Operación y límites
 
-Configurar HTTPS para producción y FRONTEND_ORIGIN/CORS_ORIGIN; API_ORIGIN permite indicar el origen directo del backend para SwaggerUI. No usar la configuración local como despliegue público sin revisar secretos, TLS, límites compartidos, respaldos, auditoría y retención. Las sesiones expiradas no autorizan acceso, pero su limpieza periódica aún debe programarse. La desactivación de cuenta exige contraseña y frase exacta, anonimiza nombre/correo/hash, revoca sesiones y elimina plantillas, pero conserva relaciones QA y membresías. La activación y recuperación usan enlaces de un solo uso con entrega opcional. Guarda el secreto del webhook únicamente en el servidor y excluye las URLs de los registros. Los cambios de contraseña desde un enlace revocan todas las sesiones de la cuenta.
+Configurar HTTPS para producción y FRONTEND_ORIGIN/CORS_ORIGIN; API_ORIGIN permite indicar el origen directo del backend para SwaggerUI. No usar la configuración local como despliegue público sin revisar secretos, TLS, límites compartidos, respaldos, auditoría y retención. Las sesiones expiradas no autorizan acceso, pero su limpieza periódica aún debe programarse. La desactivación de cuenta exige contraseña y frase exacta, anonimiza nombre/correo/hash, revoca sesiones y elimina plantillas y la credencial personal de Gemini, mientras conserva las relaciones QA y las membresías. La activación y recuperación usan enlaces de un solo uso con entrega opcional. Guarda el secreto del webhook únicamente en el servidor y excluye las URLs de los registros. Los cambios de contraseña desde un enlace revocan todas las sesiones de la cuenta.
 
-El diseñador sigue mostrando ejemplos fijos sin enviar texto a proveedores. La configuración de IA en Configuración es una maqueta deshabilitada: no acepta ni guarda claves, y no conecta proveedores. Una integración futura con IA deberá mostrar qué se enviará, limitarlo al contexto autorizado y exigir revisión humana para cambiar datos. No enviar evidencias por defecto.
+Gemini recibe únicamente el contenido aprobado en el diálogo de consentimiento. Los diseñadores mantienen la preparación local. Las claves personales se cifran con AES-256-GCM en PostgreSQL y se descifran en el servidor con la clave maestra. El respaldo del servidor puede configurarse con variables de entorno o en `backend/.env.ai.local`, ignorado por Git. Los resultados de IA se revisan antes de guardarlos o compartirlos. Evidencias y credenciales quedan fuera de los datos de generación. [Guía de Gemini](docs/AI_INTEGRATION.md).
 
 ## Reportar un problema
 

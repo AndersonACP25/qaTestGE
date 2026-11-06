@@ -28,7 +28,7 @@ En **Bugs**, **Casos de prueba** y **Test runs**, el botón verde **Exportar tab
 
 ## Diseña tus casos
 
-El **Diseñador de casos** ofrece ejemplos ilustrativos por tipo de prueba. Describe tu flujo, selecciona tipos y cantidades (de 1 a 5), y adapta los pasos y resultados de la vista previa. Puedes exportarla a Excel, PDF o Markdown, o guardar cada caso en el proyecto mediante una acción explícita.
+El **Diseñador de casos** ofrece ejemplos ilustrativos y propuestas con Gemini por tipo de prueba. Describe tu flujo, selecciona tipos y cantidades (de 1 a 5), y adapta los pasos y resultados de la vista previa. Puedes exportarla a Excel, PDF o Markdown, o guardar casos mediante una acción explícita. **Guardar todos** pide confirmación y crea los casos pendientes como borradores. Si se detiene, conserva los confirmados y puedes reintentar los pendientes desde la misma vista previa.
 
 En **Configuración → Diseño de casos** puedes añadir tipos personalizados y elegir los tipos y cantidades iniciales. Estas preferencias se guardan para tu usuario **en este navegador**; no se sincronizan entre dispositivos. Cada tipo nuevo incluye escenarios de partida que debes adaptar a tus pruebas.
 
@@ -60,7 +60,7 @@ Al desactivar tu cuenta se revocan tus sesiones y se anonimizan tus datos person
 
 ## Límites actuales
 
-La conexión con IA es una maqueta: no guarda claves ni envía información a proveedores. MFA y las invitaciones de equipo por correo siguen pendientes. Las ejecuciones registran pruebas manuales; no ejecutan pruebas automáticamente.
+En Configuración puedes conectar Gemini. qaTestGE cifra la clave de la cuenta y pide confirmación antes de enviar texto para generar propuestas. MFA y las invitaciones de equipo por correo siguen pendientes. Las ejecuciones registran pruebas manuales; no ejecutan pruebas automáticamente.
 
 ## Instalación y documentación técnica
 
@@ -121,7 +121,7 @@ En la barra de comentarios, **@ Mencionar** abre la búsqueda de integrantes e i
 
 En Importar, pulsa **Subir archivo** o arrastra un CSV/Excel al modal; revisa la vista previa antes de confirmar. En el detalle de un bug, **Subir evidencia** abre una ventana específica para seleccionar o arrastrar un archivo de hasta 2 MiB.
 
-**Test Plan** permite crear, buscar, consultar y editar planes con su descripción y casos. Puedes buscar casos dentro del formulario y consultar los incluidos en cada plan. **Iniciar Test Run** crea una ejecución vinculada; los planes ya utilizados siguen protegidos frente al borrado.
+**Test Plan** muestra primero el catálogo del proyecto. Busca por nombre, ID o descripción y revisa la preparación y los casos incluidos en cada fila. **Ir al editor** lleva al formulario; **Editar Test Plan** abre el plan seleccionado en ese mismo editor. **Iniciar Test Run** crea una ejecución vinculada; los planes ya utilizados siguen protegidos frente al borrado.
 
 Al ejecutar un Test Run, guardar un resultado conserva la posición del caso y muestra la confirmación junto a él. El historial de actividad se presenta sin numeración, del cambio más reciente al más antiguo.
 
@@ -135,9 +135,15 @@ En el panel, **Aplicar versión y entorno** delimita la comparación, la validac
 
 La validación de requisitos considera el último resultado evaluable de cada caso vigente. Un requisito queda aprobado si todos sus casos del alcance aprobaron. Los bugs críticos abiertos se identifican según la severidad, el flujo configurado y su vínculo a un caso o resultado de las ejecuciones del período. La lista muestra los diez más recientes y permite abrir el detalle.
 
-## Vistas guardadas y enlaces directos
+## Propuestas con Gemini
 
-En **Casos de prueba**, ajusta los filtros, abre **Vistas guardadas** y escribe un nombre. **Guardar filtros actuales** conserva la combinación. Usa **Aplicar vista** para recuperarla desde la primera página o **Eliminar vista** para retirarla. Puedes guardar hasta 20 vistas de casos por cuenta y proyecto en el navegador actual.
+En **Diseñar bugs**, describe el problema y elige **Proponer con Gemini** cuando la IA esté conectada. Revisa el texto que verá Google y confirma el envío. Edita la propuesta antes de crear el bug o guárdala como borrador local. En **Diseñar test cases**, selecciona las categorías y cantidades para generar propuestas editables. También puedes iniciar el diseño desde **Cobertura y requisitos** o el detalle de un bug. En un Test Run, **Resumir ejecución con Gemini** prepara un texto editable para compartir. Consulta la [guía de Gemini](AI_INTEGRATION.md) para configurar la conexión.
+
+## Limpiar la ventana de diseño
+
+En **Diseñar bugs** y **Diseñar test cases**, pulsa **Limpiar ventana** y confirma para empezar de nuevo. Se limpian el contenido, la plantilla seleccionada y la vista previa actual. En casos, se restauran los tipos y cantidades predeterminados y se retira el requisito o bug de origen. Los borradores de bugs guardados y los registros ya creados siguen disponibles.
+
+## Enlaces directos
 
 En el detalle de un registro, pulsa **Copiar enlace**. La persona que lo abra debe iniciar sesión y tener acceso al proyecto. Si el navegador bloquea el portapapeles, la aplicación muestra el enlace para copiarlo manualmente.
 

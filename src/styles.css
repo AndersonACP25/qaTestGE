@@ -673,6 +673,14 @@ textarea:focus-visible {
 .ai-pill svg {
   color: var(--color-d39d52);
 }
+.ai-pill--connected {
+  color: var(--color-202334);
+  border-color: var(--color-48bd8c);
+  background: var(--color-e8f8f1);
+}
+.ai-pill--connected svg {
+  color: currentColor;
+}
 
 .icon-button {
   display: inline-grid;
@@ -2958,6 +2966,10 @@ tbody td {
   font-weight: 600;
   cursor: pointer;
 }
+.case-builder__ai-submit {
+  width: 100%;
+  padding: 13px;
+}
 .case-builder__submit:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -3795,16 +3807,6 @@ tbody td {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-}
-.account-settings__mock {
-  display: grid;
-  gap: 4px;
-}
-.account-settings__mock .button:disabled,
-.account-settings__mock .workspace__field select:disabled,
-.account-settings__mock .workspace__field input:disabled {
-  opacity: 0.65;
-  cursor: not-allowed;
 }
 .account-settings__delete-button {
   padding: 10px 14px;

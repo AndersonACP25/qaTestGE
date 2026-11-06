@@ -1,3 +1,4 @@
+import RunSummaryDialog from "./RunSummaryDialog";
 import RecordLinkButton from "../components/RecordLinkButton";
 import RunReleaseFields from "../components/RunReleaseFields";
 import { formatCount } from "../utils/pluralization";
@@ -45,8 +46,10 @@ export default function TestRunDialog({
   evidence = [],
   onCreated,
   userId = "",
+  canSummarizeWithGemini = false,
 }: {
   run: TestRun;
+  canSummarizeWithGemini?: boolean;
   cases: TestCase[];
   onClose: () => void;
   onChanged: (run: TestRun) => void;
@@ -57,6 +60,7 @@ export default function TestRunDialog({
   onCreated?: (run: TestRun) => void;
   initialAction?: "view" | "edit" | "delete" | "execute" | "export";
 }) {
+  const [summaryOpen, setSummaryOpen] = useState(false);
   const permission = usePermissions();
   const [ownerUserId, setOwnerUserId] = useState(run.ownerUserId ?? "");
   const [members, setMembers] = useState<ProjectMember[]>([]);
@@ -135,6 +139,14 @@ export default function TestRunDialog({
     await exportRunReport(report, () => alive.current);
     if (alive.current) setMessage("Informe PDF preparado para descargar.");
   }
+  if (summaryOpen && canSummarizeWithGemini && run.projectId)
+    return (
+      <RunSummaryDialog
+        projectId={run.projectId}
+        runId={run.id}
+        onClose={() => setSummaryOpen(false)}
+      />
+    );
   if (confirmDelete)
     return (
       <Dialog
@@ -287,6 +299,16 @@ export default function TestRunDialog({
             >
               Exportar informe PDF
             </button>
+            {canSummarizeWithGemini && run.projectId && (
+              <button
+                type="button"
+                className="button button--ai"
+                disabled={busy}
+                onClick={() => setSummaryOpen(true)}
+              >
+                Resumir ejecución con Gemini
+              </button>
+            )}
             {[false, true].map((failedOnly) => (
               <button
                 type="button"

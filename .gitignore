@@ -20,6 +20,10 @@ coverage/
 .stylelintcache
 
 # Environment variables and local secrets
+backend/.env.ai.local
+.secrets/
+*.pem
+*.key
 .env
 .env.*
 !.env.example

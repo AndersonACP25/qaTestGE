@@ -2,7 +2,7 @@
 
 ## Alcance
 
-Frontend React/Vite conectado a la API: Dashboard, bugs, casos, ejecuciones, evidencias, tags y configuración individual. El diseñador ofrece ejemplos ilustrativos editables; no hay IA conectada. La navegación vive en estado React, sin rutas URL. `src/styles.css` define los tokens y ambos temas; este documento fija las reglas para extenderlos.
+Frontend React/Vite conectado a la API: Dashboard, bugs, casos, ejecuciones, evidencias, tags y configuración individual. El diseñador ofrece ejemplos ilustrativos y propuestas editables con Gemini. La navegación vive en estado React, sin rutas URL. `src/styles.css` define los tokens y ambos temas; este documento fija las reglas para extenderlos.
 
 ## Colores
 
@@ -67,7 +67,7 @@ El nombre/avatar del usuario es un botón accesible que abre Configuración y ci
 
 Dashboard muestra conteos reales del proyecto y no incluye Nuevo bug. Los bugs se crean desde su listado. El selector usa proyectos autorizados del servidor.
 
-El diseñador tiene 18 categorías con cantidades de 1 a 5 e iniciales configurables por usuario en el navegador. Exige descripción, categoría y cantidades válidas. Cada caso admite edición de pasos y guardado explícito mediante API. Exporta la vista previa editada a Excel, PDF y Markdown localmente. El requisito escrito no genera contenido: mantener los avisos de ejemplos ilustrativos e IA no conectada.
+El diseñador tiene 18 categorías con cantidades de 1 a 5 e iniciales configurables por usuario en el navegador. Exige descripción, categoría y cantidades válidas. Cada caso admite edición de pasos y guardado explícito mediante API. Exporta la vista previa editada a Excel, PDF y Markdown localmente. Gemini usa el requisito escrito y las categorías aprobadas para generar propuestas; la preparación local sigue ofreciendo ejemplos ilustrativos.
 
 Las evidencias permiten archivos privados de hasta 2 MiB; los casos admiten imágenes y enlaces. Hay invitaciones por código de un solo uso. La activación y recuperación de cuentas aparecen cuando el envío de enlaces está habilitado. MFA y las invitaciones de equipo por correo siguen pendientes. La configuración de IA sigue deshabilitada y no almacena claves.
 
@@ -98,3 +98,9 @@ Proyectos y Equipos están en pestañas de Configuración, junto a Flujo de bugs
 Accesos al proyecto también vive en Configuración y solo aparece para Admin. Se separan agregar, consultar, editar rol y retirar acceso; los formularios explican que gestionan integrantes activos del equipo y únicamente ese proyecto. El listado utiliza badges de rol, búsqueda local y tarjetas con acciones explícitas; los conflictos preservan el diálogo y muestran el error.
 
 Las tarjetas reservan 16–24 px entre encabezado, contenido y acciones, además del padding interior. Reutilizar `layout__stack` y evitar márgenes acumulados; los títulos/párrafos directos de paneles reinician márgenes dentro de su bloque. Las tarjetas ocultas con `hidden` deben conservarse ocultas. Dashboard muestra 0% sin resultados evaluables y 0 en su gráfico vacío; Reportes conserva sus estados de ausencia de datos e historia desconocida.
+
+## Acciones de IA y Test Plan
+
+Los botones de Gemini usan `button--ai` en `src/controls.css`, con contraste y foco en ambos temas. En el diseñador de casos, **Proponer con Gemini** ocupa el mismo ancho que **Mostrar tabla de ejemplo**. **Limpiar ventana** usa el estilo secundario y pide confirmación.
+
+Test Plan muestra el catálogo en filas con identidad, revisión, preparación y acciones. Los casos incluidos se expanden en cada fila. El editor queda debajo del catálogo y recibe el foco al pulsar **Editar Test Plan** o **Ir al editor**.

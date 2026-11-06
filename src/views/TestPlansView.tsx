@@ -1,3 +1,4 @@
+import { Icon } from "../components/RecordPrimitives";
 import RunReleaseFields from "../components/RunReleaseFields";
 import FormattedText from "../components/FormattedText";
 import RichTextarea from "../components/RichTextarea";
@@ -29,6 +30,7 @@ export default function TestPlansView({
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [revision, setRevision] = useState(0);
+  const editor = useRef<HTMLFormElement>(null);
   const planKey = useRef(crypto.randomUUID());
   const cycles = useRef(new Map<string, { key: string; body: string }>());
   const alive = useRef(true);
@@ -51,6 +53,20 @@ export default function TestPlansView({
       active = false;
     };
   }, [projectId, revision]);
+  function focusEditor() {
+    editor.current?.scrollIntoView({ block: "start" });
+    editor.current
+      ?.querySelector<HTMLInputElement>('input[name="name"]')
+      ?.focus({ preventScroll: true });
+  }
+  useEffect(() => {
+    if (editing) focusEditor();
+  }, [editing]);
+  const searchTerm = search.trim().toLocaleLowerCase("es");
+  const visiblePlans = plans.filter(({ id, name, description }) =>
+    `${name} ${id} ${description}`.toLocaleLowerCase("es").includes(searchTerm),
+  );
+  const casesById = new Map(cases.map((item) => [item.id, item]));
   async function act(operation: () => Promise<void>) {
     if (busy) return;
     setBusy(true);
@@ -92,7 +108,173 @@ export default function TestPlansView({
       {error && <Alert tone="error">{error}</Alert>}
       {message && <Alert tone="success">{message}</Alert>}
       <div className="test-plan__workspace">
+        <section
+          className="test-plan__catalog layout__stack"
+          aria-labelledby="test-plan-catalog-title"
+        >
+          <div className="test-plan__catalog-header">
+            <div>
+              <h2 className="typography__section" id="test-plan-catalog-title">
+                Test Plans del proyecto
+              </h2>
+              <p>{formatCount(visiblePlans.length, "plan visible", "planes visibles")}</p>
+            </div>
+            {!readOnly && (
+              <button type="button" className="button button-secondary" onClick={focusEditor}>
+                Ir al editor
+              </button>
+            )}
+          </div>
+          <label className="workspace__field">
+            Buscar Test Plans
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Nombre, identificador o descripción"
+            />
+          </label>
+          {!plans.length && <p>No hay Test Plans. Crea el primero para organizar tus casos.</p>}
+          {plans.length > 0 && !visiblePlans.length && <p>No hay Test Plans que coincidan.</p>}
+          <div className="test-plan__list">
+            {visiblePlans.map((plan) => {
+              const ready = plan.caseIds.filter(
+                (id) => casesById.get(id)?.lifecycle === "Listo",
+              ).length;
+              return (
+                <article className="test-plan__card layout__panel" key={plan.id}>
+                  <div className="test-plan__row">
+                    <header className="test-plan__identity">
+                      <span className="test-plan__icon" aria-hidden="true">
+                        <Icon name="calendar" size={22} />
+                      </span>
+                      <div className="test-plan__identity-text">
+                        <div className="test-plan__card-meta">
+                          <strong>{plan.id}</strong>
+                          <span>Revisión {plan.revision}</span>
+                        </div>
+                        <h3 className="typography__heading">{plan.name}</h3>
+                      </div>
+                    </header>
+                    <div className="test-plan__coverage">
+                      <div className="test-plan__coverage-label">
+                        <span>
+                          {formatCount(plan.caseIds.length, "caso incluido", "casos incluidos")}
+                        </span>
+                        <strong>{formatCount(ready, "caso listo", "casos listos")}</strong>
+                      </div>
+                      <progress
+                        aria-label={`Preparación de ${plan.name}`}
+                        value={ready}
+                        max={Math.max(1, plan.caseIds.length)}
+                      />
+                    </div>
+                  </div>
+                  <FormattedText text={plan.description || "Sin descripción."} />
+                  <details className="test-plan__details">
+                    <summary>Ver casos del Test Plan</summary>
+                    {plan.caseIds.length ? (
+                      <ul>
+                        {plan.caseIds.map((id) => (
+                          <li key={id}>
+                            <strong>{id}</strong>
+                            <span>{casesById.get(id)?.title ?? "Caso no disponible"}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p>Este plan todavía no incluye casos.</p>
+                    )}
+                  </details>
+                  <div className="quality__actions">
+                    <button
+                      className="workspace__secondary"
+                      disabled={busy || readOnly}
+                      onClick={() => {
+                        if (editing?.id === plan.id) focusEditor();
+                        setEditing(plan);
+                        setSelectedCaseIds(plan.caseIds);
+                        setCaseSearch("");
+                      }}
+                    >
+                      Editar Test Plan
+                    </button>
+                    <form
+                      className="layout__stack"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        const form = new FormData(event.currentTarget);
+                        const releaseVersion = String(form.get("releaseVersion") ?? "").trim();
+                        const environment = String(form.get("environment") ?? "").trim();
+                        void act(async () => {
+                          const body = JSON.stringify({
+                            projectId,
+                            title: `${plan.name} · Test Run`.slice(0, 200),
+                            owner: "QA",
+                            planId: plan.id,
+                            ...(releaseVersion ? { releaseVersion } : {}),
+                            ...(environment ? { environment } : {}),
+                          });
+                          let pending = cycles.current.get(plan.id);
+                          if (pending && pending.body !== body)
+                            throw new Error(
+                              "Restaura los datos del primer envío para reintentar la creación.",
+                            );
+                          if (!pending) {
+                            pending = { key: crypto.randomUUID(), body };
+                            cycles.current.set(plan.id, pending);
+                          }
+                          const run = toRun(
+                            await api<ApiRun>("/test-runs", {
+                              method: "POST",
+                              headers: { "Idempotency-Key": pending.key },
+                              body: pending.body,
+                            }),
+                          );
+                          cycles.current.delete(plan.id);
+                          if (alive.current)
+                            setMessage(`Ejecución ${run.id} creada. Ábrela en Test runs.`);
+                        });
+                      }}
+                    >
+                      <fieldset disabled={busy || readOnly} className="layout__stack">
+                        <button
+                          type="submit"
+                          className="button button-primary"
+                          disabled={busy || readOnly}
+                        >
+                          Iniciar Test Run
+                        </button>
+                        <details>
+                          <summary>Versión y entorno (opcional)</summary>
+                          <RunReleaseFields />
+                        </details>
+                      </fieldset>
+                    </form>
+                    <button
+                      className="workspace__danger"
+                      disabled={busy || readOnly}
+                      onClick={() => {
+                        if (window.confirm(`¿Eliminar el Test Plan ${plan.name}?`))
+                          void act(async () => {
+                            await api<void>(`/test-plans/${plan.id}?projectId=${projectId}`, {
+                              method: "DELETE",
+                              body: "{}",
+                            });
+                            if (alive.current) setMessage("Test Plan eliminado.");
+                          });
+                      }}
+                    >
+                      Eliminar
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
         <form
+          ref={editor}
           key={`${editing?.id ?? "new"}:${formRevision}`}
           className="quality__panel test-plan__editor"
           onSubmit={(e) => {
@@ -238,166 +420,6 @@ export default function TestPlansView({
             </div>
           </fieldset>
         </form>
-        <div className="test-plan__catalog layout__stack">
-          <label className="workspace__field">
-            Buscar Test Plans
-            <input
-              type="search"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Nombre, identificador o descripción"
-            />
-          </label>
-          <h2 className="typography__section">Test Plans del proyecto</h2>
-          {!plans.length && <p>No hay Test Plans. Crea el primero para organizar tus casos.</p>}
-          {plans.length > 0 &&
-            !plans.some((plan) =>
-              `${plan.name} ${plan.id} ${plan.description}`
-                .toLocaleLowerCase("es")
-                .includes(search.trim().toLocaleLowerCase("es")),
-            ) && <p>No hay Test Plans que coincidan.</p>}
-          <div className="test-plan__cards">
-            {plans
-              .filter((plan) =>
-                `${plan.name} ${plan.id} ${plan.description}`
-                  .toLocaleLowerCase("es")
-                  .includes(search.trim().toLocaleLowerCase("es")),
-              )
-              .map((plan) => (
-                <article className="quality__panel test-plan__card" key={plan.id}>
-                  <header className="test-plan__card-header">
-                    <span className="test-plan__icon" aria-hidden="true">
-                      ▤
-                    </span>
-                    <div className="test-plan__card-meta">
-                      <span>TEST PLAN</span>
-                      <strong>{plan.id}</strong>
-                      <span>Revisión {plan.revision}</span>
-                    </div>
-                    <h3 className="typography__heading">{plan.name}</h3>
-                  </header>
-                  <FormattedText text={plan.description || "Sin descripción."} />
-                  <div className="test-plan__coverage">
-                    <span>
-                      {formatCount(plan.caseIds.length, "caso incluido", "casos incluidos")}
-                    </span>
-                    <span>
-                      {formatCount(
-                        plan.caseIds.filter(
-                          (id) => cases.find((item) => item.id === id)?.lifecycle === "Listo",
-                        ).length,
-                        "caso listo",
-                        "casos listos",
-                      )}
-                    </span>
-                    <progress
-                      aria-label={`Preparación de ${plan.name}`}
-                      value={
-                        plan.caseIds.filter(
-                          (id) => cases.find((item) => item.id === id)?.lifecycle === "Listo",
-                        ).length
-                      }
-                      max={Math.max(1, plan.caseIds.length)}
-                    />
-                  </div>
-                  <details>
-                    <summary>Ver casos del Test Plan</summary>
-                    <ul>
-                      {plan.caseIds.map((id) => (
-                        <li key={id}>
-                          <strong>{id}</strong>
-                          <span>
-                            {cases.find((item) => item.id === id)?.title ?? "Caso no disponible"}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </details>
-                  <div className="quality__actions">
-                    <button
-                      className="workspace__secondary"
-                      disabled={busy || readOnly}
-                      onClick={() => {
-                        setEditing(plan);
-                        setSelectedCaseIds(plan.caseIds);
-                        setCaseSearch("");
-                      }}
-                    >
-                      Editar Test Plan
-                    </button>
-                    <form
-                      className="layout__stack"
-                      onSubmit={(event) => {
-                        event.preventDefault();
-                        const form = new FormData(event.currentTarget);
-                        const releaseVersion = String(form.get("releaseVersion") ?? "").trim();
-                        const environment = String(form.get("environment") ?? "").trim();
-                        void act(async () => {
-                          const body = JSON.stringify({
-                            projectId,
-                            title: `${plan.name} · Test Run`.slice(0, 200),
-                            owner: "QA",
-                            planId: plan.id,
-                            ...(releaseVersion ? { releaseVersion } : {}),
-                            ...(environment ? { environment } : {}),
-                          });
-                          let pending = cycles.current.get(plan.id);
-                          if (pending && pending.body !== body)
-                            throw new Error(
-                              "Restaura los datos del primer envío para reintentar la creación.",
-                            );
-                          if (!pending) {
-                            pending = { key: crypto.randomUUID(), body };
-                            cycles.current.set(plan.id, pending);
-                          }
-                          const run = toRun(
-                            await api<ApiRun>("/test-runs", {
-                              method: "POST",
-                              headers: { "Idempotency-Key": pending.key },
-                              body: pending.body,
-                            }),
-                          );
-                          cycles.current.delete(plan.id);
-                          if (alive.current)
-                            setMessage(`Ejecución ${run.id} creada. Ábrela en Test runs.`);
-                        });
-                      }}
-                    >
-                      <fieldset disabled={busy || readOnly} className="layout__stack">
-                        <details>
-                          <summary>Versión y entorno (opcional)</summary>
-                          <RunReleaseFields />
-                        </details>
-                        <button
-                          type="submit"
-                          className="button button-primary"
-                          disabled={busy || readOnly}
-                        >
-                          Iniciar Test Run
-                        </button>
-                      </fieldset>
-                    </form>
-                    <button
-                      className="workspace__danger"
-                      disabled={busy || readOnly}
-                      onClick={() => {
-                        if (window.confirm(`¿Eliminar el Test Plan ${plan.name}?`))
-                          void act(async () => {
-                            await api<void>(`/test-plans/${plan.id}?projectId=${projectId}`, {
-                              method: "DELETE",
-                              body: "{}",
-                            });
-                            if (alive.current) setMessage("Test Plan eliminado.");
-                          });
-                      }}
-                    >
-                      Eliminar
-                    </button>
-                  </div>
-                </article>
-              ))}
-          </div>
-        </div>
       </div>
     </section>
   );

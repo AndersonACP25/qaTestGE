@@ -9,7 +9,7 @@ pnpm db:setup
 pnpm db:check
 ```
 
-`db:setup` instala `001_schema.sql` solo cuando el esquema `qa` no existe; después aplica en orden las migraciones 004–012. No crea la base, no carga ejemplos, no concede membresías y no borra ni reemplaza datos. Puede repetirse. Si encuentra un esquema parcial o incompatible, falla y requiere revisar su estado; no intenta reconstruirlo.
+`db:setup` instala `001_schema.sql` solo cuando el esquema `qa` no existe; después aplica en orden las migraciones del catálogo vigente 004–023. No crea la base, no carga ejemplos, no concede membresías y no borra ni reemplaza datos. Puede repetirse. Si encuentra un esquema parcial o incompatible, falla y requiere revisar su estado; no intenta reconstruirlo.
 
 Para actualizar una instalación:
 
@@ -51,6 +51,10 @@ Aplicar con `pnpm db:migrate`. Añade accesos por proyecto, comentarios/versione
 
 `015_analytics_coverage.sql` añade requisitos/casos, lotes idempotentes de tags, eventos inmutables para tendencias de bugs e índices por fecha/proyecto. Se aplica una vez desde el catálogo común. El historial comienza al aplicarla; los datos anteriores no se reconstruyen. Actualiza con `pnpm db:migrate` antes de iniciar la API.
 
+### 016 · Automenciones
+
+Restaura avisos que faltaban para automenciones anteriores en comentarios activos, preservando el estado de los avisos existentes.
+
 ### 017 · Administración de usuarios y auditoría
 
 Ejecuta `pnpm db:migrate`. Añade configuración de vista de auditoría por proyecto con revisión y control Admin, registro idempotente de altas de cuentas y un índice de filtros de actividad. Conserva todos los eventos existentes; no introduce retención ni desactivación del registro. Las cuentas creadas reciben membresía de equipo sin administración y el rol seleccionado solo en el proyecto actual. No modifica cuentas con un correo ya registrado.
@@ -58,3 +62,13 @@ Ejecuta `pnpm db:migrate`. Añade configuración de vista de auditoría por proy
 ### 018 · Responsables de Test Run
 
 Ejecuta `pnpm db:migrate` antes de iniciar. Añade la referencia estable del responsable al usuario y su membresía, un índice de asignaciones y un trigger que valida el proyecto y normaliza el nombre. Conserva los registros anteriores; solo vincula nombres con una coincidencia activa única. Los demás se asignan explícitamente desde Editar ejecución. La baja de integrantes o la revocación de acceso también protege las ejecuciones asignadas. `verify-run-upgrade.ts` exige una base efímera nueva y vacía; nunca borra un esquema existente.
+
+### 019–023 · Integraciones y plantillas
+
+| Migración | Capacidad                                                             |
+| --------- | --------------------------------------------------------------------- |
+| 019       | Importación de resultados Playwright con metadatos e idempotencia.    |
+| 020       | Versión y entorno de Test Runs para comparar manual y Playwright.     |
+| 021       | Activación y recuperación mediante enlaces de un solo uso.            |
+| 022       | Plantillas de casos y valores predeterminados por usuario y proyecto. |
+| 023       | Credenciales personales de Gemini cifradas en PostgreSQL.             |

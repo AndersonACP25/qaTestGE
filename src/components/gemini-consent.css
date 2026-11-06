@@ -1,0 +1,44 @@
+.gemini-consent,
+.gemini-consent__payload {
+  display: grid;
+  gap: 16px;
+}
+.gemini-consent__intro {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.gemini-consent__icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 44px;
+  height: 44px;
+  border-radius: 14px;
+  color: var(--purple);
+  background: var(--color-eee6ff);
+}
+.gemini-consent__intro p,
+.gemini-consent__privacy p,
+.gemini-consent__text p {
+  margin: 4px 0 0;
+  line-height: 1.55;
+}
+.gemini-consent__privacy,
+.gemini-consent__text {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--color-f7f8fa);
+}
+.gemini-consent__text p {
+  max-height: min(28vh, 220px);
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.gemini-consent__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}

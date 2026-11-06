@@ -21,6 +21,7 @@ export const migrationFiles = [
   "020_run_release_context.sql",
   "021_account_links.sql",
   "022_design_templates.sql",
+  "023_gemini_credentials.sql",
 ] as const;
 
 /** Initial install and upgrades share one ordered source; no seed or deletion. */
@@ -57,7 +58,8 @@ export async function applyMigrations(
         filename.startsWith("019") ||
         filename.startsWith("020") ||
         filename.startsWith("021") ||
-        filename.startsWith("022")
+        filename.startsWith("022") ||
+        filename.startsWith("023")
       ) {
         const existing = await client.query<{ present: boolean }>(
           "SELECT EXISTS(SELECT 1 FROM qa.schema_migrations WHERE version=$1) AS present",

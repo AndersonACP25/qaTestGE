@@ -150,6 +150,78 @@ const playwrightFields = {
 };
 const unknownPlaywrightCases = { type: "array", items: { type: "string" } };
 
+const geminiRevision = { type: "string", format: "uuid" };
+const geminiSettingsResponse = {
+  description: "Estado de la conexión de la cuenta. Nunca incluye la clave.",
+  content: json(
+    envelope(
+      object(
+        {
+          visualAvailable: { type: "boolean" },
+          source: { type: "string", enum: ["account", "environment", "none"] },
+          revision: { ...geminiRevision, nullable: true },
+        },
+        ["visualAvailable", "source", "revision"],
+      ),
+    ),
+  ),
+};
+const geminiSettingsErrors = {
+  "400": errorResponse("INVALID_AI_SETTINGS o INVALID_JSON"),
+  "401": errorResponse("UNAUTHENTICATED"),
+  "403": errorResponse("INVALID_CSRF o INVALID_ORIGIN"),
+  "409": errorResponse("AI_SETTINGS_CONFLICT"),
+  "413": errorResponse("PAYLOAD_TOO_LARGE"),
+  "503": errorResponse("AI_SETTINGS_DISABLED, AI_PROVIDER_UNAVAILABLE o DATABASE_UNAVAILABLE"),
+};
+
+const resultCount = { type: "integer", minimum: 0 };
+const runSummaryContextSchema = {
+  ...object(
+    {
+      counts: object(
+        {
+          passed: resultCount,
+          failed: resultCount,
+          blocked: resultCount,
+          skipped: resultCount,
+          pending: resultCount,
+        },
+        ["passed", "failed", "blocked", "skipped", "pending"],
+      ),
+      findings: {
+        type: "array",
+        maxItems: 12,
+        items: object(
+          {
+            caseId: { type: "string", pattern: "^TC-[0-9]{1,19}$" },
+            title: { type: "string", maxLength: 200 },
+            status: { type: "string", enum: ["failed", "blocked"] },
+          },
+          ["caseId", "title", "status"],
+        ),
+      },
+    },
+    ["counts", "findings"],
+  ),
+  additionalProperties: false,
+};
+const runSummaryId = { type: "string", pattern: "^RUN-[0-9]{1,19}$" };
+
+const aiProposalErrors = {
+  "400": errorResponse("INVALID_AI_INPUT o INVALID_JSON"),
+  "401": errorResponse("UNAUTHENTICATED"),
+  "403": errorResponse("FORBIDDEN, INVALID_CSRF o INVALID_ORIGIN"),
+  "404": errorResponse("PROJECT_NOT_FOUND"),
+  "413": errorResponse("PAYLOAD_TOO_LARGE"),
+  "429": errorResponse("AI_RATE_LIMIT o AI_PROVIDER_QUOTA"),
+  "502": errorResponse("AI_INVALID_PROPOSAL"),
+  "503": errorResponse(
+    "AI_DISABLED, AI_CREDENTIAL_UNREADABLE, AI_PROVIDER_UNAVAILABLE o DATABASE_UNAVAILABLE",
+  ),
+  "504": errorResponse("AI_TIMEOUT"),
+};
+
 export const openApiDocument = {
   openapi: "3.0.3",
   info: {
@@ -161,6 +233,211 @@ export const openApiDocument = {
   servers: [{ url: "/", description: "Servidor actual (directo o proxy /api)" }],
   security: [{ sessionCookie: [] as string[] }],
   paths: {
+    "/api/ai/settings": {
+      get: {
+        summary: "Consultar el estado de la conexión de Gemini de la cuenta",
+        responses: {
+          "200": geminiSettingsResponse,
+          "401": errorResponse("UNAUTHENTICATED"),
+          "503": unavailable,
+        },
+      },
+      put: {
+        summary: "Validar y guardar una clave de Gemini para la cuenta",
+        security: [{ sessionCookie: [], csrfToken: [] }],
+        requestBody: {
+          required: true,
+          content: json({
+            ...object(
+              {
+                apiKey: {
+                  type: "string",
+                  minLength: 20,
+                  maxLength: 256,
+                  format: "password",
+                  writeOnly: true,
+                },
+                revision: { ...geminiRevision, nullable: true },
+              },
+              ["apiKey", "revision"],
+            ),
+            additionalProperties: false,
+          }),
+        },
+        responses: {
+          "200": geminiSettingsResponse,
+          ...geminiSettingsErrors,
+          "422": errorResponse("AI_KEY_REJECTED"),
+          "429": errorResponse("TOO_MANY_ATTEMPTS o AI_PROVIDER_QUOTA"),
+          "504": errorResponse("AI_TIMEOUT"),
+        },
+      },
+      delete: {
+        summary: "Eliminar la clave de Gemini de la cuenta",
+        security: [{ sessionCookie: [], csrfToken: [] }],
+        requestBody: {
+          required: true,
+          content: json({
+            ...object({ revision: geminiRevision }, ["revision"]),
+            additionalProperties: false,
+          }),
+        },
+        responses: { "200": geminiSettingsResponse, ...geminiSettingsErrors },
+      },
+    },
+    "/api/ai/bug-proposals": {
+      post: {
+        security: [{ sessionCookie: [], csrfToken: [] }],
+        summary: "Proponer un borrador de bug con Gemini sin guardarlo",
+        description:
+          "Requiere bugs.write y consentimiento explícito para enviar el texto a Google.",
+        requestBody: {
+          required: true,
+          content: json({
+            ...object(
+              {
+                projectId,
+                consent: { type: "boolean", enum: [true] },
+                description: text(3500),
+                templateText: text(1500),
+              },
+              ["projectId", "consent", "description"],
+            ),
+            additionalProperties: false,
+          }),
+        },
+        responses: {
+          "200": {
+            description: "Borrador editable",
+            content: json(
+              envelope(
+                object(
+                  {
+                    title: text(200),
+                    description: text(5000),
+                    priority: { type: "string", enum: bugPriorities },
+                  },
+                  ["title", "description", "priority"],
+                ),
+              ),
+            ),
+          },
+          ...aiProposalErrors,
+        },
+      },
+    },
+    "/api/ai/case-proposals": {
+      post: {
+        summary: "Proponer casos de prueba editables con Gemini",
+        description: "Requiere cases.write y consentimiento. Admite hasta ocho casos en total.",
+        security: [{ sessionCookie: [], csrfToken: [] }],
+        requestBody: {
+          required: true,
+          content: json({
+            ...object(
+              {
+                projectId,
+                consent: { type: "boolean", enum: [true] },
+                description: text(3500),
+                categories: {
+                  type: "array",
+                  minItems: 1,
+                  maxItems: 8,
+                  items: {
+                    ...object(
+                      { label: text(100), count: { type: "integer", minimum: 1, maximum: 5 } },
+                      ["label", "count"],
+                    ),
+                    additionalProperties: false,
+                  },
+                },
+              },
+              ["projectId", "consent", "description", "categories"],
+            ),
+            additionalProperties: false,
+          }),
+        },
+        responses: {
+          "200": {
+            description: "Propuestas con el índice de su categoría, comenzando en cero",
+            content: json(
+              envelope({
+                type: "array",
+                minItems: 1,
+                maxItems: 8,
+                items: object(
+                  {
+                    categoryIndex: { type: "integer", minimum: 0, maximum: 7 },
+                    title: text(200),
+                    steps: {
+                      type: "array",
+                      minItems: 1,
+                      maxItems: 5,
+                      items: object({ action: text(1000), expected: text(1000) }, [
+                        "action",
+                        "expected",
+                      ]),
+                    },
+                  },
+                  ["categoryIndex", "title", "steps"],
+                ),
+              }),
+            ),
+          },
+          ...aiProposalErrors,
+        },
+      },
+    },
+    "/api/ai/run-summary": {
+      get: {
+        summary: "Consultar los datos que se pueden compartir para resumir la ejecución",
+        description: "Requiere runs.write. Devuelve cifras y una muestra de fallos y bloqueos.",
+        parameters: [
+          { in: "query", name: "projectId", required: true, schema: projectId },
+          { in: "query", name: "runId", required: true, schema: runSummaryId },
+        ],
+        responses: {
+          "200": {
+            description: "Datos calculados en el servidor",
+            content: json(envelope(runSummaryContextSchema)),
+          },
+          "400": errorResponse("INVALID_AI_INPUT"),
+          "401": errorResponse("UNAUTHENTICATED"),
+          "403": errorResponse("FORBIDDEN"),
+          "404": errorResponse("PROJECT_NOT_FOUND o TEST_RUN_NOT_FOUND"),
+          "503": unavailable,
+        },
+      },
+      post: {
+        summary: "Redactar un resumen con Gemini tras aprobar los datos de la ejecución",
+        description: "Requiere runs.write y consentimiento. Devuelve texto editable.",
+        security: [{ sessionCookie: [], csrfToken: [] }],
+        requestBody: {
+          required: true,
+          content: json({
+            ...object(
+              {
+                projectId,
+                runId: runSummaryId,
+                consent: { type: "boolean", enum: [true] },
+                context: runSummaryContextSchema,
+              },
+              ["projectId", "runId", "consent", "context"],
+            ),
+            additionalProperties: false,
+          }),
+        },
+        responses: {
+          ...aiProposalErrors,
+          "200": {
+            description: "Resumen editable",
+            content: json(envelope(object({ summary: text(3500) }, ["summary"]))),
+          },
+          "404": errorResponse("PROJECT_NOT_FOUND o TEST_RUN_NOT_FOUND"),
+          "409": errorResponse("AI_RUN_CHANGED"),
+        },
+      },
+    },
     "/api/integrations/playwright": {
       post: {
         summary: "Publicar resultados normalizados de Playwright en el proyecto configurado",
@@ -1506,7 +1783,41 @@ export const openApiDocument = {
                   },
                 ]
               : [],
-            requestBody: { required: true, content: json(ref(`${schema}Input`)) },
+            requestBody: {
+              required: true,
+              content: json(
+                path === "test-cases"
+                  ? {
+                      allOf: [
+                        ref("TestCaseInput"),
+                        {
+                          type: "object",
+                          properties: {
+                            source: {
+                              oneOf: [
+                                object(
+                                  {
+                                    kind: { type: "string", enum: ["requirement"] },
+                                    id: { type: "string", pattern: "^REQ-[0-9]{1,19}$" },
+                                  },
+                                  ["kind", "id"],
+                                ),
+                                object(
+                                  {
+                                    kind: { type: "string", enum: ["bug"] },
+                                    id: { type: "string", pattern: "^BUG-[0-9]{1,19}$" },
+                                  },
+                                  ["kind", "id"],
+                                ),
+                              ],
+                            },
+                          },
+                        },
+                      ],
+                    }
+                  : ref(`${schema}Input`),
+              ),
+            },
             responses: {
               "201": { description: "Recurso persistido", content: json(envelope(ref(schema))) },
               "400": errorResponse(
@@ -1515,7 +1826,18 @@ export const openApiDocument = {
               "401": errorResponse("UNAUTHENTICATED"),
               "403": errorResponse("INVALID_CSRF o INVALID_ORIGIN"),
               "404": errorResponse("PROJECT_NOT_FOUND"),
-              "409": errorResponse("CONFLICT, REQUEST_KEY_CONFLICT o CREATED_RESOURCE_REMOVED."),
+              "409": errorResponse(
+                path === "test-cases"
+                  ? "REQUIREMENT_CASE_LIMIT, CONFLICT, REQUEST_KEY_CONFLICT o CREATED_RESOURCE_REMOVED."
+                  : "CONFLICT, REQUEST_KEY_CONFLICT o CREATED_RESOURCE_REMOVED.",
+              ),
+              ...(path === "test-cases"
+                ? {
+                    "404": errorResponse(
+                      "PROJECT_NOT_FOUND, BUG_NOT_FOUND o REQUIREMENT_NOT_FOUND",
+                    ),
+                  }
+                : {}),
               "413": errorResponse("PAYLOAD_TOO_LARGE: cuerpo superior a 1 MB."),
               "500": errorResponse("INTERNAL_ERROR: error interno."),
               "503": unavailable,

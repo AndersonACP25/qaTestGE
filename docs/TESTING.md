@@ -14,7 +14,7 @@ pnpm test
 
 `format:check` valida Prettier sin modificar archivos; `lint` ejecuta ESLint. `typecheck` valida el frontend y las pruebas incluidas en su tsconfig. `build` verifica tipos y compila frontend y backend. `test` ejecuta Vitest según `vite.config.ts`, incluyendo `tests/**/*.test.ts` y `backend/tests/**/*.test.ts`. `pnpm test:watch` inicia observación.
 
-GitHub Actions (`.github/workflows/ci.yml`) ejecuta estos checks además de instalar dependencias con lockfile congelado. En push a `main` publica como artefacto temporal los directorios `dist/` y `backend/dist/`.
+GitHub Actions (`.github/workflows/ci.yml`) ejecuta estos checks además de instalar dependencias con lockfile congelado. En push a `main` publica como artefacto temporal `dist/`, `backend/dist/` y el adaptador de Gemini en `servicios/ia/`.
 
 Para una suite concreta:
 
@@ -48,18 +48,18 @@ Usar Vitest determinista sin red ni base personal. Los endpoints en `backend/tes
 1. Iniciar `pnpm dev:all` y abrir la URL anunciada por Vite. Confirmar el favicon y la misma marca en el workspace.
 2. Probar registro, inicio y cierre de sesión reales, contraseñas distintas, cierre de sesión y recarga.
 3. Cambiar temas claro y oscuro; comprobar legibilidad, navegación con teclado y tamaños móvil/escritorio.
-4. Confirmar que no aparecen el panel de almacenamiento ni la etiqueta «Demo local» en la barra superior. El diseñador de test cases debe conservar su aviso de maqueta sin IA.
+4. Confirmar que no aparecen el panel de almacenamiento ni la etiqueta «Demo local» en la barra superior. El indicador de IA debe reflejar el origen configurado. Prueba el diseñador también sin credencial.
 5. Revisar búsqueda, filtros, estados vacíos y formularios locales.
 6. En el diseñador, probar texto vacío, categorías y cantidades; comprobar Acción / Resultado esperado, limpieza de vista previa y exportaciones Excel/PDF.
 7. En Diseñar test cases, guardar un ejemplo de forma explícita y verificar que aparece en Casos de prueba; editarlo, adjuntar enlace e imagen mediante selector y arrastre, abrir el detalle, y probar la eliminación (debe impedirse si se usa en una ejecución).
 8. En Configuración, crear/editar/eliminar una plantilla, cargarla en «Nuevo bug» y ajustar sus campos antes de guardar.
-9. Verificar que la sección de IA se presenta como maqueta deshabilitada y no pide ni envía credenciales.
+9. Verificar el estado de Gemini, el contenido del consentimiento, la cancelación, la respuesta editable y el guardado explícito. Usa un proveedor simulado para pruebas automatizadas.
 10. Si se prueba la baja de cuenta, usar solo una cuenta y base desechables: confirma la revocación de sesiones y la conservación de recursos QA relacionados.
 11. Abrir SwaggerUI. Recordar que las escrituras de Try it out sí modifican datos persistentes en PostgreSQL.
 
 ## SQL y PostgreSQL
 
-Las pruebas Vitest no necesitan PostgreSQL. Para integración real usa exclusivamente una instancia efímera y `TEST_DATABASE_URL` explícita según [`backend/sql/README.md`](../backend/sql/README.md). Prepara la base vacía con `pnpm db:setup`; repite el comando y `pnpm db:migrate` para verificar idempotencia antes de `test:db`. CI también prueba actualizar desde el esquema 001 con migraciones 004–012. Nunca uses la base personal: la integración crea y elimina datos. `003_verify.sql` es una comprobación manual del modelo inicial, no sustituye los escenarios de autenticación, aislamiento y concurrencia de la API.
+Las pruebas Vitest no necesitan PostgreSQL. Para integración real usa exclusivamente una instancia efímera y `TEST_DATABASE_URL` explícita según [`backend/sql/README.md`](../backend/sql/README.md). Prepara la base vacía con `pnpm db:setup`; repite el comando y `pnpm db:migrate` para verificar idempotencia antes de `test:db`. CI también prueba actualizar desde el esquema 001 con el catálogo de migraciones 004–023. Nunca uses la base personal: la integración crea y elimina datos. `003_verify.sql` es una comprobación manual del modelo inicial, no sustituye los escenarios de autenticación, aislamiento y concurrencia de la API.
 
 Los scripts SQL iniciales se verificaron con PostgreSQL 18 en una instancia temporal aislada: creación de la base, esquema, seed y comprobaciones de integridad. La API ya usa un repositorio PostgreSQL; el esquema se instala con `pnpm db:setup`.
 
