@@ -21,29 +21,31 @@ export default function ClearDesignerButton({
       </button>
       {confirm && (
         <Dialog confirmation title="Limpiar ventana" onClose={() => setConfirm(false)}>
-          <p>
-            Se descartarán los cambios de esta vista. Los registros y borradores ya guardados
-            seguirán disponibles.
-          </p>
-          <div className="layout__actions">
-            <button
-              type="button"
-              className="button button-secondary"
-              onClick={() => setConfirm(false)}
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              className="button button-primary"
-              disabled={disabled}
-              onClick={() => {
-                setConfirm(false);
-                onClear();
-              }}
-            >
-              Confirmar limpieza
-            </button>
+          <div className="layout__stack">
+            <p>
+              Se descartarán los cambios de esta vista. Los registros y borradores ya guardados
+              seguirán disponibles.
+            </p>
+            <div className="layout__actions">
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={() => setConfirm(false)}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="button button-primary"
+                disabled={disabled}
+                onClick={() => {
+                  setConfirm(false);
+                  onClear();
+                }}
+              >
+                Confirmar limpieza
+              </button>
+            </div>
           </div>
         </Dialog>
       )}

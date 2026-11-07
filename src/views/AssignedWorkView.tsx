@@ -109,19 +109,21 @@ export default function AssignedWorkView({
           Estado asignado
           <input name="status" maxLength={60} placeholder="Ej.: Abierto" />
         </label>
-        <button className="button button-primary" disabled={loading}>
-          Buscar
-        </button>
-        <button
-          type="reset"
-          className="workspace__secondary"
-          onClick={() => {
-            setFilters({ kind: "", status: "", search: "" });
-            setPage(1);
-          }}
-        >
-          Limpiar
-        </button>
+        <div className="assigned-work__filter-actions layout__actions">
+          <button className="button button-primary" disabled={loading}>
+            Buscar
+          </button>
+          <button
+            type="reset"
+            className="workspace__secondary"
+            onClick={() => {
+              setFilters({ kind: "", status: "", search: "" });
+              setPage(1);
+            }}
+          >
+            Limpiar
+          </button>
+        </div>
       </form>
       {error && <Alert tone="error">{error}</Alert>}
       {loading ? (
